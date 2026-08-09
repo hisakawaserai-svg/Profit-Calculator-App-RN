@@ -45,7 +45,8 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
     "tsx": "^4.23.11",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "start": "expo start",
@@ -53,6 +54,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:smoke": "tsx scripts/db-smoke-test.ts"
   },
