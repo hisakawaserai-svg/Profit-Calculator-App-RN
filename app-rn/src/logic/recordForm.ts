@@ -7,7 +7,7 @@
 
 import { fromDbDate } from '@/db/dates';
 import type { SaveRecordInput } from '@/db/repository';
-import type { SaleRecord } from '@/db/schema';
+import type { RecordKind, SaleRecord } from '@/db/schema';
 
 import { parseNumericInput } from './input';
 
@@ -22,6 +22,8 @@ export const ITEM_NAME_REQUIRED_MESSAGE = '⚠️ 商品名を入力してくだ
 /** フォームの一時状態（Swift 版 RecordFormView の @State 群に対応） */
 export type RecordFormValues = {
   itemName: string;
+  /** レコード種別（SPEC-V2 §1.1）。'used' のとき仕入価格欄は出さない（§1.3） */
+  kind: RecordKind;
   /** 金額は入力中の文字列のまま持つ（sanitizeNumericInput 済みの値。SPEC §5.1） */
   salesPrice: string;
   purchasePrice: string;
@@ -47,22 +49,35 @@ export type RecordFormValues = {
  */
 export type InitialAmounts = Pick<
   RecordFormValues,
-  'salesPrice' | 'purchasePrice' | 'postage' | 'envelopeCost' | 'othersCost' | 'commission'
+  | 'kind'
+  | 'salesPrice'
+  | 'purchasePrice'
+  | 'postage'
+  | 'envelopeCost'
+  | 'othersCost'
+  | 'commission'
 >;
 
 /**
  * 新規追加時の初期値。
  * isSold は常に false（決定 §7-8）、出品日・販売日は当日（決定 §7-11）。
  *
- * @param amounts 計算タブから引き継ぐ金額。省略時はすべて空欄・手数料 10%
- * @param now     テストから固定できるようにした「当日」
+ * 種別の初期値は SPEC-V2 §1.4 のとおり 2 通りある:
+ * 計算タブの＋からは画面で選択中の種別（= amounts.kind）を引き継ぎ、
+ * それ以外（一覧・月別詳細の＋）は設定の既定種別を使う。
+ *
+ * @param defaultKind 設定の既定種別（SPEC-V2 §3.1）。amounts が種別を持たないときに使う
+ * @param amounts     計算タブから引き継ぐ入力値。省略時はすべて空欄・手数料 10%
+ * @param now         テストから固定できるようにした「当日」
  */
 export function newFormValues(
+  defaultKind: RecordKind,
   amounts?: InitialAmounts,
   now: Date = new Date(),
 ): RecordFormValues {
   return {
     itemName: '',
+    kind: amounts?.kind ?? defaultKind,
     salesPrice: amounts?.salesPrice ?? '',
     purchasePrice: amounts?.purchasePrice ?? '',
     postage: amounts?.postage ?? '',
@@ -94,6 +109,8 @@ export function recordToFormValues(
 ): RecordFormValues {
   return {
     itemName: record.itemName,
+    // 編集時の種別はそのレコードの kind（SPEC-V2 §1.4）。設定の既定種別は使わない
+    kind: record.kind,
     salesPrice: amountToInput(record.salesPrice),
     purchasePrice: amountToInput(record.purchasePrice),
     postage: amountToInput(record.postage),
@@ -109,6 +126,19 @@ export function recordToFormValues(
 }
 
 /**
+ * 種別を切り替えたあとのフォーム値（SPEC-V2 §1.5）。
+ *
+ * - 仕入品 → 不用品: 入力済みの仕入価格をその場でクリアする。保存時に黙って 0 にする方式
+ *   （値を保持したまま非表示）は採らない。見えない金額が経費に効き続ける状態を作らないため。
+ * - 不用品 → 仕入品: 仕入価格は空欄で現れる（クリア済みなので何もしなくてよい）。他の値は変えない。
+ * - 確認ダイアログは出さず即クリアする（決定 §7-3）。
+ */
+export function changeKind(values: RecordFormValues, kind: RecordKind): RecordFormValues {
+  if (kind === values.kind) return values;
+  return { ...values, kind, purchasePrice: kind === 'used' ? '' : values.purchasePrice };
+}
+
+/**
  * SPEC §5.2 の保存バリデーション。
  * 必須は商品名のみ（金額 0・メモ空でも保存可）。Swift 版 `itemName.isEmpty` と同じく trim はしない。
  */
@@ -118,16 +148,13 @@ export function canSave(values: RecordFormValues): boolean {
 
 /** repository に渡す保存入力へ変換する。空文字・"." は 0 扱い（SPEC §5.1） */
 export function toSaveInput(values: RecordFormValues): SaveRecordInput {
-  const purchasePrice = parseNumericInput(values.purchasePrice);
   return {
     itemName: values.itemName,
-    // SPEC-V2 Step 1 の暫定措置。フォームはまだ種別を持たない（Step 2 で
-    // RecordFormValues.kind を追加して差し替える）ので、SPEC-V2 §2.2 のバックフィルと
-    // 同じ規則で入力値から導出する。ここで一律 'used' にすると §2.4 の正規化が効いて
-    // 入力済みの仕入価格が 0 で保存されてしまい、Step 1 の「見た目を変えない」条件を破る。
-    kind: purchasePrice > 0 ? 'sourced' : 'used',
+    kind: values.kind,
     salesPrice: parseNumericInput(values.salesPrice),
-    purchasePrice,
+    // 不用品の仕入価格 0 はフォーム側（changeKind）でクリア済みだが、
+    // DB に入る値の保証は repository の責務（SPEC-V2 §2.4）なのでここでは強制しない
+    purchasePrice: parseNumericInput(values.purchasePrice),
     postage: parseNumericInput(values.postage),
     envelopeCost: parseNumericInput(values.envelopeCost),
     othersCost: parseNumericInput(values.othersCost),

@@ -9,6 +9,7 @@ import {
   DEFAULT_COMMISSION,
   amountToInput,
   canSave,
+  changeKind,
   newFormValues,
   recordToFormValues,
   toSaveInput,
@@ -35,7 +36,7 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
 
 describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
   it('手数料は 10%、出品中（isSold = false）、出品日は当日', () => {
-    const values = newFormValues(undefined, NOW);
+    const values = newFormValues('used', undefined, NOW);
 
     expect(values.commission).toBe(DEFAULT_COMMISSION);
     expect(values.isSold).toBe(false); // 決定 §7-8
@@ -46,7 +47,9 @@ describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
 
   it('計算タブから渡された入力値を初期値として引き継ぐ（§3.2 prepareNewRecord 相当）', () => {
     const values = newFormValues(
+      'used',
       {
+        kind: 'sourced',
         salesPrice: '1000',
         purchasePrice: '300',
         postage: '175',
@@ -59,19 +62,83 @@ describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
 
     expect(values.salesPrice).toBe('1000');
     expect(values.commission).toBe(8);
-    // 引き継ぐのは金額と手数料だけ。商品名は空・出品中のまま
+    // 引き継ぐのは金額・手数料・種別だけ。商品名は空・出品中のまま
     expect(values.itemName).toBe('');
     expect(values.isSold).toBe(false);
   });
 });
 
+describe('SPEC-V2 §1.4 種別の初期値', () => {
+  it('一覧・月別詳細の＋（引き継ぎなし）は設定の既定種別になる', () => {
+    expect(newFormValues('used', undefined, NOW).kind).toBe('used');
+    expect(newFormValues('sourced', undefined, NOW).kind).toBe('sourced');
+  });
+
+  it('計算タブの＋は、設定値ではなく計算タブで選択中の種別を引き継ぐ', () => {
+    const amounts = {
+      kind: 'sourced',
+      salesPrice: '1000',
+      purchasePrice: '300',
+      postage: '',
+      envelopeCost: '',
+      othersCost: '',
+      commission: 10,
+    } as const;
+
+    // 設定は不用品でも、画面の見た目に合わせて仕入品で開く
+    expect(newFormValues('used', amounts, NOW).kind).toBe('sourced');
+    expect(newFormValues('used', amounts, NOW).purchasePrice).toBe('300');
+  });
+
+  it('既存レコードの編集はそのレコードの kind', () => {
+    expect(recordToFormValues(record({ kind: 'sourced' }), NOW).kind).toBe('sourced');
+    expect(recordToFormValues(record({ kind: 'used' }), NOW).kind).toBe('used');
+  });
+});
+
+describe('SPEC-V2 §1.5 フォーム上で種別を切り替えたときの挙動', () => {
+  const sourcedValues = {
+    ...newFormValues('sourced', undefined, NOW),
+    itemName: 'えんぴつ',
+    purchasePrice: '300',
+    postage: '175',
+  };
+
+  it('仕入品 → 不用品 で仕入価格をその場でクリアする（保存時に黙って 0 にはしない）', () => {
+    const next = changeKind(sourcedValues, 'used');
+
+    expect(next.kind).toBe('used');
+    expect(next.purchasePrice).toBe('');
+    expect(toSaveInput(next).purchasePrice).toBe(0);
+  });
+
+  it('仕入価格以外の値は変えない', () => {
+    const next = changeKind(sourcedValues, 'used');
+
+    expect(next.itemName).toBe('えんぴつ');
+    expect(next.postage).toBe('175');
+    expect(next.commission).toBe(sourcedValues.commission);
+  });
+
+  it('不用品 → 仕入品 では仕入価格が空欄で現れる', () => {
+    const next = changeKind(changeKind(sourcedValues, 'used'), 'sourced');
+
+    expect(next.kind).toBe('sourced');
+    expect(next.purchasePrice).toBe('');
+  });
+
+  it('同じ種別を選び直しても値は変わらない', () => {
+    expect(changeKind(sourcedValues, 'sourced')).toBe(sourcedValues);
+  });
+});
+
 describe('§5.2 保存バリデーション（必須は商品名のみ）', () => {
   it('商品名が空なら保存できない', () => {
-    expect(canSave(newFormValues(undefined, NOW))).toBe(false);
+    expect(canSave(newFormValues('used', undefined, NOW))).toBe(false);
   });
 
   it('商品名があれば、金額が空でもメモが空でも保存できる', () => {
-    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ' };
+    const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ' };
 
     expect(canSave(values)).toBe(true);
     expect(toSaveInput(values).salesPrice).toBe(0);
@@ -82,7 +149,7 @@ describe('§5.2 保存バリデーション（必須は商品名のみ）', () =
 describe('§5.1 金額の数値化', () => {
   it('空文字・"." のみは 0 として保存される', () => {
     const values = {
-      ...newFormValues(undefined, NOW),
+      ...newFormValues('used', undefined, NOW),
       itemName: 'えんぴつ',
       salesPrice: '',
       postage: '.',
@@ -94,33 +161,34 @@ describe('§5.1 金額の数値化', () => {
   });
 
   it('小数はそのまま Double として保存される（§2.6 保存値は丸めない）', () => {
-    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', salesPrice: '999.5' };
+    const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', salesPrice: '999.5' };
 
     expect(toSaveInput(values).salesPrice).toBe(999.5);
   });
 });
 
-describe('SPEC-V2 Step 1 暫定: kind はまだフォームに無いので入力値から導出する', () => {
-  // Step 2 で RecordFormValues.kind が入ったら、このテストは種別セレクタの検証に差し替える。
-  // ここで確かめたいのは「Step 1 では保存される金額が今までと変わらない」こと。
-  it('仕入価格が入っていれば仕入品として保存され、値が 0 化されない', () => {
-    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', purchasePrice: '300' };
-    const input = toSaveInput(values);
+describe('SPEC-V2 §1.1 保存入力への種別の受け渡し', () => {
+  it('フォームで選んだ種別をそのまま渡す（入力値からは導出しない）', () => {
+    const base = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ' };
 
-    expect(input.kind).toBe('sourced');
-    expect(input.purchasePrice).toBe(300);
+    expect(toSaveInput({ ...base, kind: 'used' }).kind).toBe('used');
+    expect(toSaveInput({ ...base, kind: 'sourced', purchasePrice: '300' }).kind).toBe('sourced');
   });
 
-  it('仕入価格が空なら不用品', () => {
-    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', purchasePrice: '' };
+  it('仕入品の仕入価格はそのまま保存値になる', () => {
+    const values = {
+      ...newFormValues('sourced', undefined, NOW),
+      itemName: 'えんぴつ',
+      purchasePrice: '300',
+    };
 
-    expect(toSaveInput(values).kind).toBe('used');
+    expect(toSaveInput(values).purchasePrice).toBe(300);
   });
 });
 
 describe('§5.2 saleDate の正規化は repository に任せる', () => {
   it('出品中でもフォームの saleDate はそのまま渡す（null 化は repository 側）', () => {
-    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', isSold: false };
+    const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', isSold: false };
 
     expect(toSaveInput(values).saleDate).toEqual(NOW);
     expect(toSaveInput(values).isSold).toBe(false);

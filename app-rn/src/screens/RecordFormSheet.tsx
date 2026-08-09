@@ -23,6 +23,7 @@ import {
 
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
+import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { Stepper } from '@/components/Stepper';
 import { TextField } from '@/components/TextField';
 import type { SaleRecord } from '@/db/schema';
@@ -32,12 +33,14 @@ import {
   MAX_COMMISSION,
   MIN_COMMISSION,
   canSave,
+  changeKind,
   newFormValues,
   recordToFormValues,
   toSaveInput,
   type InitialAmounts,
   type RecordFormValues,
 } from '@/logic/recordForm';
+import { getDefaultRecordKind } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -86,8 +89,12 @@ function RecordForm({
 }) {
   const colors = useThemeColors();
 
+  // 新規の種別は設定の既定値。ただし計算タブから開いたときは initialAmounts.kind が優先される
+  // （SPEC-V2 §1.4）。開いている間だけマウントされるので、ここで一度読めばよい
   const [values, setValues] = useState<RecordFormValues>(() =>
-    record == null ? newFormValues(initialAmounts) : recordToFormValues(record),
+    record == null
+      ? newFormValues(getDefaultRecordKind(), initialAmounts)
+      : recordToFormValues(record),
   );
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
@@ -97,6 +104,11 @@ function RecordForm({
 
   const update = <K extends keyof RecordFormValues>(key: K, value: RecordFormValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }));
+  };
+
+  // 種別だけは他の欄と連動する（仕入品 → 不用品 で仕入価格をクリア。SPEC-V2 §1.5）
+  const updateKind = (kind: RecordFormValues['kind']) => {
+    setValues((current) => changeKind(current, kind));
   };
 
   const handleSave = () => {
@@ -129,6 +141,8 @@ function RecordForm({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         <FormSection title="商品情報">
+          {/* 種別セレクタはセクション先頭（SPEC-V2 §1.3）。仕入価格欄の出し分けに効く */}
+          <RecordKindSelector kind={values.kind} onChange={updateKind} />
           <TextField
             label="商品名"
             placeholder="例：えんぴつ"
@@ -142,11 +156,15 @@ function RecordForm({
             value={values.salesPrice}
             onChangeValue={(value) => update('salesPrice', value)}
           />
-          <NumericField
-            label="仕入価格"
-            value={values.purchasePrice}
-            onChangeValue={(value) => update('purchasePrice', value)}
-          />
+          {/* 不用品は仕入価格の概念がないので欄ごと出さない（SPEC-V2 §1.3）。
+              値は changeKind でクリア済み、DB 側の 0 保証は repository（§2.4） */}
+          {values.kind === 'sourced' && (
+            <NumericField
+              label="仕入価格"
+              value={values.purchasePrice}
+              onChangeValue={(value) => update('purchasePrice', value)}
+            />
+          )}
           <NumericField
             label="送料"
             value={values.postage}
