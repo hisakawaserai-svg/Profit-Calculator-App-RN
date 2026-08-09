@@ -1,0 +1,24 @@
+// AddRecordButton.swift の移植。新規レコード作成フォームを開く共通の＋ボタン。
+//
+// Swift 版は editingRecord = nil / showingForm = true を立てて RecordFormView をシート表示していた。
+// SPEC 決定 §7-7 により RN 版は「＋の時点では insert せず、保存時にだけレコードを作る」ため、
+// 押下時にやることは「新規モードでフォームを開く」だけになる。
+// RecordFormView がまだ未実装なので、呼び出し側から TODO の onPress を受け取る形にしてある。
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable } from 'react-native';
+
+import { useThemeColors } from '@/theme';
+
+type Props = {
+  onPress: () => void;
+};
+
+export function AddRecordButton({ onPress }: Props) {
+  const colors = useThemeColors();
+
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel="記録を追加">
+      <Ionicons name="add" size={26} color={colors.blue} />
+    </Pressable>
+  );
+}

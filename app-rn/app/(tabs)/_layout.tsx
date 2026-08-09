@@ -21,13 +21,23 @@ export default function TabLayout() {
         name="index"
         options={{ title: '計算', tabBarIcon: tabIcon('calculator', 'calculator-outline') }}
       />
+      {/* 出品中・実績はタブ内に Stack を持ち（月別詳細へのプッシュ遷移。SPEC §3.3）、
+          ヘッダーはその Stack 側が出すのでタブのヘッダーは切る */}
       <Tabs.Screen
         name="listings"
-        options={{ title: '出品中', tabBarIcon: tabIcon('cube', 'cube-outline') }}
+        options={{
+          title: '出品中',
+          tabBarIcon: tabIcon('cube', 'cube-outline'),
+          headerShown: false,
+        }}
       />
       <Tabs.Screen
         name="sold"
-        options={{ title: '実績', tabBarIcon: tabIcon('logo-yen', 'logo-yen') }}
+        options={{
+          title: '実績',
+          tabBarIcon: tabIcon('logo-yen', 'logo-yen'),
+          headerShown: false,
+        }}
       />
       <Tabs.Screen
         name="data"
