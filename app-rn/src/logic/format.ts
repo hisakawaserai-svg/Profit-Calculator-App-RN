@@ -29,3 +29,14 @@ export function formatRecordDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}/${month}/${day}`;
 }
+
+/**
+ * 日時「2026/08/09 14:30」。
+ * DataView の明細（時刻まで含めた販売日がそのまま集計キーになる単位。SPEC §6.2）で、
+ * 同じ日の複数点を見分けるために使う。
+ */
+export function formatRecordDateTime(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${formatRecordDate(date)} ${hours}:${minutes}`;
+}

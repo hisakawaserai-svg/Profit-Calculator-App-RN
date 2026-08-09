@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { HelpScreen } from '@/screens/HelpScreen';
 
 export default function Screen() {
-  return <PlaceholderScreen title="ヘルプ" />;
+  return <HelpScreen />;
 }

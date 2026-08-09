@@ -26,6 +26,14 @@ export type ThemeColors = {
   /** 電卓ボタン・決定ボタン */
   blue: string;
   gray: string;
+  /** ヘルプの「目標利益の逆算」 */
+  teal: string;
+  /** ヘルプの「かんたん売却更新」 */
+  yellow: string;
+  /** ヘルプの「分析グラフの活用」 */
+  indigo: string;
+  /** ヘルプの「記録の整理と分析」見出し */
+  purple: string;
   /** disabled 時に入力欄へかぶせる地色 */
   disabledBackground: string;
 };
@@ -41,6 +49,10 @@ const light: ThemeColors = {
   orange: '#FF9500',
   blue: '#007AFF',
   gray: '#8E8E93',
+  teal: '#30B0C7',
+  yellow: '#FFCC00',
+  indigo: '#5856D6',
+  purple: '#AF52DE',
   disabledBackground: 'rgba(120, 120, 128, 0.12)',
 };
 
@@ -55,6 +67,10 @@ const dark: ThemeColors = {
   orange: '#FF9F0A',
   blue: '#0A84FF',
   gray: '#8E8E93',
+  teal: '#40C8E0',
+  yellow: '#FFD60A',
+  indigo: '#5E5CE6',
+  purple: '#BF5AF2',
   disabledBackground: 'rgba(120, 120, 128, 0.24)',
 };
 

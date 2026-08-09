@@ -14,27 +14,28 @@
 // - 削除（ゴミ箱）は確認アラート「削除しますか？」を挟んでから削除し、前画面へ戻る（SPEC §5.4）。
 // - 下部の累計はこの 1 件のみの純利益・経費。合算相手がいないので repository を引かず、
 //   レコードから logic/profit で計算する（値は Double のまま、丸めは表示時のみ）。
-// - 金額の表示は必ず formatYen（= roundForDisplay）を通す（SPEC §2.6）。
+// - 商品情報カード / 費用内訳カードは components/RecordDetailSections.tsx に置いてある。
+//   Swift 版でも DataView が同じ 2 つを使い回していたため（SPEC §6.2 の内訳リスト）。
 //
 // 決定 §7-6 のとおり、Swift 版の careerProfit / careerExpenses と、
 // それらのためだけにあった allRecords の @FetchRequest は移植していない（計算のみで未使用）。
 // 同じく未使用だった targetMonth も引き継がない。
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import {
+  DetailCard,
+  ExpenseDetailSection,
+  ProductInfoSection,
+} from '@/components/RecordDetailSections';
 import { CareerSummarySection } from '@/components/SummarySection';
-import { fromDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, setSoldStatus, useRecord } from '@/db/useRecords';
-import { formatRecordDate, formatYen } from '@/logic/format';
-import { commissionCost, netProfit, roundForDisplay, totalExpenses } from '@/logic/profit';
+import { netProfit, totalExpenses } from '@/logic/profit';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
-
-/** 日付が未設定のときの表示（Swift 版 ?? "未設定"） */
-const UNSET_DATE = '未設定';
 
 export function SaleRecordDetailScreen() {
   const colors = useThemeColors();
@@ -167,72 +168,6 @@ function SaleStatusToggleCard({
   );
 }
 
-/** 商品情報カード（Swift 版 ProductInfoSection） */
-function ProductInfoSection({ record }: { record: SaleRecord }) {
-  const colors = useThemeColors();
-  const profit = netProfit(record);
-
-  return (
-    <DetailCard title="📦 商品情報">
-      <DetailTextLine label="商品名" value={record.itemName === '' ? '無題' : record.itemName} />
-      <DetailTextLine label="出品日" value={formatRecordDate(fromDbDate(record.saleStartDate))} />
-      {record.isSold ? (
-        <DetailTextLine
-          label="販売日"
-          value={record.saleDate == null ? UNSET_DATE : formatRecordDate(fromDbDate(record.saleDate))}
-        />
-      ) : (
-        <DetailTextLine label="状態" value="出品中" />
-      )}
-
-      <DetailAmountLine label="販売価格" amount={record.salesPrice} color={colors.green} />
-      <DetailAmountLine label="経費合計" amount={totalExpenses(record)} color={colors.red} />
-
-      <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-
-      <View style={styles.totalRow}>
-        <Text style={[styles.totalLabel, { color: colors.label }]}>純利益</Text>
-        <Text style={[styles.profitValue, { color: profit >= 0 ? colors.green : colors.red }]}>
-          {formatYen(profit)}
-        </Text>
-      </View>
-    </DetailCard>
-  );
-}
-
-/** 費用内訳カード（Swift 版 ExpenseDetailSection） */
-function ExpenseDetailSection({ record }: { record: SaleRecord }) {
-  const colors = useThemeColors();
-
-  return (
-    <DetailCard title="💰 費用内訳">
-      <DetailAmountLine label="仕入価格" amount={record.purchasePrice} color={colors.red} />
-      <DetailAmountLine label="送料" amount={record.postage} color={colors.red} />
-      <DetailAmountLine label="梱包材" amount={record.envelopeCost} color={colors.red} />
-      <DetailAmountLine label="その他" amount={record.othersCost} color={colors.red} />
-
-      <View style={styles.line}>
-        {/* 手数料「率」も表示時に丸める（決定 §7-5: Int キャストではなく Math.round） */}
-        <Text style={[styles.lineLabel, { color: colors.secondaryLabel }]}>
-          手数料 ({roundForDisplay(record.commission)}%)
-        </Text>
-        <Text style={[styles.lineValue, { color: colors.orange }]}>
-          {formatYen(commissionCost(record))}
-        </Text>
-      </View>
-
-      <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-
-      <View style={styles.totalRow}>
-        <Text style={[styles.totalLabel, { color: colors.label }]}>経費合計</Text>
-        <Text style={[styles.totalValue, { color: colors.red }]}>
-          {formatYen(totalExpenses(record))}
-        </Text>
-      </View>
-    </DetailCard>
-  );
-}
-
 /** メモカード（Swift 版 MemoSection）。メモが空なら「なし」 */
 function MemoSection({ record }: { record: SaleRecord }) {
   const colors = useThemeColors();
@@ -245,54 +180,6 @@ function MemoSection({ record }: { record: SaleRecord }) {
         </Text>
       </View>
     </DetailCard>
-  );
-}
-
-/** 見出し付きのカード（Swift 版の各 Section に共通する装飾） */
-function DetailCard({ title, children }: { title: string; children: ReactNode }) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-      <Text style={[styles.cardTitle, { color: colors.label }]}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-/** ラベルと文字列の 1 行（Swift 版 DetailTextLine） */
-function DetailTextLine({ label, value }: { label: string; value: string }) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.line}>
-      <Text style={[styles.lineLabel, { color: colors.secondaryLabel }]}>{label}：</Text>
-      <Text style={[styles.lineValue, { color: colors.label }]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-/** ラベルと金額の 1 行（Swift 版 DetailAmountLine）。0 円のときだけ色を付けない */
-function DetailAmountLine({
-  label,
-  amount,
-  color,
-}: {
-  label: string;
-  amount: number;
-  color: string;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={styles.line}>
-      <Text style={[styles.lineLabel, { color: colors.secondaryLabel }]}>{label}：</Text>
-      <Text style={[styles.lineValue, { color: amount === 0 ? colors.label : color }]}>
-        {formatYen(amount)}
-      </Text>
-    </View>
   );
 }
 
@@ -316,10 +203,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 12,
   },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
   toggleCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,39 +216,6 @@ const styles = StyleSheet.create({
   toggleLabelText: {
     fontSize: 17,
     fontWeight: '600',
-  },
-  line: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  lineLabel: {
-    fontSize: 15,
-  },
-  lineValue: {
-    fontSize: 15,
-    flexShrink: 1,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  totalValue: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  profitValue: {
-    fontSize: 20,
-    fontWeight: '700',
   },
   memoBox: {
     padding: 12,

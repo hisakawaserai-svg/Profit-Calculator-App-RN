@@ -10,8 +10,13 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
+import type { ChartUnit, MetricType } from '@/logic/analytics';
+
 import { repository } from './client';
 import type {
+  AggregatedPoint,
+  AnalyticsRange,
+  AnalyticsSummary,
   CareerSummary,
   MonthGroup,
   RecordListFilter,
@@ -135,4 +140,76 @@ export function saveRecord(id: string | null, input: SaveRecordInput): void {
 /** レコード 1 件の削除（SPEC §5.4: 確認なしで即削除）。呼び出し側で refresh すること */
 export function deleteRecord(id: string): void {
   repository.remove(id);
+}
+
+export type AnalyticsData = {
+  /** 期間内合計（SPEC §6.2 サマリーカード）。丸めなし */
+  summary: AnalyticsSummary;
+  /** チャートの集計点。日付キーの昇順・丸めなし */
+  series: AggregatedPoint[];
+  /** 選択中の集計点の内訳。未選択なら空配列 */
+  details: SaleRecord[];
+};
+
+const NO_DETAILS: SaleRecord[] = [];
+
+/** refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryAnalytics(
+  range: AnalyticsRange,
+  unit: ChartUnit,
+  refreshToken: object,
+): Omit<AnalyticsData, 'details'> {
+  void refreshToken;
+  return {
+    summary: repository.analyticsSummary(range),
+    series: repository.analyticsSeries(range, unit),
+  };
+}
+
+function queryAnalyticsDetails(
+  range: AnalyticsRange,
+  unit: ChartUnit,
+  selectedKey: string | null,
+  metric: MetricType,
+  refreshToken: object,
+): SaleRecord[] {
+  void refreshToken;
+  if (selectedKey == null) return NO_DETAILS;
+  return repository.analyticsDetails(range, unit, selectedKey, metric);
+}
+
+/**
+ * DataView（分析グラフ）のデータ取得（SPEC §6.2）。
+ *
+ * 集計は repository の SQL 側で完結しているので、画面が受け取るのは
+ * 集計済みの点と合計値だけ。レコード実体は「タップされた 1 点の内訳」しか読まない。
+ *
+ * @param range       集計期間。null = 全期間を表示
+ * @param unit        表示単位（明細 / 日別 / 月別 / 年別）
+ * @param metric      指標。内訳リストの並び順に効く
+ * @param selectedKey タップされた集計点のキー。null なら内訳は引かない
+ */
+export function useAnalyticsData(
+  range: AnalyticsRange,
+  unit: ChartUnit,
+  metric: MetricType,
+  selectedKey: string | null,
+): AnalyticsData {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  // 他タブでの追加・編集・削除を、このタブに戻ってきたタイミングで反映する
+  useFocusEffect(refresh);
+
+  const data = useMemo(
+    () => queryAnalytics(range, unit, refreshToken),
+    [range, unit, refreshToken],
+  );
+  // 指標の切替では内訳の並びしか変わらないので、集計本体とはメモを分ける
+  const details = useMemo(
+    () => queryAnalyticsDetails(range, unit, selectedKey, metric, refreshToken),
+    [range, unit, selectedKey, metric, refreshToken],
+  );
+
+  return { ...data, details };
 }

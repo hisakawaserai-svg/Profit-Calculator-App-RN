@@ -9,7 +9,15 @@
 import { asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
-import { monthKeyToDate, toDbDate } from './dates';
+import type { ChartUnit, MetricType } from '../logic/analytics';
+import {
+  CHART_KEY_LENGTH,
+  chartKeyToDate,
+  endOfDay,
+  monthKeyToDate,
+  startOfDay,
+  toDbDate,
+} from './dates';
 import { saleRecords, type SaleRecord } from './schema';
 
 /** expo-sqlite / better-sqlite3 どちらの同期ドライバも受け付ける */
@@ -54,6 +62,37 @@ export type CareerSummary = {
   totalNetProfit: number;
   /** 丸めなし */
   totalExpenses: number;
+  recordCount: number;
+};
+
+/**
+ * DataView の集計対象期間（SPEC §6.2）。
+ * null = 「全期間を表示」ON（期間条件なし）。
+ * 日付の境界正規化（決定 §7-10）はここでは行わず、SQL を組み立てる直前に行う。
+ */
+export type AnalyticsRange = { startDate: Date; endDate: Date } | null;
+
+/** DataView のサマリーカード（期間内合計）。すべて丸めなし（SPEC §6.2） */
+export type AnalyticsSummary = {
+  /** Σ salesPrice */
+  totalSales: number;
+  /** Σ totalExpenses */
+  totalExpenses: number;
+  /** totalSales − totalExpenses（= Σ netProfit と等価） */
+  totalNetProfit: number;
+  recordCount: number;
+};
+
+/** チャートの集計点（Swift 版 AggregatedPoint）。値は丸めなし */
+export type AggregatedPoint = {
+  /** 集計キー（販売日の先頭 n 文字。単位ごとの粒度） */
+  key: string;
+  /** キーが表す代表日（明細 = 販売日そのもの / 日別 = その日 0:00 / 月別 = 月初 / 年別 = 年初） */
+  date: Date;
+  /** Σ salesPrice */
+  sales: number;
+  /** Σ netProfit */
+  profit: number;
   recordCount: number;
 };
 
@@ -120,6 +159,29 @@ function buildWhere(filter: RecordListFilter): SQL {
     );
   }
   return sql.join(conditions, sql` AND `);
+}
+
+/**
+ * DataView の対象条件（SPEC §6.2）。
+ * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
+ * - 期間は startDate その日の 00:00:00.000 〜 endDate その日の 23:59:59.999 の閉区間（決定 §7-10）。
+ *   保存形式が固定長のローカル ISO 文字列なので、辞書順比較がそのまま時系列比較になる。
+ */
+function buildAnalyticsWhere(range: AnalyticsRange): SQL {
+  const conditions: SQL[] = [
+    eq(saleRecords.isSold, true),
+    sql`${saleRecords.saleDate} IS NOT NULL`,
+  ];
+  if (range != null) {
+    conditions.push(sql`${saleRecords.saleDate} >= ${toDbDate(startOfDay(range.startDate))}`);
+    conditions.push(sql`${saleRecords.saleDate} <= ${toDbDate(endOfDay(range.endDate))}`);
+  }
+  return sql.join(conditions, sql` AND `);
+}
+
+/** 集計キー = 販売日の先頭 n 文字（SPEC §6.2 の「単位ごとの日付キーに丸める」） */
+function chartKeySql(unit: ChartUnit): SQL<string> {
+  return sql<string>`substr(${saleRecords.saleDate}, 1, ${CHART_KEY_LENGTH[unit]})`;
 }
 
 /** 保存時の正規化（SPEC §5.2）: 出品中なら saleDate を強制 null、売却済みで null なら現在時刻 */
@@ -255,6 +317,68 @@ export function createRepository(
         .where(buildWhere(filter))
         .get();
       return row ?? { totalNetProfit: 0, totalExpenses: 0, recordCount: 0 };
+    },
+
+    // ---- DataView（分析グラフ）の集計。SPEC §6.2 ----
+    //
+    // 合算はすべて SQL の SUM で行い、丸めなしの Double を返す（決定 §7-2）。
+    // 画面側は返ってきた値を roundForDisplay して出すだけで、全件ループはしない。
+
+    /** サマリーカードの期間内合計（SPEC §6.2） */
+    analyticsSummary(range: AnalyticsRange): AnalyticsSummary {
+      const row = db
+        .select({
+          totalSales: sql<number>`coalesce(sum(${saleRecords.salesPrice}), 0)`,
+          totalExpenses: sql<number>`coalesce(sum(${totalExpensesSql}), 0)`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(saleRecords)
+        .where(buildAnalyticsWhere(range))
+        .get() ?? { totalSales: 0, totalExpenses: 0, recordCount: 0 };
+
+      return {
+        ...row,
+        // SPEC §6.2 の定義どおり差で求める（Σ netProfit と等価）
+        totalNetProfit: row.totalSales - row.totalExpenses,
+      };
+    },
+
+    /** チャートの集計点（SPEC §6.2 AggregatedPoint）。日付キーの昇順 */
+    analyticsSeries(range: AnalyticsRange, unit: ChartUnit): AggregatedPoint[] {
+      const key = chartKeySql(unit);
+      const rows = db
+        .select({
+          key,
+          sales: sql<number>`sum(${saleRecords.salesPrice})`,
+          profit: sql<number>`sum(${netProfitSql})`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(saleRecords)
+        .where(buildAnalyticsWhere(range))
+        .groupBy(key)
+        .orderBy(asc(key))
+        .all();
+
+      return rows.map((row) => ({ ...row, date: chartKeyToDate(row.key, unit) }));
+    },
+
+    /**
+     * 選択された集計点の内訳（SPEC §6.2「下部に内訳リスト」）。
+     * 指標に応じて売上額 or 純利益の降順。タップされた 1 点ぶんだけを引くので、
+     * 全期間ぶんのレコードを画面に持ち込まずに済む。
+     */
+    analyticsDetails(
+      range: AnalyticsRange,
+      unit: ChartUnit,
+      key: string,
+      metric: MetricType,
+    ): SaleRecord[] {
+      return db
+        .select()
+        .from(saleRecords)
+        .where(sql`${buildAnalyticsWhere(range)} AND ${chartKeySql(unit)} = ${key}`)
+        .orderBy(metric === 'sales' ? desc(saleRecords.salesPrice) : desc(netProfitSql))
+        .all();
     },
   };
 }

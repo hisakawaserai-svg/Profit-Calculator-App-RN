@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { DataScreen } from '@/screens/DataScreen';
 
 export default function Screen() {
-  return <PlaceholderScreen title="DataView（分析グラフ）" />;
+  return <DataScreen />;
 }
