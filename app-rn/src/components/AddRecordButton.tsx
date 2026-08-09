@@ -2,8 +2,8 @@
 //
 // Swift 版は editingRecord = nil / showingForm = true を立てて RecordFormView をシート表示していた。
 // SPEC 決定 §7-7 により RN 版は「＋の時点では insert せず、保存時にだけレコードを作る」ため、
-// 押下時にやることは「新規モードでフォームを開く」だけになる。
-// RecordFormView がまだ未実装なので、呼び出し側から TODO の onPress を受け取る形にしてある。
+// 押下時にやることは「新規モードで RecordFormSheet を開く」だけになる。
+// シートの表示状態は画面ごとに持つため、onPress は呼び出し側から受け取る。
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable } from 'react-native';
 

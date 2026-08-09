@@ -4,18 +4,18 @@
 // - 月フィルタは年月の完全一致（SPEC §6.1）。期間指定ではない。
 // - Swift 版と同じく、ホイールを動かした時点で即フィルタが変わる。
 //   「決定」は閉じるだけ、「リセット」は全期間に戻して選択位置を今月へ戻す。
-// - @expo/ui の wheel Picker は SwiftUI 専用で Android に載らないため、
-//   SegmentedControl と同じ方針（SPEC §7-14 の将来の Android 対応）で RN プリミティブで組む。
+// - ホイール 1 列ぶんは日付ピッカー（DateField）と共有の WheelColumn（RN プリミティブ実装）を使う。
 import { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { WheelColumn, rangeOfNumbers } from '@/components/WheelColumn';
 import { toMonthKey } from '@/db/dates';
 import { useThemeColors } from '@/theme';
 
 /** 現在年の前後 5 年（決定 §7-12） */
 const YEAR_RANGE = 5;
 
-const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
+const MONTHS = rangeOfNumbers(1, 12);
 
 type Props = {
   visible: boolean;
@@ -44,10 +44,7 @@ export function MonthPickerSheet({
 
   const years = useMemo(() => {
     const currentYear = today.getFullYear();
-    return Array.from(
-      { length: YEAR_RANGE * 2 + 1 },
-      (_, index) => currentYear - YEAR_RANGE + index,
-    );
+    return rangeOfNumbers(currentYear - YEAR_RANGE, currentYear + YEAR_RANGE);
   }, [today]);
 
   const select = (year: number, month: number) => {
@@ -94,47 +91,6 @@ export function MonthPickerSheet({
   );
 }
 
-function WheelColumn({
-  values,
-  selectedValue,
-  format,
-  onSelect,
-}: {
-  values: number[];
-  selectedValue: number;
-  format: (value: number) => string;
-  onSelect: (value: number) => void;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <ScrollView
-      style={[styles.column, { backgroundColor: colors.secondaryBackground }]}
-      contentContainerStyle={styles.columnContent}>
-      {values.map((value) => {
-        const selected = value === selectedValue;
-        return (
-          <Pressable
-            key={value}
-            style={[styles.item, selected && { backgroundColor: colors.disabledBackground }]}
-            onPress={() => onSelect(value)}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}>
-            <Text
-              style={[
-                styles.itemLabel,
-                { color: selected ? colors.blue : colors.label },
-                selected && styles.itemLabelSelected,
-              ]}>
-              {format(value)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -158,23 +114,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     gap: 10,
-  },
-  column: {
-    flex: 1,
-    borderRadius: 10,
-  },
-  columnContent: {
-    paddingVertical: 4,
-  },
-  item: {
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  itemLabel: {
-    fontSize: 17,
-  },
-  itemLabelSelected: {
-    fontWeight: '700',
   },
   buttons: {
     flexDirection: 'row',

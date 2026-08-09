@@ -17,9 +17,10 @@ import {
   roundForDisplay,
   type CostInput,
 } from '@/logic/profit';
+import { DEFAULT_COMMISSION, type InitialAmounts } from '@/logic/recordForm';
+import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
-const DEFAULT_COMMISSION = 10;
 const TAB_NET_PROFIT = 0;
 const TAB_TARGET_PROFIT = 1;
 
@@ -34,6 +35,7 @@ export default function CalcScreen() {
   const [commissionValue, setCommissionValue] = useState(DEFAULT_COMMISSION);
   const [selectedTab, setSelectedTab] = useState(TAB_NET_PROFIT);
   const [targetProfitInput, setTargetProfitInput] = useState('');
+  const [showForm, setShowForm] = useState(false);
 
   // Swift 版の calculationData（MercariCalcData）相当。値の組み立てのみで計算はしない
   const calcInput: CostInput = {
@@ -55,12 +57,19 @@ export default function CalcScreen() {
     setTargetProfitInput('');
   }, []);
 
-  const prepareNewRecord = useCallback(() => {
-    // TODO: SPEC 決定 §7-7 — ＋ボタンは「保存時にのみレコードを作成する」方式にする。
-    // 現在の入力値（calcInput・saleStartDate = 当日・isSold = false）をフォームの初期値として
-    // メモリ上で RecordFormView へ渡し、保存ボタン押下時に初めて DB へ insert する。
-    // RecordFormView が未実装のため、この段階ではボタンのみ配置してある。
-  }, []);
+  // Swift 版 prepareNewRecord 相当（SPEC §3.2）。ただし決定 §7-7 によりレコードは作らず、
+  // 入力中の金額をフォームの初期値としてメモリ上で渡すだけ。DB への insert は保存ボタン押下時。
+  // 引き継ぐのは 5 つの金額と手数料で、出品日 = 当日 / isSold = false はフォーム側の既定値。
+  const initialAmounts: InitialAmounts = {
+    salesPrice: salesPriceInput,
+    purchasePrice: purchasePriceInput,
+    postage: postageInput,
+    envelopeCost: envelopeCostInput,
+    othersCost: othersCostInput,
+    commission: commissionValue,
+  };
+
+  const prepareNewRecord = useCallback(() => setShowForm(true), []);
 
   const screenOptions = useMemo(
     () => ({
@@ -139,6 +148,12 @@ export default function CalcScreen() {
           )}
         </View>
       </ScrollView>
+
+      <RecordFormSheet
+        visible={showForm}
+        initialAmounts={initialAmounts}
+        onClose={() => setShowForm(false)}
+      />
     </>
   );
 }

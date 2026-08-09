@@ -22,6 +22,7 @@ import { monthKeyToDate } from '@/db/dates';
 import type { MonthGroup, SortTypeMonthly } from '@/db/repository';
 import { useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader, formatMonthTitle } from '@/logic/format';
+import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
 
 /** 月セクションに出すプレビュー件数（Swift 版 values.prefix(3)） */
@@ -69,12 +70,13 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
   const [monthKey, setMonthKey] = useState<string | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const filter = useMemo(
     () => ({ isSoldMode, searchText, monthKey }),
     [isSoldMode, searchText, monthKey],
   );
-  const { groups, summary } = useRecordListData(filter, sortType);
+  const { groups, summary, refresh } = useRecordListData(filter, sortType);
 
   // SPEC §3.2: 実績タブは「全期間の収支」/ 月選択時「YYYY年M月の収支」、出品中タブは「出品中」
   const title = isSoldMode
@@ -89,12 +91,9 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
     setSortType(DEFAULT_SORT);
   }, []);
 
-  const openNewRecordForm = useCallback(() => {
-    // TODO: RecordFormView（新規追加フォーム）を実装したらシートで開く。
-    // 決定 §7-7 のとおり、ここではレコードを作らずフォームの初期値を渡すだけにし、
-    // 保存ボタン押下時に repository.create() する。
-    // 新規レコードは isSold = false・saleStartDate = 当日（決定 §7-8 / §7-11）。
-  }, []);
+  // 決定 §7-7 のとおりここではレコードを作らず、保存ボタン押下時に初めて作成される。
+  // 実績タブから開いた場合も新規レコードは isSold = false・saleStartDate = 当日（決定 §7-8 / §7-11）。
+  const openNewRecordForm = useCallback(() => setShowForm(true), []);
 
   const openMonthDetail = useCallback(
     (group: MonthGroup) => {
@@ -178,6 +177,11 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
         selectedValue={sortType}
         onSelect={setSortType}
         onClose={() => setShowSortMenu(false)}
+      />
+      <RecordFormSheet
+        visible={showForm}
+        onClose={() => setShowForm(false)}
+        onSaved={refresh}
       />
     </>
   );

@@ -27,6 +27,7 @@ import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader } from '@/logic/format';
 import { netProfit } from '@/logic/profit';
+import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
 
 /** Swift 版 SaleRecordView.SortType（6 種）。この画面専用でレコード単位の並び順 */
@@ -38,12 +39,16 @@ type SortType =
   | 'itemName'
   | 'netProfitDesc';
 
+/** レコード詳細のルート。タブごとに Stack が分かれているので呼び出し側から渡す */
+export type RecordDetailPathname = '/listings/record/[id]' | '/sold/record/[id]';
+
 type Props = {
   /** true = 実績タブ（売却済み） / false = 出品中タブ */
   isSoldMode: boolean;
+  recordDetailPathname: RecordDetailPathname;
 };
 
-export function SaleRecordScreen({ isSoldMode }: Props) {
+export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ monthKey: string }>();
@@ -56,6 +61,7 @@ export function SaleRecordScreen({ isSoldMode }: Props) {
     isSoldMode ? 'saleDateDesc' : 'saleStartDateDesc',
   );
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const filter = useMemo(
     () => ({ isSoldMode, searchText, monthKey }),
@@ -87,15 +93,18 @@ export function SaleRecordScreen({ isSoldMode }: Props) {
     [refresh],
   );
 
-  const openDetail = useCallback((_record: SaleRecord) => {
-    // TODO: SaleRecordDetailView（レコード詳細画面）を実装したらここからプッシュ遷移する。
-    // 詳細では売却トグル・編集フォーム・確認アラート付き削除（SPEC §3.2 / §5.4）を扱う。
-  }, []);
+  // 行タップ → レコード詳細へプッシュ遷移（SPEC §3.3）。
+  // 詳細側での売却トグル・編集・削除は、戻ってきたときに useFocusEffect で拾われる。
+  const openDetail = useCallback(
+    (record: SaleRecord) => {
+      router.push({ pathname: recordDetailPathname, params: { id: record.id } });
+    },
+    [router, recordDetailPathname],
+  );
 
-  const openNewRecordForm = useCallback(() => {
-    // TODO: RecordFormView（新規追加フォーム）を実装したらシートで開く。
-    // 決定 §7-7 のとおり保存時にだけ repository.create() する。
-  }, []);
+  // 決定 §7-7 のとおり、レコードが作られるのは保存ボタン押下時だけ。
+  // この画面は月別詳細だが、新規レコードの出品日は当日のまま（決定 §7-11）で対象月には合わせない。
+  const openNewRecordForm = useCallback(() => setShowForm(true), []);
 
   const sortOptions = useMemo<SheetOption<SortType>[][]>(
     () => [
@@ -181,6 +190,11 @@ export function SaleRecordScreen({ isSoldMode }: Props) {
         selectedValue={sortType}
         onSelect={setSortType}
         onClose={() => setShowSortMenu(false)}
+      />
+      <RecordFormSheet
+        visible={showForm}
+        onClose={() => setShowForm(false)}
+        onSaved={refresh}
       />
     </>
   );
