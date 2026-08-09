@@ -37,6 +37,8 @@ const repo = createRepository(db, { generateId: randomUUID });
 // ---- ダミーデータ投入 ----
 
 const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'saleDate'> = {
+  // 仕入価格を持つフィクスチャなので仕入品。不用品にすると §2.4 の正規化で 0 になる
+  kind: 'sourced',
   salesPrice: 0,
   purchasePrice: 0,
   postage: 0,
@@ -102,6 +104,22 @@ repo.create({
 });
 
 // ---- 検証 ----
+
+// 保存時の正規化: 不用品の仕入価格は 0（SPEC-V2 §2.4）
+const used = repo.create({
+  ...base,
+  itemName: '不用品のマグカップ',
+  kind: 'used',
+  salesPrice: 800,
+  purchasePrice: 500, // 入力されていても 0 で保存される
+  isSold: false,
+  saleStartDate: d(2026, 8, 10),
+  saleDate: null,
+});
+assert.equal(repo.getById(used.id)?.kind, 'used');
+assert.equal(repo.getById(used.id)?.purchasePrice, 0, '不用品の仕入価格は 0 に強制される');
+assert.equal(repo.getById(sold1.id)?.purchasePrice, 300, '仕入品の仕入価格はそのまま保存される');
+repo.remove(used.id); // 以降の件数アサーションに影響させない
 
 // 保存時の正規化: 出品中は saleDate 強制 null（§5.2）
 assert.equal(repo.getById(listing1.id)?.saleDate, null, '出品中の saleDate は null 化される');

@@ -18,6 +18,8 @@ import { createRepository, type Repository, type SaveRecordInput } from './repos
 import * as schema from './schema';
 
 const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'saleDate'> = {
+  // 仕入価格を持つフィクスチャなので仕入品。不用品にすると §2.4 の正規化で 0 になる
+  kind: 'sourced',
   salesPrice: 0,
   purchasePrice: 0,
   postage: 0,

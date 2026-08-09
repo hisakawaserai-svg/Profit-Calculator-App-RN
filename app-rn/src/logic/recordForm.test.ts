@@ -19,6 +19,7 @@ const NOW = new Date(2026, 7, 9, 15, 30, 0);
 const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   id: 'id-1',
   itemName: 'えんぴつ',
+  kind: 'used',
   salesPrice: 0,
   purchasePrice: 0,
   postage: 0,
@@ -96,6 +97,24 @@ describe('§5.1 金額の数値化', () => {
     const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', salesPrice: '999.5' };
 
     expect(toSaveInput(values).salesPrice).toBe(999.5);
+  });
+});
+
+describe('SPEC-V2 Step 1 暫定: kind はまだフォームに無いので入力値から導出する', () => {
+  // Step 2 で RecordFormValues.kind が入ったら、このテストは種別セレクタの検証に差し替える。
+  // ここで確かめたいのは「Step 1 では保存される金額が今までと変わらない」こと。
+  it('仕入価格が入っていれば仕入品として保存され、値が 0 化されない', () => {
+    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', purchasePrice: '300' };
+    const input = toSaveInput(values);
+
+    expect(input.kind).toBe('sourced');
+    expect(input.purchasePrice).toBe(300);
+  });
+
+  it('仕入価格が空なら不用品', () => {
+    const values = { ...newFormValues(undefined, NOW), itemName: 'えんぴつ', purchasePrice: '' };
+
+    expect(toSaveInput(values).kind).toBe('used');
   });
 });
 

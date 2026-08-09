@@ -118,10 +118,16 @@ export function canSave(values: RecordFormValues): boolean {
 
 /** repository に渡す保存入力へ変換する。空文字・"." は 0 扱い（SPEC §5.1） */
 export function toSaveInput(values: RecordFormValues): SaveRecordInput {
+  const purchasePrice = parseNumericInput(values.purchasePrice);
   return {
     itemName: values.itemName,
+    // SPEC-V2 Step 1 の暫定措置。フォームはまだ種別を持たない（Step 2 で
+    // RecordFormValues.kind を追加して差し替える）ので、SPEC-V2 §2.2 のバックフィルと
+    // 同じ規則で入力値から導出する。ここで一律 'used' にすると §2.4 の正規化が効いて
+    // 入力済みの仕入価格が 0 で保存されてしまい、Step 1 の「見た目を変えない」条件を破る。
+    kind: purchasePrice > 0 ? 'sourced' : 'used',
     salesPrice: parseNumericInput(values.salesPrice),
-    purchasePrice: parseNumericInput(values.purchasePrice),
+    purchasePrice,
     postage: parseNumericInput(values.postage),
     envelopeCost: parseNumericInput(values.envelopeCost),
     othersCost: parseNumericInput(values.othersCost),

@@ -8,6 +8,13 @@
       "when": 1786254777446,
       "tag": "0000_lively_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786274886537,
+      "tag": "0001_curvy_christian_walker",
+      "breakpoints": true
     }
   ]
 }

@@ -18,7 +18,7 @@ import {
   startOfDay,
   toDbDate,
 } from './dates';
-import { saleRecords, type SaleRecord } from './schema';
+import { saleRecords, type RecordKind, type SaleRecord } from './schema';
 
 /** expo-sqlite / better-sqlite3 どちらの同期ドライバも受け付ける */
 export type Database = BaseSQLiteDatabase<'sync', any, any>;
@@ -99,7 +99,10 @@ export type AggregatedPoint = {
 /** 保存時に正規化して受け取る入力（SPEC §5.2）。id は採番するので受け取らない */
 export type SaveRecordInput = {
   itemName: string;
+  /** レコード種別（SPEC-V2 §1.1）。'used' のとき purchasePrice は 0 に正規化される（§2.4） */
+  kind: RecordKind;
   salesPrice: number;
+  /** 不用品（kind = 'used'）では保存時に 0 へ強制される（SPEC-V2 §2.4） */
   purchasePrice: number;
   postage: number;
   envelopeCost: number;
@@ -190,6 +193,15 @@ function normalizeSaleDate(input: SaveRecordInput): Date | null {
   return input.saleDate ?? new Date();
 }
 
+/**
+ * 保存時の正規化（SPEC-V2 §2.4）: 不用品は仕入価格を持たないので 0 に強制する。
+ * フォーム側（§1.5）でも切替時にクリアするが、DB に入る値の保証は repository の責務とする
+ * （saleDate の正規化と同じ方針。UI は見た目、repository は不変条件）。
+ */
+function normalizePurchasePrice(input: SaveRecordInput): number {
+  return input.kind === 'used' ? 0 : input.purchasePrice;
+}
+
 export function createRepository(
   db: Database,
   deps: { generateId: () => string },
@@ -200,8 +212,9 @@ export function createRepository(
     const saleDate = normalizeSaleDate(input);
     return {
       itemName: input.itemName,
+      kind: input.kind,
       salesPrice: input.salesPrice,
-      purchasePrice: input.purchasePrice,
+      purchasePrice: normalizePurchasePrice(input),
       postage: input.postage,
       envelopeCost: input.envelopeCost,
       othersCost: input.othersCost,
