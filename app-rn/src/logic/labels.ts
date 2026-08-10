@@ -12,6 +12,7 @@
 import type { RecordKind } from '@/db/schema';
 
 import type { MetricType } from './analytics';
+import { formatYen } from './format';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -71,6 +72,88 @@ export const COMMISSION_LABEL = '販売手数料';
 /** 計算タブの逆算結果。種別で変えない（§5.3） */
 export const REQUIRED_SALES_PRICE_LABEL = '必要な販売価格';
 
+/** purchasePrice。種別で変えない（§5.3 の表にはないが、欄名は 1 か所に集める） */
+export const PURCHASE_PRICE_LABEL = '仕入価格';
+
+/** postage / envelopeCost / othersCost の欄名 */
+export const POSTAGE_LABEL = '送料';
+export const ENVELOPE_COST_LABEL = '梱包材';
+export const OTHERS_COST_LABEL = 'その他';
+
+/** 内訳の 1 行目。入力欄の「販売価格」と区別して、計算に入った売上の総額を指す */
+export const TOTAL_SALES_AMOUNT_LABEL = '売上総額';
+
+/** 内訳では梱包材とその他を 1 行にまとめる（UI-SPEC §1.1-3a） */
+export const ENVELOPE_AND_OTHERS_LABEL = '梱包・その他';
+
+/** 結果カード・固定バーの折りたたみ見出し（UI-SPEC §1.1-2 / §1.1-3a） */
+export const BREAKDOWN_LABEL = '内訳';
+
+/** 計算タブの入力カードの折りたたみ見出し（UI-SPEC §1.1-6） */
+export const OPTIONAL_COSTS_LABEL = '梱包材・その他を入力';
+
+/** 結果カード右上のリセット（UI-SPEC §1.1-3a）。入力が空のときは無効（§5-8） */
+export const CLEAR_LABEL = 'クリア';
+
+/** 画面下端の固定ボタン（UI-SPEC §1.1-7）。押すと記録フォームを開く */
+export const SAVE_AS_RECORD_LABEL = 'この内容で記録する';
+
+/** 逆算側の結果見出し（UI-SPEC §1.1-3b） */
+export const REQUIRED_PRICE_HEADLINE = 'この値段で出せばよい';
+
+/**
+ * 逆算モードのときの固定バーの売上側（UI-SPEC §1.1「挙動」）。
+ * 通常モードは実績値なので TOTAL_SALES_LABEL、逆算モードはこれから必要になる額なので別語。
+ */
+export const REQUIRED_SALES_LABEL = '必要な売上';
+
+/** 計算タブの逆算側セグメント名。種別で変えない（UI-SPEC §6-4） */
+export const TARGET_TAB_LABEL = '目標から逆算';
+
+/** 入力カードの手数料行（UI-SPEC §1.1-5）: 「手数料 10%」 */
+export function commissionFieldLabel(rate: number): string {
+  return `手数料 ${rate}%`;
+}
+
+/** 逆算結果の下に出す注記（UI-SPEC §1.1-3b） */
+export function requiredPriceNote(rate: number): string {
+  return `${POSTAGE_LABEL}・手数料 ${rate}% を差し引いた後の金額です`;
+}
+
+/**
+ * 逆算結果の検算行:「売上 112 − 販売手数料 11 = 純利益 101 円」。
+ *
+ * 引き算の形にするのは「手数料や経費が引かれた後に目標額が残る」ことを一行で伝えるため。
+ * 数字は logic/calcForm.ts の requiredPriceEquation が組み立てる（表示された数字だけで
+ * 引き算が閉じるように、各項を先に丸めてある）。
+ *
+ * 金額に「円」を付けるのは末尾だけ。項ごとに付けると読点だらけになって式に見えなくなる。
+ *
+ * @param resultLabel 右辺の語。レコード 1 件ぶんの結果なので種別語（profitLabel）を渡す
+ */
+export function requiredPriceEquationParts(
+  equation: { sales: number; deductions: { label: string; amount: number }[]; profit: number },
+  resultLabel: string,
+): string[] {
+  return [
+    `${TOTAL_SALES_LABEL} ${equation.sales}`,
+    ...equation.deductions.map((deduction) => `− ${deduction.label} ${deduction.amount}`),
+    `= ${resultLabel} ${formatYen(equation.profit)}`,
+  ];
+}
+
+/**
+ * 検算行を 1 本の文字列にしたもの。
+ * 画面は項ごとに分けて描く（折り返しが項の切れ目でだけ起きるように）ので、
+ * こちらは読み上げ用のラベルとテストで使う。
+ */
+export function requiredPriceEquationText(
+  equation: { sales: number; deductions: { label: string; amount: number }[]; profit: number },
+  resultLabel: string,
+): string {
+  return requiredPriceEquationParts(equation, resultLabel).join(' ');
+}
+
 /**
  * 合計行の収支の見出し（UI-SPEC §1.2）:「この月の収支」/「全期間の収支」。
  * 合計なので種別語ではなく中立語（§5.3）。
@@ -97,25 +180,17 @@ export function profitLabel(kind: RecordKind): string {
   return PROFIT_LABELS[kind];
 }
 
-/** 計算タブの結果側セグメント名（§1.3）: 「純利益表示」/「利益表示」 */
+/**
+ * 計算タブの結果側セグメント名（UI-SPEC §6-4）: 「純利益を出す」/「利益を出す」。
+ * 逆算側は種別で変えない定数 TARGET_TAB_LABEL（種別語は直下の入力行に出るため）。
+ */
 export function profitTabLabel(kind: RecordKind): string {
-  return `${profitLabel(kind)}表示`;
-}
-
-/** 計算タブの逆算側セグメント名（§1.3）: 「目標純利益逆算」/「目標利益逆算」 */
-export function targetProfitTabLabel(kind: RecordKind): string {
-  // セグメント名は幅が限られるので「目標の純利益」ではなく「目標純利益」（§1.3 の表のとおり）
-  return kind === 'used' ? '目標純利益逆算' : '目標利益逆算';
+  return `${profitLabel(kind)}を出す`;
 }
 
 /** 計算タブの逆算入力欄のラベル（§5.3）: 「目標の純利益」/「目標利益」 */
 export function targetProfitLabel(kind: RecordKind): string {
   return TARGET_PROFIT_LABELS[kind];
-}
-
-/** 計算タブの逆算タブの見出し（§1.3） */
-export function targetProfitPrompt(kind: RecordKind): string {
-  return `${targetProfitLabel(kind)}を入力してください`;
 }
 
 /**

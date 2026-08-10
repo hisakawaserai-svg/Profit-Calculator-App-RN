@@ -7,17 +7,20 @@ import { describe, expect, it } from 'vitest';
 import {
   COMMISSION_LABEL,
   EXPENSES_LABEL,
+  PURCHASE_PRICE_LABEL,
   REQUIRED_SALES_PRICE_LABEL,
   SALES_PRICE_LABEL,
+  TARGET_TAB_LABEL,
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
+  commissionFieldLabel,
   metricLabel,
   profitLabel,
   profitTabLabel,
   recordKindLabel,
+  requiredPriceEquationText,
+  requiredPriceNote,
   targetProfitLabel,
-  targetProfitPrompt,
-  targetProfitTabLabel,
 } from './labels';
 
 describe('§1.1 種別の表示名', () => {
@@ -53,24 +56,24 @@ describe('§5.3 複数レコードの Σ netProfit', () => {
 });
 
 describe('§5.3 種別で変えない語', () => {
-  it('経費 / 販売価格 / 売上 / 販売手数料 / 必要な販売価格', () => {
+  it('経費 / 販売価格 / 仕入価格 / 売上 / 販売手数料 / 必要な販売価格', () => {
     expect(EXPENSES_LABEL).toBe('経費');
     expect(SALES_PRICE_LABEL).toBe('販売価格');
+    expect(PURCHASE_PRICE_LABEL).toBe('仕入価格');
     expect(TOTAL_SALES_LABEL).toBe('売上');
     expect(COMMISSION_LABEL).toBe('販売手数料');
     expect(REQUIRED_SALES_PRICE_LABEL).toBe('必要な販売価格');
   });
 });
 
-describe('§1.3 計算タブのラベル', () => {
-  it('結果側のセグメント名', () => {
-    expect(profitTabLabel('used')).toBe('純利益表示');
-    expect(profitTabLabel('sourced')).toBe('利益表示');
+describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
+  it('結果側のセグメント名は種別で出し分ける', () => {
+    expect(profitTabLabel('used')).toBe('純利益を出す');
+    expect(profitTabLabel('sourced')).toBe('利益を出す');
   });
 
-  it('逆算側のセグメント名', () => {
-    expect(targetProfitTabLabel('used')).toBe('目標純利益逆算');
-    expect(targetProfitTabLabel('sourced')).toBe('目標利益逆算');
+  it('逆算側のセグメント名は種別で変えない', () => {
+    expect(TARGET_TAB_LABEL).toBe('目標から逆算');
   });
 
   it('逆算入力欄のラベル', () => {
@@ -78,9 +81,30 @@ describe('§1.3 計算タブのラベル', () => {
     expect(targetProfitLabel('sourced')).toBe('目標利益');
   });
 
-  it('逆算タブの見出し', () => {
-    expect(targetProfitPrompt('used')).toBe('目標の純利益を入力してください');
-    expect(targetProfitPrompt('sourced')).toBe('目標利益を入力してください');
+  it('手数料の入力行と逆算結果の注記には率が入る', () => {
+    expect(commissionFieldLabel(10)).toBe('手数料 10%');
+    expect(requiredPriceNote(10)).toBe('送料・手数料 10% を差し引いた後の金額です');
+  });
+
+  it('逆算の検算行は引き算の形。「円」は末尾だけに付く', () => {
+    const equation = { sales: 112, deductions: [{ label: '販売手数料', amount: 11 }], profit: 101 };
+    expect(requiredPriceEquationText(equation, profitLabel('used'))).toBe(
+      '売上 112 − 販売手数料 11 = 純利益 101 円',
+    );
+  });
+
+  it('引かれる項が複数あれば並べて出す', () => {
+    const equation = {
+      sales: 2000,
+      deductions: [
+        { label: '送料', amount: 200 },
+        { label: '販売手数料', amount: 200 },
+      ],
+      profit: 1600,
+    };
+    expect(requiredPriceEquationText(equation, profitLabel('sourced'))).toContain(
+      '− 販売手数料 200 = 利益 1600 円',
+    );
   });
 });
 

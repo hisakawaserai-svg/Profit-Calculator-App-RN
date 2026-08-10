@@ -36,6 +36,14 @@ export type ThemeColors = {
   purple: string;
   /** disabled 時に入力欄へかぶせる地色 */
   disabledBackground: string;
+  /**
+   * 内容の上に重ねる固定バーの地色（UI-SPEC §1.1-2 / §1.1-7）。
+   *
+   * 設計案は「半透明地＋境界線でリストから浮かせる」だが、素の半透明色では下の
+   * 結果額がバーの数字に重なって二重に見えるため、地色は不透明にして境界線で浮かせる。
+   * iOS 純正バーの半透明はブラー（背景をぼかす処理）であって単純な α 合成ではない。
+   */
+  barBackground: string;
 };
 
 const light: ThemeColors = {
@@ -54,6 +62,7 @@ const light: ThemeColors = {
   indigo: '#5856D6',
   purple: '#AF52DE',
   disabledBackground: 'rgba(120, 120, 128, 0.12)',
+  barBackground: '#F2F2F7',
 };
 
 const dark: ThemeColors = {
@@ -72,6 +81,7 @@ const dark: ThemeColors = {
   indigo: '#5E5CE6',
   purple: '#BF5AF2',
   disabledBackground: 'rgba(120, 120, 128, 0.24)',
+  barBackground: '#000000',
 };
 
 export const themes = { light, dark };
