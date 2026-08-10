@@ -10,7 +10,6 @@
 // 用語の説明なので、種別語（純利益 / 利益）が最初に出てくる計算タブの説明の直後に置く。
 // 文中の表示語は labels.ts の確定値と一致させること（§5.3）。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -107,7 +106,7 @@ const SECTIONS: HelpSection[] = [
         colorKey: 'gray',
         title: '最初に選ばれる種別を変える',
         content:
-          '計算タブの右上にある歯車ボタンから設定を開き、「新規作成時の種別」で選べます。新しく記録を追加するときに最初に選ばれている種別が変わるだけで、保存済みの記録の種別は変わりません。1件ずつの種別は、記録の編集画面でいつでも変えられます。',
+          '設定タブを開き、「新規作成時の種別」で選べます。新しく記録を追加するときに最初に選ばれている種別が変わるだけで、保存済みの記録の種別は変わりません。1件ずつの種別は、記録の編集画面でいつでも変えられます。',
       },
     ],
   },
@@ -180,33 +179,31 @@ export function HelpScreen() {
   const colors = useThemeColors();
 
   return (
-    <>
-      {/* タブのラベル（'ヘルプ'）は _layout.tsx の title のまま残し、ヘッダーだけ上書きする */}
-      <Tabs.Screen options={{ headerTitle: '使いかたガイド' }} />
-      <ScrollView
-        style={{ backgroundColor: colors.background }}
-        contentContainerStyle={styles.scrollContent}>
-        {SECTIONS.map((section) => (
-          <Accordion
-            key={section.title}
-            accessibilityLabel={section.title}
-            label={
-              <View style={styles.sectionLabel}>
-                <Ionicons name={section.icon} size={22} color={colors[section.colorKey]} />
-                <Text style={[styles.sectionTitle, { color: colors[section.colorKey] }]}>
-                  {section.title}
-                </Text>
-              </View>
-            }>
-            <View style={styles.itemList}>
-              {section.items.map((item) => (
-                <HelpContentRow key={item.title} item={item} />
-              ))}
+    // ヘッダーのタイトルは表示元（設定タブ配下の使いかた / 将来は各画面の「？」のシート）が付ける。
+    // この画面自身は特定のナビゲータに結び付かない（UI-SPEC §5-9）。
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={styles.scrollContent}>
+      {SECTIONS.map((section) => (
+        <Accordion
+          key={section.title}
+          accessibilityLabel={section.title}
+          label={
+            <View style={styles.sectionLabel}>
+              <Ionicons name={section.icon} size={22} color={colors[section.colorKey]} />
+              <Text style={[styles.sectionTitle, { color: colors[section.colorKey] }]}>
+                {section.title}
+              </Text>
             </View>
-          </Accordion>
-        ))}
-      </ScrollView>
-    </>
+          }>
+          <View style={styles.itemList}>
+            {section.items.map((item) => (
+              <HelpContentRow key={item.title} item={item} />
+            ))}
+          </View>
+        </Accordion>
+      ))}
+    </ScrollView>
   );
 }
 

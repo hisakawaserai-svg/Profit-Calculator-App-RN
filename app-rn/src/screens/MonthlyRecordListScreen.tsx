@@ -60,8 +60,8 @@ const SORT_OPTIONS: SheetOption<SortTypeMonthly>[][] = [
 /** リセット時に戻すソート（Swift 版 resetFilter と同じく販売日降順） */
 const DEFAULT_SORT: SortTypeMonthly = 'saleDateDesc';
 
-/** 月別詳細のルート。タブごとに Stack が分かれているので呼び出し側から渡す */
-export type MonthDetailPathname = '/listings/[monthKey]' | '/sold/[monthKey]';
+/** 月別詳細のルート。出品中 / 実績でルートが分かれているので呼び出し側から渡す */
+export type MonthDetailPathname = '/records/listings/[monthKey]' | '/records/sold/[monthKey]';
 
 type Props = {
   /** true = 実績タブ（売却済み） / false = 出品中タブ */

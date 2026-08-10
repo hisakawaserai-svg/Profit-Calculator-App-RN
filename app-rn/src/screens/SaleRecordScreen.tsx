@@ -46,8 +46,8 @@ type SortType =
   | 'itemName'
   | 'netProfitDesc';
 
-/** レコード詳細のルート。タブごとに Stack が分かれているので呼び出し側から渡す */
-export type RecordDetailPathname = '/listings/record/[id]' | '/sold/record/[id]';
+/** レコード詳細のルート。記録タブの Stack 1 本になったので実質 1 つだが、呼び出し側から渡す形は保つ */
+export type RecordDetailPathname = '/records/record/[id]';
 
 type Props = {
   /** true = 実績タブ（売却済み） / false = 出品中タブ */

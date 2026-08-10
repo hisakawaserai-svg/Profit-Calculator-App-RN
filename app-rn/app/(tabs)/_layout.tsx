@@ -5,13 +5,26 @@ import type { ColorValue } from 'react-native';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-// SPEC.md §3.1 の 5 タブ構成。アイコンは元アプリの SF Symbols に近い Ionicons を選定:
-//   function → calculator / shippingbox → cube / yensign.circle → logo-yen
-//   chart.bar → bar-chart / questionmark.circle → help-circle
-function tabIcon(focused: IoniconName, unfocused: IoniconName) {
-  return ({ color, size, focused: isFocused }: { color: ColorValue; size: number; focused: boolean }) => (
-    <Ionicons name={isFocused ? focused : unfocused} size={size} color={color} />
-  );
+// UI-SPEC §2 / §6-8 の 4 タブ構成（計算・記録・データ・設定）。
+// アイコンは元アプリの SF Symbols に近い Ionicons を選定:
+//   function → calculator / list.bullet.rectangle → receipt
+//   chart.bar → bar-chart / gearshape → settings
+// 選択中は塗り、非選択は outline。返す関数に名前を付けているのは、
+// 無名の関数コンポーネントだと react/display-name に引っかかるため。
+function tabIcon(focusedName: IoniconName, unfocusedName: IoniconName) {
+  function TabBarIcon({
+    color,
+    size,
+    focused,
+  }: {
+    color: ColorValue;
+    size: number;
+    focused: boolean;
+  }) {
+    return <Ionicons name={focused ? focusedName : unfocusedName} size={size} color={color} />;
+  }
+
+  return TabBarIcon;
 }
 
 export default function TabLayout() {
@@ -21,21 +34,13 @@ export default function TabLayout() {
         name="index"
         options={{ title: '計算', tabBarIcon: tabIcon('calculator', 'calculator-outline') }}
       />
-      {/* 出品中・実績はタブ内に Stack を持ち（月別詳細へのプッシュ遷移。SPEC §3.3）、
+      {/* 記録・設定はタブ内に Stack を持ち（月別詳細・使いかたへのプッシュ遷移。UI-SPEC §2）、
           ヘッダーはその Stack 側が出すのでタブのヘッダーは切る */}
       <Tabs.Screen
-        name="listings"
+        name="records"
         options={{
-          title: '出品中',
-          tabBarIcon: tabIcon('cube', 'cube-outline'),
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="sold"
-        options={{
-          title: '実績',
-          tabBarIcon: tabIcon('logo-yen', 'logo-yen'),
+          title: '記録',
+          tabBarIcon: tabIcon('receipt', 'receipt-outline'),
           headerShown: false,
         }}
       />
@@ -44,8 +49,12 @@ export default function TabLayout() {
         options={{ title: 'データ', tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline') }}
       />
       <Tabs.Screen
-        name="help"
-        options={{ title: 'ヘルプ', tabBarIcon: tabIcon('help-circle', 'help-circle-outline') }}
+        name="settings"
+        options={{
+          title: '設定',
+          tabBarIcon: tabIcon('settings', 'settings-outline'),
+          headerShown: false,
+        }}
       />
     </Tabs>
   );

@@ -2,7 +2,7 @@
 // - 計算は src/logic/profit.ts の純粋関数のみを使用し、画面内で式を再実装しない。
 // - 決定 §7-14 により iPad/Mac の 2 ペインレイアウトは移植せず、iPhone 縦 1 カラムのみ。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -39,12 +39,11 @@ const TAB_TARGET_PROFIT = 1;
 
 export default function CalcScreen() {
   const colors = useThemeColors();
-  const router = useRouter();
   const { defaultRecordKind } = useSettings();
 
   // 種別は画面ローカルの state（レコードではない。SPEC-V2 §1.3）。初期値は設定値（§1.4）
   const [kind, setKind] = useState<RecordKind>(defaultRecordKind);
-  // このタブの歯車から設定を変えたときは、背後のこの画面も新しい既定種別に合わせる。
+  // 設定タブで既定種別を変えたときは、このタブに戻ったとき新しい既定種別に合わせる。
   // レンダー中に直す形にしているのは React 公式の「props が変わったら state を調整する」手順
   // （効果で setState すると 1 度古い値で描画してから再レンダーになる）。
   const [syncedDefaultKind, setSyncedDefaultKind] = useState<RecordKind>(defaultRecordKind);
@@ -102,7 +101,6 @@ export default function CalcScreen() {
   };
 
   const prepareNewRecord = useCallback(() => setShowForm(true), []);
-  const openSettings = useCallback(() => router.push('/settings'), [router]);
 
   const screenOptions = useMemo(
     () => ({
@@ -116,14 +114,10 @@ export default function CalcScreen() {
           <Pressable onPress={prepareNewRecord} hitSlop={8} accessibilityLabel="記録を追加">
             <Ionicons name="add" size={26} color={colors.blue} />
           </Pressable>
-          {/* 設定モーダルの入口（SPEC-V2 §3.3）。ヘッダのボタンはリセット・＋・歯車の 3 つ */}
-          <Pressable onPress={openSettings} hitSlop={8} accessibilityLabel="設定">
-            <Ionicons name="settings-outline" size={22} color={colors.blue} />
-          </Pressable>
         </View>
       ),
     }),
-    [colors.blue, openSettings, prepareNewRecord, resetAllFields],
+    [colors.blue, prepareNewRecord, resetAllFields],
   );
 
   return (

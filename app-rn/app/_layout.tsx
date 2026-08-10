@@ -35,9 +35,8 @@ export default function RootLayout() {
     // アプリ全体を GestureHandlerRootView で包む
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack>
+        {/* 設定はモーダルからタブへ昇格したので（UI-SPEC §6-8）、ルート直下は (tabs) だけ */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* 設定はタブを増やさずモーダルで開く（SPEC-V2 §3.3）。入口は計算タブの歯車 */}
-        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
       </Stack>
     </GestureHandlerRootView>
   );
