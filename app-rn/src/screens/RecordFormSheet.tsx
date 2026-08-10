@@ -44,7 +44,7 @@ import { StepperButtons } from '@/components/Stepper';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
 import type { SaleRecord } from '@/db/schema';
 import { saveRecord } from '@/db/useRecords';
-import { formatRecordDate, formatShortDate, formatYen } from '@/logic/format';
+import { formatRecordDate, formatYen } from '@/logic/format';
 import {
   CANCEL_LABEL,
   EDIT_RECORD_TITLE,
@@ -72,8 +72,7 @@ import {
   deductionLabel,
   memoSectionLabel,
   profitLabel,
-  soldDatePickerNote,
-  soldDatePickerSingleDayNote,
+  soldDateNotes,
   switchStatusLabel,
   todayDateLabel,
 } from '@/logic/labels';
@@ -223,8 +222,9 @@ function RecordForm({
       : formatRecordDate(value);
   // 畳んだ見出しに出すのは、その状態で意味を持つほうの日付（出品中に販売日はない）
   const primaryDate = values.isSold ? values.saleDate : values.saleStartDate;
-  // 出品日をこのフォームで動かせるので、範囲は入力中の出品日から引き直す（§8.5）
+  // 出品日をこのフォームで動かせるので、範囲と「選べない理由」は入力中の出品日から引き直す（§8.5）
   const soldDateRange = saleDateRange(values.saleStartDate, today);
+  const soldDateNoteText = soldDateNotes(values.saleStartDate, today);
 
   return (
     <KeyboardAvoidingView
@@ -400,11 +400,10 @@ function RecordForm({
                 // 詳細画面と同じカレンダーを開く（§8.10）。同じ日付を入れる欄が
                 // 画面ごとに違うピッカーだと、選べない理由の説明も画面ごとに変わってしまう
                 flagDate={values.saleStartDate}
-                note={
-                  daysBetween(values.saleStartDate, today) < 0
-                    ? soldDatePickerSingleDayNote(formatShortDate(values.saleStartDate))
-                    : soldDatePickerNote(formatShortDate(values.saleStartDate))
-                }
+                note={soldDateNoteText.calendar}
+                // 当日出品なら「昨日」「一昨日」が落ちる（§8.10.1）。淡くするだけでは
+                // 不具合と読まれるので、理由の一行を行の中にも出す（§8.10.5）
+                chipsNote={soldDateNoteText.chips}
               />
             )}
             {/* 出品日は過去に下限がなく、落ちるのは未来だけ（§8.10.4）。

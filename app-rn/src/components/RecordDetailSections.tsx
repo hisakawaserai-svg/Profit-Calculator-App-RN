@@ -21,7 +21,7 @@ import { DateChips } from '@/components/DateChips';
 import { fromDbDate } from '@/db/dates';
 import { dayChips } from '@/logic/calendar';
 import type { SaleRecord } from '@/db/schema';
-import { formatRecordDate, formatShortDate, formatYen } from '@/logic/format';
+import { formatRecordDate, formatYen } from '@/logic/format';
 import {
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   EXPENSES_LABEL,
@@ -39,8 +39,7 @@ import {
   deductionLabel,
   profitLabel,
   recordKindLabel,
-  soldDatePickerNote,
-  soldDatePickerSingleDayNote,
+  soldDateNotes,
   todayDateLabel,
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
@@ -331,6 +330,8 @@ function SoldDateRow({
   const text = isToday ? todayDateLabel(formatRecordDate(value)) : formatRecordDate(value);
   const range = saleDateRange(saleStartDate, today);
   const chips = dayChips({ today, range: { min: range.min, max: range.max }, selected: value });
+  // 淡色のチップと理由の一行は 1 組（§8.10.5）。語は記録フォームの販売日の行と同じ
+  const notes = soldDateNotes(saleStartDate, today);
 
   /** 行に触れた時点でハイライトは役目を終える（§8.3）。チップで直した場合も同じ */
   const changeValue = (next: Date) => {
@@ -365,7 +366,7 @@ function SoldDateRow({
           </Pressable>
         </View>
 
-        <DateChips chips={chips} onSelect={changeValue} />
+        <DateChips chips={chips} onSelect={changeValue} note={notes.chips} />
       </View>
 
       {showPicker && (
@@ -379,13 +380,7 @@ function SoldDateRow({
           today={today}
           // 範囲の下端がどこかを盤面の上でも示す（§8.10 の「出品日に小さな旗」）
           flagDate={saleStartDate}
-          note={
-            // 出品日が未来の記録では範囲が出品日 1 日しかない（§8.5 派生決定 3）ので、
-            // 「今日より後は選べない」と言っても淡いマスの説明になっていない
-            daysBetween(saleStartDate, today) < 0
-              ? soldDatePickerSingleDayNote(formatShortDate(saleStartDate))
-              : soldDatePickerNote(formatShortDate(saleStartDate))
-          }
+          note={notes.calendar}
         />
       )}
     </>

@@ -12,7 +12,8 @@
 import type { RecordKind } from '@/db/schema';
 
 import type { MetricType } from './analytics';
-import { formatElapsedDays, formatYenTight } from './format';
+import { formatElapsedDays, formatShortDate, formatYenTight } from './format';
+import { daysBetween } from './listingDays';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -439,6 +440,46 @@ export function soldDatePickerNote(listedDateText: string): string {
  */
 export function soldDatePickerSingleDayNote(listedDateText: string): string {
   return `${LISTED_DATE_FIELD_LABEL}（${listedDateText}）だけが選べます`;
+}
+
+/**
+ * **日付行のチップ**の淡色の理由を出す一行（UI-SPEC §8.10.1 / §8.10.5）。
+ *
+ * カレンダーの一行（soldDatePickerNote）と別の語にしてあるのは、**行とシートで
+ * 淡くなっているものが違う**ため ── シートの盤面には未来の日も並ぶが、チップは
+ * 今日・昨日・一昨日の 3 つしかなく、落ちるのは必ず下限（出品日）側だけ。
+ * 行に「今日より後は選べません」と書くと、対応する淡いチップが画面になく、
+ * 読んだ人は在りもしない選択肢を探すことになる。
+ */
+export function soldDateChipsNote(listedDateText: string): string {
+  return `${LISTED_DATE_FIELD_LABEL}（${listedDateText}）より前は選べません`;
+}
+
+/**
+ * 売れた日の欄に出す「選べない理由」の一行 2 種（UI-SPEC §8.10）。
+ *
+ * 記録フォームの販売日とレコード詳細の売れた日で**同じ語**にするため、出し分けをここに置く
+ * （画面で組み立てない。§0）。同じ制約の説明が画面ごとに違うと、利用者は別の制約だと読む。
+ *
+ * `calendar` は盤面用（両端の制約）、`chips` は行のチップ用（下限だけ。上記参照）。
+ * 出品日が未来のときだけ、どちらも「出品日だけが選べます」に寄せる ── 選べる日が 1 日しかなく、
+ * そこでは「〜より前は選べません」が淡色の説明になっていない（§8.5 派生決定 3）。
+ */
+export function soldDateNotes(
+  saleStartDate: Date,
+  today: Date,
+): { calendar: string; chips: string } {
+  const listedDateText = formatShortDate(saleStartDate);
+
+  if (daysBetween(saleStartDate, today) < 0) {
+    const singleDay = soldDatePickerSingleDayNote(listedDateText);
+    return { calendar: singleDay, chips: singleDay };
+  }
+
+  return {
+    calendar: soldDatePickerNote(listedDateText),
+    chips: soldDateChipsNote(listedDateText),
+  };
 }
 
 /**

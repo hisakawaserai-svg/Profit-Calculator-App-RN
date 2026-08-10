@@ -51,6 +51,17 @@ type Props = RangeProps & {
   flagDate?: Date | null;
   /** カレンダーに出す「選べない理由」の一行（§8.10.2） */
   note?: string;
+  /**
+   * **行のチップ**が淡色のときにその理由を出す一行（§8.10.1 / §8.10.5）。
+   *
+   * 淡色にするところまでで止めると「押せないのは不具合では」と読まれる ── 淡色と理由の一行は
+   * 1 組（§8.10.5）。カレンダーの `note` と語が違うのは、行とシートで淡くなっているものが
+   * 違うため（labels.soldDateChipsNote 参照）。
+   *
+   * 出るのは**実際にどれかのチップが落ちているときだけ**。全部押せる行に
+   * 「〜は選べません」と書くと、無い制約を探させることになる。
+   */
+  chipsNote?: string;
 };
 
 export function DateField({
@@ -65,6 +76,7 @@ export function DateField({
   maxDate,
   flagDate,
   note,
+  chipsNote,
 }: Props) {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
@@ -97,7 +109,7 @@ export function DateField({
       </View>
 
       {/* 押した時点で値が決まる（確定操作は挟まない。§8.10.1）。範囲外は淡色で押せない */}
-      <DateChips chips={chips} onSelect={onChangeValue} />
+      <DateChips chips={chips} onSelect={onChangeValue} note={chipsNote} />
 
       {/* 開いている間だけマウントして、盤面の位置を現在の値で初期化する */}
       {showPicker && (

@@ -10,6 +10,11 @@
 //
 // 範囲外のチップは**消さずに淡色で残す**（§8.10 の方針 3）。落とすと並びが日によって変わり、
 // 「昨日」を押したつもりで「一昨日」を押す事故が起きる。
+//
+// **淡色と理由の一行は 1 組**（§8.10.5）。淡くするところで止めると「押せないのは不具合では」と
+// 読まれる ── 実際、当日出品の記録で「昨日」「一昨日」が落ちるのをバグと受け取られた。
+// 理由を出すかどうかを呼び出し側の判断に委ねないよう、**組にする責任はこの部品が持つ**：
+// note を渡してあれば、落ちたチップがあるときにだけ自動で出す。
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { DayChip } from '@/logic/calendar';
@@ -18,45 +23,58 @@ import { useThemeColors } from '@/theme';
 export function DateChips({
   chips,
   onSelect,
+  note,
   style,
 }: {
   chips: DayChip[];
   onSelect: (value: Date) => void;
+  /**
+   * 落ちたチップがあるときに下へ出す理由の一行。**全部押せるときは出さない** ──
+   * 無い制約を書くと、対応する淡いチップを画面の中に探させることになる。
+   */
+  note?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useThemeColors();
+  const hasDisabled = chips.some((chip) => !chip.selectable);
 
   return (
-    <View style={[styles.row, style]}>
-      {chips.map((chip) => (
-        <Pressable
-          key={chip.offset}
-          onPress={() => onSelect(chip.date)}
-          disabled={!chip.selectable}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !chip.selectable, selected: chip.isSelected }}
-          style={({ pressed }) => [
-            styles.chip,
-            {
-              backgroundColor: chip.isSelected ? colors.blue : colors.disabledBackground,
-              opacity: pressed && chip.selectable ? 0.5 : 1,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.label,
+    <View style={style}>
+      <View style={styles.row}>
+        {chips.map((chip) => (
+          <Pressable
+            key={chip.offset}
+            onPress={() => onSelect(chip.date)}
+            disabled={!chip.selectable}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !chip.selectable, selected: chip.isSelected }}
+            style={({ pressed }) => [
+              styles.chip,
               {
-                color: chip.isSelected
-                  ? '#FFFFFF'
-                  : chip.selectable
-                    ? colors.label
-                    : colors.mutedLabel,
+                backgroundColor: chip.isSelected ? colors.blue : colors.disabledBackground,
+                opacity: pressed && chip.selectable ? 0.5 : 1,
               },
             ]}>
-            {chip.label}
-          </Text>
-        </Pressable>
-      ))}
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: chip.isSelected
+                    ? '#FFFFFF'
+                    : chip.selectable
+                      ? colors.label
+                      : colors.mutedLabel,
+                },
+              ]}>
+              {chip.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {note != null && hasDisabled && (
+        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{note}</Text>
+      )}
     </View>
   );
 }
@@ -65,6 +83,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 6,
+  },
+  note: {
+    fontSize: 12,
+    paddingTop: 6,
   },
   chip: {
     paddingHorizontal: 12,

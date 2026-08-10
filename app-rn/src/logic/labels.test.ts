@@ -44,6 +44,8 @@ import {
   requiredPriceFormulaLines,
   requiredPriceSummary,
   revertToListingConfirmTitle,
+  soldDateChipsNote,
+  soldDateNotes,
   soldDatePickerNote,
   soldDatePickerSingleDayNote,
   switchStatusLabel,
@@ -363,5 +365,35 @@ describe('UI-SPEC §8.10 カレンダーの語（案 16d）', () => {
 
   it('出品日が未来のときは選べる日が 1 日しかないと言う（§8.5 派生決定 3）', () => {
     expect(soldDatePickerSingleDayNote('8/20')).toBe('出品日（8/20）だけが選べます');
+  });
+});
+
+describe('UI-SPEC §8.10.1 行のチップの「選べない理由」', () => {
+  const at = (year: number, month: number, day: number) => new Date(year, month - 1, day, 12);
+  const today = at(2026, 8, 10);
+
+  it('行のチップは下限だけを名指しする（未来のチップは存在しないので触れない）', () => {
+    expect(soldDateChipsNote('8/9')).toBe('出品日（8/9）より前は選べません');
+    expect(soldDateChipsNote('8/9')).not.toContain('今日より後');
+  });
+
+  it('カレンダーの一行とは別の語 ── 行とシートで淡くなっているものが違う', () => {
+    const notes = soldDateNotes(at(2026, 8, 9), today);
+
+    expect(notes.chips).not.toBe(notes.calendar);
+    expect(notes.calendar).toContain('今日より後');
+  });
+
+  it('当日出品（選べるのが「今日」だけ）でも同じ言い方で説明が付く', () => {
+    // 「昨日」「一昨日」が落ちる状態。理由が出ないと押せないのが不具合に見える
+    expect(soldDateNotes(today, today).chips).toBe('出品日（8/10）より前は選べません');
+  });
+
+  it('出品日が未来なら「出品日だけが選べます」に寄せる（「より前」では説明にならない）', () => {
+    const notes = soldDateNotes(at(2026, 8, 20), today);
+
+    expect(notes.chips).toBe('出品日（8/20）だけが選べます');
+    // 3 つとも落ちる状態なので、盤面と行で同じ言い方になる
+    expect(notes.chips).toBe(notes.calendar);
   });
 });
