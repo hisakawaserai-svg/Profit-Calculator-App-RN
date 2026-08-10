@@ -308,6 +308,7 @@ TabView（4 タブ）
 | `app/(tabs)/settings/help.tsx` | 使いかた（ヘルプタブから移動） |
 | `src/screens/RecordListScreen.tsx` | `MonthlyRecordListScreen` と `SaleRecordScreen` を統合した 1 画面 |
 | `src/components/MonthNavBar.tsx` | `◀ YYYY年M月 ▾ ▶`。記録タブ・データタブで共用 |
+| `src/components/PeriodSheet.tsx` | 期間シート（全期間 / 各月）。`MonthNavBar` と対で記録タブ・データタブが共用する（§1.2） |
 | `src/components/SummaryBar.tsx` | 固定の合計行（2〜3 値＋右端チップ） |
 | `src/components/FilterChip.tsx` | 状態チップ・種別チップ |
 | `src/components/CollapsibleSection.tsx` | 折りたたみ（内訳・梱包材・メモ） |
@@ -324,6 +325,7 @@ TabView（4 タブ）
 | ファイル | 内容 |
 |---|---|
 | `app/(tabs)/_layout.tsx` | 5 タブ → 4 タブ（計算・記録・データ・設定） |
+| `app/(tabs)/records/_layout.tsx` | `unstable_settings.anchor = 'index'`。データタブの行タップが同じ [id] ルートへ入る（§2）ための起点の宣言。データタブ側は `router.push(…, { withAnchor: true })` で押す。**両方ないと記録タブの Stack が詳細 1 枚に置き換わり、戻るボタンもスワイプバックも出ないまま詰む**（実機で確認） |
 | `app/(tabs)/index.tsx` | 結果を上部へ・固定バー・逆算を対等な 2 択に・折りたたみ・下端に記録ボタン・歯車の削除 |
 | `src/screens/SaleRecordDetailScreen.tsx` | カードをレシート型に（案 `3d`）。下部 1 件サマリーを削除。状態切替の配線（§8） |
 | `src/components/RecordDetailSections.tsx` | レシート型に伴う再構成。売却トグル → 状態別ボタン＋「売れた日」の行（§8） |

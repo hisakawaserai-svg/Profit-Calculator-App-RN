@@ -53,38 +53,23 @@ export function monthKeysBetween(from: string, to: string): string[] {
   return keys;
 }
 
-/** その日の 00:00:00.000。DataView の期間開始（決定 §7-10） */
-export function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-}
-
-/** その日の 23:59:59.999。DataView の期間終了（決定 §7-10: 終了日当日ぶんを漏らさない） */
-export function endOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
-}
+// その日の 00:00:00.000 / 23:59:59.999 を作る startOfDay / endOfDay は、
+// データタブの期間指定（startDate / endDate の自由指定）の廃止で参照元がなくなったため削除した
+// （UI-SPEC §5-5 / §6-10）。期間は月キー（または全期間）だけになり、
+// 月の絞り込みは一覧と同じ substr(値, 1, 7) の等値比較で済むので、境界の正規化そのものが要らない。
 
 /**
- * DataView の集計キーとして販売日から切り出す先頭文字数（SPEC §6.2）。
- * 保存形式 "YYYY-MM-DDTHH:mm:ss.SSS"（23 文字）が前提。
- * 明細は丸めなしなので全文字＝販売日そのものがキーになる。
+ * データタブの集計キーとして販売日から切り出す先頭文字数（UI-SPEC §5-5）。
+ * 保存形式 "YYYY-MM-DDTHH:mm:ss.SSS" が前提。
  */
 export const CHART_KEY_LENGTH: Record<ChartUnit, number> = {
-  record: 23, // YYYY-MM-DDTHH:mm:ss.SSS（丸めなし）
   day: 10, // YYYY-MM-DD
   month: 7, // YYYY-MM
-  year: 4, // YYYY
 };
 
-/** 集計キー → その単位の代表日（日別 = その日 0:00 / 月別 = 月初 / 年別 = 年初。SPEC §6.2） */
+/** 集計キー → その刻みの代表日（日ごと = その日 0:00 / 月ごと = 月初） */
 export function chartKeyToDate(key: string, unit: ChartUnit): Date {
-  switch (unit) {
-    case 'record':
-      return fromDbDate(key);
-    case 'day':
-      return fromDbDate(`${key}T00:00:00.000`);
-    case 'month':
-      return fromDbDate(`${key}-01T00:00:00.000`);
-    case 'year':
-      return fromDbDate(`${key}-01-01T00:00:00.000`);
-  }
+  return unit === 'day'
+    ? fromDbDate(`${key}T00:00:00.000`)
+    : fromDbDate(`${key}-01T00:00:00.000`);
 }

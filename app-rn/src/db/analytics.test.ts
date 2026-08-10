@@ -1,4 +1,4 @@
-// SPEC.md §6.2（DataView の集計）を repository のレベルで検証する。
+// SPEC.md §6.2 / UI-SPEC §1.5（データタブの集計）を repository のレベルで検証する。
 //
 // アプリ本体と同じ schema / migration / repository を、expo-sqlite の代わりに
 // better-sqlite3（インメモリ）で動かす（scripts/db-smoke-test.ts と同じ構成）。
@@ -17,7 +17,6 @@ import { netProfit, totalExpenses } from '../logic/profit';
 import {
   createRepository,
   type AnalyticsFilter,
-  type AnalyticsRange,
   type Repository,
   type SaveRecordInput,
 } from './repository';
@@ -27,8 +26,10 @@ import * as schema from './schema';
  * 期間だけの集計条件。種別フィルタ（SPEC-V2 §4.2）が入って引数が AnalyticsFilter に
  * 変わったので、種別を見ない既存のケースはこれで包む（kind 省略 = すべて）。
  * 種別で絞るケースは repository.test.ts 側に置く。
+ *
+ * 期間は開始・終了日の自由指定から月キーに変わった（UI-SPEC §5-5）。null = 全期間。
  */
-const period = (range: AnalyticsRange): AnalyticsFilter => ({ range });
+const period = (monthKey: string | null): AnalyticsFilter => ({ monthKey });
 
 const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'saleDate'> = {
   // 仕入価格を持つフィクスチャなので仕入品。不用品にすると §2.4 の正規化で 0 になる
@@ -136,11 +137,11 @@ const sumProfit = (keys: (keyof typeof created)[]) =>
 const sumExpenses = (keys: (keyof typeof created)[]) =>
   keys.reduce((acc, key) => acc + totalExpenses(created[key]), 0);
 
-/** 2026-08-03 〜 2026-08-09。境界ちょうどの 2 件を含む期間 */
-const augRange = { startDate: d(2026, 8, 3), endDate: d(2026, 8, 9) };
+/** 8 月（2026-08）。日をまたぐ端の 2 件（00:10 と 23:30）を含む月 */
+const AUGUST = '2026-08';
 
 describe('§6.2 対象レコード: isSold = true かつ saleDate 非 null のみ', () => {
-  it('全期間（range = null）の合計に出品中は含まれない', () => {
+  it('全期間（monthKey = null）の合計に出品中は含まれない', () => {
     const summary = repo.analyticsSummary(period(null));
     expect(summary.recordCount).toBe(5);
     expect(summary.totalSales).toBeCloseTo(
@@ -150,30 +151,31 @@ describe('§6.2 対象レコード: isSold = true かつ saleDate 非 null の�
   });
 });
 
-describe('決定 §7-10 期間の境界: 開始日 00:00:00 〜 終了日 23:59:59.999 の閉区間', () => {
-  it('終了日その日の 23:30 の売却が含まれる（Swift 版で漏れ得たケース）', () => {
-    const details = repo.analyticsDetails(period(augRange), 'day', '2026-08-09', 'sales');
-    expect(details.map((r) => r.itemName)).toEqual(['腕時計']);
+describe('UI-SPEC §5-5 期間は販売日の月キーの完全一致', () => {
+  it('その月の端（00:10 / 23:30）の売却も同じ月に入る', () => {
+    // 旧実装は開始日 00:00:00 〜 終了日 23:59:59.999 の閉区間を自前で組んでいた（旧・決定 §7-10）。
+    // 月キーの前方一致にしたことで、時刻に関わらずその月のものはすべて入る
+    expect(repo.analyticsDetails(period(AUGUST), 'day', '2026-08-03').map((r) => r.itemName)).toEqual([
+      'スニーカー',
+    ]);
+    expect(repo.analyticsDetails(period(AUGUST), 'day', '2026-08-09').map((r) => r.itemName)).toEqual([
+      '腕時計',
+    ]);
   });
 
-  it('開始日その日の 00:10 の売却も含まれる', () => {
-    const details = repo.analyticsDetails(period(augRange), 'day', '2026-08-03', 'sales');
-    expect(details.map((r) => r.itemName)).toEqual(['スニーカー']);
-  });
-
-  it('期間外（7 月・前年）は集計から外れる', () => {
-    const summary = repo.analyticsSummary(period(augRange));
+  it('ほかの月（7 月・前年）は集計から外れる', () => {
+    const summary = repo.analyticsSummary(period(AUGUST));
     expect(summary.recordCount).toBe(2);
     expect(summary.totalSales).toBeCloseTo(sumSales(['aug1', 'aug2']), 9);
   });
 
-  it('開始日と終了日が同じ日でも、その日ぶんはすべて入る', () => {
-    const oneDay = { startDate: d(2026, 8, 9), endDate: d(2026, 8, 9) };
-    expect(repo.analyticsSummary(period(oneDay)).recordCount).toBe(1);
+  it('年をまたいでも月キーの完全一致で絞られる（2025-03 と 2026-03 が混ざらない）', () => {
+    expect(repo.analyticsSummary(period('2025-03')).recordCount).toBe(1);
+    expect(repo.analyticsSummary(period('2026-03')).recordCount).toBe(0);
   });
 });
 
-describe('§6.2 サマリーカード: totalNetProfit = totalSales − totalExpenses', () => {
+describe('§6.2 合計行: totalNetProfit = totalSales − totalExpenses', () => {
   it('合算値は丸めずに返る（丸めは表示側。決定 §7-2）', () => {
     const summary = repo.analyticsSummary(period(null));
     const expected = sumProfit(['july1', 'july2', 'aug1', 'aug2', 'prevYear']);
@@ -187,21 +189,19 @@ describe('§6.2 サマリーカード: totalNetProfit = totalSales − totalExpe
   });
 
   it('totalNetProfit は Σ netProfit と一致する（§6.2 の「等価」）', () => {
-    const summary = repo.analyticsSummary(period(augRange));
+    const summary = repo.analyticsSummary(period(AUGUST));
     expect(summary.totalSales - summary.totalExpenses).toBeCloseTo(summary.totalNetProfit, 9);
     expect(summary.totalNetProfit).toBeCloseTo(sumProfit(['aug1', 'aug2']), 9);
   });
 
-  it('赤字レコードも合算される（純利益はマイナスになり得る）', () => {
-    const range = { startDate: d(2025, 3, 1), endDate: d(2025, 3, 31) };
-    const summary = repo.analyticsSummary(period(range));
+  it('赤字レコードも合算される（収支はマイナスになり得る）', () => {
+    const summary = repo.analyticsSummary(period('2025-03'));
     expect(summary.totalNetProfit).toBeCloseTo(sumProfit(['prevYear']), 9);
     expect(summary.totalNetProfit).toBeLessThan(0);
   });
 
   it('対象 0 件なら合計は 0（coalesce）', () => {
-    const empty = { startDate: d(2020, 1, 1), endDate: d(2020, 1, 31) };
-    expect(repo.analyticsSummary(period(empty))).toEqual({
+    expect(repo.analyticsSummary(period('2020-01'))).toEqual({
       totalSales: 0,
       totalExpenses: 0,
       totalNetProfit: 0,
@@ -210,21 +210,9 @@ describe('§6.2 サマリーカード: totalNetProfit = totalSales − totalExpe
   });
 });
 
-describe('§6.2 チャート集計: 単位ごとの日付キーに丸めて合算', () => {
-  it('明細は丸めなし（同じ日の 2 件が別の点になる）', () => {
-    const series = repo.analyticsSeries(period(null), 'record');
-    expect(series).toHaveLength(5);
-    // 日付キーの昇順
-    expect(series.map((p) => p.date.getTime())).toEqual(
-      [...series.map((p) => p.date.getTime())].sort((a, b) => a - b),
-    );
-    expect(series[1].date).toEqual(d(2026, 7, 5));
-    expect(series[1].recordCount).toBe(1);
-  });
-
-  it('日別は startOfDay に丸める（同じ日の 2 件が 1 点にまとまる）', () => {
-    const july = { startDate: d(2026, 7, 1), endDate: d(2026, 7, 31) };
-    const series = repo.analyticsSeries(period(july), 'day');
+describe('§6.2 チャート集計: 刻みごとの日付キーに丸めて合算', () => {
+  it('日ごとは startOfDay に丸める（同じ日の 2 件が 1 点にまとまる）', () => {
+    const series = repo.analyticsSeries(period('2026-07'), 'day');
     expect(series).toHaveLength(1);
     expect(series[0].key).toBe('2026-07-05');
     expect(series[0].date).toEqual(new Date(2026, 6, 5, 0, 0, 0, 0));
@@ -233,24 +221,16 @@ describe('§6.2 チャート集計: 単位ごとの日付キーに丸めて合�
     expect(series[0].profit).toBeCloseTo(sumProfit(['july1', 'july2']), 9);
   });
 
-  it('月別は月初日に丸める', () => {
+  it('月ごとは月初日に丸める（全期間で使う刻み。§5-5）', () => {
     const series = repo.analyticsSeries(period(null), 'month');
     expect(series.map((p) => p.key)).toEqual(['2025-03', '2026-07', '2026-08']);
     expect(series[1].date).toEqual(new Date(2026, 6, 1, 0, 0, 0, 0));
     expect(series[2].profit).toBeCloseTo(sumProfit(['aug1', 'aug2']), 9);
   });
 
-  it('年別は年初日に丸める', () => {
-    const series = repo.analyticsSeries(period(null), 'year');
-    expect(series.map((p) => p.key)).toEqual(['2025', '2026']);
-    expect(series[1].date).toEqual(new Date(2026, 0, 1, 0, 0, 0, 0));
-    expect(series[1].recordCount).toBe(4);
-    expect(series[1].sales).toBeCloseTo(sumSales(['july1', 'july2', 'aug1', 'aug2']), 9);
-  });
-
   it('各点の合計は期間全体の合計と一致する', () => {
-    const series = repo.analyticsSeries(period(augRange), 'day');
-    const summary = repo.analyticsSummary(period(augRange));
+    const series = repo.analyticsSeries(period(AUGUST), 'day');
+    const summary = repo.analyticsSummary(period(AUGUST));
     const seriesSales = series.reduce((acc, p) => acc + p.sales, 0);
     const seriesProfit = series.reduce((acc, p) => acc + p.profit, 0);
     expect(seriesSales).toBeCloseTo(summary.totalSales, 9);
@@ -258,26 +238,38 @@ describe('§6.2 チャート集計: 単位ごとの日付キーに丸めて合�
   });
 });
 
-describe('§6.2 内訳リスト: 指標に応じた降順', () => {
-  it('売上金額なら salesPrice の降順', () => {
-    const details = repo.analyticsDetails(period(null), 'day', '2026-07-05', 'sales');
-    expect(details.map((r) => r.itemName)).toEqual(['ゲームソフト', 'iPhone ケース']);
-  });
-
-  it('純利益なら netProfit の降順（売上の順とは逆になるケース）', () => {
-    // 8 月: スニーカー 売上 8800 / 利益 8800−(4000+750+880)=3170
-    //       腕時計   売上 20000 / 利益 20000−(15000+2000)=3000
-    // → 売上順は腕時計が先、利益順はスニーカーが先
-    const august = { startDate: d(2026, 8, 1), endDate: d(2026, 8, 31) };
+describe('UI-SPEC §1.5-5 選択した棒の一覧', () => {
+  it('並びは収支（netProfit）の降順で固定（指標切替の廃止。§6-10）', () => {
+    // 8 月: スニーカー 売上 8800 / 収支 8800−(4000+750+880)=3170
+    //       腕時計   売上 20000 / 収支 20000−(15000+2000)=3000
+    // → 売上順なら腕時計が先だが、収支順なのでスニーカーが先になる
     expect(
-      repo.analyticsDetails(period(august), 'month', '2026-08', 'sales').map((r) => r.itemName),
-    ).toEqual(['腕時計', 'スニーカー']);
-    expect(
-      repo.analyticsDetails(period(august), 'month', '2026-08', 'netProfit').map((r) => r.itemName),
+      repo.analyticsDetails(period(AUGUST), 'month', '2026-08').map((r) => r.itemName),
     ).toEqual(['スニーカー', '腕時計']);
   });
 
+  it('同じキーの複数件がまとめて返る', () => {
+    const details = repo.analyticsDetails(period(null), 'day', '2026-07-05');
+    expect(details.map((r) => r.itemName)).toEqual(['ゲームソフト', 'iPhone ケース']);
+  });
+
   it('期間外のキーを指定しても期間条件が優先されて 0 件になる', () => {
-    expect(repo.analyticsDetails(period(augRange), 'day', '2026-07-05', 'sales')).toHaveLength(0);
+    expect(repo.analyticsDetails(period(AUGUST), 'day', '2026-07-05')).toHaveLength(0);
+  });
+});
+
+describe('UI-SPEC §5-14 月バーの ◀ の下端（analyticsEarliestMonthKey）', () => {
+  it('売却済みレコードの最古の月を返す（選択中の月には左右されない）', () => {
+    expect(repo.analyticsEarliestMonthKey({ monthKey: null })).toBe('2025-03');
+    expect(repo.analyticsEarliestMonthKey({ monthKey: AUGUST })).toBe('2025-03');
+  });
+
+  it('出品中は含まれない（種別で絞ればその集合の最古になる）', () => {
+    // 出品中の商品（2026-08-04 出品）は saleDate が null なので最古の判定に効かない
+    expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'sourced' })).toBe('2025-03');
+  });
+
+  it('対象 0 件なら null', () => {
+    expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'used' })).toBeNull();
   });
 });

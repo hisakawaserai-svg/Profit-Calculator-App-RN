@@ -42,6 +42,15 @@ export function formatShortDate(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
+/**
+ * 選択した棒の見出しに出す日付「8月9日」（UI-SPEC §1.5-5「8月9日の記録　N件」）。
+ * メタ行の formatShortDate（「8/9」）と分けてあるのは、こちらが見出しの語
+ * （「…の記録」）に続く位置にあり、スラッシュ表記だと日付の切れ目が読み取りにくいため。
+ */
+export function formatMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 /** 月セクションの見出し「2026年08月」（Swift 版 .dateTime.year().month(.twoDigits) 相当） */
 export function formatMonthHeader(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -60,13 +69,6 @@ export function formatRecordDate(date: Date): string {
   return `${date.getFullYear()}/${month}/${day}`;
 }
 
-/**
- * 日時「2026/08/09 14:30」。
- * DataView の明細（時刻まで含めた販売日がそのまま集計キーになる単位。SPEC §6.2）で、
- * 同じ日の複数点を見分けるために使う。
- */
-export function formatRecordDateTime(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${formatRecordDate(date)} ${hours}:${minutes}`;
-}
+// 日時「2026/08/09 14:30」を組み立てる formatRecordDateTime は、データタブの「明細」
+// （時刻まで含めた販売日がそのまま集計キーになる単位）の廃止で参照元がなくなったため削除した
+// （UI-SPEC §6-10）。刻みは日ごと / 月ごとの 2 値になり、時刻を出す場所はもうない。

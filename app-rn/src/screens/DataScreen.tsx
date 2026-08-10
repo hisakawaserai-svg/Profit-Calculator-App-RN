@@ -1,75 +1,57 @@
-// DataView.swift の移植。データタブ＝売却済みレコードのグラフ分析（SPEC §3.2 / §6.2）。
+// データタブ（UI-SPEC §1.5 / 採用案 7b）。売却済みレコードの収支をグラフで見る画面。
 //
-// - 対象は isSold = true かつ saleDate 非 null のみ。出品中は一切含まれない。
-// - 期間は startDate その日の 00:00:00 〜 endDate その日の 23:59:59.999 の閉区間（決定 §7-10）。
-//   境界の正規化は repository が SQL を組む直前に行うので、この画面は日付をそのまま渡す。
-// - 集計（Σ salesPrice / Σ netProfit / 単位ごとのグループ化）はすべて repository の
-//   SQL 側で完結している。この画面はレコードを 1 件もループしない。読むレコード実体は
-//   「タップされた集計点の内訳」だけ。
-// - 丸めは合算後の表示の瞬間のみ（決定 §7-2 / §2.6）。金額表示は formatYen を通す。
-// - グラフは react-native-gifted-charts。明細＝折れ線 / 日別・月別・年別＝棒グラフ（SPEC §6.2）。
+// ねらいは「切替を減らし、記録タブと同じ月バー＋固定合計行に揃える」こと。
+// 設計案ターン 6 の決定（§6-10）で、旧 DataView が持っていた切替を 3 つとも廃止した:
+//   - 指標（売上金額 / 収支）  → 合計行に売上・収支・経費の 3 値を常時出す。グラフは収支のみ
+//   - 表示単位（明細/日別/月別/年別） → 期間から自動（月を選択 = 日ごと / 全期間 = 月ごと。§5-5）
+//   - 期間指定（開始・終了日と ◀▶ の平行移動） → 月バー＋期間シート（記録タブと同じ部品）
 //
-// Swift 版はチャート上のタップ位置から最寄りの点を求めてツールチップを重ねていたが、
-// RN 版は各点の onPress で選択し、内訳をグラフの下に出す。ツールチップの中身
-// （日付・売上・利益）は内訳の見出しに統合した。SPEC §6.2 が求める情報は同じで、
-// 指の下に隠れない・スクロール中の座標計算に依存しない、という利点がある。
+// - 対象は isSold = true かつ saleDate 非 null のみ。出品中は一切含まれない（SPEC §6.2）。
+// - 集計（Σ salesPrice / Σ netProfit / 刻みごとのグループ化）はすべて repository の SQL 側で完結する。
+//   この画面はレコードを 1 件もループしない。読むレコード実体は「タップされた棒の内訳」だけ。
+// - 丸めは合算後の表示の瞬間のみ（決定 §7-2 / §2.6）。金額表示は format を通す。
+// - 内訳の行は記録タブと同じ RecordRow を共用する（§6-11）。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import { BarChart, LineChart } from 'react-native-gifted-charts';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 
-import { Accordion } from '@/components/Accordion';
-import { DateField } from '@/components/DateField';
-import {
-  ExpenseDetailSection,
-  ProductInfoSection,
-} from '@/components/RecordDetailSections';
-import { SegmentedControl } from '@/components/SegmentedControl';
+import { FilterChip } from '@/components/FilterChip';
+import { MonthNavBar } from '@/components/MonthNavBar';
+import { PeriodSheet } from '@/components/PeriodSheet';
+import { RecordRow } from '@/components/RecordRow';
+import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
+import { toMonthKey } from '@/db/dates';
 import type { AggregatedPoint } from '@/db/repository';
 import type { SaleRecord } from '@/db/schema';
 import { useAnalyticsData } from '@/db/useRecords';
 import {
-  CHART_UNITS,
-  CHART_UNIT_LABELS,
-  METRIC_TYPES,
-  defaultPeriod,
+  chartUnitFor,
   formatChartLabel,
   formatPointDate,
-  shiftPeriod,
   yAxisLowerBound,
   yAxisUpperBound,
   type ChartUnit,
-  type MetricType,
-  type Period,
 } from '@/logic/analytics';
-import { formatYen } from '@/logic/format';
+import { formatYenSymbol } from '@/logic/format';
 import {
   DEFAULT_KIND_FILTER,
-  KIND_FILTER_OPTIONS,
+  kindFilterLabel,
   toKindCondition,
   type KindFilter,
 } from '@/logic/kindFilter';
 import {
+  CHART_UNIT_NOTE,
+  CLEAR_SELECTION_LABEL,
   EXPENSES_LABEL,
-  TOTAL_PROFIT_LABEL,
+  PROFIT_TREND_LABEL,
   TOTAL_SALES_LABEL,
-  metricLabel,
-  profitLabel,
+  chartUnitLabel,
+  periodProfitLabel,
+  selectedPointTitle,
 } from '@/logic/labels';
-import { netProfit } from '@/logic/profit';
 import { useThemeColors } from '@/theme';
-
-/** SPEC §4.3 DataView の初期状態: 表示単位 = 日別、指標 = 売上金額、期間 = 過去 7 日 */
-const INITIAL_UNIT: ChartUnit = 'day';
 
 const CHART_HEIGHT = 220;
 /** Y 軸ラベルの幅。グラフ本体の幅を画面幅から引くのに使う */
@@ -77,247 +59,156 @@ const Y_AXIS_WIDTH = 52;
 /** X 軸ラベルを出す点の目安の数（Swift 版 AxisMarks(desiredCount: 5)） */
 const LABEL_COUNT = 5;
 
+/** 種別チップの巡回順（記録タブと同じ「すべて → 不用品 → 仕入品 → すべて」。UI-SPEC §1.2） */
+const KIND_CYCLE: KindFilter[] = ['all', 'used', 'sourced'];
+
+/** レコード詳細のルート。記録タブと同じ 1 系統（UI-SPEC §2 / §6-9） */
+const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
+
 export function DataScreen() {
   const colors = useThemeColors();
+  const router = useRouter();
 
-  const [unit, setUnit] = useState<ChartUnit>(INITIAL_UNIT);
-  const [metric, setMetric] = useState<MetricType>('sales');
-  const [isAllPeriod, setIsAllPeriod] = useState(false);
-  const [period, setPeriod] = useState<Period>(() => defaultPeriod(INITIAL_UNIT));
-  /** 種別フィルタ（SPEC-V2 §4.2）。絞ると集計・グラフ・内訳のすべてがその種別だけになる */
+  /** 「今日」はマウント時に 1 回だけ決める（月バーの ▶ の基準） */
+  const today = useMemo(() => new Date(), []);
+  const currentMonthKey = useMemo(() => toMonthKey(today), [today]);
+
+  /** 表示中の月キー "YYYY-MM"。null = 全期間。初期表示は今月（§5-14） */
+  const [monthKey, setMonthKey] = useState<string | null>(currentMonthKey);
+  /** 種別フィルタ（SPEC-V2 §4.2）。絞ると合計・グラフ・内訳のすべてがその種別だけになる */
   const [kindFilter, setKindFilter] = useState<KindFilter>(DEFAULT_KIND_FILTER);
-  /** タップされた集計点のキー。null = 未選択 */
+  /** タップされた棒のキー。null = 未選択 */
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [showPeriodSheet, setShowPeriodSheet] = useState(false);
 
-  // 「全期間を表示」ON なら期間条件なし（SPEC §6.2）。種別は 'all' のとき条件なし（SPEC-V2 §4.2）
   const filter = useMemo(
-    () => ({ range: isAllPeriod ? null : period, kind: toKindCondition(kindFilter) }),
-    [isAllPeriod, period, kindFilter],
+    () => ({ monthKey, kind: toKindCondition(kindFilter) }),
+    [monthKey, kindFilter],
   );
-  const { summary, series, details } = useAnalyticsData(filter, unit, metric, selectedKey);
+  // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、見出しの右に現在の刻みを表示するだけ
+  const unit = chartUnitFor(monthKey);
+  const { summary, series, details, earliestMonthKey } = useAnalyticsData(
+    filter,
+    unit,
+    selectedKey,
+  );
 
-  /** SPEC §6.2: 表示単位を切り替えたら期間もその単位の既定幅にリセットする */
-  const changeUnit = useCallback((index: number) => {
-    const nextUnit = CHART_UNITS[index];
-    setUnit(nextUnit);
-    setPeriod(defaultPeriod(nextUnit));
+  /** 期間を変えると刻みも集計対象も変わるので、選択中の棒は外す */
+  const changeMonth = useCallback((next: string | null) => {
+    setMonthKey(next);
     setSelectedKey(null);
   }, []);
 
-  /** 種別を切り替えると集計対象が変わるので、選択中の点も外す（単位の切替と同じ扱い） */
-  const changeKindFilter = useCallback((index: number) => {
-    setKindFilter(KIND_FILTER_OPTIONS[index].value);
+  /** 種別を切り替えると集計対象が変わるので、選択中の棒も外す（期間の変更と同じ扱い） */
+  const cycleKindFilter = useCallback(() => {
+    setKindFilter((current) => KIND_CYCLE[(KIND_CYCLE.indexOf(current) + 1) % KIND_CYCLE.length]);
     setSelectedKey(null);
   }, []);
 
-  /** ◀▶: 開始・終了を単位ぶん平行移動（SPEC §6.2） */
-  const shift = useCallback(
-    (step: -1 | 1) => {
-      setPeriod((current) => shiftPeriod(current, unit, step));
-      setSelectedKey(null);
+  // 行タップ → レコード詳細へプッシュ遷移（記録タブと同じ [id] ルート。UI-SPEC §2）。
+  //
+  // withAnchor は「別のタブの Stack へ入るときに、その Stack の起点（anchor = 記録の一覧）も
+  // 一緒に積む」指定。これがないと記録タブの Stack が詳細 1 枚に置き換わり、
+  // 戻るボタンもスワイプバックも出ないまま詰む（実機で確認した）。
+  // 起点そのものの宣言は app/(tabs)/records/_layout.tsx の unstable_settings 側にある。
+  const openDetail = useCallback(
+    (record: SaleRecord) => {
+      router.push(
+        { pathname: RECORD_DETAIL_PATHNAME, params: { id: record.id } },
+        { withAnchor: true },
+      );
     },
-    [unit],
+    [router],
   );
 
-  const setStartDate = useCallback(
-    (startDate: Date) => setPeriod((current) => ({ ...current, startDate })),
-    [],
-  );
-  const setEndDate = useCallback(
-    (endDate: Date) => setPeriod((current) => ({ ...current, endDate })),
-    [],
-  );
-
-  // 期間を動かした結果、選択中の点が範囲外に出ていることがある
+  // 期間を動かした結果、選択中の棒が範囲外に出ていることがある
   const selectedPoint = series.find((point) => point.key === selectedKey);
 
-  const screenOptions = useMemo(
-    // タブのラベル（'データ'）は _layout.tsx の title のまま残し、ヘッダーだけ上書きする
-    () => ({ headerTitle: '分析データ' }),
-    [],
-  );
+  // 合計行は 3 値（UI-SPEC §1.5-3）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
+  // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
+  const summaryItems: SummaryItem[] = [
+    { label: TOTAL_SALES_LABEL, value: formatYenSymbol(summary.totalSales), color: colors.blue },
+    {
+      label: periodProfitLabel(monthKey),
+      value: formatYenSymbol(summary.totalNetProfit),
+      color: colors.green,
+    },
+    { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
+  ];
+
+  const screenOptions = useMemo(() => ({ title: 'データ' }), []);
 
   return (
     <>
       <Tabs.Screen options={screenOptions} />
-      <ScrollView
-        style={{ backgroundColor: colors.background }}
-        contentContainerStyle={styles.scrollContent}>
-        <PeriodSettingsSection
-          period={period}
-          isAllPeriod={isAllPeriod}
-          onChangeAllPeriod={setIsAllPeriod}
-          onChangeStartDate={setStartDate}
-          onChangeEndDate={setEndDate}
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <MonthNavBar
+          monthKey={monthKey}
+          earliestMonthKey={earliestMonthKey}
+          currentMonthKey={currentMonthKey}
+          onChangeMonth={changeMonth}
+          onPressTitle={() => setShowPeriodSheet(true)}
         />
 
-        {/* サマリーカード（期間内合計。SPEC §6.2）。
-            この画面が出す集計値には種別語を使わず中立語で統一する（SPEC-V2 §1.3 / §5.3） */}
-        <View style={styles.summaryRow}>
-          <SummaryMiniBox
-            title={TOTAL_PROFIT_LABEL}
-            value={summary.totalNetProfit}
-            color={colors.green}
-          />
-          <SummaryMiniBox title={EXPENSES_LABEL} value={summary.totalExpenses} color={colors.red} />
-          <SummaryMiniBox title={TOTAL_SALES_LABEL} value={summary.totalSales} color={colors.blue} />
-        </View>
+        <SummaryBar
+          items={summaryItems}
+          trailing={
+            <FilterChip
+              label={kindFilterLabel(kindFilter)}
+              onPress={cycleKindFilter}
+              accessibilityLabel={`種別の絞り込み: ${kindFilterLabel(kindFilter)}。押すと切り替える`}
+            />
+          }
+        />
 
-        <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
-          {/* Swift 版は ◀ / 単位 / 指標 / ▶ を 1 行に並べていたが、
-              iPhone の幅ではセグメント 2 つが潰れるので 2 行に分ける */}
-          <View style={styles.chartHeader}>
-            <MoveButton icon="chevron-back" label="前の期間へ" onPress={() => shift(-1)} />
-            <View style={styles.unitPicker}>
-              <SegmentedControl
-                options={CHART_UNITS.map((value) => CHART_UNIT_LABELS[value])}
-                selectedIndex={CHART_UNITS.indexOf(unit)}
-                onChange={changeUnit}
-              />
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
+            <View style={styles.chartHeader}>
+              <Text style={[styles.chartTitle, { color: colors.label }]}>
+                {PROFIT_TREND_LABEL}
+              </Text>
+              {/* 刻みは表示のみ。押しても切り替わらない（§5-5） */}
+              <Text style={[styles.chartUnit, { color: colors.secondaryLabel }]}>
+                {chartUnitLabel(unit)}
+              </Text>
             </View>
-            <MoveButton icon="chevron-forward" label="次の期間へ" onPress={() => shift(1)} />
+
+            {series.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <ChartView
+                series={series}
+                unit={unit}
+                selectedKey={selectedKey}
+                onSelect={setSelectedKey}
+              />
+            )}
           </View>
 
-          <SegmentedControl
-            options={METRIC_TYPES.map((value) => metricLabel(value))}
-            selectedIndex={METRIC_TYPES.indexOf(metric)}
-            onChange={(index) => setMetric(METRIC_TYPES[index])}
-          />
-
-          {/* 種別フィルタ。この画面は OptionSheet を使わないので、
-              表示単位・指標の切替と同じ列に並べる（SPEC-V2 §7-10 / §1.3） */}
-          <SegmentedControl
-            options={KIND_FILTER_OPTIONS.map((option) => option.label)}
-            selectedIndex={KIND_FILTER_OPTIONS.findIndex(
-              (option) => option.value === kindFilter,
-            )}
-            onChange={changeKindFilter}
-          />
-
-          {series.length === 0 ? (
-            <EmptyChart />
-          ) : (
-            <ChartView
-              series={series}
-              unit={unit}
-              metric={metric}
-              selectedKey={selectedKey}
-              onSelect={setSelectedKey}
-            />
-          )}
-
           {selectedPoint && (
-            <DetailList
+            <SelectedPointList
               point={selectedPoint}
               unit={unit}
-              metric={metric}
               details={details}
               onClear={() => setSelectedKey(null)}
+              onPressRecord={openDetail}
             />
           )}
-        </View>
-      </ScrollView>
-    </>
-  );
-}
 
-/** 期間設定カード（Swift 版 periodSettingsSection） */
-function PeriodSettingsSection({
-  period,
-  isAllPeriod,
-  onChangeAllPeriod,
-  onChangeStartDate,
-  onChangeEndDate,
-}: {
-  period: Period;
-  isAllPeriod: boolean;
-  onChangeAllPeriod: (value: boolean) => void;
-  onChangeStartDate: (value: Date) => void;
-  onChangeEndDate: (value: Date) => void;
-}) {
-  const colors = useThemeColors();
-  /** チップ（今日・昨日・一昨日）の起点。開いている間は動かさない */
-  const today = useMemo(() => new Date(), []);
-
-  return (
-    <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-      <View style={styles.toggleRow}>
-        <Text style={[styles.toggleLabel, { color: colors.label }]}>全期間を表示</Text>
-        <Switch
-          value={isAllPeriod}
-          onValueChange={onChangeAllPeriod}
-          accessibilityLabel="全期間を表示"
-        />
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
+        </ScrollView>
       </View>
 
-      {!isAllPeriod && (
-        <>
-          <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-          {/* 集計期間の両端。日付の選び方はアプリのどの欄でも同じ（§8.10 の追補）。
-              選べる範囲の制限はないので、チップは常に 3 つとも押せて理由の一行も出ない */}
-          <DateField
-            label="開始"
-            value={period.startDate}
-            onChangeValue={onChangeStartDate}
-            today={today}
-          />
-          <DateField
-            label="終了"
-            value={period.endDate}
-            onChangeValue={onChangeEndDate}
-            today={today}
-          />
-        </>
-      )}
-    </View>
-  );
-}
-
-/** サマリーの小箱（Swift 版 summaryMiniBox）。合算済みの値を表示時に丸めるだけ */
-function SummaryMiniBox({
-  title,
-  value,
-  color,
-}: {
-  title: string;
-  value: number;
-  color: string;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <View style={[styles.summaryBox, { backgroundColor: colors.secondaryBackground }]}>
-      <Text style={[styles.summaryTitle, { color: colors.secondaryLabel }]}>{title}</Text>
-      <Text style={[styles.summaryValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>
-        {formatYen(value)}
-      </Text>
-    </View>
-  );
-}
-
-function MoveButton({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: 'chevron-back' | 'chevron-forward';
-  label: string;
-  onPress: () => void;
-}) {
-  const colors = useThemeColors();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.moveButton,
-        { backgroundColor: colors.disabledBackground, opacity: pressed ? 0.5 : 1 },
-      ]}>
-      <Ionicons name={icon} size={18} color={colors.label} />
-    </Pressable>
+      {/* 期間シート（月バー中央タップ）。記録タブと同じ部品（UI-SPEC §1.2） */}
+      <PeriodSheet
+        visible={showPeriodSheet}
+        monthKey={monthKey}
+        earliestMonthKey={earliestMonthKey}
+        currentMonthKey={currentMonthKey}
+        onSelect={changeMonth}
+        onClose={() => setShowPeriodSheet(false)}
+      />
+    </>
   );
 }
 
@@ -334,27 +225,24 @@ function EmptyChart() {
 }
 
 /**
- * グラフ本体。明細は折れ線、日別・月別・年別は棒グラフ（SPEC §6.2）。
- * 指標の色は売上 = 青 / 純利益 = 緑。
+ * 収支の棒グラフ（UI-SPEC §1.5-4）。指標が収支だけになったので折れ線の分岐はない。
+ * 選択中の棒だけ濃色（緑）、他は 30% 不透明。
  */
 function ChartView({
   series,
   unit,
-  metric,
   selectedKey,
   onSelect,
 }: {
   series: AggregatedPoint[];
   unit: ChartUnit;
-  metric: MetricType;
   selectedKey: string | null;
   onSelect: (key: string) => void;
 }) {
   const colors = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
 
-  const metricColor = metric === 'sales' ? colors.blue : colors.green;
-  const values = series.map((point) => (metric === 'sales' ? point.sales : point.profit));
+  const values = series.map((point) => point.profit);
   const maxValue = yAxisUpperBound(values);
   const minValue = yAxisLowerBound(values);
 
@@ -364,185 +252,104 @@ function ChartView({
   const labelStep = Math.max(1, Math.ceil(series.length / LABEL_COUNT));
 
   const data = series.map((point, index) => ({
-    value: metric === 'sales' ? point.sales : point.profit,
+    value: point.profit,
     label: index % labelStep === 0 ? formatChartLabel(point.date, unit) : '',
-    // 選択中の点だけ濃く（未選択のときは全点そのままの色）
+    // 選択中の棒だけ濃く（未選択のときは全点そのままの色）
     frontColor:
-      selectedKey == null || selectedKey === point.key ? metricColor : dim(metricColor),
-    dataPointColor:
-      selectedKey == null || selectedKey === point.key ? metricColor : dim(metricColor),
+      selectedKey == null || selectedKey === point.key ? colors.green : dim(colors.green),
     onPress: () => onSelect(point.key),
   }));
 
-  const axisProps = {
-    height: CHART_HEIGHT,
-    width: chartWidth,
-    maxValue,
-    noOfSections: 4,
-    // 純利益がマイナスの点を軸下に隠さないための下方向の目盛り（logic/analytics 参照）
-    ...(minValue < 0 ? { mostNegativeValue: minValue, noOfSectionsBelowXAxis: 2 } : null),
-    yAxisColor: colors.separator,
-    xAxisColor: colors.separator,
-    rulesColor: colors.separator,
-    yAxisTextStyle: { color: colors.secondaryLabel, fontSize: 10 },
-    xAxisLabelTextStyle: { color: colors.secondaryLabel, fontSize: 10 },
-    yAxisLabelWidth: Y_AXIS_WIDTH,
-    initialSpacing: 16,
-    endSpacing: 16,
-    // 常に最新（終了日側）が見えるようにする（Swift 版 chartScrollPosition(initialX: endDate)）
-    scrollToEnd: true,
-    // アニメーション中は各点の onPress が取りこぼされることがあるため切る
-    isAnimated: false,
-  };
-
-  return unit === 'record' ? (
-    <LineChart
-      {...axisProps}
-      data={data}
-      color={metricColor}
-      thickness={2}
-      curved
-      spacing={44}
-      dataPointsRadius={4}
-    />
-  ) : (
+  return (
     <BarChart
-      {...axisProps}
+      height={CHART_HEIGHT}
+      width={chartWidth}
+      maxValue={maxValue}
+      noOfSections={4}
+      // 収支がマイナスの点を軸下に隠さないための下方向の目盛り（logic/analytics 参照）
+      {...(minValue < 0 ? { mostNegativeValue: minValue, noOfSectionsBelowXAxis: 2 } : null)}
+      yAxisColor={colors.separator}
+      xAxisColor={colors.separator}
+      rulesColor={colors.separator}
+      yAxisTextStyle={{ color: colors.secondaryLabel, fontSize: 10 }}
+      xAxisLabelTextStyle={{ color: colors.secondaryLabel, fontSize: 10 }}
+      yAxisLabelWidth={Y_AXIS_WIDTH}
+      initialSpacing={16}
+      endSpacing={16}
+      // 常に最新（期間の終わり側）が見えるようにする（Swift 版 chartScrollPosition(initialX: endDate)）
+      scrollToEnd
+      // アニメーション中は各点の onPress が取りこぼされることがあるため切る
+      isAnimated={false}
       data={data}
       barWidth={12}
       barBorderRadius={4}
       spacing={36}
-      frontColor={metricColor}
+      frontColor={colors.green}
     />
   );
 }
 
 /**
- * 選択された集計点の内訳（Swift 版 DetailList）。
- * 見出しには Swift 版がツールチップに出していた日付・売上・利益をそのまま出す。
- * 並び順（指標ごとの降順）は repository が SQL 側で付けている。
+ * 選択した棒の記録一覧（UI-SPEC §1.5-5）。
+ * 行は記録タブと同じ RecordRow・同じカードの見た目にする（§6-11）── 同じレコードが
+ * 画面によって違う形で出ると、どれが同じものか読み直すことになるため。
+ * 対象は売却済みだけなので isSoldMode は常に true。
  */
-function DetailList({
+function SelectedPointList({
   point,
   unit,
-  metric,
   details,
   onClear,
+  onPressRecord,
 }: {
   point: AggregatedPoint;
   unit: ChartUnit;
-  metric: MetricType;
   details: SaleRecord[];
   onClear: () => void;
+  onPressRecord: (record: SaleRecord) => void;
 }) {
   const colors = useThemeColors();
 
   return (
-    <View style={styles.detailList}>
-      <View style={styles.detailHeader}>
-        <Text style={[styles.detailTitle, { color: colors.label }]}>
-          {formatPointDate(point.date, unit)} の内訳
+    <View style={styles.selectedList}>
+      <View style={styles.selectedHeader}>
+        <Text style={[styles.selectedTitle, { color: colors.label }]} numberOfLines={1}>
+          {selectedPointTitle(formatPointDate(point.date, unit), point.recordCount)}
         </Text>
-        <Pressable onPress={onClear} hitSlop={8} accessibilityLabel="内訳を閉じる">
-          <Ionicons name="close-circle" size={22} color={colors.gray} />
+        <Pressable onPress={onClear} hitSlop={8} accessibilityRole="button">
+          <Text style={[styles.clearSelection, { color: colors.blue }]}>
+            {CLEAR_SELECTION_LABEL}
+          </Text>
         </Pressable>
       </View>
 
-      <View style={styles.tooltipRow}>
-        {/* 集計点 = 複数レコードの合計なので中立語（SPEC-V2 §1.3 データタブ） */}
-        <Text style={[styles.tooltipValue, { color: colors.blue }]}>
-          {TOTAL_SALES_LABEL}: {formatYen(point.sales)}
-        </Text>
-        <Text style={[styles.tooltipValue, { color: colors.green }]}>
-          {TOTAL_PROFIT_LABEL}: {formatYen(point.profit)}
-        </Text>
-      </View>
-
       {details.map((record) => (
-        <RecordDisclosure key={record.id} record={record} metric={metric} />
+        <Pressable
+          key={record.id}
+          style={[styles.rowCard, { backgroundColor: colors.secondaryBackground }]}
+          onPress={() => onPressRecord(record)}
+          accessibilityRole="button"
+          accessibilityLabel={`${record.itemName} の詳細`}>
+          <RecordRow record={record} isSoldMode />
+        </Pressable>
       ))}
     </View>
   );
 }
 
-/** 内訳 1 件（Swift 版 RecordDisclosure）。開くと商品情報＋費用内訳が出る */
-function RecordDisclosure({ record, metric }: { record: SaleRecord; metric: MetricType }) {
-  const colors = useThemeColors();
-  const isSalesMode = metric === 'sales';
-  const accentColor = isSalesMode ? colors.blue : colors.green;
-  const amount = isSalesMode ? record.salesPrice : netProfit(record);
-  const itemName = record.itemName === '' ? '明細' : record.itemName;
-
-  return (
-    <Accordion
-      accessibilityLabel={`${itemName} の詳細`}
-      containerStyle={{ backgroundColor: colors.background }}
-      label={
-        <View style={styles.disclosureLabel}>
-          <Ionicons name="pricetag" size={20} color={accentColor} />
-          <Text style={[styles.disclosureName, { color: accentColor }]} numberOfLines={1}>
-            {itemName}
-          </Text>
-          {/* 内訳の行はレコード 1 件なので、こちらは種別語（SPEC-V2 §1.3 データタブ） */}
-          <Text style={[styles.disclosureCaption, { color: accentColor }]}>
-            {isSalesMode ? '売上額：' : `${profitLabel(record.kind)}：`}
-          </Text>
-          <Text style={[styles.disclosureAmount, { color: colors.secondaryLabel }]}>
-            {formatYen(amount)}
-          </Text>
-        </View>
-      }>
-      <View style={styles.disclosureContent}>
-        <ProductInfoSection record={record} />
-        <ExpenseDetailSection record={record} />
-      </View>
-    </Accordion>
-  );
-}
-
-/** 未選択の点を薄く見せる。テーマのグラフ色（blue / green）は常に #RRGGBB の 7 桁 hex */
+/** 未選択の棒を薄く見せる（UI-SPEC §1.5-4 の「30% 不透明」）。テーマの green は常に 7 桁 hex */
 function dim(color: string): string {
-  return `${color}59`;
+  return `${color}4D`;
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
     gap: 16,
-  },
-  card: {
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleLabel: {
-    fontSize: 15,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  summaryBox: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 8,
-    gap: 4,
-  },
-  summaryTitle: {
-    fontSize: 12,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   chartCard: {
     padding: 16,
@@ -552,17 +359,15 @@ const styles = StyleSheet.create({
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  unitPicker: {
-    flex: 1,
+  chartTitle: {
+    fontSize: 17,
+    fontWeight: '700',
   },
-  moveButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chartUnit: {
+    fontSize: 13,
   },
   emptyChart: {
     height: CHART_HEIGHT,
@@ -570,47 +375,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  detailList: {
+  selectedList: {
     gap: 10,
-    paddingTop: 4,
   },
-  detailHeader: {
+  selectedHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
+    gap: 12,
   },
-  detailTitle: {
+  selectedTitle: {
+    flexShrink: 1,
     fontSize: 17,
     fontWeight: '700',
   },
-  tooltipRow: {
-    flexDirection: 'row',
-    gap: 16,
+  clearSelection: {
+    fontSize: 14,
   },
-  tooltipValue: {
-    fontSize: 13,
-    fontWeight: '600',
+  // 記録タブのリストの行と同じ形（UI-SPEC §6-11）
+  rowCard: {
+    padding: 14,
+    borderRadius: 12,
   },
-  disclosureLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  disclosureName: {
-    fontSize: 15,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  disclosureCaption: {
-    fontSize: 13,
-    marginLeft: 'auto',
-  },
-  disclosureAmount: {
-    fontSize: 13,
-    fontVariant: ['tabular-nums'],
-  },
-  disclosureContent: {
-    gap: 16,
-    paddingTop: 8,
+  note: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

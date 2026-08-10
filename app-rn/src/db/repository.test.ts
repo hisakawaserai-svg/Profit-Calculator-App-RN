@@ -300,13 +300,13 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
 
   describe('分析（AnalyticsFilter）', () => {
     it('kind を省略すると全種別（出品中は従来どおり対象外）', () => {
-      const summary = repo.analyticsSummary({ range: null });
+      const summary = repo.analyticsSummary({ monthKey: null });
 
       expect(summary.recordCount).toBe(3);
     });
 
     it('サマリーが種別で絞られる', () => {
-      const summary = repo.analyticsSummary({ range: null, kind: 'used' });
+      const summary = repo.analyticsSummary({ monthKey: null, kind: 'used' });
 
       expect(summary.recordCount).toBe(2);
       expect(summary.totalSales).toBeCloseTo(
@@ -318,12 +318,12 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
 
     it('種別を絞っても出品中は入ってこない（isSold 条件との AND）', () => {
       // 出品中の仕入品（カメラのケース）は含まれず、売却済みの仕入品 1 件だけになる
-      expect(repo.analyticsSummary({ range: null, kind: 'sourced' }).recordCount).toBe(1);
+      expect(repo.analyticsSummary({ monthKey: null, kind: 'sourced' }).recordCount).toBe(1);
     });
 
     it('チャートの集計点は形が変わらず件数だけ減る（§4.4）', () => {
-      const all = repo.analyticsSeries({ range: null }, 'month');
-      const used = repo.analyticsSeries({ range: null, kind: 'used' }, 'month');
+      const all = repo.analyticsSeries({ monthKey: null }, 'month');
+      const used = repo.analyticsSeries({ monthKey: null, kind: 'used' }, 'month');
 
       expect(all.map((point) => point.key)).toEqual(['2026-07', '2026-08']);
       expect(all[0].recordCount).toBe(2);
@@ -332,25 +332,29 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
       expect(used[0].profit).toBeCloseTo(sumProfit(['usedJuly']), 9);
     });
 
-    it('期間と種別の AND で絞られる', () => {
-      const july = { startDate: d(2026, 7, 1), endDate: d(2026, 7, 31) };
-
-      expect(repo.analyticsSummary({ range: july, kind: 'sourced' }).recordCount).toBe(1);
-      expect(repo.analyticsSummary({ range: july, kind: 'used' }).totalNetProfit).toBeCloseTo(
-        sumProfit(['usedJuly']),
-        9,
-      );
+    it('期間（月キー）と種別の AND で絞られる', () => {
+      expect(repo.analyticsSummary({ monthKey: '2026-07', kind: 'sourced' }).recordCount).toBe(1);
+      expect(
+        repo.analyticsSummary({ monthKey: '2026-07', kind: 'used' }).totalNetProfit,
+      ).toBeCloseTo(sumProfit(['usedJuly']), 9);
     });
 
     it('内訳リストも種別で絞られる', () => {
       const names = (kind: 'used' | 'sourced' | undefined) =>
         repo
-          .analyticsDetails({ range: null, kind }, 'month', '2026-07', 'sales')
+          .analyticsDetails({ monthKey: null, kind }, 'month', '2026-07')
           .map((record) => record.itemName);
 
+      // 並びは収支の降順で固定（UI-SPEC §6-10 で指標切替を廃止）
       expect(names(undefined)).toEqual(['仕入れたカメラ', '不要な本']);
       expect(names('used')).toEqual(['不要な本']);
       expect(names('sourced')).toEqual(['仕入れたカメラ']);
+    });
+
+    it('月バーの下端（analyticsEarliestMonthKey）も種別で絞られる', () => {
+      expect(repo.analyticsEarliestMonthKey({ monthKey: null })).toBe('2026-07');
+      expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'used' })).toBe('2026-07');
+      expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'sourced' })).toBe('2026-07');
     });
   });
 });

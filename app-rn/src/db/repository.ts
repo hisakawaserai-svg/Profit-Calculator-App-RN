@@ -9,15 +9,8 @@
 import { asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
-import type { ChartUnit, MetricType } from '../logic/analytics';
-import {
-  CHART_KEY_LENGTH,
-  chartKeyToDate,
-  endOfDay,
-  monthKeyToDate,
-  startOfDay,
-  toDbDate,
-} from './dates';
+import type { ChartUnit } from '../logic/analytics';
+import { CHART_KEY_LENGTH, chartKeyToDate, monthKeyToDate, toDbDate } from './dates';
 import { saleRecords, type RecordKind, type SaleRecord } from './schema';
 
 /** expo-sqlite / better-sqlite3 どちらの同期ドライバも受け付ける */
@@ -77,24 +70,21 @@ export type CareerSummary = {
 };
 
 /**
- * DataView の集計対象期間（SPEC §6.2）。
- * null = 「全期間を表示」ON（期間条件なし）。
- * 日付の境界正規化（決定 §7-10）はここでは行わず、SQL を組み立てる直前に行う。
- */
-export type AnalyticsRange = { startDate: Date; endDate: Date } | null;
-
-/**
- * DataView の集計条件（SPEC-V2 §4.2）。
- * 期間だけだった AnalyticsRange に種別を足すため、両者をまとめた型にしてある。
+ * データタブの集計条件（UI-SPEC §1.5 / SPEC-V2 §4.2）。
+ *
+ * 期間は開始日・終了日の自由指定（旧 AnalyticsRange）をやめ、記録タブと同じ月キーにした（§5-5）。
+ * 月バーと期間シートが選べるのは「全期間か 1 か月」のいずれかだけなので、
+ * 境界の正規化（旧・決定 §7-10）は不要になり、月の絞り込みは一覧と同じ substr の等値比較で済む。
  * 種別で絞っても集計の形は変わらず、対象レコードが減るだけ（§4.4）。
  */
 export type AnalyticsFilter = {
-  range: AnalyticsRange;
+  /** 月フィルタ "YYYY-MM"。null = 全期間 */
+  monthKey: string | null;
   /** 種別フィルタ。null/undefined = すべて */
   kind?: RecordKind | null;
 };
 
-/** DataView のサマリーカード（期間内合計）。すべて丸めなし（SPEC §6.2） */
+/** データタブの合計行（期間内合計）。すべて丸めなし（SPEC §6.2） */
 export type AnalyticsSummary = {
   /** Σ salesPrice */
   totalSales: number;
@@ -107,9 +97,9 @@ export type AnalyticsSummary = {
 
 /** チャートの集計点（Swift 版 AggregatedPoint）。値は丸めなし */
 export type AggregatedPoint = {
-  /** 集計キー（販売日の先頭 n 文字。単位ごとの粒度） */
+  /** 集計キー（販売日の先頭 n 文字。刻みごとの粒度） */
   key: string;
-  /** キーが表す代表日（明細 = 販売日そのもの / 日別 = その日 0:00 / 月別 = 月初 / 年別 = 年初） */
+  /** キーが表す代表日（日ごと = その日 0:00 / 月ごと = 月初） */
   date: Date;
   /** Σ salesPrice */
   sales: number;
@@ -192,21 +182,18 @@ function buildWhere(filter: RecordListFilter): SQL {
 }
 
 /**
- * DataView の対象条件（SPEC §6.2）。
+ * データタブの対象条件（SPEC §6.2 / UI-SPEC §1.5）。
  * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
- * - 期間は startDate その日の 00:00:00.000 〜 endDate その日の 23:59:59.999 の閉区間（決定 §7-10）。
- *   保存形式が固定長のローカル ISO 文字列なので、辞書順比較がそのまま時系列比較になる。
+ * - 期間は販売日の月キー（"YYYY-MM"）の完全一致。null なら期間条件なし（全期間。§5-5）
  * - 種別（SPEC-V2 §4.2）は指定があればそのまま等値条件にする。
  */
 function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
-  const { range } = filter;
   const conditions: SQL[] = [
     eq(saleRecords.isSold, true),
     sql`${saleRecords.saleDate} IS NOT NULL`,
   ];
-  if (range != null) {
-    conditions.push(sql`${saleRecords.saleDate} >= ${toDbDate(startOfDay(range.startDate))}`);
-    conditions.push(sql`${saleRecords.saleDate} <= ${toDbDate(endOfDay(range.endDate))}`);
+  if (filter.monthKey != null) {
+    conditions.push(sql`substr(${saleRecords.saleDate}, 1, 7) = ${filter.monthKey}`);
   }
   if (filter.kind != null) {
     conditions.push(eq(saleRecords.kind, filter.kind));
@@ -214,7 +201,7 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   return sql.join(conditions, sql` AND `);
 }
 
-/** 集計キー = 販売日の先頭 n 文字（SPEC §6.2 の「単位ごとの日付キーに丸める」） */
+/** 集計キー = 販売日の先頭 n 文字（SPEC §6.2 の「刻みごとの日付キーに丸める」） */
 function chartKeySql(unit: ChartUnit): SQL<string> {
   return sql<string>`substr(${saleRecords.saleDate}, 1, ${CHART_KEY_LENGTH[unit]})`;
 }
@@ -427,12 +414,12 @@ export function createRepository(
       return row ?? { totalNetProfit: 0, totalExpenses: 0, totalSales: 0, recordCount: 0 };
     },
 
-    // ---- DataView（分析グラフ）の集計。SPEC §6.2 ----
+    // ---- データタブ（分析グラフ）の集計。SPEC §6.2 / UI-SPEC §1.5 ----
     //
     // 合算はすべて SQL の SUM で行い、丸めなしの Double を返す（決定 §7-2）。
     // 画面側は返ってきた値を roundForDisplay して出すだけで、全件ループはしない。
 
-    /** サマリーカードの期間内合計（SPEC §6.2） */
+    /** 固定の合計行の期間内合計（売上・収支・経費。UI-SPEC §1.5-3） */
     analyticsSummary(filter: AnalyticsFilter): AnalyticsSummary {
       const row = db
         .select({
@@ -449,6 +436,21 @@ export function createRepository(
         // SPEC §6.2 の定義どおり差で求める（Σ netProfit と等価）
         totalNetProfit: row.totalSales - row.totalExpenses,
       };
+    },
+
+    /**
+     * 条件に合う最古の月キー（UI-SPEC §5-14「◀ はデータのある最古の月で無効」）。
+     * 記録タブの earliestMonthKey と役割は同じだが、対象がデータタブの集合
+     * （売却済み・saleDate 非 null）なので条件を共有できない。月バーが動かす範囲そのものを
+     * 返すため、呼び出し側は monthKey を外した filter を渡す。0 件なら null。
+     */
+    analyticsEarliestMonthKey(filter: AnalyticsFilter): string | null {
+      const row = db
+        .select({ earliest: sql<string | null>`min(substr(${saleRecords.saleDate}, 1, 7))` })
+        .from(saleRecords)
+        .where(buildAnalyticsWhere({ ...filter, monthKey: null }))
+        .get();
+      return row?.earliest ?? null;
     },
 
     /** チャートの集計点（SPEC §6.2 AggregatedPoint）。日付キーの昇順 */
@@ -471,21 +473,18 @@ export function createRepository(
     },
 
     /**
-     * 選択された集計点の内訳（SPEC §6.2「下部に内訳リスト」）。
-     * 指標に応じて売上額 or 純利益の降順。タップされた 1 点ぶんだけを引くので、
-     * 全期間ぶんのレコードを画面に持ち込まずに済む。
+     * 選択された棒の内訳（UI-SPEC §1.5-5「選択日の一覧」）。
+     * タップされた 1 点ぶんだけを引くので、全期間ぶんのレコードを画面に持ち込まずに済む。
+     *
+     * 並びは純利益の降順で固定。指標切替（売上金額 / 収支）を廃止してグラフが収支だけになったので、
+     * 並び順を選ばせる軸そのものがなくなった（§6-10）。
      */
-    analyticsDetails(
-      filter: AnalyticsFilter,
-      unit: ChartUnit,
-      key: string,
-      metric: MetricType,
-    ): SaleRecord[] {
+    analyticsDetails(filter: AnalyticsFilter, unit: ChartUnit, key: string): SaleRecord[] {
       return db
         .select()
         .from(saleRecords)
         .where(sql`${buildAnalyticsWhere(filter)} AND ${chartKeySql(unit)} = ${key}`)
-        .orderBy(metric === 'sales' ? desc(saleRecords.salesPrice) : desc(netProfitSql))
+        .orderBy(desc(netProfitSql))
         .all();
     },
   };

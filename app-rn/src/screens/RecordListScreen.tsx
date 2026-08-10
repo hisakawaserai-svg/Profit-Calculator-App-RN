@@ -22,14 +22,15 @@ import { EmptyState } from '@/components/EmptyState';
 import { FilterChip } from '@/components/FilterChip';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { OptionSheet, type SheetOption } from '@/components/OptionSheet';
+import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
 import { SearchBar } from '@/components/SearchBar';
 import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
-import { monthKeyToDate, monthKeysBetween, toMonthKey } from '@/db/dates';
+import { toMonthKey } from '@/db/dates';
 import type { RecordSortType } from '@/db/repository';
 import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, useRecordList } from '@/db/useRecords';
-import { formatMonthTitle, formatYenSymbol } from '@/logic/format';
+import { formatYenSymbol } from '@/logic/format';
 import {
   DEFAULT_KIND_FILTER,
   kindFilterLabel,
@@ -37,7 +38,6 @@ import {
   type KindFilter,
 } from '@/logic/kindFilter';
 import {
-  ALL_PERIOD_LABEL,
   EXPENSES_LABEL,
   LISTING_COUNT_LABEL,
   SOLD_RECORDS_LABEL,
@@ -47,9 +47,6 @@ import {
 } from '@/logic/labels';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
-
-/** 期間シートの「全期間」に割り当てる値（月キーと同じ文字列型で扱うため） */
-const ALL_PERIOD_VALUE = 'all';
 
 /** リセット時に戻すソート（旧一覧の resetFilter と同じく販売日降順） */
 const DEFAULT_SORT: RecordSortType = 'saleDateDesc';
@@ -188,15 +185,6 @@ export function RecordListScreen() {
         },
       ];
 
-  // 期間シートの選択肢（全期間 ＋ 今月〜最古の月）。「期間を指定」は置かない（§5-5）
-  const periodOptions = useMemo<SheetOption<string>[][]>(() => {
-    const months = monthKeysBetween(earliestMonthKey ?? currentMonthKey, currentMonthKey);
-    return [
-      [{ label: ALL_PERIOD_LABEL, value: ALL_PERIOD_VALUE }],
-      months.map((key) => ({ label: formatMonthTitle(monthKeyToDate(key)), value: key })),
-    ];
-  }, [earliestMonthKey, currentMonthKey]);
-
   // ⌕ を押すとヘッダ行そのものが検索フィールドに変わる（§5-10）。
   // 「キャンセル」で元のヘッダ行（記録 / ⌕ ⇅）に戻り、検索語もクリアする。
   const screenOptions = useMemo(
@@ -315,13 +303,14 @@ export function RecordListScreen() {
         </Pressable>
       </View>
 
-      {/* 期間シート（月バー中央タップ）。全期間か 1 か月のいずれかを選ぶ（§5-5） */}
-      <OptionSheet
+      {/* 期間シート（月バー中央タップ）。全期間か 1 か月のいずれかを選ぶ（§5-5）。
+          データタブと同じ部品を共用する（UI-SPEC §1.2） */}
+      <PeriodSheet
         visible={showPeriodSheet}
-        title="表示する期間"
-        groups={periodOptions}
-        selectedValue={monthKey ?? ALL_PERIOD_VALUE}
-        onSelect={(value) => setMonthKey(value === ALL_PERIOD_VALUE ? null : value)}
+        monthKey={monthKey}
+        earliestMonthKey={earliestMonthKey}
+        currentMonthKey={currentMonthKey}
+        onSelect={setMonthKey}
         onClose={() => setShowPeriodSheet(false)}
       />
       {/* 並び替えシート（⇅）。種別は合計行のチップへ移したので並び替えだけを置く（§1.2） */}

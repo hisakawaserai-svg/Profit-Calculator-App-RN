@@ -11,7 +11,7 @@
 
 import type { RecordKind } from '@/db/schema';
 
-import type { MetricType } from './analytics';
+import type { ChartUnit } from './analytics';
 import { formatElapsedDays, formatShortDate, formatYenTight } from './format';
 import { daysBetween } from './listingDays';
 
@@ -70,6 +70,9 @@ export const LISTED_DATE_LABEL = '出品';
 
 /** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
 export const ALL_PERIOD_LABEL = '全期間';
+
+/** 期間シートの見出し（UI-SPEC §1.2）。記録タブ・データタブで同じシートを開く */
+export const PERIOD_SHEET_TITLE = '表示する期間';
 
 /** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は LISTING_COUNT_LABEL と同じ語 */
 export const SOLD_RECORDS_LABEL = '売れた記録';
@@ -311,13 +314,44 @@ export function targetProfitLabel(kind: RecordKind): string {
   return TARGET_PROFIT_LABELS[kind];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// データタブ（UI-SPEC §1.5 / 採用案 7b）の表示語。
+//
+// 指標セグメントの語（旧 metricLabel =「売上金額」/「収支」）は、指標切替そのものの廃止で
+// 参照元がなくなったため削除した（§6-10）。グラフは収支だけになり、売上は合計行が持つ。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** グラフカードの見出し（UI-SPEC §1.5-4）。指標が 1 つになったので固定文言 */
+export const PROFIT_TREND_LABEL = `${TOTAL_PROFIT_LABEL}の推移`;
+
 /**
- * データタブの指標セグメント名（§1.3）。
- * 指標は期間内の集計なので、netProfit 側は種別語ではなく中立語になる。
+ * グラフカード右上に出す現在の刻み（UI-SPEC §1.5-4）。**表示のみで押せない** ──
+ * 刻みは期間から自動で決まり、選ばせる操作ではないため（§5-5）。
  */
-export function metricLabel(metric: MetricType): string {
-  return metric === 'sales' ? '売上金額' : TOTAL_PROFIT_LABEL;
+const CHART_UNIT_LABELS: Record<ChartUnit, string> = {
+  day: '日ごと',
+  month: '月ごと',
+};
+
+export function chartUnitLabel(unit: ChartUnit): string {
+  return CHART_UNIT_LABELS[unit];
 }
+
+/** 選択中の棒を外すリンク（UI-SPEC §1.5-5）。棒をもう一度押す経路は持たないので語で出す */
+export const CLEAR_SELECTION_LABEL = '選択を解除';
+
+/** 選択した棒の一覧の見出し（UI-SPEC §1.5-5）:「8月9日の記録　3件」 */
+export function selectedPointTitle(dateText: string, count: number): string {
+  return `${dateText}の記録　${count}件`;
+}
+
+/**
+ * グラフカードの下に常設する注記（UI-SPEC §1.5-6）。
+ * 刻みが勝手に変わるように見えるのを防ぐため、何を選ぶと何が変わるかを先に書いておく。
+ */
+export const CHART_UNIT_NOTE =
+  `${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」に変わり、` +
+  `見出しも「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」になります。`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 記録フォーム（UI-SPEC §1.3 / 採用案 3c）とレコード詳細（§1.4 / 採用案 3d）の表示語。

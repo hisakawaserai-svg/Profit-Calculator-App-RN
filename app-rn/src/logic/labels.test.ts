@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CHART_UNIT_NOTE,
   COMMISSION_LABEL,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   EXPENSES_LABEL,
@@ -13,6 +14,7 @@ import {
   MARKED_AS_SOLD_MESSAGE,
   MARK_AS_SOLD_BUTTON_LABEL,
   POSTAGE_LABEL,
+  PROFIT_TREND_LABEL,
   PURCHASE_PRICE_LABEL,
   REQUIRED_SALES_PRICE_LABEL,
   REVERT_TO_LISTING_BUTTON_LABEL,
@@ -28,6 +30,7 @@ import {
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
   additionLabel,
+  chartUnitLabel,
   commissionFieldLabel,
   commissionItemLabel,
   commissionRowLabel,
@@ -35,7 +38,6 @@ import {
   deductionLabel,
   lowerPriceWarning,
   memoSectionLabel,
-  metricLabel,
   optionalCostsLabel,
   profitLabel,
   profitTabLabel,
@@ -44,6 +46,7 @@ import {
   requiredPriceFormulaLines,
   requiredPriceSummary,
   revertToListingConfirmTitle,
+  selectedPointTitle,
   soldDateChipsNote,
   soldDateNotes,
   soldDatePickerNote,
@@ -231,10 +234,24 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 1 つ下の価格の注意文', () =>
   });
 });
 
-describe('§1.3 データタブの指標セグメント', () => {
-  it('売上金額はそのまま / netProfit は集計なので「収支」', () => {
-    expect(metricLabel('sales')).toBe('売上金額');
-    expect(metricLabel('netProfit')).toBe(TOTAL_PROFIT_LABEL);
+describe('UI-SPEC §1.5 データタブの語', () => {
+  it('グラフの見出しは指標が 1 つになったので固定文言', () => {
+    expect(PROFIT_TREND_LABEL).toBe(`${TOTAL_PROFIT_LABEL}の推移`);
+  });
+
+  it('刻みは日ごと / 月ごとの 2 語（§5-5）', () => {
+    expect(chartUnitLabel('day')).toBe('日ごと');
+    expect(chartUnitLabel('month')).toBe('月ごと');
+  });
+
+  it('選択した棒の見出しは日付と件数を並べる（§1.5-5）', () => {
+    expect(selectedPointTitle('8月9日', 3)).toBe('8月9日の記録　3件');
+  });
+
+  it('注記は全期間で何が変わるかを名指しする（§1.5-6）', () => {
+    expect(CHART_UNIT_NOTE).toBe(
+      '全期間を選ぶと刻みが「月ごと」に変わり、見出しも「全期間の収支」になります。',
+    );
   });
 });
 

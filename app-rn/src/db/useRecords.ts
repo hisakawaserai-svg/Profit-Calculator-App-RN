@@ -10,7 +10,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { ChartUnit, MetricType } from '@/logic/analytics';
+import type { ChartUnit } from '@/logic/analytics';
 
 import { repository } from './client';
 import type {
@@ -212,12 +212,14 @@ export function deleteRecord(id: string): void {
 }
 
 export type AnalyticsData = {
-  /** 期間内合計（SPEC §6.2 サマリーカード）。丸めなし */
+  /** 期間内合計（UI-SPEC §1.5-3 の合計行）。丸めなし */
   summary: AnalyticsSummary;
   /** チャートの集計点。日付キーの昇順・丸めなし */
   series: AggregatedPoint[];
-  /** 選択中の集計点の内訳。未選択なら空配列 */
+  /** 選択中の棒の内訳。未選択なら空配列 */
   details: SaleRecord[];
+  /** データのある最古の月キー。null = 0 件。月バーの ◀ の無効化に使う（UI-SPEC §5-14） */
+  earliestMonthKey: string | null;
 };
 
 const NO_DETAILS: SaleRecord[] = [];
@@ -232,6 +234,7 @@ function queryAnalytics(
   return {
     summary: repository.analyticsSummary(filter),
     series: repository.analyticsSeries(filter, unit),
+    earliestMonthKey: repository.analyticsEarliestMonthKey(filter),
   };
 }
 
@@ -239,29 +242,26 @@ function queryAnalyticsDetails(
   filter: AnalyticsFilter,
   unit: ChartUnit,
   selectedKey: string | null,
-  metric: MetricType,
   refreshToken: object,
 ): SaleRecord[] {
   void refreshToken;
   if (selectedKey == null) return NO_DETAILS;
-  return repository.analyticsDetails(filter, unit, selectedKey, metric);
+  return repository.analyticsDetails(filter, unit, selectedKey);
 }
 
 /**
- * DataView（分析グラフ）のデータ取得（SPEC §6.2）。
+ * データタブ（DataScreen）のデータ取得（UI-SPEC §1.5）。
  *
  * 集計は repository の SQL 側で完結しているので、画面が受け取るのは
  * 集計済みの点と合計値だけ。レコード実体は「タップされた 1 点の内訳」しか読まない。
  *
- * @param filter      集計対象（期間 + 種別）。range = null で全期間、kind = null で全種別
- * @param unit        表示単位（明細 / 日別 / 月別 / 年別）
- * @param metric      指標。内訳リストの並び順に効く
- * @param selectedKey タップされた集計点のキー。null なら内訳は引かない
+ * @param filter      集計対象（月キー + 種別）。monthKey = null で全期間、kind = null で全種別
+ * @param unit        グラフの刻み（日ごと / 月ごと）。期間から自動で決まる（§5-5）
+ * @param selectedKey タップされた棒のキー。null なら内訳は引かない
  */
 export function useAnalyticsData(
   filter: AnalyticsFilter,
   unit: ChartUnit,
-  metric: MetricType,
   selectedKey: string | null,
 ): AnalyticsData {
   const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
@@ -274,10 +274,10 @@ export function useAnalyticsData(
     () => queryAnalytics(filter, unit, refreshToken),
     [filter, unit, refreshToken],
   );
-  // 指標の切替では内訳の並びしか変わらないので、集計本体とはメモを分ける
+  // 棒を選び直したときに引き直すのは内訳だけなので、集計本体とはメモを分ける
   const details = useMemo(
-    () => queryAnalyticsDetails(filter, unit, selectedKey, metric, refreshToken),
-    [filter, unit, selectedKey, metric, refreshToken],
+    () => queryAnalyticsDetails(filter, unit, selectedKey, refreshToken),
+    [filter, unit, selectedKey, refreshToken],
   );
 
   return { ...data, details };
