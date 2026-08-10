@@ -46,11 +46,46 @@ export const SALES_PRICE_LABEL = '販売価格';
 /** Σ salesPrice。データタブの集計だけ「売上」（§5.3） */
 export const TOTAL_SALES_LABEL = '売上';
 
+/** 出品中レコード 1 件の salesPrice（UI-SPEC §6-3）。売れる前の値段なので「販売価格」とは呼ばない */
+export const LISTING_PRICE_LABEL = '出品価格';
+
+/** 出品中の Σ salesPrice（合計行。UI-SPEC §6-3） */
+export const TOTAL_LISTING_PRICE_LABEL = '出品価格の合計';
+
+/** 出品中の件数（合計行の左の値 A。UI-SPEC §1.2） */
+export const LISTING_COUNT_LABEL = '出品中';
+
+/** 一覧のメタ行に出す日付の意味づけ（UI-SPEC §1.2「{種別}　M/D 販売 / M/D 出品」） */
+export const SOLD_DATE_LABEL = '販売';
+export const LISTED_DATE_LABEL = '出品';
+
+/** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
+export const ALL_PERIOD_LABEL = '全期間';
+
+/** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は LISTING_COUNT_LABEL と同じ語 */
+export const SOLD_RECORDS_LABEL = '売れた記録';
+
 /** commissionCost（§5.3） */
 export const COMMISSION_LABEL = '販売手数料';
 
 /** 計算タブの逆算結果。種別で変えない（§5.3） */
 export const REQUIRED_SALES_PRICE_LABEL = '必要な販売価格';
+
+/**
+ * 合計行の収支の見出し（UI-SPEC §1.2）:「この月の収支」/「全期間の収支」。
+ * 合計なので種別語ではなく中立語（§5.3）。
+ */
+export function periodProfitLabel(monthKey: string | null): string {
+  return `${monthKey == null ? ALL_PERIOD_LABEL : 'この月'}の${TOTAL_PROFIT_LABEL}`;
+}
+
+/**
+ * 出品中レコードの見込み netProfit（UI-SPEC §6-3）。
+ * 送料未入力かどうかの判定はしないので「約」は常に付く（§5-3）。金額側は formatApproxYenSymbol。
+ */
+export function expectedProfitText(approxAmount: string): string {
+  return `売れたら ${approxAmount}`;
+}
 
 /** 種別の表示名（レコード詳細の「種別」行・種別セレクタ） */
 export function recordKindLabel(kind: RecordKind): string {

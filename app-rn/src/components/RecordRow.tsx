@@ -1,78 +1,133 @@
-// SaleRecord.swift の RecordRowView の移植。一覧のプレビュー行・月別詳細の行の両方で使う。
+// 一覧の 1 行（UI-SPEC §1.2「行の出し分け」）。記録タブとデータタブの内訳リストで共用する（§6-11）。
+//
+// 2 段構成:
+//   1 段目 = 商品名（左）＋ 主金額（右）
+//   2 段目 = メタ行。左に「{種別}　M/D 販売 / 出品」、右に補足
+//
+// | 状態     | 主金額                        | メタ行の右                        |
+// |----------|-------------------------------|-----------------------------------|
+// | 売れた   | 純利益（ラベルなし・正緑/負赤） | 「経費 ¥…」                       |
+// | 出品中   | 出品価格（黒）                 | 「売れたら 約¥…・N 日経過」        |
+//
+// - 金額ラベル（純利益: / 利益:）は廃止し金額だけを出す（§6-2）。
+//   代わりに種別をメタ行に常時表示する（§6-1）。
+// - 見込み額には常に「約」を付ける。送料未入力かどうかの判定はしない（§5-3）。
+// - 「N 日経過」は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
 import { StyleSheet, Text, View } from 'react-native';
 
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
-import { formatRecordDate, formatYen } from '@/logic/format';
-import { EXPENSES_LABEL, profitLabel } from '@/logic/labels';
+import {
+  formatApproxYenSymbol,
+  formatElapsedDays,
+  formatShortDate,
+  formatYenSymbol,
+} from '@/logic/format';
+import {
+  EXPENSES_LABEL,
+  LISTED_DATE_LABEL,
+  SOLD_DATE_LABEL,
+  expectedProfitText,
+  recordKindLabel,
+} from '@/logic/labels';
+import { listingDays } from '@/logic/listingDays';
 import { netProfit, totalExpenses } from '@/logic/profit';
 import { useThemeColors } from '@/theme';
 
 type Props = {
   record: SaleRecord;
-  /** true = 実績（売却済み） / false = 出品中 */
+  /** true = 売れた記録（売却済み） / false = 出品中 */
   isSoldMode: boolean;
+  /** 「N 日経過」の基準日。省略時は今日（テスト・プレビューから固定日を渡せるように） */
+  today?: Date;
 };
 
-export function RecordRow({ record, isSoldMode }: Props) {
+export function RecordRow({ record, isSoldMode, today }: Props) {
   const colors = useThemeColors();
   const profit = netProfit(record);
-  const expenses = totalExpenses(record);
 
-  // 表示するのはグループ化の基準日（SPEC §6.1）。
-  // Swift 版の RecordRowView は saleDate のみを出していたが、この行は出品中タブでも使われ、
-  // 出品中は saleDate が常に null（SPEC §1）で日付が消えてしまうため、
-  // 出品中では saleStartDate（出品日）を出す。
+  // 表示するのはグループ化と同じ基準日（SPEC §6.1）。出品中は saleDate が常に null なので出品日を出す
   const basisDate = isSoldMode ? record.saleDate : record.saleStartDate;
+  const dateText =
+    basisDate == null
+      ? ''
+      : `${formatShortDate(fromDbDate(basisDate))} ${isSoldMode ? SOLD_DATE_LABEL : LISTED_DATE_LABEL}`;
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
-        {record.itemName === '' ? '無題' : record.itemName}
-      </Text>
-
-      <View style={styles.amounts}>
-        {/* 行はレコード 1 件なので種別語（SPEC-V2 §1.3 / §5.3）。種別バッジは付けない（§5.4） */}
-        <Text
-          style={[styles.amount, { color: profit >= 0 ? colors.green : colors.red }]}
-          numberOfLines={1}>
-          {profitLabel(record.kind)}: {formatYen(profit)}
+      <View style={styles.mainLine}>
+        <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
+          {record.itemName === '' ? '無題' : record.itemName}
         </Text>
         <Text
-          style={[styles.amount, { color: expenses >= 0 ? colors.red : colors.label }]}
+          style={[
+            styles.amount,
+            // 売れた記録は正負で色を変える。出品中の主金額（出品価格）は損益ではないので黒
+            {
+              color: isSoldMode ? (profit >= 0 ? colors.green : colors.red) : colors.label,
+            },
+          ]}
           numberOfLines={1}>
-          {EXPENSES_LABEL}: {formatYen(expenses)}
+          {formatYenSymbol(isSoldMode ? profit : record.salesPrice)}
         </Text>
       </View>
 
-      {basisDate != null && (
-        <Text style={[styles.date, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {formatRecordDate(fromDbDate(basisDate))}
+      <View style={styles.metaLine}>
+        <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+          {/* 金額ラベルを廃止したぶん、種別はここで常時読めるようにする（§6-1） */}
+          {recordKindLabel(record.kind)}
+          {dateText === '' ? '' : `　${dateText}`}
         </Text>
-      )}
+        <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+          {isSoldMode
+            ? `${EXPENSES_LABEL} ${formatYenSymbol(totalExpenses(record))}`
+            : listingMetaText(record, profit, today ?? new Date())}
+        </Text>
+      </View>
     </View>
   );
+}
+
+/** 出品中のメタ行の右「売れたら 約¥…・N 日経過」（UI-SPEC §1.2 / §5-2 / §5-3） */
+function listingMetaText(record: SaleRecord, profit: number, today: Date): string {
+  const days = listingDays(
+    {
+      saleStartDate: fromDbDate(record.saleStartDate),
+      saleDate: record.saleDate == null ? null : fromDbDate(record.saleDate),
+    },
+    today,
+  );
+
+  return `${expectedProfitText(formatApproxYenSymbol(profit))}・${formatElapsedDays(days)}`;
 }
 
 const styles = StyleSheet.create({
   row: {
     gap: 4,
-    paddingHorizontal: 5,
+  },
+  mainLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   itemName: {
-    fontSize: 17,
+    flexShrink: 1,
+    fontSize: 16,
     fontWeight: '600',
   },
-  amounts: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-  },
   amount: {
-    fontSize: 15,
-    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: '700',
   },
-  date: {
+  metaLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  meta: {
+    flexShrink: 1,
     fontSize: 12,
   },
 });

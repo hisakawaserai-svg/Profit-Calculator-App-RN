@@ -20,6 +20,7 @@ import type {
   CareerSummary,
   MonthGroup,
   RecordListFilter,
+  RecordSortType,
   SaveRecordInput,
   SortTypeMonthly,
 } from './repository';
@@ -81,6 +82,65 @@ export function useRecordListData(
 
   const data = useMemo(
     () => query(filter, sortType, summaryFilter, refreshToken),
+    [filter, sortType, summaryFilter, refreshToken],
+  );
+
+  return { ...data, refresh };
+}
+
+export type RecordListPage = {
+  /** 絞り込み後のレコード（sortType 順のフラットな 1 本のリスト。UI-SPEC §1.2） */
+  records: SaleRecord[];
+  /** 固定の合計行の元になる集計。丸めなし */
+  summary: CareerSummary;
+  /** 条件に合う最古の月キー。null = 0 件。月バーの ◀ の無効化に使う（UI-SPEC §5-14） */
+  earliestMonthKey: string | null;
+  /** 書き込み後に呼んで再取得する */
+  refresh: () => void;
+};
+
+/** refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryList(
+  filter: RecordListFilter,
+  sortType: RecordSortType,
+  summaryFilter: RecordListFilter,
+  refreshToken: object,
+): Omit<RecordListPage, 'refresh'> {
+  void refreshToken;
+  return {
+    records: repository.filteredRecords(filter, sortType),
+    summary: repository.careerSummary(summaryFilter),
+    // 月バーが動かせる範囲は「期間を外した集合」で決まるので、月・検索を落として引く
+    earliestMonthKey: repository.earliestMonthKey({
+      ...summaryFilter,
+      monthKey: null,
+      searchText: '',
+    }),
+  };
+}
+
+/**
+ * 記録タブ（RecordListScreen）のデータ取得。UI-SPEC §1.2。
+ *
+ * @param filter        リスト本体の絞り込み（状態 / 検索 / 期間 / 種別）
+ * @param sortType      レコード 1 件ずつの並び順（8 種）
+ * @param summaryFilter 合計行の絞り込み。省略時は filter と同じ。
+ *                      検索は「探す操作」であって「見る対象の限定」ではないので、
+ *                      呼び出し側は検索を除いたものを渡す（SPEC-V2 §4.2 と同じ考え方）
+ */
+export function useRecordList(
+  filter: RecordListFilter,
+  sortType: RecordSortType,
+  summaryFilter: RecordListFilter = filter,
+): RecordListPage {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  // 他画面（フォーム・詳細画面）での変更を、戻ってきたタイミングで反映する
+  useFocusEffect(refresh);
+
+  const data = useMemo(
+    () => queryList(filter, sortType, summaryFilter, refreshToken),
     [filter, sortType, summaryFilter, refreshToken],
   );
 

@@ -34,6 +34,25 @@ export function monthKeyToDate(monthKey: string): Date {
   return new Date(year, month - 1, 1);
 }
 
+/**
+ * 月キーを delta か月ずらす（月バーの ◀ ▶。UI-SPEC §1.2）。
+ * Date の月加算に任せるので年の繰り上がり・繰り下がりも自動で効く。
+ */
+export function shiftMonthKey(monthKey: string, delta: number): string {
+  const date = monthKeyToDate(monthKey);
+  return toMonthKey(new Date(date.getFullYear(), date.getMonth() + delta, 1));
+}
+
+/**
+ * from から to まで（両端含む）の月キーを新しい順に並べる（期間シートの選択肢。UI-SPEC §1.2）。
+ * from > to のときは空配列。月キーは固定長なので大小比較は文字列比較でよい。
+ */
+export function monthKeysBetween(from: string, to: string): string[] {
+  const keys: string[] = [];
+  for (let key = to; key >= from; key = shiftMonthKey(key, -1)) keys.push(key);
+  return keys;
+}
+
 /** その日の 00:00:00.000。DataView の期間開始（決定 §7-10） */
 export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);

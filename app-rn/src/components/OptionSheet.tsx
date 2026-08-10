@@ -1,46 +1,41 @@
 // SwiftUI の Menu { Button... } 相当。RN にメニュー相当のプリミティブがないため、
-// 下から出るシートで選択肢を並べる。ソートメニュー（SPEC §3.2 のツールバー）で使う。
+// 下から出るシートで選択肢を並べる。並び替えシート・期間シート（UI-SPEC §1.2）で使う。
 //
-// SPEC-V2 §7-10 の決定により、種別フィルタもこのシートに同居させる。独立したセグメント
-// コントロールをヘッダ下に置くと検索バーと合わせて縦幅を二重に食うため。
-// 種別はソートとは別の state なので、`section` として選択値の型・onSelect ごと分けて受け取る。
+// SPEC-V2 §7-10 で同居させていた種別フィルタは、合計行のチップへ移したのでこのシートから外した
+// （UI-SPEC §3.2）。シートが持つのは「1 つの選択値 ＋ 先頭の任意アクション」だけになる。
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/theme';
 
 export type SheetOption<T extends string> = { label: string; value: T };
 
-/** ソート値とは別の選択値を同じシートに並べるための追加セクション（SPEC-V2 §4.2） */
-export type SheetSection<K extends string> = {
-  heading: string;
-  options: SheetOption<K>[];
-  selectedValue: K;
-  onSelect: (value: K) => void;
-};
+/** 選択肢より前に置く 1 行のアクション（UI-SPEC §1.2「並び替えシートの先頭に絞り込みをすべて解除」） */
+export type SheetAction = { label: string; onPress: () => void };
 
-type Props<T extends string, K extends string> = {
+type Props<T extends string> = {
   visible: boolean;
   title: string;
-  /** 主セクションの見出し。section を足して 2 種類の選択が並ぶときに付ける */
+  /** 先頭のアクション行。押すと実行してシートを閉じる */
+  action?: SheetAction;
+  /** 選択肢の見出し。省略すると出ない */
   heading?: string;
   /** Swift 版 Menu の Divider に対応させるため、グループ単位で受け取り間に区切り線を入れる */
   groups: SheetOption<T>[][];
   selectedValue: T;
   onSelect: (value: T) => void;
-  section?: SheetSection<K>;
   onClose: () => void;
 };
 
-export function OptionSheet<T extends string, K extends string = never>({
+export function OptionSheet<T extends string>({
   visible,
   title,
+  action,
   heading,
   groups,
   selectedValue,
   onSelect,
-  section,
   onClose,
-}: Props<T, K>) {
+}: Props<T>) {
   const colors = useThemeColors();
 
   return (
@@ -49,7 +44,22 @@ export function OptionSheet<T extends string, K extends string = never>({
       <View style={[styles.sheet, { backgroundColor: colors.background }]}>
         <Text style={[styles.title, { color: colors.label }]}>{title}</Text>
         <ScrollView bounces={false}>
-          {heading != null && <SectionHeading text={heading} />}
+          {action != null && (
+            <Pressable
+              style={[
+                styles.group,
+                styles.option,
+                { backgroundColor: colors.secondaryBackground },
+              ]}
+              onPress={() => {
+                action.onPress();
+                onClose();
+              }}
+              accessibilityRole="button">
+              <Text style={[styles.optionLabel, { color: colors.blue }]}>{action.label}</Text>
+            </Pressable>
+          )}
+          {heading != null && <SectionHeading text={heading} spaced={action != null} />}
           {groups.map((group, groupIndex) => (
             <OptionGroup
               key={group.map((option) => option.value).join(',')}
@@ -62,20 +72,6 @@ export function OptionSheet<T extends string, K extends string = never>({
               }}
             />
           ))}
-
-          {section && (
-            <>
-              <SectionHeading text={section.heading} spaced />
-              <OptionGroup
-                options={section.options}
-                selectedValue={section.selectedValue}
-                onSelect={(value) => {
-                  section.onSelect(value);
-                  onClose();
-                }}
-              />
-            </>
-          )}
         </ScrollView>
       </View>
     </Modal>

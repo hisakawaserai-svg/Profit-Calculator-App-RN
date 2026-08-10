@@ -12,6 +12,24 @@ export function formatYenSymbol(value: number): string {
   return `¥${roundForDisplay(value)}`;
 }
 
+/**
+ * 見込み額「約¥1234」。出品中の行の「売れたら 約¥…」で使う。
+ * 「約」は常に付く（UI-SPEC §5-3: 送料未入力かどうかの判定はしない）。
+ */
+export function formatApproxYenSymbol(value: number): string {
+  return `約${formatYenSymbol(value)}`;
+}
+
+/** 経過日数「7日経過」（UI-SPEC §5-2。日数の算出は logic/listingDays.ts） */
+export function formatElapsedDays(days: number): string {
+  return `${days}日経過`;
+}
+
+/** 一覧のメタ行に出す短い日付「8/9」（UI-SPEC §1.2「M/D 販売」） */
+export function formatShortDate(date: Date): string {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
 /** 月セクションの見出し「2026年08月」（Swift 版 .dateTime.year().month(.twoDigits) 相当） */
 export function formatMonthHeader(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');

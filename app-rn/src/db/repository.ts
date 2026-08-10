@@ -34,6 +34,13 @@ export type SortTypeMonthly =
   | 'expensesDesc'
   | 'expensesAsc';
 
+/**
+ * 記録タブ（UI-SPEC §1.2）のレコード単位の並び順（8 種）。
+ * 月グループが廃止されたので、SortTypeMonthly と同じ 8 種をレコード 1 件ずつに適用する。
+ * 値（profitDesc 等）は内部の識別子なので SortTypeMonthly と揃えたまま改名しない（SPEC-V2 §5.3）。
+ */
+export type RecordSortType = SortTypeMonthly;
+
 export type RecordListFilter = {
   /** true = 実績タブ（売却済み） / false = 出品中タブ */
   isSoldMode: boolean;
@@ -64,6 +71,8 @@ export type CareerSummary = {
   totalNetProfit: number;
   /** 丸めなし */
   totalExpenses: number;
+  /** Σ salesPrice。出品中の合計行「出品価格の合計」に使う（UI-SPEC §6-3）。丸めなし */
+  totalSales: number;
   recordCount: number;
 };
 
@@ -341,18 +350,66 @@ export function createRepository(
       }));
     },
 
+    /**
+     * 記録タブ（UI-SPEC §1.2）のフラットなレコード一覧。
+     * 月グループを廃止したので、絞り込み後のレコードを 8 種の並び順で 1 本のリストとして返す。
+     * 並べ替えは SQL 側で行う（画面ではクエリも並べ替えも書かない）。
+     */
+    filteredRecords(
+      filter: RecordListFilter,
+      sortType: RecordSortType = 'saleDateDesc',
+    ): SaleRecord[] {
+      // 売却済みモードの saleDate は非 null が保証されるが、出品中モードでは常に null。
+      // どちらでも比較できるよう、月グループ化と同じ coalesce 済みの式を使う。
+      const saleDate = basisDateSql(true);
+      const orderBy: Record<RecordSortType, SQL> = {
+        saleDateDesc: desc(saleDate),
+        saleDateAsc: asc(saleDate),
+        saleStartDateDesc: desc(saleRecords.saleStartDate),
+        saleStartDateAsc: asc(saleRecords.saleStartDate),
+        profitDesc: desc(netProfitSql),
+        profitAsc: asc(netProfitSql),
+        expensesDesc: desc(totalExpensesSql),
+        expensesAsc: asc(totalExpensesSql),
+      };
+
+      return db
+        .select()
+        .from(saleRecords)
+        .where(buildWhere(filter))
+        // 同値のときの並びを決めておく（基準日の新しい順）。指定した並び順と衝突しても
+        // 第 2 キーなので影響しない
+        .orderBy(orderBy[sortType], desc(basisDateSql(filter.isSoldMode)))
+        .all();
+    },
+
+    /**
+     * 条件に合う最古の月キー（UI-SPEC §5-14「◀ はデータのある最古の月で無効」）。
+     * 対象は月バーが動かす範囲そのものなので、呼び出し側は monthKey を含まない filter を渡す。
+     * 0 件なら null。
+     */
+    earliestMonthKey(filter: RecordListFilter): string | null {
+      const row = db
+        .select({ earliest: sql<string | null>`min(${monthKeySql(filter.isSoldMode)})` })
+        .from(saleRecords)
+        .where(buildWhere(filter))
+        .get();
+      return row?.earliest ?? null;
+    },
+
     /** 画面下部の累計（SPEC §6.1 CareerSummarySection）。丸めなしで返す */
     careerSummary(filter: RecordListFilter): CareerSummary {
       const row = db
         .select({
           totalNetProfit: sql<number>`coalesce(sum(${netProfitSql}), 0)`,
           totalExpenses: sql<number>`coalesce(sum(${totalExpensesSql}), 0)`,
+          totalSales: sql<number>`coalesce(sum(${saleRecords.salesPrice}), 0)`,
           recordCount: sql<number>`count(*)`,
         })
         .from(saleRecords)
         .where(buildWhere(filter))
         .get();
-      return row ?? { totalNetProfit: 0, totalExpenses: 0, recordCount: 0 };
+      return row ?? { totalNetProfit: 0, totalExpenses: 0, totalSales: 0, recordCount: 0 };
     },
 
     // ---- DataView（分析グラフ）の集計。SPEC §6.2 ----

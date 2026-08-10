@@ -291,6 +291,7 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
       expect(repo.careerSummary({ isSoldMode: false, kind: 'used' })).toEqual({
         totalNetProfit: 0,
         totalExpenses: 0,
+        totalSales: 0,
         recordCount: 0,
       });
     });
@@ -349,6 +350,177 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
       expect(names(undefined)).toEqual(['仕入れたカメラ', '不要な本']);
       expect(names('used')).toEqual(['不要な本']);
       expect(names('sourced')).toEqual(['仕入れたカメラ']);
+    });
+  });
+});
+
+// UI-SPEC §1.2（記録タブ 8a）で追加した、月グループを介さないフラットな取得。
+describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 出品価格の合計', () => {
+  let repo: Repository;
+
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
+
+  beforeAll(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    // 売れた記録: 2026-06 / 2026-08 に 2 件（同月に複数件あること）
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      itemName: '6月の本',
+      salesPrice: 1000,
+      postage: 0,
+      commission: 0,
+      isSold: true,
+      saleStartDate: d(2026, 6, 1),
+      saleDate: d(2026, 6, 10),
+    });
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      itemName: '8月の椅子',
+      salesPrice: 3000,
+      postage: 500,
+      commission: 0,
+      isSold: true,
+      saleStartDate: d(2026, 8, 1),
+      saleDate: d(2026, 8, 3),
+    });
+    repo.create({
+      ...base,
+      kind: 'sourced',
+      purchasePrice: 100,
+      itemName: '8月のカメラ',
+      salesPrice: 2000,
+      postage: 0,
+      commission: 0,
+      isSold: true,
+      saleStartDate: d(2026, 8, 2),
+      saleDate: d(2026, 8, 20),
+    });
+    // 出品中: 2026-07 と 2026-08
+    repo.create({
+      ...base,
+      kind: 'sourced',
+      purchasePrice: 300,
+      itemName: '出品中のケース',
+      salesPrice: 1500,
+      postage: 0,
+      commission: 0,
+      isSold: false,
+      saleStartDate: d(2026, 7, 20),
+      saleDate: null,
+    });
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      itemName: '出品中のバッグ',
+      salesPrice: 800,
+      postage: 0,
+      commission: 0,
+      isSold: false,
+      saleStartDate: d(2026, 8, 5),
+      saleDate: null,
+    });
+  });
+
+  const names = (records: ReturnType<Repository['filteredRecords']>) =>
+    records.map((record) => record.itemName);
+
+  describe('filteredRecords: 月グループを作らずフラットに返す', () => {
+    it('月を指定するとその月のレコードだけが 1 本のリストで返る', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: true, monthKey: '2026-08' }))).toEqual([
+        '8月のカメラ',
+        '8月の椅子',
+      ]);
+    });
+
+    it('全期間（monthKey なし）では全部が 1 本のリストになる', () => {
+      expect(repo.filteredRecords({ isSoldMode: true })).toHaveLength(3);
+    });
+
+    it('販売日の昇順・降順で並べ替えられる', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: true }, 'saleDateAsc'))).toEqual([
+        '6月の本',
+        '8月の椅子',
+        '8月のカメラ',
+      ]);
+      expect(names(repo.filteredRecords({ isSoldMode: true }, 'saleDateDesc'))).toEqual([
+        '8月のカメラ',
+        '8月の椅子',
+        '6月の本',
+      ]);
+    });
+
+    it('出品日で並べ替えられる（出品中でも効く。saleDate は常に null）', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: false }, 'saleStartDateAsc'))).toEqual([
+        '出品中のケース',
+        '出品中のバッグ',
+      ]);
+    });
+
+    it('収支（netProfit）で並べ替えられる', () => {
+      // 6月の本 1000 / 8月の椅子 2500 / 8月のカメラ 1900
+      expect(names(repo.filteredRecords({ isSoldMode: true }, 'profitDesc'))).toEqual([
+        '8月の椅子',
+        '8月のカメラ',
+        '6月の本',
+      ]);
+      expect(names(repo.filteredRecords({ isSoldMode: true }, 'profitAsc'))[0]).toBe('6月の本');
+    });
+
+    it('経費で並べ替えられる', () => {
+      // 6月の本 0 / 8月の椅子 500 / 8月のカメラ 100
+      expect(names(repo.filteredRecords({ isSoldMode: true }, 'expensesDesc'))).toEqual([
+        '8月の椅子',
+        '8月のカメラ',
+        '6月の本',
+      ]);
+    });
+
+    it('検索・種別の絞り込みは従来どおり AND で効く', () => {
+      expect(
+        names(repo.filteredRecords({ isSoldMode: true, searchText: 'カメラ' })),
+      ).toEqual(['8月のカメラ']);
+      expect(names(repo.filteredRecords({ isSoldMode: true, kind: 'used' }))).toEqual([
+        '8月の椅子',
+        '6月の本',
+      ]);
+    });
+  });
+
+  describe('earliestMonthKey: 月バーの ◀ の下限（UI-SPEC §5-14）', () => {
+    it('売れた記録の最古の月', () => {
+      expect(repo.earliestMonthKey({ isSoldMode: true })).toBe('2026-06');
+    });
+
+    it('出品中は出品日で数えるので別の月になる', () => {
+      expect(repo.earliestMonthKey({ isSoldMode: false })).toBe('2026-07');
+    });
+
+    it('種別で絞ると最古の月も変わる', () => {
+      expect(repo.earliestMonthKey({ isSoldMode: false, kind: 'used' })).toBe('2026-08');
+    });
+
+    it('0 件なら null', () => {
+      expect(repo.earliestMonthKey({ isSoldMode: true, kind: 'sourced', monthKey: '2026-06' })).toBe(
+        null,
+      );
+    });
+  });
+
+  describe('careerSummary.totalSales: 出品価格の合計（UI-SPEC §6-3）', () => {
+    it('出品中の Σ salesPrice が取れる', () => {
+      expect(repo.careerSummary({ isSoldMode: false }).totalSales).toBe(1500 + 800);
+    });
+
+    it('月で絞ればその月ぶんだけになる', () => {
+      const summary = repo.careerSummary({ isSoldMode: false, monthKey: '2026-08' });
+
+      expect(summary.totalSales).toBe(800);
+      expect(summary.recordCount).toBe(1);
     });
   });
 });

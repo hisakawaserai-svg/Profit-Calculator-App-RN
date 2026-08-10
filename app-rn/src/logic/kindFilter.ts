@@ -5,8 +5,8 @@
 // SheetOption<T extends string> にも SegmentedControl の index 対応にも載らないので、
 // 画面では 'all' を含む文字列 enum で持ち、repository へ渡す直前に null へ戻す。
 //
-// 一覧・月別詳細（OptionSheet）とデータタブ（SegmentedControl）で UI の形は違うが、
-// 選択肢の順序と表示名は共通なのでここに集約する。
+// 記録タブ（合計行の種別チップ。UI-SPEC §1.2）とデータタブ（SegmentedControl）で
+// UI の形は違うが、選択肢の順序と表示名は共通なのでここに集約する。
 
 import type { RecordKind } from '@/db/schema';
 
@@ -32,9 +32,8 @@ export function toKindCondition(value: KindFilter): RecordKind | null {
 }
 
 /**
- * OptionSheet に渡す選択肢（`SheetOption<KindFilter>[]` と同じ形）。
- * 一覧と月別詳細で同じものを使うのでここに 1 つだけ持つ。
- * データタブは SegmentedControl なのでラベルの配列だけを使う。
+ * 選択肢の配列（`SheetOption<KindFilter>[]` と同じ形）。
+ * データタブの SegmentedControl はここからラベルの配列だけを使う。
  */
 export const KIND_FILTER_OPTIONS = KIND_FILTERS.map((value) => ({
   label: kindFilterLabel(value),

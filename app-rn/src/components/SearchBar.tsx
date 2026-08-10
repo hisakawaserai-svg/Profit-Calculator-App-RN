@@ -1,7 +1,16 @@
 // SwiftUI の .searchable(prompt: "商品名で検索") 相当。
-// ナビゲーションバーに差し込む API は RN にないため、リスト上部の固定バーとして置く。
+//
+// 記録タブでは常時表示せず、⌕ を押した間だけヘッダ行に差し込む（UI-SPEC §5-10)。
+// 差し込み先で余白が変わるので、外側の余白は style で上書きできるようにしてある。
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { useThemeColors } from '@/theme';
 
@@ -9,13 +18,22 @@ type Props = {
   value: string;
   onChangeValue: (value: string) => void;
   placeholder?: string;
+  /** 既定の余白（リスト上部の固定バー用）を打ち消すときに渡す */
+  style?: StyleProp<ViewStyle>;
+  autoFocus?: boolean;
 };
 
-export function SearchBar({ value, onChangeValue, placeholder = '商品名で検索' }: Props) {
+export function SearchBar({
+  value,
+  onChangeValue,
+  placeholder = '商品名で検索',
+  style,
+  autoFocus,
+}: Props) {
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.disabledBackground }]}>
+    <View style={[styles.container, { backgroundColor: colors.disabledBackground }, style]}>
       <Ionicons name="search" size={16} color={colors.secondaryLabel} />
       <TextInput
         style={[styles.input, { color: colors.label }]}
@@ -24,6 +42,7 @@ export function SearchBar({ value, onChangeValue, placeholder = '商品名で検
         placeholder={placeholder}
         placeholderTextColor={colors.secondaryLabel}
         autoCorrect={false}
+        autoFocus={autoFocus}
         returnKeyType="search"
         accessibilityLabel={placeholder}
       />
