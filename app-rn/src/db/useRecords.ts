@@ -179,11 +179,20 @@ export function useRecord(id: string): RecordData {
 }
 
 /**
- * 出品中⇔売却済みの切り替え（SPEC §3.2 SaleStatusToggleCard）。呼び出し側で refresh すること。
- * ON なら saleDate = 今日、OFF なら null にして即保存する（正規化は repository の責務）。
+ * 出品中⇔売却済みの切り替え（UI-SPEC §8.1 / §8.4）。呼び出し側で refresh すること。
+ * 売れた側は saleDate（省略時は今日）、出品中に戻す側は null にして即保存する。
+ * どの日を入れるかは logic/saleDate.initialSaleDate が決める（§8.5 派生決定 3）。
  */
-export function setSoldStatus(id: string, isSold: boolean): void {
-  repository.setSoldStatus(id, isSold);
+export function setSoldStatus(id: string, isSold: boolean, saleDate?: Date): void {
+  repository.setSoldStatus(id, isSold, saleDate);
+}
+
+/**
+ * 売れた日だけの差し替え（UI-SPEC §8.2 の常設行）。呼び出し側で refresh すること。
+ * 状態は変えないので、出品中のレコードには使わない。
+ */
+export function setSaleDate(id: string, saleDate: Date): void {
+  repository.setSaleDate(id, saleDate);
 }
 
 /**

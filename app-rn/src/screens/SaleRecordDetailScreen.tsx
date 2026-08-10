@@ -6,18 +6,22 @@
 // 種別と日付はカードの外のメタ行に出す。ヘッダのペン・ゴミ箱アイコンは下端の
 // 「編集する」「削除」に置き換えた（何をする操作なのかを語で読めるようにする）。
 //
-// - 状態はメタ行のバッジ（表示）と売却トグル（変更）の両方を置く（§5-13。役割が違う）。
+// - 状態はメタ行のバッジ（表示）と状態カード（変更）の両方を置く（§5-13。役割が違う）。
 // - 画面下部の 1 件サマリー（Swift 版 CareerSummarySection）は置かない（§5-12）。
 //   レシートの結果行（種別語＋額）が同じ役割を果たす。
 // - 経過日数は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
 // - 種別の変更 UI は置かない。編集フォーム経由のみ（SPEC-V2 §1.3）。
 // - 表示語はすべて labels.ts 経由（SPEC-V2 §5.3）。
 //
-// 売却トグルの挙動は SPEC §3.2 のまま:
-// - 切り替えた瞬間に即保存し、useRecord の refresh で引き直して表示に反映する
-//   （ON で saleDate = 今日、OFF で null。書き込みは repository.setSoldStatus）。
-// - トグルでレコードが一覧の現在の絞り込みから外れても、この画面は閉じない。
-//   押し間違いをその場で戻せる・ON にした結果（販売日）を確認できるほうが妥当なため。
+// 状態の切り替え（§8 / 案 15c。旧・売却トグルの置き換え）:
+// - **押した時点で保存する**（§8.6）。useRecord の refresh で引き直して表示に反映する。
+// - 出品中 →「売れた」: saleDate = 今日（出品日が未来なら出品日。§8.5）を即座に入れる。
+//   確認は挟まない。代わりに合図を 2 つ出す ── 売れた日の行の薄い青の下地（どこを直すか）と、
+//   画面下部の undo バー（取り消しの口）。**バーが消えても日付行は残る**（§8.3）。
+// - 売れた →「出品中に戻す」: 確認を 1 枚だけ出してから saleDate = null（§8.4）。
+//   入力済みの日付が消える破壊的操作なので、順方向とは非対称でよい。
+// - 切り替えでレコードが一覧の現在の絞り込みから外れても、この画面は閉じない。
+//   押し間違いをその場で戻せる・入った販売日を確認できるほうが妥当なため。
 //   一覧側は戻ったタイミングの useFocusEffect で引き直される。
 // - 削除は確認アラート「削除しますか？」を挟んでから削除し、前画面へ戻る（SPEC §5.4）。
 //
@@ -26,27 +30,40 @@
 // 同じく未使用だった targetMonth も引き継がない。
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import { ReceiptCard } from '@/components/RecordDetailSections';
+import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
+import { UndoBar } from '@/components/UndoBar';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
-import { deleteRecord, setSoldStatus, useRecord } from '@/db/useRecords';
+import { deleteRecord, setSaleDate, setSoldStatus, useRecord } from '@/db/useRecords';
 import { formatShortDate } from '@/logic/format';
 import {
   DELETE_CONFIRM_TITLE,
   DELETE_LABEL,
   EDIT_RECORD_LABEL,
   LISTING_STATUS_LABEL,
-  MARK_AS_SOLD_LABEL,
+  MARKED_AS_SOLD_MESSAGE,
   MEMO_EMPTY_LABEL,
   MEMO_LABEL,
+  REVERT_TO_LISTING_CONFIRM_LABEL,
   SOLD_BADGE_LABEL,
+  UNDO_LABEL,
   UNTITLED_LABEL,
   CANCEL_LABEL,
   recordTimelineText,
+  revertToListingConfirmTitle,
 } from '@/logic/labels';
 import { listingDays } from '@/logic/listingDays';
+import { initialSaleDate } from '@/logic/saleDate';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -60,6 +77,69 @@ export function SaleRecordDetailScreen() {
   const [showForm, setShowForm] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（出品中の経過日数の基準） */
   const today = useMemo(() => new Date(), []);
+
+  /**
+   * 「売れた」を押した直後の 2 つの合図（UI-SPEC §8.3）。役割が違うので別の state にする ──
+   * ハイライトは日付行を押した時点で役目を終える（バーはそのまま残る）。
+   * 消えるタイミングは UndoBar のタイマー（TRANSIENT_FEEDBACK_MS）が両方に効く。
+   */
+  const [showUndo, setShowUndo] = useState(false);
+  const [highlightSoldDate, setHighlightSoldDate] = useState(false);
+
+  const hideFeedback = useCallback(() => {
+    setShowUndo(false);
+    setHighlightSoldDate(false);
+  }, []);
+
+  /** 出品中 → 売れた（§8.1）。追加タップ 0 で今日として確定し、直せる場所を画面に残す */
+  const handleMarkSold = useCallback(() => {
+    if (record == null) return;
+
+    setSoldStatus(id, true, initialSaleDate(fromDbDate(record.saleStartDate), today));
+    refresh();
+    setShowUndo(true);
+    setHighlightSoldDate(true);
+    // バーは数秒で消えるので、バーだけに情報を載せない（§8.3）
+    AccessibilityInfo.announceForAccessibility(MARKED_AS_SOLD_MESSAGE);
+  }, [id, record, refresh, today]);
+
+  /** バーの「元に戻す」（§8.3）。直前の操作の取り消しなので §8.4 の確認は出さない */
+  const handleUndoMarkSold = useCallback(() => {
+    setSoldStatus(id, false);
+    refresh();
+    hideFeedback();
+  }, [hideFeedback, id, refresh]);
+
+  /** 売れた → 出品中（§8.4）。入力済みの販売日が消えるので確認を 1 枚だけ挟む */
+  const handleRevertToListing = useCallback(() => {
+    if (record == null) return;
+
+    const revert = () => {
+      setSoldStatus(id, false);
+      refresh();
+      hideFeedback();
+    };
+
+    // 販売日のない売れた記録（旧データ）では消えるものがないので、そのまま戻す
+    if (record.saleDate == null) {
+      revert();
+      return;
+    }
+
+    Alert.alert(revertToListingConfirmTitle(formatShortDate(fromDbDate(record.saleDate))), undefined, [
+      { text: CANCEL_LABEL, style: 'cancel' },
+      { text: REVERT_TO_LISTING_CONFIRM_LABEL, style: 'destructive', onPress: revert },
+    ]);
+  }, [hideFeedback, id, record, refresh]);
+
+  /** 売れた日の行から日付を直したとき（§8.2）。状態は変えず、その場で保存する */
+  const handleChangeSaleDate = useCallback(
+    (value: Date) => {
+      setSaleDate(id, value);
+      refresh();
+    },
+    [id, refresh],
+  );
 
   // レコードが無くなったら詳細を出し続ける意味がないので前画面へ戻る。
   // 自分で削除したときは下の handleDelete が先に戻すので、ここが効くのは
@@ -121,8 +201,17 @@ export function SaleRecordDetailScreen() {
           {/* 4. レシートカード */}
           <ReceiptCard record={record} />
 
-          {/* 5. 売却トグル。メタ行のバッジとは役割が違うので両方置く（UI-SPEC §5-13） */}
-          <SaleStatusToggleCard record={record} onChanged={refresh} />
+          {/* 5. 状態カード。メタ行のバッジとは役割が違うので両方置く（UI-SPEC §5-13 / §8.7） */}
+          <SaleStatusCard
+            record={record}
+            today={today}
+            highlighted={highlightSoldDate}
+            onMarkSold={handleMarkSold}
+            onRevertToListing={handleRevertToListing}
+            onChangeSaleDate={handleChangeSaleDate}
+            // 直す場所へ自分でたどり着いたなら、指し示す下地はもう要らない（§8.3）
+            onPressSoldDate={() => setHighlightSoldDate(false)}
+          />
 
           {/* 6. メモ */}
           <View style={styles.memoSection}>
@@ -166,6 +255,18 @@ export function SaleRecordDetailScreen() {
             <Text style={[styles.deleteLabel, { color: colors.red }]}>{DELETE_LABEL}</Text>
           </Pressable>
         </View>
+
+        {/* 「売れた」を押した直後だけ出る取り消しの口（UI-SPEC §8.3）。
+            数秒で消えるが、訂正口（売れた日の行）は残る。下端の操作列の上に重ねる */}
+        {showUndo && (
+          <UndoBar
+            message={MARKED_AS_SOLD_MESSAGE}
+            actionLabel={UNDO_LABEL}
+            onAction={handleUndoMarkSold}
+            onHide={hideFeedback}
+            bottomOffset={ACTION_BAR_HEIGHT + 8}
+          />
+        )}
       </View>
 
       <RecordFormSheet
@@ -202,36 +303,8 @@ function StatusBadge({ isSold, colors }: { isSold: boolean; colors: ThemeColors 
   );
 }
 
-/**
- * 売却トグル（UI-SPEC §1.4-5 / Swift 版 SaleStatusToggleCard）。
- * 切り替えた瞬間に保存する。販売日の付け外しは repository.setSoldStatus に任せる（SPEC §3.2）。
- */
-function SaleStatusToggleCard({
-  record,
-  onChanged,
-}: {
-  record: SaleRecord;
-  onChanged: () => void;
-}) {
-  const colors = useThemeColors();
-
-  const handleChange = (isSold: boolean) => {
-    setSoldStatus(record.id, isSold);
-    onChanged();
-  };
-
-  return (
-    <View style={[styles.card, styles.toggleCard, { backgroundColor: colors.secondaryBackground }]}>
-      <Text style={[styles.toggleLabel, { color: colors.label }]}>{MARK_AS_SOLD_LABEL}</Text>
-      <Switch
-        value={record.isSold}
-        onValueChange={handleChange}
-        accessibilityLabel={MARK_AS_SOLD_LABEL}
-        trackColor={{ true: colors.green, false: colors.disabledBackground }}
-      />
-    </View>
-  );
-}
+/** 下端の操作列の高さ（余白込み）。undo バーはこの上に重ねる（UI-SPEC §8.3） */
+const ACTION_BAR_HEIGHT = 88;
 
 const styles = StyleSheet.create({
   container: {
@@ -269,16 +342,6 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 12,
-  },
-  toggleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  toggleLabel: {
-    fontSize: 16,
   },
   memoSection: {
     gap: 6,

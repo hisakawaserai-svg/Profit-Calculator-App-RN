@@ -336,8 +336,66 @@ export const SAVE_LABEL = '保存';
  */
 export const SOLD_BADGE_LABEL = '売れた';
 
-/** レコード詳細の売却トグル（UI-SPEC §1.4-5）。状態を変える唯一の手段（§5-13） */
-export const MARK_AS_SOLD_LABEL = '売れた状態にする';
+/**
+ * レコード詳細の状態カードのボタン（UI-SPEC §8.1 / §8.4）。状態を変える唯一の手段（§5-13）。
+ *
+ * 案 15c でトグル（旧 MARK_AS_SOLD_LABEL =「売れた状態にする」）を廃止し、
+ * 状態ごとに 1 個のボタンへ置き換えた。順方向の語がバッジ（SOLD_BADGE_LABEL）と同じ「売れた」
+ * になるが、バッジは状態の表示・こちらは操作なので定数を分けておく（§8.8）。
+ */
+export const MARK_AS_SOLD_BUTTON_LABEL = '売れた';
+export const REVERT_TO_LISTING_BUTTON_LABEL = '出品中に戻す';
+
+/**
+ * 売れた日の行のラベル（UI-SPEC §8.2）。売れた記録である限り常設する行の見出し。
+ * 入力欄の SOLD_DATE_FIELD_LABEL（「販売日」）とは**あえて語を揃えない** ──
+ * 行は「いつ売れたか」を読む場所、欄は日付を入れる場所で、役割が違う（§8.8）。
+ */
+export const SOLD_DATE_ROW_LABEL = '売れた日';
+
+/**
+ * 「売れた」を押した直後に出すバーの本文と取り消し（UI-SPEC §8.3）。
+ * バーは数秒で消えるので、本文は読み上げ（announceForAccessibility）にも使う。
+ */
+export const MARKED_AS_SOLD_MESSAGE = '売れた記録にしました';
+export const UNDO_LABEL = '元に戻す';
+
+/** 出品中に戻す確認の実行ボタン（UI-SPEC §8.4）。破壊的操作なので「はい」とは言わせない */
+export const REVERT_TO_LISTING_CONFIRM_LABEL = '戻す';
+
+/**
+ * カレンダーの曜日見出し（UI-SPEC §8.10）。
+ * **週の始まりは日曜固定**。ロケールで振らない ── 本アプリは日本語のみ・日本の利用者向け（§0）。
+ */
+export const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+
+/**
+ * カレンダーの今日の印の読み上げ語（UI-SPEC §8.10）。
+ * 印そのものは記号（今日 = 点、出品日 = 小さな旗）なので、読み上げにだけ語を出す。
+ * 出品日の旗の語は LISTED_DATE_FIELD_LABEL をそのまま使う。
+ */
+export const TODAY_MARKER_LABEL = '今日';
+
+/** カレンダーを閉じる（日付は押した時点で入るので「決定」ではない） */
+export const CLOSE_LABEL = '閉じる';
+
+/**
+ * 日付行とカレンダーの上部に常設するチップ（UI-SPEC §8.10.1）。
+ *
+ * **並びは今日 → 昨日 → 一昨日の固定**で、添字がそのまま今日から遡る日数になる
+ * （`RELATIVE_DAY_LABELS[2]` = 2 日前 =「一昨日」）。logic/calendar.ts の dayChips が
+ * この並びを日付に変換するので、語と日数の対応をここ以外に置かない。
+ *
+ * 大半の日付が今日・昨日に偏るのに、ホイールはその多数派にまで回す操作を強いていた（§8.10）。
+ * 3 つに絞るのは、4 つ目以降は「何日前か」を数える手間がカレンダーを開くより重くなるため。
+ */
+export const RELATIVE_DAY_LABELS = ['今日', '昨日', '一昨日'] as const;
+
+/**
+ * 年月見出しのボタンの読み上げ語（UI-SPEC §8.10.3）。
+ * 見出しそのものは「2026年8月 ▾」だが、押すと何が起きるかは形からは読めない。
+ */
+export const CHOOSE_MONTH_LABEL = '年月を選ぶ';
 
 /** 商品名の欄（UI-SPEC §1.3-4）。必須であることは欄名ではなくキャプションで示す（SPEC §5.2） */
 export const ITEM_NAME_LABEL = '商品名';
@@ -364,6 +422,33 @@ export const MEMO_EMPTY_LABEL = 'なし';
 /** 日付の欄名（UI-SPEC §1.3-12 / §1.4-2） */
 export const LISTED_DATE_FIELD_LABEL = '出品日';
 export const SOLD_DATE_FIELD_LABEL = '販売日';
+
+/**
+ * 売れた日のカレンダーで**選べない理由**を出す一行（UI-SPEC §8.10）。
+ *
+ * 淡いマスを見た人が理由を自分で埋めずに済むようにする ── 旧ホイールは選択肢ごと消したため、
+ * 「過去に入力した内容しか出てこない」と誤解された。制約（§8.5）をそのまま語にした行。
+ */
+export function soldDatePickerNote(listedDateText: string): string {
+  return `出品（${listedDateText}）より前と、今日より後は選べません`;
+}
+
+/**
+ * 出品日が未来の記録での一行（UI-SPEC §8.5 派生決定 3）。
+ * 選べる範囲が出品日 1 日しかないので、上の言い方では何も説明していないことになる。
+ */
+export function soldDatePickerSingleDayNote(listedDateText: string): string {
+  return `${LISTED_DATE_FIELD_LABEL}（${listedDateText}）だけが選べます`;
+}
+
+/**
+ * 出品日のカレンダーで選べない理由を出す一行（UI-SPEC §8.10.4）。
+ *
+ * 出品日には下限がなく、落ちるのは未来だけ（§8.10.1）。売れた日と同じ「一行で名指しする」
+ * 扱いをここでも通す ── 欄によって淡いマスの説明が出たり出なかったりすると、
+ * 説明のない画面では欠落を不具合と読む。
+ */
+export const LISTED_DATE_PICKER_NOTE = '今日より後は選べません';
 
 /** レコード詳細の下端操作列（UI-SPEC §1.4-7）と削除の確認アラート（SPEC §5.4） */
 export const EDIT_RECORD_LABEL = '編集する';
@@ -409,6 +494,17 @@ export function todayDateLabel(dateText: string): string {
 }
 
 /**
+ * 出品中に戻すときの確認（UI-SPEC §8.4）:「販売日 8/10 が消えます。戻しますか？」。
+ *
+ * 逆方向（売れた → 出品中）だけ確認を挟むのは意図どおり ── 入力済みの日付が消える
+ * 破壊的操作で、順方向（今日を入れるだけ・すぐ直せる）とは重さが違う。
+ * 日付は M/d（メタ行と同じ形式。呼び出し側で formatShortDate する）。
+ */
+export function revertToListingConfirmTitle(soldDateText: string): string {
+  return `${SOLD_DATE_FIELD_LABEL} ${soldDateText} が消えます。戻しますか？`;
+}
+
+/**
  * メモの折りたたみ見出し（UI-SPEC §1.3-13）。
  * 入力済みなら畳んだままでもそれが分かるよう語を変える（optionalCostsLabel と同じ考え方）。
  */
@@ -440,3 +536,8 @@ export function recordTimelineText(timeline: {
     ? `${head}（${formatElapsedDays(timeline.days)}）`
     : `${head} → ${timeline.soldDate} ${SOLD_DATE_LABEL}（${timeline.days}日）`;
 }
+
+// 状態カードの補足行（旧 statusCardTimelineText。UI-SPEC §8.9）は**置かない**。
+// §8.9 が実装時送りにしていた重複の整理を、実機で見て「補足行を落とす」と決めたため ──
+// 補足行はメタ行（recordTimelineText）から種別を抜いただけの同じ事実で、短いレコードでは
+// 両方が同時に画面へ入って同じ日付を 2 度読ませていた。状態カードに残すのはバッジだけ。

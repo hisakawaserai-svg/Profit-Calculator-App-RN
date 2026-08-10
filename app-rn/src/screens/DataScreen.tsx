@@ -236,6 +236,8 @@ function PeriodSettingsSection({
   onChangeEndDate: (value: Date) => void;
 }) {
   const colors = useThemeColors();
+  /** チップ（今日・昨日・一昨日）の起点。開いている間は動かさない */
+  const today = useMemo(() => new Date(), []);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
@@ -251,8 +253,20 @@ function PeriodSettingsSection({
       {!isAllPeriod && (
         <>
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-          <DateField label="開始" value={period.startDate} onChangeValue={onChangeStartDate} />
-          <DateField label="終了" value={period.endDate} onChangeValue={onChangeEndDate} />
+          {/* 集計期間の両端。日付の選び方はアプリのどの欄でも同じ（§8.10 の追補）。
+              選べる範囲の制限はないので、チップは常に 3 つとも押せて理由の一行も出ない */}
+          <DateField
+            label="開始"
+            value={period.startDate}
+            onChangeValue={onChangeStartDate}
+            today={today}
+          />
+          <DateField
+            label="終了"
+            value={period.endDate}
+            onChangeValue={onChangeEndDate}
+            today={today}
+          />
         </>
       )}
     </View>

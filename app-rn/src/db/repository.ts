@@ -276,12 +276,27 @@ export function createRepository(
     },
 
     /**
-     * 出品中⇔売却済みトグル（SPEC §3.2 SaleStatusToggleCard）。
-     * ON: saleDate = 現在時刻で保存 / OFF: saleDate = null
+     * 出品中⇔売却済みの切り替え（UI-SPEC §8.1 / §8.4。旧・売却トグル）。
+     * 売れた側は saleDate = 現在時刻 / 出品中に戻す側は saleDate = null。
+     *
+     * 売れた側の日付を呼び出し側から渡せるようにしてあるのは、出品日が未来の記録では
+     * 今日ではなく出品日を入れるため（§8.5 派生決定 3）。どの日を入れるかの判断は
+     * 画面の制約（[出品日, 今日]）に属するので logic/saleDate.ts が決め、ここは受け取るだけ。
      */
-    setSoldStatus(id: string, isSold: boolean): void {
+    setSoldStatus(id: string, isSold: boolean, saleDate: Date = new Date()): void {
       db.update(saleRecords)
-        .set({ isSold, saleDate: isSold ? toDbDate(new Date()) : null })
+        .set({ isSold, saleDate: isSold ? toDbDate(saleDate) : null })
+        .where(eq(saleRecords.id, id))
+        .run();
+    },
+
+    /**
+     * 売れた日だけの差し替え（UI-SPEC §8.2 の常設行）。状態は変えない。
+     * 「押した時点で今日として確定し、後からいつでも直せる」の後半を受け持つ。
+     */
+    setSaleDate(id: string, saleDate: Date): void {
+      db.update(saleRecords)
+        .set({ saleDate: toDbDate(saleDate) })
         .where(eq(saleRecords.id, id))
         .run();
     },

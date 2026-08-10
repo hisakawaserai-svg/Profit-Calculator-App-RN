@@ -7,6 +7,9 @@
 //
 // - 状態（売れた記録 / 出品中）は伝票カードの見出し行で切り替える（§1.3「挙動」）。
 //   上端に 2 択ボタンを置かないのは、金額の流れの前に無関係な操作が挟まるため。
+//   切り替えると日付カードの中で売れた日の行がその場で開く／閉じ、開いた行には数秒だけ
+//   薄い青の下地が付く（§8.7）。**確認ダイアログと undo バーは出さない**（§8.6 派生決定）──
+//   フォームは「保存」を押すまで何も書き込まないので、取り消す対象がまだない。
 // - 種別セレクタは商品名の直下・金額の積み上げの直前（§6-6）。仕入価格行と同じカードなので、
 //   切替で行が消えるのがその場で見える（SPEC-V2 §1.5 の目視要件）。
 // - 日付とメモは折りたたむ。畳んだままでも中身が分かるよう、見出しに日付・入力有無を出す。
@@ -20,7 +23,7 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -38,9 +41,10 @@ import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { StepperButtons } from '@/components/Stepper';
+import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
 import type { SaleRecord } from '@/db/schema';
 import { saveRecord } from '@/db/useRecords';
-import { formatRecordDate, formatYen } from '@/logic/format';
+import { formatRecordDate, formatShortDate, formatYen } from '@/logic/format';
 import {
   CANCEL_LABEL,
   EDIT_RECORD_TITLE,
@@ -50,6 +54,7 @@ import {
   ITEM_NAME_LABEL,
   ITEM_NAME_PLACEHOLDER,
   LISTED_DATE_FIELD_LABEL,
+  LISTED_DATE_PICKER_NOTE,
   LISTING_STATUS_LABEL,
   MEMO_LABEL,
   NEW_RECORD_TITLE,
@@ -67,11 +72,14 @@ import {
   deductionLabel,
   memoSectionLabel,
   profitLabel,
+  soldDatePickerNote,
+  soldDatePickerSingleDayNote,
   switchStatusLabel,
   todayDateLabel,
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
 import { commissionCost, netProfit } from '@/logic/profit';
+import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import {
   ITEM_NAME_REQUIRED_MESSAGE,
   MAX_COMMISSION,
@@ -152,6 +160,15 @@ function RecordForm({
   const [costsOpen, setCostsOpen] = useState(false);
   const [datesOpen, setDatesOpen] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false);
+  /** 状態を切り替えた直後だけ売れた日の行に薄い青の下地を敷く（UI-SPEC §8.3 / §8.7） */
+  const [highlightSoldDate, setHighlightSoldDate] = useState(false);
+
+  // 表示時間は詳細画面の undo バーと同じ 1 つの定数（§8.3）
+  useEffect(() => {
+    if (!highlightSoldDate) return;
+    const timer = setTimeout(() => setHighlightSoldDate(false), TRANSIENT_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [highlightSoldDate]);
 
   // SPEC §3.2: editingRecord の itemName が空なら「新規追加」、それ以外は「編集」
   const title = record == null || record.itemName === '' ? NEW_RECORD_TITLE : EDIT_RECORD_TITLE;
@@ -163,6 +180,24 @@ function RecordForm({
   // 種別だけは他の欄と連動する（仕入品 → 不用品 で仕入価格をクリア。SPEC-V2 §1.5）
   const updateKind = (kind: RecordFormValues['kind']) => {
     setValues((current) => changeKind(current, kind));
+  };
+
+  /**
+   * 見出し行のリンクによる状態の切り替え（UI-SPEC §8.7）。
+   *
+   * 売れた記録にすると日付カードを開いて売れた日の行をその場で出し、初期値は今日
+   * （出品日が未来なら出品日。§8.5）。出品中に戻すと行は消える ── 値は保持せず、
+   * 次に売れた記録にしたときはまた今日から始まる。保存時の null 化は repository の責務。
+   */
+  const toggleStatus = () => {
+    const toSold = !values.isSold;
+    setValues((current) => ({
+      ...current,
+      isSold: toSold,
+      saleDate: toSold ? initialSaleDate(current.saleStartDate, today) : current.saleDate,
+    }));
+    if (toSold) setDatesOpen(true);
+    setHighlightSoldDate(toSold);
   };
 
   const handleSave = () => {
@@ -188,6 +223,8 @@ function RecordForm({
       : formatRecordDate(value);
   // 畳んだ見出しに出すのは、その状態で意味を持つほうの日付（出品中に販売日はない）
   const primaryDate = values.isSold ? values.saleDate : values.saleStartDate;
+  // 出品日をこのフォームで動かせるので、範囲は入力中の出品日から引き直す（§8.5）
+  const soldDateRange = saleDateRange(values.saleStartDate, today);
 
   return (
     <KeyboardAvoidingView
@@ -218,11 +255,7 @@ function RecordForm({
         keyboardDismissMode="on-drag">
         {/* 4〜11. 伝票カード。見出し行 → 商品名 → 種別 → 金額の積み上げ → 結果行 */}
         <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-          <StatusHeaderRow
-            isSold={values.isSold}
-            colors={colors}
-            onToggle={() => update('isSold', !values.isSold)}
-          />
+          <StatusHeaderRow isSold={values.isSold} colors={colors} onToggle={toggleStatus} />
 
           {/* 4. 商品名（22px のインライン入力）。必須なのはこの欄だけ（SPEC §5.2） */}
           <View style={styles.itemNameBlock}>
@@ -350,22 +383,41 @@ function RecordForm({
             label={dateSectionLabel(values.isSold, dateText(primaryDate))}
             expanded={datesOpen}
             onToggle={() => setDatesOpen((open) => !open)}>
-            {/* 販売日は売却済みのときだけ（SPEC.md §3.2）。伝票の主役に近い順で販売日が先 */}
+            {/* 販売日は売却済みのときだけ（SPEC.md §3.2）。伝票の主役に近い順で販売日が先。
+                選べるのは [出品日, 今日]（§8.5）。範囲外の保存済みの値はそのまま表示し、
+                ピッカーを開いたときに範囲へ寄せる */}
             {values.isSold && (
               <DateField
                 label={SOLD_DATE_FIELD_LABEL}
                 value={values.saleDate}
                 onChangeValue={(value) => update('saleDate', value)}
+                today={today}
                 valueText={dateText(values.saleDate)}
                 accent={daysBetween(values.saleDate, today) === 0}
+                highlighted={highlightSoldDate}
+                minDate={soldDateRange.min}
+                maxDate={soldDateRange.max}
+                // 詳細画面と同じカレンダーを開く（§8.10）。同じ日付を入れる欄が
+                // 画面ごとに違うピッカーだと、選べない理由の説明も画面ごとに変わってしまう
+                flagDate={values.saleStartDate}
+                note={
+                  daysBetween(values.saleStartDate, today) < 0
+                    ? soldDatePickerSingleDayNote(formatShortDate(values.saleStartDate))
+                    : soldDatePickerNote(formatShortDate(values.saleStartDate))
+                }
               />
             )}
+            {/* 出品日は過去に下限がなく、落ちるのは未来だけ（§8.10.4）。
+                チップが淡色になることは実際には起きない（今日より後のチップがないため） */}
             <DateField
               label={LISTED_DATE_FIELD_LABEL}
               value={values.saleStartDate}
               onChangeValue={(value) => update('saleStartDate', value)}
+              today={today}
               valueText={dateText(values.saleStartDate)}
               accent={daysBetween(values.saleStartDate, today) === 0}
+              maxDate={today}
+              note={LISTED_DATE_PICKER_NOTE}
             />
           </CollapsibleSection>
         </View>

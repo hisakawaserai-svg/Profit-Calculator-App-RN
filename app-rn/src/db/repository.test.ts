@@ -15,6 +15,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import journal from '../../drizzle/meta/_journal.json';
 import { netProfit, totalExpenses } from '../logic/profit';
+import { toDbDate } from './dates';
 import { createRepository, type Repository, type SaveRecordInput } from './repository';
 import * as schema from './schema';
 
@@ -522,5 +523,55 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
       expect(summary.totalSales).toBe(800);
       expect(summary.recordCount).toBe(1);
     });
+  });
+});
+
+describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () => {
+  let repo: Repository;
+
+  beforeEach(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+  });
+
+  /** 出品中のレコードを 1 件作る（出品日は引数で動かす） */
+  const listing = (saleStartDate: Date) =>
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, saleStartDate });
+
+  it('売れた側は渡した日付をそのまま入れる（§8.5 派生決定 3 の判断は呼び出し側）', () => {
+    const created = listing(new Date(2026, 7, 2, 9, 0));
+    repo.setSoldStatus(created.id, true, new Date(2026, 7, 10, 15, 45));
+
+    const saved = repo.getById(created.id);
+    expect(saved?.isSold).toBe(true);
+    expect(saved?.saleDate).toBe('2026-08-10T15:45:00.000');
+  });
+
+  it('日付を省いたときは今日が入る（§8.1 の既定）', () => {
+    const created = listing(new Date(2026, 7, 2, 9, 0));
+    repo.setSoldStatus(created.id, true);
+
+    expect(repo.getById(created.id)?.saleDate?.slice(0, 10)).toBe(
+      toDbDate(new Date()).slice(0, 10),
+    );
+  });
+
+  it('出品中に戻すと販売日が消える（§8.4）', () => {
+    const created = listing(new Date(2026, 7, 2, 9, 0));
+    repo.setSoldStatus(created.id, true, new Date(2026, 7, 10, 15, 45));
+    repo.setSoldStatus(created.id, false);
+
+    const saved = repo.getById(created.id);
+    expect(saved?.isSold).toBe(false);
+    expect(saved?.saleDate).toBe(null);
+  });
+
+  it('setSaleDate は状態を変えずに売れた日だけ差し替える（§8.2 の常設行）', () => {
+    const created = listing(new Date(2026, 7, 2, 9, 0));
+    repo.setSoldStatus(created.id, true, new Date(2026, 7, 10, 15, 45));
+    repo.setSaleDate(created.id, new Date(2026, 7, 5, 15, 45));
+
+    const saved = repo.getById(created.id);
+    expect(saved?.isSold).toBe(true);
+    expect(saved?.saleDate).toBe('2026-08-05T15:45:00.000');
   });
 });

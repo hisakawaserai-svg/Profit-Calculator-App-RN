@@ -1,28 +1,40 @@
-// SwiftUI の DatePicker(displayedComponents: .date) 相当。
-// RecordFormView の「出品日」「販売日」（SPEC §3.2）で使う。
+// 日付の入力行（UI-SPEC §8.10.1）。RecordFormView の「出品日」「販売日」（SPEC §3.2）で使う。
 //
-// @expo/ui の DatePicker は SwiftUI 専用で Android に載らないため、
-// MonthPickerSheet / SegmentedControl と同じ方針（将来の Android 対応・SPEC §7-14）で
-// RN プリミティブのホイール（WheelColumn）で組む。
+// **行の中で 1 タップ、それ以外だけシート。** 多数派の日付（今日・昨日）は行に常設した
+// チップで決め、それ以外を選ぶときだけ値のボタンからカレンダーを開く。
+// ホイール（旧 DatePickerSheet）は使わない ── 「通り過ぎるので使いたくない」という
+// 実利用者の指摘と、範囲外を選択肢ごと消したせいで「過去に入力した内容しか出てこない」と
+// 誤解された件（§8.10）への対応。
+//
+// 行の見た目（ラベル＋値）は旧実装のまま残し、チップを 1 段足しただけにしてある（§8.10.5）。
+// 値の表示を残すのは、チップにない日付を選んだときにそれが読める場所が他にないため。
 //
 // 日付だけを選び、時刻は元の値のまま引き継ぐ（Swift 版 .date と同じく時刻は編集しない）。
 // 月次グループ化のキーは年月なので（SPEC §6.1）、時刻の扱いは表示にも集計にも影響しない。
+//
+// minDate / maxDate は欄ごとの選べる範囲（§8.10.4）。チップの淡色とカレンダーの盤面が
+// **同じ範囲**を見るので、行で押せないチップがシートでは押せる、という食い違いは起きない。
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { WheelColumn, rangeOfNumbers } from '@/components/WheelColumn';
+import { CalendarPicker } from '@/components/CalendarPicker';
+import { DateChips } from '@/components/DateChips';
+import { dayChips } from '@/logic/calendar';
 import { formatRecordDate } from '@/logic/format';
 import { useThemeColors } from '@/theme';
 
-/** 選択できる年の範囲。年月ピッカーと揃えて現在年の前後 5 年（決定 §7-12） */
-const YEAR_RANGE = 5;
+/** 選べる範囲（両端を含む）。省略した側は制限なし */
+type RangeProps = {
+  minDate?: Date;
+  maxDate?: Date;
+};
 
-const MONTHS = rangeOfNumbers(1, 12);
-
-type Props = {
+type Props = RangeProps & {
   label: string;
   value: Date;
   onChangeValue: (value: Date) => void;
+  /** 「今日」の基準。チップの起点であり、カレンダーで印を出す日 */
+  today: Date;
   /**
    * ボタンに出す文字の上書き（記録フォームの「今日（2026/08/09）」。UI-SPEC §1.3-12）。
    * 省略すると日付そのもの。ピッカーが選ぶ値は変わらず、表示だけが差し替わる。
@@ -30,132 +42,94 @@ type Props = {
   valueText?: string;
   /** 当日であることを青で示す（UI-SPEC §1.3-12） */
   accent?: boolean;
+  /**
+   * 行に薄い青の下地を敷く（UI-SPEC §8.3）。状態を切り替えた直後だけ立て、
+   * 「ここを直せばいい」と指すために使う。地色以外は変わらないので行の高さは動かない。
+   */
+  highlighted?: boolean;
+  /** カレンダーで小さな旗を出す日（売れた日の欄では出品日。§8.10.2） */
+  flagDate?: Date | null;
+  /** カレンダーに出す「選べない理由」の一行（§8.10.2） */
+  note?: string;
 };
 
-export function DateField({ label, value, onChangeValue, valueText, accent = false }: Props) {
+export function DateField({
+  label,
+  value,
+  onChangeValue,
+  today,
+  valueText,
+  accent = false,
+  highlighted = false,
+  minDate,
+  maxDate,
+  flagDate,
+  note,
+}: Props) {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
   const text = valueText ?? formatRecordDate(value);
 
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
-      <Pressable
-        onPress={() => setShowPicker(true)}
-        style={({ pressed }) => [
-          styles.valueButton,
-          { backgroundColor: colors.disabledBackground, opacity: pressed ? 0.5 : 1 },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${text}`}>
-        <Text style={[styles.value, { color: accent ? colors.blue : colors.label }]}>{text}</Text>
-      </Pressable>
+  const chips = useMemo(
+    () => dayChips({ today, range: { min: minDate, max: maxDate }, selected: value }),
+    [today, minDate, maxDate, value],
+  );
 
-      {/* 開いている間だけマウントして、ホイール位置を現在の値で初期化する */}
+  return (
+    <View
+      style={[
+        styles.row,
+        highlighted && { backgroundColor: colors.highlightBackground },
+      ]}>
+      <View style={styles.valueRow}>
+        <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
+        <Pressable
+          onPress={() => setShowPicker(true)}
+          style={({ pressed }) => [
+            styles.valueButton,
+            { backgroundColor: colors.disabledBackground, opacity: pressed ? 0.5 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${text}`}>
+          <Text style={[styles.value, { color: accent ? colors.blue : colors.label }]}>{text}</Text>
+          <Text style={[styles.chevron, { color: colors.mutedLabel }]}>▸</Text>
+        </Pressable>
+      </View>
+
+      {/* 押した時点で値が決まる（確定操作は挟まない。§8.10.1）。範囲外は淡色で押せない */}
+      <DateChips chips={chips} onSelect={onChangeValue} />
+
+      {/* 開いている間だけマウントして、盤面の位置を現在の値で初期化する */}
       {showPicker && (
-        <DatePickerSheet
+        <CalendarPicker
           title={label}
           value={value}
           onChangeValue={onChangeValue}
           onClose={() => setShowPicker(false)}
+          minDate={minDate}
+          maxDate={maxDate}
+          today={today}
+          flagDate={flagDate}
+          note={note}
         />
       )}
     </View>
   );
 }
 
-function DatePickerSheet({
-  title,
-  value,
-  onChangeValue,
-  onClose,
-}: {
-  title: string;
-  value: Date;
-  onChangeValue: (value: Date) => void;
-  onClose: () => void;
-}) {
-  const colors = useThemeColors();
-
-  const year = value.getFullYear();
-  const month = value.getMonth() + 1;
-  const day = value.getDate();
-
-  // 前後 5 年に収まらない古い記録を編集するときも、その年を選べるように範囲へ含める
-  const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    return rangeOfNumbers(
-      Math.min(currentYear - YEAR_RANGE, year),
-      Math.max(currentYear + YEAR_RANGE, year),
-    );
-  }, [year]);
-
-  const days = useMemo(() => rangeOfNumbers(1, daysInMonth(year, month)), [year, month]);
-
-  /** 時刻は元の値から引き継ぐ。月末を超える日（1/31 → 2 月など）はその月の末日に丸める */
-  const select = (nextYear: number, nextMonth: number, nextDay: number) => {
-    const clampedDay = Math.min(nextDay, daysInMonth(nextYear, nextMonth));
-    onChangeValue(
-      new Date(
-        nextYear,
-        nextMonth - 1,
-        clampedDay,
-        value.getHours(),
-        value.getMinutes(),
-        value.getSeconds(),
-        value.getMilliseconds(),
-      ),
-    );
-  };
-
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="閉じる" />
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <Text style={[styles.sheetTitle, { color: colors.label }]}>{title}</Text>
-
-        <View style={styles.columns}>
-          <WheelColumn
-            values={years}
-            selectedValue={year}
-            format={(n) => `${n}年`}
-            onSelect={(nextYear) => select(nextYear, month, day)}
-            accessibilityLabel="年"
-          />
-          <WheelColumn
-            values={MONTHS}
-            selectedValue={month}
-            format={(n) => `${n}月`}
-            onSelect={(nextMonth) => select(year, nextMonth, day)}
-            accessibilityLabel="月"
-          />
-          <WheelColumn
-            values={days}
-            selectedValue={day}
-            format={(n) => `${n}日`}
-            onSelect={(nextDay) => select(year, month, nextDay)}
-            accessibilityLabel="日"
-          />
-        </View>
-
-        <Pressable
-          style={[styles.doneButton, { backgroundColor: colors.blue }]}
-          onPress={onClose}
-          accessibilityRole="button">
-          <Text style={styles.doneLabel}>決定</Text>
-        </Pressable>
-      </View>
-    </Modal>
-  );
-}
-
-/** その年月の日数（翌月 0 日 = 当月の末日） */
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
 const styles = StyleSheet.create({
   row: {
+    // ハイライトの下地がラベル・値の外側まで届くよう、常に同じぶんだけ内外の余白を持つ。
+    // 地色が付くのは highlighted のときだけで、行の位置は変わらない
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 8,
+  },
+  valueRow: {
+    // ラベルと値は旧実装と同じ 1 行（§8.10.5）。チップはその下に段を足す ──
+    // 「出品日 [今日][昨日][一昨日] 2026/08/10 ▸」を 1 行に詰めると端末幅に収まらない
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -164,6 +138,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   valueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -171,38 +148,7 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 16,
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  sheet: {
-    height: '55%',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    gap: 12,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  columns: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 10,
-  },
-  doneButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  doneLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  chevron: {
+    fontSize: 14,
   },
 });

@@ -42,6 +42,11 @@ export type ThemeColors = {
   /** disabled 時に入力欄へかぶせる地色 */
   disabledBackground: string;
   /**
+   * 選択中・注目させたい行に敷く薄い青の下地（UI-SPEC §1.2 のチップ / §8.3 のハイライト）。
+   * 「売れた」を押した直後に売れた日の行へ数秒だけ敷き、どこを直せばいいかを指す。
+   */
+  highlightBackground: string;
+  /**
    * 逆算結果の帯グラフで経費に使う赤系 4 色（計算タブ §1.1-3b）。
    *
    * 並びは仕入価格・送料・梱包材・その他で固定する。入力済みの項目だけを詰めて塗ると、
@@ -76,6 +81,7 @@ const light: ThemeColors = {
   indigo: '#5856D6',
   purple: '#AF52DE',
   disabledBackground: 'rgba(120, 120, 128, 0.12)',
+  highlightBackground: 'rgba(0, 122, 255, 0.12)',
   barBackground: '#F2F2F7',
   expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
 };
@@ -97,6 +103,8 @@ const dark: ThemeColors = {
   indigo: '#5E5CE6',
   purple: '#BF5AF2',
   disabledBackground: 'rgba(120, 120, 128, 0.24)',
+  // 暗い地色の上では 12% だと下地に沈むので、明度差が同じくらいに見えるまで上げる
+  highlightBackground: 'rgba(10, 132, 255, 0.24)',
   barBackground: '#000000',
   expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
 };

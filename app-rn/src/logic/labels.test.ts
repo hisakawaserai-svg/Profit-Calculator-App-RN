@@ -10,12 +10,20 @@ import {
   EXPENSES_LABEL,
   LISTING_COUNT_LABEL,
   LISTING_STATUS_LABEL,
+  MARKED_AS_SOLD_MESSAGE,
+  MARK_AS_SOLD_BUTTON_LABEL,
   POSTAGE_LABEL,
   PURCHASE_PRICE_LABEL,
   REQUIRED_SALES_PRICE_LABEL,
+  REVERT_TO_LISTING_BUTTON_LABEL,
+  REVERT_TO_LISTING_CONFIRM_LABEL,
   SALES_PRICE_LABEL,
   SOLD_BADGE_LABEL,
+  SOLD_DATE_FIELD_LABEL,
+  SOLD_DATE_ROW_LABEL,
   SOLD_RECORDS_LABEL,
+  UNDO_LABEL,
+  WEEKDAY_LABELS,
   TARGET_TAB_LABEL,
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
@@ -35,6 +43,9 @@ import {
   recordTimelineText,
   requiredPriceFormulaLines,
   requiredPriceSummary,
+  revertToListingConfirmTitle,
+  soldDatePickerNote,
+  soldDatePickerSingleDayNote,
   switchStatusLabel,
   targetProfitLabel,
   todayDateLabel,
@@ -298,5 +309,59 @@ describe('UI-SPEC §1.4-2 状態の語', () => {
   it('出品中はどこでも同じ 1 語', () => {
     expect(LISTING_STATUS_LABEL).toBe('出品中');
     expect(LISTING_COUNT_LABEL).toBe(LISTING_STATUS_LABEL);
+  });
+});
+
+describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () => {
+  it('状態カードのボタンは状態ごとに 1 個', () => {
+    expect(MARK_AS_SOLD_BUTTON_LABEL).toBe('売れた');
+    expect(REVERT_TO_LISTING_BUTTON_LABEL).toBe('出品中に戻す');
+  });
+
+  it('ボタンの語はバッジと同じでも定数を分ける（表示と操作で役割が違う。§8.8）', () => {
+    expect(MARK_AS_SOLD_BUTTON_LABEL).toBe(SOLD_BADGE_LABEL);
+  });
+
+  it('常設の行は「売れた日」。入力欄の「販売日」とは語を揃えない（§8.2）', () => {
+    expect(SOLD_DATE_ROW_LABEL).toBe('売れた日');
+    expect(SOLD_DATE_ROW_LABEL).not.toBe(SOLD_DATE_FIELD_LABEL);
+  });
+
+  it('押した直後のバーは本文と取り消しの 2 語（§8.3）', () => {
+    expect(MARKED_AS_SOLD_MESSAGE).toBe('売れた記録にしました');
+    expect(UNDO_LABEL).toBe('元に戻す');
+  });
+
+  it('出品中に戻す確認は消える販売日を M/d で名指しする（§8.4）', () => {
+    expect(revertToListingConfirmTitle('8/10')).toBe('販売日 8/10 が消えます。戻しますか？');
+    expect(REVERT_TO_LISTING_CONFIRM_LABEL).toBe('戻す');
+  });
+});
+
+describe('UI-SPEC §8.9 状態カードのバッジ（案 16a）', () => {
+  it('状態カードのバッジは既存の状態語をそのまま使う（新しい語を足さない）', () => {
+    expect(LISTING_STATUS_LABEL).toBe('出品中');
+    expect(SOLD_RECORDS_LABEL).toBe('売れた記録');
+  });
+
+  it('補足行は置かない ── メタ行と同じ事実を 2 度読ませないため（実装時の決定）', () => {
+    // メタ行だけが出品日・販売日・日数を持つ。状態カードは操作とその主語（バッジ）だけ
+    expect(recordTimelineText({ kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 })).toBe(
+      '不用品 ・ 8/2 出品 → 8/9 販売（7日）',
+    );
+  });
+});
+
+describe('UI-SPEC §8.10 カレンダーの語（案 16d）', () => {
+  it('週の始まりは日曜固定（ロケールで振らない）', () => {
+    expect(WEEKDAY_LABELS).toEqual(['日', '月', '火', '水', '木', '金', '土']);
+  });
+
+  it('選べない理由は両端を名指しする（淡いマスの説明を推測させない）', () => {
+    expect(soldDatePickerNote('8/2')).toBe('出品（8/2）より前と、今日より後は選べません');
+  });
+
+  it('出品日が未来のときは選べる日が 1 日しかないと言う（§8.5 派生決定 3）', () => {
+    expect(soldDatePickerSingleDayNote('8/20')).toBe('出品日（8/20）だけが選べます');
   });
 });
