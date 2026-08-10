@@ -12,7 +12,7 @@
 //   出品中の一覧からは消え、実績の一覧に現れる（対象月が 0 件になれば月別詳細も自動で戻る）。
 // - 編集（ペン）は既存の RecordFormSheet をそのまま開く。保存後は refresh で引き直す。
 // - 削除（ゴミ箱）は確認アラート「削除しますか？」を挟んでから削除し、前画面へ戻る（SPEC §5.4）。
-// - 下部の累計はこの 1 件のみの純利益・経費。合算相手がいないので repository を引かず、
+// - 下部の累計はこの 1 件のみの純利益（仕入品なら利益）・経費。合算相手がいないので repository を引かず、
 //   レコードから logic/profit で計算する（値は Double のまま、丸めは表示時のみ）。
 // - 商品情報カード / 費用内訳カードは components/RecordDetailSections.tsx に置いてある。
 //   Swift 版でも DataView が同じ 2 つを使い回していたため（SPEC §6.2 の内訳リスト）。
@@ -33,6 +33,7 @@ import {
 import { CareerSummarySection } from '@/components/SummarySection';
 import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, setSoldStatus, useRecord } from '@/db/useRecords';
+import { profitLabel } from '@/logic/labels';
 import { netProfit, totalExpenses } from '@/logic/profit';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
@@ -110,10 +111,12 @@ export function SaleRecordDetailScreen() {
         </ScrollView>
 
         <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-        {/* 画面下部の累計。この 1 件のみが対象（Swift 版 CareerSummarySection(record)） */}
+        {/* 画面下部の累計。この 1 件のみが対象（Swift 版 CareerSummarySection(record)）。
+            1 件なので合計の中立語ではなく種別語を使う（SPEC-V2 §1.3 / §5.3） */}
         <CareerSummarySection
           totalNetProfit={netProfit(record)}
           totalExpenses={totalExpenses(record)}
+          profitLabel={profitLabel(record.kind)}
         />
       </View>
 

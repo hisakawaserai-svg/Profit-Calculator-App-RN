@@ -26,6 +26,7 @@ import { monthKeyToDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader } from '@/logic/format';
+import { TOTAL_PROFIT_LABEL } from '@/logic/labels';
 import { netProfit } from '@/logic/profit';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
@@ -119,7 +120,9 @@ export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
           ],
       [
         { label: '商品名', value: 'itemName' },
-        { label: '純利益 ↓', value: 'netProfitDesc' },
+        // 種別が混ざったリスト全体に対する並べ替えなので中立語（SPEC-V2 §1.3）。
+        // 値（netProfitDesc）は内部の識別子なので改名しない（§5.3）
+        { label: `${TOTAL_PROFIT_LABEL} ↓`, value: 'netProfitDesc' },
       ],
     ],
     [isSoldMode],

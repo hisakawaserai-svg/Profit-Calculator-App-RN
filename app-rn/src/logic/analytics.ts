@@ -23,10 +23,8 @@ export const CHART_UNIT_LABELS: Record<ChartUnit, string> = {
 /** セグメント表示の並び順（Swift 版 MetricType.allCases と同じ） */
 export const METRIC_TYPES: MetricType[] = ['sales', 'netProfit'];
 
-export const METRIC_LABELS: Record<MetricType, string> = {
-  sales: '売上金額',
-  netProfit: '純利益',
-};
+// 指標の表示名は logic/labels.ts の metricLabel（SPEC-V2 §5.3: 表示語は 1 箇所に集約する）。
+// netProfit 側は期間内の集計なので種別語ではなく「収支」になる。
 
 /** 集計対象の期間。null（= 全期間を表示）は呼び出し側で扱う */
 export type Period = { startDate: Date; endDate: Date };

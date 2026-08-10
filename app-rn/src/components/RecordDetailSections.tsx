@@ -10,6 +10,7 @@ import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { formatRecordDate, formatYen } from '@/logic/format';
+import { EXPENSES_LABEL, SALES_PRICE_LABEL, profitLabel, recordKindLabel } from '@/logic/labels';
 import { commissionCost, netProfit, roundForDisplay, totalExpenses } from '@/logic/profit';
 import { useThemeColors } from '@/theme';
 
@@ -23,6 +24,8 @@ export function ProductInfoSection({ record }: { record: SaleRecord }) {
 
   return (
     <DetailCard title="📦 商品情報">
+      {/* 一覧にはバッジを置かないので、種別が読めるのはこの 1 行だけ（SPEC-V2 §1.3 / §5.4） */}
+      <DetailTextLine label="種別" value={recordKindLabel(record.kind)} />
       <DetailTextLine label="商品名" value={record.itemName === '' ? '無題' : record.itemName} />
       <DetailTextLine label="出品日" value={formatRecordDate(fromDbDate(record.saleStartDate))} />
       {record.isSold ? (
@@ -36,13 +39,18 @@ export function ProductInfoSection({ record }: { record: SaleRecord }) {
         <DetailTextLine label="状態" value="出品中" />
       )}
 
-      <DetailAmountLine label="販売価格" amount={record.salesPrice} color={colors.green} />
-      <DetailAmountLine label="経費合計" amount={totalExpenses(record)} color={colors.red} />
+      <DetailAmountLine label={SALES_PRICE_LABEL} amount={record.salesPrice} color={colors.green} />
+      <DetailAmountLine
+        label={`${EXPENSES_LABEL}合計`}
+        amount={totalExpenses(record)}
+        color={colors.red}
+      />
 
       <View style={[styles.separator, { backgroundColor: colors.separator }]} />
 
       <View style={styles.totalRow}>
-        <Text style={[styles.totalLabel, { color: colors.label }]}>純利益</Text>
+        {/* カード 1 枚 = レコード 1 件なので種別語（SPEC-V2 §1.3 / §5.3） */}
+        <Text style={[styles.totalLabel, { color: colors.label }]}>{profitLabel(record.kind)}</Text>
         <Text style={[styles.profitValue, { color: profit >= 0 ? colors.green : colors.red }]}>
           {formatYen(profit)}
         </Text>
@@ -57,7 +65,10 @@ export function ExpenseDetailSection({ record }: { record: SaleRecord }) {
 
   return (
     <DetailCard title="💰 費用内訳">
-      <DetailAmountLine label="仕入価格" amount={record.purchasePrice} color={colors.red} />
+      {/* 不用品は仕入価格の概念がない（常に 0）ので行ごと出さない（SPEC-V2 §1.3）。他の行は共通 */}
+      {record.kind === 'sourced' && (
+        <DetailAmountLine label="仕入価格" amount={record.purchasePrice} color={colors.red} />
+      )}
       <DetailAmountLine label="送料" amount={record.postage} color={colors.red} />
       <DetailAmountLine label="梱包材" amount={record.envelopeCost} color={colors.red} />
       <DetailAmountLine label="その他" amount={record.othersCost} color={colors.red} />
@@ -75,7 +86,7 @@ export function ExpenseDetailSection({ record }: { record: SaleRecord }) {
       <View style={[styles.separator, { backgroundColor: colors.separator }]} />
 
       <View style={styles.totalRow}>
-        <Text style={[styles.totalLabel, { color: colors.label }]}>経費合計</Text>
+        <Text style={[styles.totalLabel, { color: colors.label }]}>{EXPENSES_LABEL}合計</Text>
         <Text style={[styles.totalValue, { color: colors.red }]}>
           {formatYen(totalExpenses(record))}
         </Text>

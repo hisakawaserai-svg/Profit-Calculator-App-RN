@@ -22,6 +22,7 @@ import { monthKeyToDate } from '@/db/dates';
 import type { MonthGroup, SortTypeMonthly } from '@/db/repository';
 import { useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader, formatMonthTitle } from '@/logic/format';
+import { EXPENSES_LABEL, TOTAL_PROFIT_LABEL } from '@/logic/labels';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
 
@@ -38,13 +39,15 @@ const SORT_OPTIONS: SheetOption<SortTypeMonthly>[][] = [
     { label: '出品日 ↓', value: 'saleStartDateDesc' },
     { label: '出品日 ↑', value: 'saleStartDateAsc' },
   ],
+  // 並べ替えの対象は月グループの合計（種別が混ざり得る）なので中立語（SPEC-V2 §1.3）。
+  // 値（profitDesc 等）は内部の識別子なので改名しない（§5.3）
   [
-    { label: '純利益 ↓', value: 'profitDesc' },
-    { label: '純利益 ↑', value: 'profitAsc' },
+    { label: `${TOTAL_PROFIT_LABEL} ↓`, value: 'profitDesc' },
+    { label: `${TOTAL_PROFIT_LABEL} ↑`, value: 'profitAsc' },
   ],
   [
-    { label: '経費 ↓', value: 'expensesDesc' },
-    { label: '経費 ↑', value: 'expensesAsc' },
+    { label: `${EXPENSES_LABEL} ↓`, value: 'expensesDesc' },
+    { label: `${EXPENSES_LABEL} ↑`, value: 'expensesAsc' },
   ],
 ];
 
@@ -81,8 +84,8 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
   // SPEC §3.2: 実績タブは「全期間の収支」/ 月選択時「YYYY年M月の収支」、出品中タブは「出品中」
   const title = isSoldMode
     ? monthKey == null
-      ? '全期間の収支'
-      : `${formatMonthTitle(monthKeyToDate(monthKey))}の収支`
+      ? `全期間の${TOTAL_PROFIT_LABEL}`
+      : `${formatMonthTitle(monthKeyToDate(monthKey))}の${TOTAL_PROFIT_LABEL}`
     : '出品中';
 
   /** ツールバーのリセット: 月フィルタ解除 ＋ ソートを販売日降順へ（Swift 版 resetFilter） */

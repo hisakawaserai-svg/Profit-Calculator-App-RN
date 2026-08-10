@@ -40,7 +40,6 @@ import { useAnalyticsData } from '@/db/useRecords';
 import {
   CHART_UNITS,
   CHART_UNIT_LABELS,
-  METRIC_LABELS,
   METRIC_TYPES,
   defaultPeriod,
   formatChartLabel,
@@ -53,6 +52,13 @@ import {
   type Period,
 } from '@/logic/analytics';
 import { formatYen } from '@/logic/format';
+import {
+  EXPENSES_LABEL,
+  TOTAL_PROFIT_LABEL,
+  TOTAL_SALES_LABEL,
+  metricLabel,
+  profitLabel,
+} from '@/logic/labels';
 import { netProfit } from '@/logic/profit';
 import { useThemeColors } from '@/theme';
 
@@ -128,11 +134,16 @@ export function DataScreen() {
           onChangeEndDate={setEndDate}
         />
 
-        {/* サマリーカード（期間内合計。SPEC §6.2） */}
+        {/* サマリーカード（期間内合計。SPEC §6.2）。
+            この画面が出す集計値には種別語を使わず中立語で統一する（SPEC-V2 §1.3 / §5.3） */}
         <View style={styles.summaryRow}>
-          <SummaryMiniBox title="純利益" value={summary.totalNetProfit} color={colors.green} />
-          <SummaryMiniBox title="経費" value={summary.totalExpenses} color={colors.red} />
-          <SummaryMiniBox title="売上" value={summary.totalSales} color={colors.blue} />
+          <SummaryMiniBox
+            title={TOTAL_PROFIT_LABEL}
+            value={summary.totalNetProfit}
+            color={colors.green}
+          />
+          <SummaryMiniBox title={EXPENSES_LABEL} value={summary.totalExpenses} color={colors.red} />
+          <SummaryMiniBox title={TOTAL_SALES_LABEL} value={summary.totalSales} color={colors.blue} />
         </View>
 
         <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
@@ -151,7 +162,7 @@ export function DataScreen() {
           </View>
 
           <SegmentedControl
-            options={METRIC_TYPES.map((value) => METRIC_LABELS[value])}
+            options={METRIC_TYPES.map((value) => metricLabel(value))}
             selectedIndex={METRIC_TYPES.indexOf(metric)}
             onChange={(index) => setMetric(METRIC_TYPES[index])}
           />
@@ -397,11 +408,12 @@ function DetailList({
       </View>
 
       <View style={styles.tooltipRow}>
+        {/* 集計点 = 複数レコードの合計なので中立語（SPEC-V2 §1.3 データタブ） */}
         <Text style={[styles.tooltipValue, { color: colors.blue }]}>
-          売上: {formatYen(point.sales)}
+          {TOTAL_SALES_LABEL}: {formatYen(point.sales)}
         </Text>
         <Text style={[styles.tooltipValue, { color: colors.green }]}>
-          利益: {formatYen(point.profit)}
+          {TOTAL_PROFIT_LABEL}: {formatYen(point.profit)}
         </Text>
       </View>
 
@@ -430,8 +442,9 @@ function RecordDisclosure({ record, metric }: { record: SaleRecord; metric: Metr
           <Text style={[styles.disclosureName, { color: accentColor }]} numberOfLines={1}>
             {itemName}
           </Text>
+          {/* 内訳の行はレコード 1 件なので、こちらは種別語（SPEC-V2 §1.3 データタブ） */}
           <Text style={[styles.disclosureCaption, { color: accentColor }]}>
-            {isSalesMode ? '売上額：' : '純利益：'}
+            {isSalesMode ? '売上額：' : `${profitLabel(record.kind)}：`}
           </Text>
           <Text style={[styles.disclosureAmount, { color: colors.secondaryLabel }]}>
             {formatYen(amount)}

@@ -13,6 +13,16 @@ import { Stepper } from '@/components/Stepper';
 import type { RecordKind } from '@/db/schema';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import {
+  COMMISSION_LABEL,
+  REQUIRED_SALES_PRICE_LABEL,
+  SALES_PRICE_LABEL,
+  profitLabel,
+  profitTabLabel,
+  targetProfitLabel,
+  targetProfitPrompt,
+  targetProfitTabLabel,
+} from '@/logic/labels';
+import {
   commissionCost,
   netProfit,
   requiredSalesPrice,
@@ -131,7 +141,7 @@ export default function CalcScreen() {
           <Text style={[styles.sectionTitle, { color: colors.label }]}>販売情報</Text>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <NumericField
-              label="販売価格"
+              label={SALES_PRICE_LABEL}
               value={salesPriceInput}
               onChangeValue={setSalesPriceInput}
               // 目標利益逆算タブでは販売価格が計算結果になるため入力を無効化（SPEC §3.2）
@@ -163,8 +173,9 @@ export default function CalcScreen() {
         </View>
 
         <View style={styles.resultSection}>
+          {/* セグメント名も種別で変わる（SPEC-V2 §1.3） */}
           <SegmentedControl
-            options={['純利益表示', '目標利益逆算']}
+            options={[profitTabLabel(kind), targetProfitTabLabel(kind)]}
             selectedIndex={selectedTab}
             onChange={setSelectedTab}
           />
@@ -174,6 +185,7 @@ export default function CalcScreen() {
           ) : (
             <TargetProfitResult
               input={calcInput}
+              kind={kind}
               colors={colors}
               targetProfitInput={targetProfitInput}
               onChangeTargetProfit={setTargetProfitInput}
@@ -206,7 +218,10 @@ function NetProfitResult({
   return (
     <View style={styles.resultSection}>
       <View style={[styles.card, styles.bigNumberCard, { backgroundColor: colors.secondaryBackground }]}>
-        <Text style={[styles.bigNumberCaption, { color: colors.secondaryLabel }]}>純利益</Text>
+        {/* 結果は 1 件ぶんのシミュレーションなので種別語（SPEC-V2 §1.3 / §5.3） */}
+        <Text style={[styles.bigNumberCaption, { color: colors.secondaryLabel }]}>
+          {profitLabel(kind)}
+        </Text>
         <Text style={[styles.bigNumber, { color: profit >= 0 ? colors.green : colors.red }]}>
           {roundForDisplay(profit)} 円
         </Text>
@@ -234,7 +249,7 @@ function NetProfitResult({
           colors={colors}
         />
         <DetailRow
-          title="販売手数料"
+          title={COMMISSION_LABEL}
           value={commissionCost(input)}
           color={colors.orange}
           colors={colors}
@@ -247,11 +262,13 @@ function NetProfitResult({
 /** Swift 版 TargetProfitView。目標利益から必要販売価格を逆算 */
 function TargetProfitResult({
   input,
+  kind,
   colors,
   targetProfitInput,
   onChangeTargetProfit,
 }: {
   input: CostInput;
+  kind: RecordKind;
   colors: ThemeColors;
   targetProfitInput: string;
   onChangeTargetProfit: (value: string) => void;
@@ -261,7 +278,9 @@ function TargetProfitResult({
 
   return (
     <View style={styles.targetSection}>
-      <Text style={[styles.targetHeadline, { color: colors.label }]}>目標利益を入力してください</Text>
+      <Text style={[styles.targetHeadline, { color: colors.label }]}>
+        {targetProfitPrompt(kind)}
+      </Text>
       <TextInput
         style={[
           styles.targetInput,
@@ -276,10 +295,10 @@ function TargetProfitResult({
         placeholder="例：500"
         placeholderTextColor={colors.secondaryLabel}
         keyboardType="decimal-pad"
-        accessibilityLabel="目標利益"
+        accessibilityLabel={targetProfitLabel(kind)}
       />
       <View style={[styles.card, styles.bigNumberCard, { backgroundColor: colors.secondaryBackground }]}>
-        <Text style={{ color: colors.label }}>必要な販売価格</Text>
+        <Text style={{ color: colors.label }}>{REQUIRED_SALES_PRICE_LABEL}</Text>
         <Text style={[styles.bigNumber, styles.requiredPrice, { color: colors.green }]}>
           {required} 円
         </Text>

@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { formatRecordDate, formatYen } from '@/logic/format';
+import { EXPENSES_LABEL, profitLabel } from '@/logic/labels';
 import { netProfit, totalExpenses } from '@/logic/profit';
 import { useThemeColors } from '@/theme';
 
@@ -31,15 +32,16 @@ export function RecordRow({ record, isSoldMode }: Props) {
       </Text>
 
       <View style={styles.amounts}>
+        {/* 行はレコード 1 件なので種別語（SPEC-V2 §1.3 / §5.3）。種別バッジは付けない（§5.4） */}
         <Text
           style={[styles.amount, { color: profit >= 0 ? colors.green : colors.red }]}
           numberOfLines={1}>
-          純利益: {formatYen(profit)}
+          {profitLabel(record.kind)}: {formatYen(profit)}
         </Text>
         <Text
           style={[styles.amount, { color: expenses >= 0 ? colors.red : colors.label }]}
           numberOfLines={1}>
-          経費: {formatYen(expenses)}
+          {EXPENSES_LABEL}: {formatYen(expenses)}
         </Text>
       </View>
 
