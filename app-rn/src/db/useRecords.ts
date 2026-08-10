@@ -15,7 +15,7 @@ import type { ChartUnit, MetricType } from '@/logic/analytics';
 import { repository } from './client';
 import type {
   AggregatedPoint,
-  AnalyticsRange,
+  AnalyticsFilter,
   AnalyticsSummary,
   CareerSummary,
   MonthGroup,
@@ -155,19 +155,19 @@ const NO_DETAILS: SaleRecord[] = [];
 
 /** refreshToken を引数に取る理由は query() のコメントを参照 */
 function queryAnalytics(
-  range: AnalyticsRange,
+  filter: AnalyticsFilter,
   unit: ChartUnit,
   refreshToken: object,
 ): Omit<AnalyticsData, 'details'> {
   void refreshToken;
   return {
-    summary: repository.analyticsSummary(range),
-    series: repository.analyticsSeries(range, unit),
+    summary: repository.analyticsSummary(filter),
+    series: repository.analyticsSeries(filter, unit),
   };
 }
 
 function queryAnalyticsDetails(
-  range: AnalyticsRange,
+  filter: AnalyticsFilter,
   unit: ChartUnit,
   selectedKey: string | null,
   metric: MetricType,
@@ -175,7 +175,7 @@ function queryAnalyticsDetails(
 ): SaleRecord[] {
   void refreshToken;
   if (selectedKey == null) return NO_DETAILS;
-  return repository.analyticsDetails(range, unit, selectedKey, metric);
+  return repository.analyticsDetails(filter, unit, selectedKey, metric);
 }
 
 /**
@@ -184,13 +184,13 @@ function queryAnalyticsDetails(
  * 集計は repository の SQL 側で完結しているので、画面が受け取るのは
  * 集計済みの点と合計値だけ。レコード実体は「タップされた 1 点の内訳」しか読まない。
  *
- * @param range       集計期間。null = 全期間を表示
+ * @param filter      集計対象（期間 + 種別）。range = null で全期間、kind = null で全種別
  * @param unit        表示単位（明細 / 日別 / 月別 / 年別）
  * @param metric      指標。内訳リストの並び順に効く
  * @param selectedKey タップされた集計点のキー。null なら内訳は引かない
  */
 export function useAnalyticsData(
-  range: AnalyticsRange,
+  filter: AnalyticsFilter,
   unit: ChartUnit,
   metric: MetricType,
   selectedKey: string | null,
@@ -202,13 +202,13 @@ export function useAnalyticsData(
   useFocusEffect(refresh);
 
   const data = useMemo(
-    () => queryAnalytics(range, unit, refreshToken),
-    [range, unit, refreshToken],
+    () => queryAnalytics(filter, unit, refreshToken),
+    [filter, unit, refreshToken],
   );
   // 指標の切替では内訳の並びしか変わらないので、集計本体とはメモを分ける
   const details = useMemo(
-    () => queryAnalyticsDetails(range, unit, selectedKey, metric, refreshToken),
-    [range, unit, selectedKey, metric, refreshToken],
+    () => queryAnalyticsDetails(filter, unit, selectedKey, metric, refreshToken),
+    [filter, unit, selectedKey, metric, refreshToken],
   );
 
   return { ...data, details };

@@ -41,6 +41,8 @@ export type RecordListFilter = {
   searchText?: string;
   /** 月フィルタ "YYYY-MM"。null/undefined = 全期間（SPEC §6.1: 年月の完全一致） */
   monthKey?: string | null;
+  /** 種別フィルタ（SPEC-V2 §4.2）。null/undefined = すべて */
+  kind?: RecordKind | null;
 };
 
 export type MonthGroup = {
@@ -71,6 +73,17 @@ export type CareerSummary = {
  * 日付の境界正規化（決定 §7-10）はここでは行わず、SQL を組み立てる直前に行う。
  */
 export type AnalyticsRange = { startDate: Date; endDate: Date } | null;
+
+/**
+ * DataView の集計条件（SPEC-V2 §4.2）。
+ * 期間だけだった AnalyticsRange に種別を足すため、両者をまとめた型にしてある。
+ * 種別で絞っても集計の形は変わらず、対象レコードが減るだけ（§4.4）。
+ */
+export type AnalyticsFilter = {
+  range: AnalyticsRange;
+  /** 種別フィルタ。null/undefined = すべて */
+  kind?: RecordKind | null;
+};
 
 /** DataView のサマリーカード（期間内合計）。すべて丸めなし（SPEC §6.2） */
 export type AnalyticsSummary = {
@@ -161,6 +174,11 @@ function buildWhere(filter: RecordListFilter): SQL {
       sql`${saleRecords.itemName} LIKE ${likePattern(search)} ESCAPE '\\'`,
     );
   }
+  // 種別フィルタ（SPEC-V2 §4.2）。検索と違い「見る対象そのものの限定」なので、
+  // リスト本体だけでなく下部累計（summaryFilter）にも同じ条件が渡される。
+  if (filter.kind != null) {
+    conditions.push(eq(saleRecords.kind, filter.kind));
+  }
   return sql.join(conditions, sql` AND `);
 }
 
@@ -169,8 +187,10 @@ function buildWhere(filter: RecordListFilter): SQL {
  * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
  * - 期間は startDate その日の 00:00:00.000 〜 endDate その日の 23:59:59.999 の閉区間（決定 §7-10）。
  *   保存形式が固定長のローカル ISO 文字列なので、辞書順比較がそのまま時系列比較になる。
+ * - 種別（SPEC-V2 §4.2）は指定があればそのまま等値条件にする。
  */
-function buildAnalyticsWhere(range: AnalyticsRange): SQL {
+function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
+  const { range } = filter;
   const conditions: SQL[] = [
     eq(saleRecords.isSold, true),
     sql`${saleRecords.saleDate} IS NOT NULL`,
@@ -178,6 +198,9 @@ function buildAnalyticsWhere(range: AnalyticsRange): SQL {
   if (range != null) {
     conditions.push(sql`${saleRecords.saleDate} >= ${toDbDate(startOfDay(range.startDate))}`);
     conditions.push(sql`${saleRecords.saleDate} <= ${toDbDate(endOfDay(range.endDate))}`);
+  }
+  if (filter.kind != null) {
+    conditions.push(eq(saleRecords.kind, filter.kind));
   }
   return sql.join(conditions, sql` AND `);
 }
@@ -338,7 +361,7 @@ export function createRepository(
     // 画面側は返ってきた値を roundForDisplay して出すだけで、全件ループはしない。
 
     /** サマリーカードの期間内合計（SPEC §6.2） */
-    analyticsSummary(range: AnalyticsRange): AnalyticsSummary {
+    analyticsSummary(filter: AnalyticsFilter): AnalyticsSummary {
       const row = db
         .select({
           totalSales: sql<number>`coalesce(sum(${saleRecords.salesPrice}), 0)`,
@@ -346,7 +369,7 @@ export function createRepository(
           recordCount: sql<number>`count(*)`,
         })
         .from(saleRecords)
-        .where(buildAnalyticsWhere(range))
+        .where(buildAnalyticsWhere(filter))
         .get() ?? { totalSales: 0, totalExpenses: 0, recordCount: 0 };
 
       return {
@@ -357,7 +380,7 @@ export function createRepository(
     },
 
     /** チャートの集計点（SPEC §6.2 AggregatedPoint）。日付キーの昇順 */
-    analyticsSeries(range: AnalyticsRange, unit: ChartUnit): AggregatedPoint[] {
+    analyticsSeries(filter: AnalyticsFilter, unit: ChartUnit): AggregatedPoint[] {
       const key = chartKeySql(unit);
       const rows = db
         .select({
@@ -367,7 +390,7 @@ export function createRepository(
           recordCount: sql<number>`count(*)`,
         })
         .from(saleRecords)
-        .where(buildAnalyticsWhere(range))
+        .where(buildAnalyticsWhere(filter))
         .groupBy(key)
         .orderBy(asc(key))
         .all();
@@ -381,7 +404,7 @@ export function createRepository(
      * 全期間ぶんのレコードを画面に持ち込まずに済む。
      */
     analyticsDetails(
-      range: AnalyticsRange,
+      filter: AnalyticsFilter,
       unit: ChartUnit,
       key: string,
       metric: MetricType,
@@ -389,7 +412,7 @@ export function createRepository(
       return db
         .select()
         .from(saleRecords)
-        .where(sql`${buildAnalyticsWhere(range)} AND ${chartKeySql(unit)} = ${key}`)
+        .where(sql`${buildAnalyticsWhere(filter)} AND ${chartKeySql(unit)} = ${key}`)
         .orderBy(metric === 'sales' ? desc(saleRecords.salesPrice) : desc(netProfitSql))
         .all();
     },

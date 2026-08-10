@@ -22,6 +22,12 @@ import { monthKeyToDate } from '@/db/dates';
 import type { MonthGroup, SortTypeMonthly } from '@/db/repository';
 import { useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader, formatMonthTitle } from '@/logic/format';
+import {
+  DEFAULT_KIND_FILTER,
+  KIND_FILTER_OPTIONS,
+  toKindCondition,
+  type KindFilter,
+} from '@/logic/kindFilter';
 import { EXPENSES_LABEL, TOTAL_PROFIT_LABEL } from '@/logic/labels';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
@@ -71,13 +77,17 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
   const [sortType, setSortType] = useState<SortTypeMonthly>(DEFAULT_SORT);
   /** 月フィルタ "YYYY-MM"。null = 全期間（SPEC §6.1: 年月の完全一致） */
   const [monthKey, setMonthKey] = useState<string | null>(null);
+  /** 種別フィルタ（SPEC-V2 §4.2）。ソートと同じシートから選ぶ（§7-10） */
+  const [kindFilter, setKindFilter] = useState<KindFilter>(DEFAULT_KIND_FILTER);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
+  // 下部累計（summaryFilter）は省略時 filter と同じものが使われるので、
+  // 種別フィルタは月カードにも累計にも同じように効く（SPEC-V2 §4.2「適用範囲」）。
   const filter = useMemo(
-    () => ({ isSoldMode, searchText, monthKey }),
-    [isSoldMode, searchText, monthKey],
+    () => ({ isSoldMode, searchText, monthKey, kind: toKindCondition(kindFilter) }),
+    [isSoldMode, searchText, monthKey, kindFilter],
   );
   const { groups, summary, refresh } = useRecordListData(filter, sortType);
 
@@ -88,10 +98,14 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
       : `${formatMonthTitle(monthKeyToDate(monthKey))}の${TOTAL_PROFIT_LABEL}`
     : '出品中';
 
-  /** ツールバーのリセット: 月フィルタ解除 ＋ ソートを販売日降順へ（Swift 版 resetFilter） */
+  /**
+   * ツールバーのリセット: 月フィルタ解除 ＋ ソートを販売日降順へ（Swift 版 resetFilter）。
+   * 種別フィルタも絞り込みの 1 つなので「すべて」に戻す（SPEC-V2 §4.2）。
+   */
   const resetFilter = useCallback(() => {
     setMonthKey(null);
     setSortType(DEFAULT_SORT);
+    setKindFilter(DEFAULT_KIND_FILTER);
   }, []);
 
   // 決定 §7-7 のとおりここではレコードを作らず、保存ボタン押下時に初めて作成される。
@@ -119,7 +133,7 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
           <Pressable
             onPress={() => setShowSortMenu(true)}
             hitSlop={8}
-            accessibilityLabel="並び替え">
+            accessibilityLabel="並び替えと絞り込み">
             <Ionicons name="swap-vertical" size={22} color={colors.blue} />
           </Pressable>
           <AddRecordButton onPress={openNewRecordForm} />
@@ -173,12 +187,20 @@ export function MonthlyRecordListScreen({ isSoldMode, monthDetailPathname }: Pro
         onReset={resetFilter}
         onClose={() => setShowMonthPicker(false)}
       />
+      {/* ソートと種別フィルタは同じシートに同居させる（SPEC-V2 §7-10） */}
       <OptionSheet
         visible={showSortMenu}
-        title="並び替え"
+        title="並び替えと絞り込み"
+        heading="並び替え"
         groups={SORT_OPTIONS}
         selectedValue={sortType}
         onSelect={setSortType}
+        section={{
+          heading: '種別',
+          options: KIND_FILTER_OPTIONS,
+          selectedValue: kindFilter,
+          onSelect: setKindFilter,
+        }}
         onClose={() => setShowSortMenu(false)}
       />
       <RecordFormSheet

@@ -26,6 +26,12 @@ import { monthKeyToDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { deleteRecord, useRecordListData } from '@/db/useRecords';
 import { formatMonthHeader } from '@/logic/format';
+import {
+  DEFAULT_KIND_FILTER,
+  KIND_FILTER_OPTIONS,
+  toKindCondition,
+  type KindFilter,
+} from '@/logic/kindFilter';
 import { TOTAL_PROFIT_LABEL } from '@/logic/labels';
 import { netProfit } from '@/logic/profit';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
@@ -61,16 +67,23 @@ export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
   const [sortType, setSortType] = useState<SortType>(
     isSoldMode ? 'saleDateDesc' : 'saleStartDateDesc',
   );
+  /** 種別フィルタ（SPEC-V2 §4.2）。ソートと同じシートから選ぶ（§7-10） */
+  const [kindFilter, setKindFilter] = useState<KindFilter>(DEFAULT_KIND_FILTER);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
+  const kind = toKindCondition(kindFilter);
   const filter = useMemo(
-    () => ({ isSoldMode, searchText, monthKey }),
-    [isSoldMode, searchText, monthKey],
+    () => ({ isSoldMode, searchText, monthKey, kind }),
+    [isSoldMode, searchText, monthKey, kind],
   );
   // 下部累計は「対象月のみ」で集計する。検索は含めない
-  // （Swift 版 CareerSummarySection(records:isSoldMode:targetMonth:) と同じ範囲）
-  const summaryFilter = useMemo(() => ({ isSoldMode, monthKey }), [isSoldMode, monthKey]);
+  // （Swift 版 CareerSummarySection(records:isSoldMode:targetMonth:) と同じ範囲）。
+  // 種別は「見る対象そのものの限定」なので検索とは扱いを変え、累計にも適用する（SPEC-V2 §4.2）。
+  const summaryFilter = useMemo(
+    () => ({ isSoldMode, monthKey, kind }),
+    [isSoldMode, monthKey, kind],
+  );
   const { groups, summary, refresh } = useRecordListData(filter, 'saleDateDesc', summaryFilter);
 
   // monthKey で絞っているのでグループは高々 1 つ
@@ -79,11 +92,13 @@ export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
 
   // 対象月の記録が 0 件になったら前画面へ戻る。
   // 判定に使うのは検索を含まない summary の件数（Swift 版と同じく、検索で 0 件になっても戻らない）。
+  // 種別で絞っているときは判定しない。この画面を閉じる条件は「対象月から記録が消えたこと」であって、
+  // 絞り込みの結果 0 件になることではないため（絞った瞬間に画面が閉じると選び直せない）。
   useEffect(() => {
-    if (summary.recordCount === 0 && router.canGoBack()) {
+    if (kind == null && summary.recordCount === 0 && router.canGoBack()) {
       router.back();
     }
-  }, [summary.recordCount, router]);
+  }, [kind, summary.recordCount, router]);
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -136,7 +151,7 @@ export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
           <Pressable
             onPress={() => setShowSortMenu(true)}
             hitSlop={8}
-            accessibilityLabel="並び替え">
+            accessibilityLabel="並び替えと絞り込み">
             <Ionicons name="swap-vertical" size={22} color={colors.blue} />
           </Pressable>
           <AddRecordButton onPress={openNewRecordForm} />
@@ -186,12 +201,20 @@ export function SaleRecordScreen({ isSoldMode, recordDetailPathname }: Props) {
         />
       </View>
 
+      {/* ソートと種別フィルタは同じシートに同居させる（SPEC-V2 §7-10） */}
       <OptionSheet
         visible={showSortMenu}
-        title="並び替え"
+        title="並び替えと絞り込み"
+        heading="並び替え"
         groups={sortOptions}
         selectedValue={sortType}
         onSelect={setSortType}
+        section={{
+          heading: '種別',
+          options: KIND_FILTER_OPTIONS,
+          selectedValue: kindFilter,
+          onSelect: setKindFilter,
+        }}
         onClose={() => setShowSortMenu(false)}
       />
       <RecordFormSheet

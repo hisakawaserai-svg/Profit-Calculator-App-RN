@@ -53,6 +53,12 @@ import {
 } from '@/logic/analytics';
 import { formatYen } from '@/logic/format';
 import {
+  DEFAULT_KIND_FILTER,
+  KIND_FILTER_OPTIONS,
+  toKindCondition,
+  type KindFilter,
+} from '@/logic/kindFilter';
+import {
   EXPENSES_LABEL,
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
@@ -78,18 +84,29 @@ export function DataScreen() {
   const [metric, setMetric] = useState<MetricType>('sales');
   const [isAllPeriod, setIsAllPeriod] = useState(false);
   const [period, setPeriod] = useState<Period>(() => defaultPeriod(INITIAL_UNIT));
+  /** 種別フィルタ（SPEC-V2 §4.2）。絞ると集計・グラフ・内訳のすべてがその種別だけになる */
+  const [kindFilter, setKindFilter] = useState<KindFilter>(DEFAULT_KIND_FILTER);
   /** タップされた集計点のキー。null = 未選択 */
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  // 「全期間を表示」ON なら期間条件なし（SPEC §6.2）
-  const range = useMemo(() => (isAllPeriod ? null : period), [isAllPeriod, period]);
-  const { summary, series, details } = useAnalyticsData(range, unit, metric, selectedKey);
+  // 「全期間を表示」ON なら期間条件なし（SPEC §6.2）。種別は 'all' のとき条件なし（SPEC-V2 §4.2）
+  const filter = useMemo(
+    () => ({ range: isAllPeriod ? null : period, kind: toKindCondition(kindFilter) }),
+    [isAllPeriod, period, kindFilter],
+  );
+  const { summary, series, details } = useAnalyticsData(filter, unit, metric, selectedKey);
 
   /** SPEC §6.2: 表示単位を切り替えたら期間もその単位の既定幅にリセットする */
   const changeUnit = useCallback((index: number) => {
     const nextUnit = CHART_UNITS[index];
     setUnit(nextUnit);
     setPeriod(defaultPeriod(nextUnit));
+    setSelectedKey(null);
+  }, []);
+
+  /** 種別を切り替えると集計対象が変わるので、選択中の点も外す（単位の切替と同じ扱い） */
+  const changeKindFilter = useCallback((index: number) => {
+    setKindFilter(KIND_FILTER_OPTIONS[index].value);
     setSelectedKey(null);
   }, []);
 
@@ -165,6 +182,16 @@ export function DataScreen() {
             options={METRIC_TYPES.map((value) => metricLabel(value))}
             selectedIndex={METRIC_TYPES.indexOf(metric)}
             onChange={(index) => setMetric(METRIC_TYPES[index])}
+          />
+
+          {/* 種別フィルタ。この画面は OptionSheet を使わないので、
+              表示単位・指標の切替と同じ列に並べる（SPEC-V2 §7-10 / §1.3） */}
+          <SegmentedControl
+            options={KIND_FILTER_OPTIONS.map((option) => option.label)}
+            selectedIndex={KIND_FILTER_OPTIONS.findIndex(
+              (option) => option.value === kindFilter,
+            )}
+            onChange={changeKindFilter}
           />
 
           {series.length === 0 ? (
