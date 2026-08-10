@@ -14,12 +14,15 @@ import {
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
   commissionFieldLabel,
+  commissionItemLabel,
+  lowerPriceWarning,
   metricLabel,
+  optionalCostsLabel,
   profitLabel,
   profitTabLabel,
   recordKindLabel,
-  requiredPriceEquationText,
-  requiredPriceNote,
+  requiredPriceFormulaLines,
+  requiredPriceSummary,
   targetProfitLabel,
 } from './labels';
 
@@ -81,29 +84,122 @@ describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
     expect(targetProfitLabel('sourced')).toBe('目標利益');
   });
 
-  it('手数料の入力行と逆算結果の注記には率が入る', () => {
+  it('手数料の入力行と逆算結果の一覧には率が入る', () => {
     expect(commissionFieldLabel(10)).toBe('手数料 10%');
-    expect(requiredPriceNote(10)).toBe('送料・手数料 10% を差し引いた後の金額です');
+    expect(commissionItemLabel(10)).toBe('販売手数料10%');
+  });
+});
+
+describe('UI-SPEC §1.1-6 梱包材・その他の折りたたみ見出し', () => {
+  it('入力があれば合計を添える（畳んだままでも結果に効いていると分かるように）', () => {
+    expect(optionalCostsLabel(80)).toBe('梱包材・その他を入力（80円）');
   });
 
-  it('逆算の検算行は引き算の形。「円」は末尾だけに付く', () => {
-    const equation = { sales: 112, deductions: [{ label: '販売手数料', amount: 11 }], profit: 101 };
-    expect(requiredPriceEquationText(equation, profitLabel('used'))).toBe(
-      '売上 112 − 販売手数料 11 = 純利益 101 円',
-    );
+  it('合計 0 なら金額を出さない', () => {
+    expect(optionalCostsLabel(0)).toBe('梱包材・その他を入力');
   });
 
-  it('引かれる項が複数あれば並べて出す', () => {
-    const equation = {
-      sales: 2000,
-      deductions: [
-        { label: '送料', amount: 200 },
-        { label: '販売手数料', amount: 200 },
-      ],
-      profit: 1600,
-    };
-    expect(requiredPriceEquationText(equation, profitLabel('sourced'))).toContain(
-      '− 販売手数料 200 = 利益 1600 円',
+  it('端数は表示用に丸める', () => {
+    expect(optionalCostsLabel(80.4)).toBe('梱包材・その他を入力（80円）');
+  });
+});
+
+describe('UI-SPEC §1.1-3b / 採用案 12c 逆算結果の説明文', () => {
+  it('確定デザインの文をそのまま組み立てる', () => {
+    expect(
+      requiredPriceSummary({
+        requiredPrice: 962,
+        commissionAmount: 96,
+        expenses: 765,
+        kept: 101,
+      }),
+    ).toBe('962円で売ると、手数料96円と経費765円が引かれて101円が残ります。');
+  });
+
+  it('経費が 0 項目なら手数料だけを言う', () => {
+    expect(
+      requiredPriceSummary({ requiredPrice: 112, commissionAmount: 11, expenses: 0, kept: 101 }),
+    ).toBe('112円で売ると、手数料11円が引かれて101円が残ります。');
+  });
+
+  it('手数料 0% なら経費だけを言う', () => {
+    expect(
+      requiredPriceSummary({ requiredPrice: 865, commissionAmount: 0, expenses: 765, kept: 100 }),
+    ).toBe('865円で売ると、経費765円が引かれて100円が残ります。');
+  });
+
+  it('引かれるものが何もなければ「引かれて」と言わない', () => {
+    expect(
+      requiredPriceSummary({ requiredPrice: 100, commissionAmount: 0, expenses: 0, kept: 100 }),
+    ).toBe('100円で売ると、そのまま100円が残ります。');
+  });
+});
+
+describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
+  const designExample = {
+    targetProfit: 100,
+    expenses: 765,
+    subtotal: 865,
+    commissionRate: 10,
+    divisor: 0.9,
+    exact: 961.1111111111111,
+    requiredPrice: 962,
+    roundedUp: true,
+  };
+
+  it('確定デザインの 3 行をそのまま組み立てる', () => {
+    expect(requiredPriceFormulaLines(designExample)).toEqual([
+      '目標100円 ＋ 経費765円 ＝ 865円',
+      '手数料10%が引かれるので ÷ 0.9',
+      '→ 961.1... を切り上げて 962円',
+    ]);
+  });
+
+  it('切り上げ前の値は切り捨てて出す（切り上げの話が続くため）', () => {
+    const lines = requiredPriceFormulaLines({ ...designExample, exact: 961.96 });
+    expect(lines[2]).toBe('→ 961.9... を切り上げて 962円');
+  });
+
+  it('経費が 0 項目なら足し算の行を出さない', () => {
+    expect(
+      requiredPriceFormulaLines({
+        ...designExample,
+        targetProfit: 100,
+        expenses: 0,
+        subtotal: 100,
+        exact: 111.11111111111111,
+        requiredPrice: 112,
+      })[0],
+    ).toBe('目標100円');
+  });
+
+  it('手数料 0% なら割り算の行を出さない', () => {
+    expect(
+      requiredPriceFormulaLines({
+        ...designExample,
+        commissionRate: 0,
+        divisor: 1,
+        exact: 865,
+        requiredPrice: 865,
+        roundedUp: false,
+      }),
+    ).toEqual(['目標100円 ＋ 経費765円 ＝ 865円', '→ 865円']);
+  });
+
+  it('割り切れたときは「切り上げて」と言わない', () => {
+    const lines = requiredPriceFormulaLines({
+      ...designExample,
+      exact: 962,
+      roundedUp: false,
+    });
+    expect(lines[2]).toBe('→ 962円');
+  });
+});
+
+describe('UI-SPEC §1.1-3b / 採用案 12c 1 つ下の価格の注意文', () => {
+  it('確定デザインの文をそのまま組み立てる', () => {
+    expect(lowerPriceWarning({ price: 950, profit: 90 })).toBe(
+      '950円では90円にしかならず、目標に届きません',
     );
   });
 });

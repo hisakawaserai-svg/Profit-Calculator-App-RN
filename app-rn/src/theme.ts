@@ -37,6 +37,14 @@ export type ThemeColors = {
   /** disabled 時に入力欄へかぶせる地色 */
   disabledBackground: string;
   /**
+   * 逆算結果の帯グラフで経費に使う赤系 4 色（計算タブ §1.1-3b）。
+   *
+   * 並びは仕入価格・送料・梱包材・その他で固定する。入力済みの項目だけを詰めて塗ると、
+   * 項目を 1 つ足しただけで既存の区画の色が入れ替わり、帯と一覧の対応を覚え直すことになる。
+   * 手元（green）・販売手数料（orange）と混ざらないよう、赤の 1 色相を明度だけで振る。
+   */
+  expenseTones: readonly [string, string, string, string];
+  /**
    * 内容の上に重ねる固定バーの地色（UI-SPEC §1.1-2 / §1.1-7）。
    *
    * 設計案は「半透明地＋境界線でリストから浮かせる」だが、素の半透明色では下の
@@ -63,6 +71,7 @@ const light: ThemeColors = {
   purple: '#AF52DE',
   disabledBackground: 'rgba(120, 120, 128, 0.12)',
   barBackground: '#F2F2F7',
+  expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
 };
 
 const dark: ThemeColors = {
@@ -82,6 +91,7 @@ const dark: ThemeColors = {
   purple: '#BF5AF2',
   disabledBackground: 'rgba(120, 120, 128, 0.24)',
   barBackground: '#000000',
+  expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
 };
 
 export const themes = { light, dark };

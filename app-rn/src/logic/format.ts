@@ -7,6 +7,18 @@ export function formatYen(value: number): string {
   return `${roundForDisplay(value)} 円`;
 }
 
+/**
+ * 金額表示「1234円」。文中や詰めて並べる 2 値（計算タブの逆算結果）で使う。
+ *
+ * formatYen との違いは数字と「円」の間の空白だけ。逆算結果の説明文
+ * 「962円で売ると、手数料96円と…」のように 1 文に金額が 3 つ以上入る場所では、
+ * 空白があるぶんだけ語の切れ目が読み取りにくくなるため詰める。
+ * 単独のセル（内訳の行など）は従来どおり formatYen。
+ */
+export function formatYenTight(value: number): string {
+  return `${roundForDisplay(value)}円`;
+}
+
 /** 金額表示「¥1234」。月カード（Swift 版 MonthlySummaryCard）の表記 */
 export function formatYenSymbol(value: number): string {
   return `¥${roundForDisplay(value)}`;

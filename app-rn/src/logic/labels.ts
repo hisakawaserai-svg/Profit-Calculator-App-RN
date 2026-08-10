@@ -12,7 +12,7 @@
 import type { RecordKind } from '@/db/schema';
 
 import type { MetricType } from './analytics';
-import { formatYen } from './format';
+import { formatYenTight } from './format';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -69,6 +69,13 @@ export const SOLD_RECORDS_LABEL = '売れた記録';
 /** commissionCost（§5.3） */
 export const COMMISSION_LABEL = '販売手数料';
 
+/**
+ * 説明文・式の中で使う短い方（「手数料96円が引かれて」「手数料10%が引かれるので」）。
+ * 1 文に金額が 3 つ入る場所では正式名だと文が読めなくなるので、入力欄の
+ * commissionFieldLabel と同じ短縮形に合わせる。単独の行や一覧は COMMISSION_LABEL。
+ */
+export const COMMISSION_SHORT_LABEL = '手数料';
+
 /** 計算タブの逆算結果。種別で変えない（§5.3） */
 export const REQUIRED_SALES_PRICE_LABEL = '必要な販売価格';
 
@@ -88,6 +95,37 @@ export const ENVELOPE_AND_OTHERS_LABEL = '梱包・その他';
 
 /** 結果カード・固定バーの折りたたみ見出し（UI-SPEC §1.1-2 / §1.1-3a） */
 export const BREAKDOWN_LABEL = '内訳';
+
+/**
+ * 逆算結果の折りたたみ見出し（採用案 12c）。
+ * 結果側の「内訳」と違って金額の一覧だけでなく式も入るので、開く前にそれが分かる語にする。
+ */
+export const BREAKDOWN_AND_METHOD_LABEL = '内訳と計算のしかた';
+
+/** 逆算結果の一覧の 1 行目（緑の区画）。売れたあと売り手のものになる額 */
+export const KEPT_LABEL = '手元に残る';
+
+/** 帯の下の 2 値の左側。一覧の KEPT_LABEL と同じものを詰めて言う */
+export const KEPT_SHORT_LABEL = '手元';
+
+/**
+ * 帯の下の 2 値の右側（販売手数料 ＋ 経費 ＝ totalExpenses）。
+ *
+ * ここを EXPENSES_LABEL（経費）と呼ばないのは、同じ画面の説明文・式で「経費」が
+ * 手数料を含まない額を指しているため。手数料込みか否かを語で見分けられるようにする。
+ *
+ * 逆算モードの固定バーの経費側も同じ理由でこの語を使う（UI-SPEC §1.1-2）。
+ * バーとパネルで同じ額に違う語が付くと、スクロールした瞬間に数字が食い違って見える。
+ * 通常モードのバーは逆算パネルと同時に出ないので EXPENSES_LABEL のまま。
+ */
+export const DEDUCTED_LABEL = '引かれる分';
+
+/**
+ * 式の左辺に置く目標額の語（「目標100円 ＋ 経費765円」）。
+ * 入力欄は targetProfitLabel（「目標の純利益」/「目標利益」）だが、式の中では
+ * 項が長いほど式に見えなくなるので短くする。直上の入力欄に正式名が出ている。
+ */
+export const FORMULA_TARGET_LABEL = '目標';
 
 /** 計算タブの入力カードの折りたたみ見出し（UI-SPEC §1.1-6） */
 export const OPTIONAL_COSTS_LABEL = '梱包材・その他を入力';
@@ -115,43 +153,115 @@ export function commissionFieldLabel(rate: number): string {
   return `手数料 ${rate}%`;
 }
 
-/** 逆算結果の下に出す注記（UI-SPEC §1.1-3b） */
-export function requiredPriceNote(rate: number): string {
-  return `${POSTAGE_LABEL}・手数料 ${rate}% を差し引いた後の金額です`;
+/**
+ * 折りたたみ見出しに入力済みの合計を添えた形:「梱包材・その他を入力（80円）」。
+ *
+ * 畳んだ状態でも中身が結果に効いていることを見出しだけで分かるようにする。
+ * 畳まれた欄に入れた梱包材・その他が見えないまま必要販売価格を押し上げていて、
+ * 経費が送料だけに見える、という報告への対応。
+ *
+ * 入力がなければ金額を出さない（「（0円）」は畳んだままでよい欄をわざわざ主張する）。
+ * 自動で開く形にしないのは、毎回開いた状態になると畳んでいる意味がなくなるため。
+ */
+export function optionalCostsLabel(total: number): string {
+  return total === 0
+    ? OPTIONAL_COSTS_LABEL
+    : `${OPTIONAL_COSTS_LABEL}（${formatYenTight(total)}）`;
+}
+
+/** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
+export function commissionItemLabel(rate: number): string {
+  return `${COMMISSION_LABEL}${rate}%`;
 }
 
 /**
- * 逆算結果の検算行:「売上 112 − 販売手数料 11 = 純利益 101 円」。
+ * 逆算結果の説明文（採用案 12c）:
+ * 「962円で売ると、手数料96円と経費765円が引かれて101円が残ります。」
  *
- * 引き算の形にするのは「手数料や経費が引かれた後に目標額が残る」ことを一行で伝えるため。
- * 数字は logic/calcForm.ts の requiredPriceEquation が組み立てる（表示された数字だけで
- * 引き算が閉じるように、各項を先に丸めてある）。
+ * 帯グラフと同じ内容を 1 文で言い直したもの。帯は割合、こちらは金額と因果（何が引かれるから
+ * いくら残るのか）を担当する。逆算の結果が暗算と食い違って見えるという指摘への対応なので、
+ * 折りたたみの中ではなく閉じた状態から読める位置に置く。
  *
- * 金額に「円」を付けるのは末尾だけ。項ごとに付けると読点だらけになって式に見えなくなる。
- *
- * @param resultLabel 右辺の語。レコード 1 件ぶんの結果なので種別語（profitLabel）を渡す
+ * 引かれる項が 0 のとき（経費なし・手数料 0%）に「引かれて」と言えないので、
+ * 引かれるものの有無で文を分ける。
  */
-export function requiredPriceEquationParts(
-  equation: { sales: number; deductions: { label: string; amount: number }[]; profit: number },
-  resultLabel: string,
-): string[] {
-  return [
-    `${TOTAL_SALES_LABEL} ${equation.sales}`,
-    ...equation.deductions.map((deduction) => `− ${deduction.label} ${deduction.amount}`),
-    `= ${resultLabel} ${formatYen(equation.profit)}`,
+export function requiredPriceSummary(result: {
+  requiredPrice: number;
+  commissionAmount: number;
+  expenses: number;
+  kept: number;
+}): string {
+  const deductions: string[] = [];
+  if (result.commissionAmount !== 0) {
+    deductions.push(`${COMMISSION_SHORT_LABEL}${formatYenTight(result.commissionAmount)}`);
+  }
+  if (result.expenses !== 0) {
+    deductions.push(`${EXPENSES_LABEL}${formatYenTight(result.expenses)}`);
+  }
+
+  const price = formatYenTight(result.requiredPrice);
+  const kept = formatYenTight(result.kept);
+  return deductions.length === 0
+    ? `${price}で売ると、そのまま${kept}が残ります。`
+    : `${price}で売ると、${deductions.join('と')}が引かれて${kept}が残ります。`;
+}
+
+/** 切り上げ前の値の表示「961.1...」。丸めずに切り捨てるのは、切り上げの話が続くため */
+function formatExactPrice(exact: number): string {
+  return `${(Math.floor(exact * 10) / 10).toFixed(1)}...`;
+}
+
+/**
+ * 「計算のしかた」の式（採用案 12c）:
+ *
+ *     目標100円 ＋ 経費765円 ＝ 865円
+ *     手数料10%が引かれるので ÷ 0.9
+ *     → 961.1... を切り上げて 962円
+ *
+ * 「なぜ目標＋手数料率ではなく割り算なのか」がこの 3 行の主題なので、経費や手数料が
+ * ない場合はその行を落とす（「＋ 経費0円」「÷ 1」は説明にならない）。
+ */
+export function requiredPriceFormulaLines(formula: {
+  targetProfit: number;
+  expenses: number;
+  subtotal: number;
+  commissionRate: number;
+  divisor: number;
+  exact: number;
+  requiredPrice: number;
+  roundedUp: boolean;
+}): string[] {
+  const target = `${FORMULA_TARGET_LABEL}${formatYenTight(formula.targetProfit)}`;
+  const lines = [
+    formula.expenses === 0
+      ? target
+      : `${target} ＋ ${EXPENSES_LABEL}${formatYenTight(formula.expenses)} ＝ ${formatYenTight(formula.subtotal)}`,
   ];
+
+  if (formula.commissionRate !== 0) {
+    lines.push(
+      `${COMMISSION_SHORT_LABEL}${formula.commissionRate}%が引かれるので ÷ ${formula.divisor}`,
+    );
+  }
+
+  lines.push(
+    formula.roundedUp
+      ? `→ ${formatExactPrice(formula.exact)} を切り上げて ${formatYenTight(formula.requiredPrice)}`
+      : `→ ${formatYenTight(formula.requiredPrice)}`,
+  );
+
+  return lines;
 }
 
 /**
- * 検算行を 1 本の文字列にしたもの。
- * 画面は項ごとに分けて描く（折り返しが項の切れ目でだけ起きるように）ので、
- * こちらは読み上げ用のラベルとテストで使う。
+ * 式の直下に常設する注意文（採用案 12c）:「950円では90円にしかならず、目標に届きません」。
+ *
+ * 式だけでは「切り上げの 1 円をけちっても大差ないのでは」と読めてしまうため、
+ * 1 つ下の値段を実際に置いたときいくらになるかを添える。何回出したかを数えて
+ * 引っ込める仕掛けは持たない（表示条件は数字が成り立つかどうかだけ）。
  */
-export function requiredPriceEquationText(
-  equation: { sales: number; deductions: { label: string; amount: number }[]; profit: number },
-  resultLabel: string,
-): string {
-  return requiredPriceEquationParts(equation, resultLabel).join(' ');
+export function lowerPriceWarning(example: { price: number; profit: number }): string {
+  return `${formatYenTight(example.price)}では${formatYenTight(example.profit)}にしかならず、目標に届きません`;
 }
 
 /**

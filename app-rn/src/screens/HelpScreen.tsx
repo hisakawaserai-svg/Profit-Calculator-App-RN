@@ -18,8 +18,13 @@ import { useThemeColors, type ThemeColors } from '@/theme';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-/** テーマの色キーで持つ（配色を theme.ts に集約するため。直接の色文字列は書かない） */
-type ColorKey = keyof ThemeColors;
+/**
+ * テーマの色キーで持つ（配色を theme.ts に集約するため。直接の色文字列は書かない）。
+ * 1 色を指すキーだけに絞る（expenseTones のような色の並びはアイコン 1 個には渡せない）。
+ */
+type ColorKey = {
+  [K in keyof ThemeColors]: ThemeColors[K] extends string ? K : never;
+}[keyof ThemeColors];
 
 type HelpItem = {
   icon: IoniconName;

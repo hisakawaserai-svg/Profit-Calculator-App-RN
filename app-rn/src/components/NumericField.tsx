@@ -22,7 +22,7 @@ type Props = {
   placeholder?: string;
   /**
    * 逆算モードの販売価格欄（UI-SPEC §1.1「挙動」）。
-   * 行ごとグレーアウトし、電卓ボタンも同時に無効化する
+   * 文字と電卓ボタンを薄くして無効を示す。行の形（高さ・余白）は他の行と変えない
    */
   disabled?: boolean;
   /** 数値欄のみ電卓ボタンを出す（Swift 版の isNumeric） */
@@ -40,16 +40,17 @@ export function NumericField({
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
 
-  // 無効時は文字を 60% 不透明・地色をグレーに（UI-SPEC §1.1「挙動」）
+  // 無効は文字色だけで示す（UI-SPEC §1.1「挙動」）。
+  //
+  // 地色を敷く形をやめたのは、カードの左右の余白まで届かず角丸にも沿わないため、
+  // 行の上に灰色の板が乗っているように見えるから。背景を持つのはこの行だけなので、
+  // 他の行（送料など）と並んだときにその行だけ浮いて見えていた。
+  // ラベル・数値・電卓ボタンを薄くすれば、行の形を他と揃えたまま無効だと分かる。
   const valueColor = disabled ? colors.secondaryLabel : colors.label;
 
   return (
     <View>
-      <View
-        style={[
-          styles.row,
-          disabled && { backgroundColor: colors.disabledBackground },
-        ]}>
+      <View style={styles.row}>
         <Text style={[styles.label, { color: valueColor }]} numberOfLines={1}>
           {label}
         </Text>
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     height: ROW_HEIGHT,
-    // 左右の余白はカード側が持つ（無効時の地色もカードの内側に収まる）
+    // 左右の余白はカード側が持つ
   },
   label: {
     fontSize: 16,

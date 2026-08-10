@@ -24,6 +24,11 @@ import {
 } from 'react-native';
 
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import {
+  CostProportionBar,
+  partColor,
+  partValueColor,
+} from '@/components/CostProportionBar';
 import { NumericField } from '@/components/NumericField';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -32,22 +37,25 @@ import type { RecordKind } from '@/db/schema';
 import {
   hasAnyInput,
   newCalcValues,
-  requiredPriceEquation,
+  profitBreakdown,
+  requiredPriceResult,
   toCostInput,
   toInitialAmounts,
   toRequiredCostInput,
   type CalcFormValues,
+  type RequiredPriceResult,
 } from '@/logic/calcForm';
 import { formatYen, formatYenSymbol } from '@/logic/format';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
+  BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
   CLEAR_LABEL,
   COMMISSION_LABEL,
+  DEDUCTED_LABEL,
   ENVELOPE_AND_OTHERS_LABEL,
   ENVELOPE_COST_LABEL,
   EXPENSES_LABEL,
-  OPTIONAL_COSTS_LABEL,
   OTHERS_COST_LABEL,
   POSTAGE_LABEL,
   PURCHASE_PRICE_LABEL,
@@ -60,14 +68,21 @@ import {
   TOTAL_SALES_AMOUNT_LABEL,
   TOTAL_SALES_LABEL,
   commissionFieldLabel,
+  lowerPriceWarning,
+  optionalCostsLabel,
   profitLabel,
   profitTabLabel,
-  requiredPriceEquationParts,
-  requiredPriceEquationText,
-  requiredPriceNote,
+  requiredPriceFormulaLines,
+  requiredPriceSummary,
   targetProfitLabel,
 } from '@/logic/labels';
-import { commissionCost, netProfit, totalExpenses, type CostInput } from '@/logic/profit';
+import {
+  commissionCost,
+  netProfit,
+  roundForDisplay,
+  totalExpenses,
+  type CostInput,
+} from '@/logic/profit';
 import { MAX_COMMISSION, MIN_COMMISSION } from '@/logic/recordForm';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useSettings } from '@/settings';
@@ -102,8 +117,10 @@ export default function CalcScreen() {
 
   const [mode, setMode] = useState(MODE_PROFIT);
   const [showForm, setShowForm] = useState(false);
-  // 内訳の開閉は結果カードと固定バーで独立させる（UI-SPEC §1.1「挙動」）
+  // 内訳の開閉は結果カードと固定バーで独立させる（UI-SPEC §1.1「挙動」）。
+  // 逆算側は中身が別もの（項目別の金額と計算のしかた）なので、結果側とも別に持つ
   const [cardBreakdownOpen, setCardBreakdownOpen] = useState(false);
+  const [targetBreakdownOpen, setTargetBreakdownOpen] = useState(false);
   const [stickyBreakdownOpen, setStickyBreakdownOpen] = useState(false);
   const [optionalCostsOpen, setOptionalCostsOpen] = useState(false);
   /** 結果カードが画面外に流れたか（UI-SPEC §1.1-2） */
@@ -141,6 +158,13 @@ export default function CalcScreen() {
   const resultLabel = isTargetMode ? REQUIRED_SALES_PRICE_LABEL : profitLabel(kind);
   const resultAmount = formatYen(isTargetMode ? costs.salesPrice : profit);
   const resultColor = isTargetMode ? colors.blue : profit >= 0 ? colors.green : colors.red;
+
+  // 逆算モードの販売価格欄は入力ではなく計算結果を映す（UI-SPEC §1.1「挙動」）。
+  // 欄が 0 のままだと、結果カードが「439 円で出せばよい」と言っているのに
+  // 販売価格が 0 という食い違った画面になる。丸めは結果カードの見出しと同じ関数を通す
+  const displayedSalesPrice = isTargetMode
+    ? String(roundForDisplay(costs.salesPrice))
+    : values.salesPrice;
 
   const canClear = hasAnyInput(values, defaultRecordKind);
 
@@ -186,11 +210,13 @@ export default function CalcScreen() {
               <TargetPanel
                 values={values}
                 colors={colors}
-                requiredPrice={costs.salesPrice}
                 onChangeTargetProfit={(value) => update('targetProfit', value)}
+                expanded={targetBreakdownOpen}
+                onToggleBreakdown={() => setTargetBreakdownOpen((open) => !open)}
               />
             ) : (
               <ProfitPanel
+                values={values}
                 costs={costs}
                 kind={kind}
                 colors={colors}
@@ -210,7 +236,7 @@ export default function CalcScreen() {
             <View style={[styles.card, styles.inputCard, { backgroundColor: colors.secondaryBackground }]}>
               <NumericField
                 label={SALES_PRICE_LABEL}
-                value={values.salesPrice}
+                value={displayedSalesPrice}
                 onChangeValue={(value) => update('salesPrice', value)}
                 // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
                 disabled={isTargetMode}
@@ -246,7 +272,9 @@ export default function CalcScreen() {
 
               {/* 6. 梱包材・その他は畳んでおく（UI-SPEC §1.1-6） */}
               <CollapsibleSection
-                label={OPTIONAL_COSTS_LABEL}
+                // 畳んだままでも中身が結果に効いていることが分かるよう、見出しに合計を添える。
+                // costs はモードで salesPrice だけが変わるので、この 2 項目はどちらでも同じ値
+                label={optionalCostsLabel(costs.envelopeCost + costs.othersCost)}
                 tone="link"
                 expanded={optionalCostsOpen}
                 onToggle={() => setOptionalCostsOpen((open) => !open)}>
@@ -273,6 +301,10 @@ export default function CalcScreen() {
           amount={resultAmount}
           amountColor={resultColor}
           salesLabel={isTargetMode ? REQUIRED_SALES_LABEL : TOTAL_SALES_LABEL}
+          // 逆算モードでは「経費」と呼ばない。逆算パネルの説明文・式が経費を手数料抜きの額
+          // （765 円）で使っているので、手数料込みの totalExpenses（861 円）を同じ語で呼ぶと、
+          // スクロールでバーが出た瞬間に数字が食い違って見える。パネル側と同じ「引かれる分」に揃える
+          expensesLabel={isTargetMode ? DEDUCTED_LABEL : EXPENSES_LABEL}
           costs={costs}
           kind={kind}
           expanded={stickyBreakdownOpen}
@@ -303,7 +335,7 @@ export default function CalcScreen() {
           決定 §7-7 のとおり、DB への insert は保存ボタンを押したときだけ */}
       <RecordFormSheet
         visible={showForm}
-        initialAmounts={toInitialAmounts(values)}
+        initialAmounts={toInitialAmounts(values, displayedSalesPrice)}
         onClose={() => setShowForm(false)}
       />
     </>
@@ -323,6 +355,7 @@ function StickyResultBar({
   amount,
   amountColor,
   salesLabel,
+  expensesLabel,
   costs,
   kind,
   expanded,
@@ -334,6 +367,7 @@ function StickyResultBar({
   amount: string;
   amountColor: string;
   salesLabel: string;
+  expensesLabel: string;
   costs: CostInput;
   kind: RecordKind;
   expanded: boolean;
@@ -391,7 +425,7 @@ function StickyResultBar({
         accessibilityState={{ expanded }}
         accessibilityLabel={BREAKDOWN_LABEL}>
         <Text style={[styles.stickyMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {salesLabel} {formatYenSymbol(costs.salesPrice)} ／ {EXPENSES_LABEL}{' '}
+          {salesLabel} {formatYenSymbol(costs.salesPrice)} ／ {expensesLabel}{' '}
           {formatYenSymbol(totalExpenses(costs))}
         </Text>
         <View style={styles.stickyBreakdownToggle}>
@@ -419,8 +453,15 @@ function Divider({ colors }: { colors: ThemeColors }) {
   return <View style={[styles.divider, { backgroundColor: colors.separator }]} />;
 }
 
-/** 結果側（UI-SPEC §1.1-3a）。結果額のタップでも内訳を開閉する */
+/**
+ * 結果側（UI-SPEC §1.1-3a）。結果額のタップでも内訳を開閉する。
+ *
+ * 帯グラフと 2 値は逆算側と同じものを同じ位置に出す（同じ画面の 2 つのモードで結果の
+ * 見え方が変わらないようにするため）。項目ごとの金額を色つきで見る一覧は逆算側にしかないので、
+ * 従来からの内訳（結果額のタップで開く）はそのまま残してある。
+ */
 function ProfitPanel({
+  values,
   costs,
   kind,
   colors,
@@ -428,6 +469,7 @@ function ProfitPanel({
   expanded,
   onToggleBreakdown,
 }: {
+  values: CalcFormValues;
   costs: CostInput;
   kind: RecordKind;
   colors: ThemeColors;
@@ -435,6 +477,8 @@ function ProfitPanel({
   expanded: boolean;
   onToggleBreakdown: () => void;
 }) {
+  const breakdown = profitBreakdown(values);
+
   return (
     <View>
       <Pressable
@@ -454,6 +498,12 @@ function ProfitPanel({
         </Text>
       </Pressable>
 
+      <CostProportionBar
+        parts={breakdown.parts}
+        kept={breakdown.kept}
+        deducted={breakdown.deducted}
+      />
+
       <CollapsibleSection
         label={BREAKDOWN_LABEL}
         expanded={expanded}
@@ -465,20 +515,31 @@ function ProfitPanel({
   );
 }
 
-/** 逆算側（UI-SPEC §1.1-3b）。目標額を入れると必要な販売価格が出る */
+/**
+ * 逆算側（UI-SPEC §1.1-3b / 採用案 12c）。目標額を入れると必要な販売価格が出る。
+ *
+ * 12c のねらいは「内訳を開かないと根拠が見えない」状態をなくすこと。
+ * 目標 100 円・手数料 10% で 112 円になるのが分からない、という指摘への対応で、
+ * 閉じたままでも 帯グラフ → 2 値 → 説明文 の 3 段で根拠が読めるようにし、
+ * 折りたたみの中には「項目ごとの金額」と「なぜ割り算なのか」だけを残す。
+ *
+ * 数字はすべて calcForm.requiredPriceResult の 1 つの戻り値から取る（画面では計算しない）。
+ */
 function TargetPanel({
   values,
   colors,
-  requiredPrice,
   onChangeTargetProfit,
+  expanded,
+  onToggleBreakdown,
 }: {
   values: CalcFormValues;
   colors: ThemeColors;
-  requiredPrice: number;
   onChangeTargetProfit: (value: string) => void;
+  expanded: boolean;
+  onToggleBreakdown: () => void;
 }) {
   const label = targetProfitLabel(values.kind);
-  const equation = requiredPriceEquation(values);
+  const result = requiredPriceResult(values);
 
   return (
     <View style={styles.targetPanel}>
@@ -503,28 +564,66 @@ function TargetPanel({
           style={[styles.resultAmount, { color: colors.blue }]}
           numberOfLines={1}
           adjustsFontSizeToFit>
-          {formatYen(requiredPrice)}
+          {formatYen(result.requiredPrice)}
         </Text>
+      </View>
 
-        {/* 検算行。逆算の結果が「目標額 ＋ 手数料率」の暗算と食い違って見えるという指摘への対応で、
-            内訳を開かなくても根拠が読めるように結果のすぐ下へ常時出す。
-            項ごとに Text を分けているのは、折り返しが項の切れ目でだけ起きるようにするため
-            （1 本の文字列だと「= 利益 100」と「円」が別の行に割れる） */}
-        <View
-          style={styles.equation}
-          accessible
-          accessibilityLabel={requiredPriceEquationText(equation, profitLabel(values.kind))}>
-          {requiredPriceEquationParts(equation, profitLabel(values.kind)).map((part) => (
-            <Text key={part} style={[styles.equationPart, { color: colors.label }]}>
-              {part}
-            </Text>
+      <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
+
+      <Text style={[styles.summary, { color: colors.label }]}>
+        {requiredPriceSummary(result)}
+      </Text>
+
+      <CollapsibleSection
+        label={BREAKDOWN_AND_METHOD_LABEL}
+        tone="link"
+        align="center"
+        expanded={expanded}
+        onToggle={onToggleBreakdown}>
+        {/* 項目別の金額。帯と同じ順・同じ色にして、どの区画がどの行かを色で追えるようにする */}
+        <View style={styles.partList}>
+          {result.parts.map((part) => (
+            <View key={part.key} style={styles.partRow}>
+              <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
+              <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
+              <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
+                {formatYen(part.amount)}
+              </Text>
+            </View>
           ))}
         </View>
 
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-          {requiredPriceNote(values.commission)}
+        <View style={[styles.methodDivider, { backgroundColor: colors.separator }]} />
+
+        <FormulaBlock result={result} colors={colors} />
+      </CollapsibleSection>
+    </View>
+  );
+}
+
+/** 「計算のしかた」の式と、その直下の注意文（採用案 12c） */
+function FormulaBlock({
+  result,
+  colors,
+}: {
+  result: RequiredPriceResult;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={styles.formula}>
+      {requiredPriceFormulaLines(result.formula).map((line) => (
+        <Text key={line} style={[styles.formulaLine, { color: colors.label }]}>
+          {line}
         </Text>
-      </View>
+      ))}
+
+      {/* 1 つ下の値段では届かないことを添える。数字が成り立たないとき（0 円以下になる、
+          丸めのせいで届いてしまう）だけ落ちる。回数を数えて引っ込める仕掛けは持たない */}
+      {result.lowerPrice != null && (
+        <Text style={[styles.lowerPriceWarning, { color: colors.red }]}>
+          {lowerPriceWarning(result.lowerPrice)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -638,25 +737,52 @@ const styles = StyleSheet.create({
     fontSize: 46,
     fontWeight: '800',
   },
-  equation: {
-    // 項が増えると 1 行に収まらないので、項単位で折り返す
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    columnGap: 5,
-    paddingTop: 6,
-  },
-  equationPart: {
+  summary: {
     fontSize: 13,
     lineHeight: 19,
-  },
-  note: {
-    fontSize: 12,
     textAlign: 'center',
+  },
+  partList: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  partRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  swatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+  },
+  partLabel: {
+    fontSize: 14,
+    // 行名が長くても（「販売手数料10%」）金額を右端に押し出す
+    flex: 1,
+  },
+  partValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  methodDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 4,
+  },
+  formula: {
+    gap: 3,
+  },
+  formulaLine: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  lowerPriceWarning: {
+    fontSize: 12,
+    lineHeight: 18,
     paddingTop: 4,
   },
   targetPanel: {
-    gap: 4,
+    gap: 8,
   },
   targetRow: {
     flexDirection: 'row',
