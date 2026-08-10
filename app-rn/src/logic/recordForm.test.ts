@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SaleRecord } from '@/db/schema';
+import { netProfit } from '@/logic/profit';
 
 import {
   DEFAULT_COMMISSION,
@@ -12,6 +13,7 @@ import {
   changeKind,
   newFormValues,
   recordToFormValues,
+  toCostInput,
   toSaveInput,
 } from './recordForm';
 
@@ -224,5 +226,36 @@ describe('編集時の初期値（Swift 版 loadInitialData 相当）', () => {
 
     expect(values.isSold).toBe(false);
     expect(values.saleDate).toEqual(NOW);
+  });
+});
+
+describe('UI-SPEC §1.3 伝票カードが使う金額（toCostInput）', () => {
+  const values = () => ({
+    ...newFormValues('sourced', undefined, NOW),
+    salesPrice: '1800',
+    purchasePrice: '300',
+    postage: '95',
+    envelopeCost: '50',
+    othersCost: '30',
+    commission: 10,
+  });
+
+  it('入力中の文字列を数値に直すだけで丸めない（SPEC §2.6）', () => {
+    expect(toCostInput({ ...values(), salesPrice: '99.9' }).salesPrice).toBe(99.9);
+  });
+
+  it('空欄は 0 として扱う（SPEC §5.1）', () => {
+    expect(toCostInput({ ...values(), postage: '' }).postage).toBe(0);
+  });
+
+  it('不用品は行を出していない仕入価格を結果に効かせない（SPEC-V2 §1.3）', () => {
+    const used = { ...values(), kind: 'used' as const, purchasePrice: '300' };
+
+    expect(toCostInput(used).purchasePrice).toBe(0);
+    expect(toCostInput(values()).purchasePrice).toBe(300);
+  });
+
+  it('結果行は profit.ts の netProfit と一致する（画面で式を再実装しない）', () => {
+    expect(netProfit(toCostInput(values()))).toBe(1800 - (300 + 95 + 50 + 30 + 180));
   });
 });

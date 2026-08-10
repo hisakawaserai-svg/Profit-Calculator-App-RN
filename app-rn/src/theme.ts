@@ -15,6 +15,11 @@ export type ThemeColors = {
   label: string;
   /** Color.secondary 相当 */
   secondaryLabel: string;
+  /**
+   * 未入力の欄に出す「未入力」の色（UI-SPEC §1.3-10 / §1.4-4 の「40% グレー」）。
+   * secondaryLabel（60%）より薄いのは、伝票の中で**値が無い行**だけを一段落とすため。
+   */
+  mutedLabel: string;
   /** Divider 相当 */
   separator: string;
   /** 純利益プラス・必要販売価格 */
@@ -59,6 +64,7 @@ const light: ThemeColors = {
   secondaryBackground: '#FFFFFF',
   label: '#000000',
   secondaryLabel: 'rgba(60, 60, 67, 0.6)',
+  mutedLabel: 'rgba(60, 60, 67, 0.4)',
   separator: 'rgba(60, 60, 67, 0.29)',
   green: '#34C759',
   red: '#FF3B30',
@@ -79,6 +85,7 @@ const dark: ThemeColors = {
   secondaryBackground: '#1C1C1E',
   label: '#FFFFFF',
   secondaryLabel: 'rgba(235, 235, 245, 0.6)',
+  mutedLabel: 'rgba(235, 235, 245, 0.4)',
   separator: 'rgba(84, 84, 88, 0.6)',
   green: '#30D158',
   red: '#FF453A',

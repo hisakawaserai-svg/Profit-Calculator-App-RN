@@ -23,11 +23,19 @@ type Props = {
   label: string;
   value: Date;
   onChangeValue: (value: Date) => void;
+  /**
+   * ボタンに出す文字の上書き（記録フォームの「今日（2026/08/09）」。UI-SPEC §1.3-12）。
+   * 省略すると日付そのもの。ピッカーが選ぶ値は変わらず、表示だけが差し替わる。
+   */
+  valueText?: string;
+  /** 当日であることを青で示す（UI-SPEC §1.3-12） */
+  accent?: boolean;
 };
 
-export function DateField({ label, value, onChangeValue }: Props) {
+export function DateField({ label, value, onChangeValue, valueText, accent = false }: Props) {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
+  const text = valueText ?? formatRecordDate(value);
 
   return (
     <View style={styles.row}>
@@ -39,8 +47,8 @@ export function DateField({ label, value, onChangeValue }: Props) {
           { backgroundColor: colors.disabledBackground, opacity: pressed ? 0.5 : 1 },
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${formatRecordDate(value)}`}>
-        <Text style={[styles.value, { color: colors.label }]}>{formatRecordDate(value)}</Text>
+        accessibilityLabel={`${label}: ${text}`}>
+        <Text style={[styles.value, { color: accent ? colors.blue : colors.label }]}>{text}</Text>
       </Pressable>
 
       {/* 開いている間だけマウントして、ホイール位置を現在の値で初期化する */}

@@ -12,7 +12,7 @@
 import type { RecordKind } from '@/db/schema';
 
 import type { MetricType } from './analytics';
-import { formatYenTight } from './format';
+import { formatElapsedDays, formatYenTight } from './format';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -53,8 +53,15 @@ export const LISTING_PRICE_LABEL = '出品価格';
 /** 出品中の Σ salesPrice（合計行。UI-SPEC §6-3） */
 export const TOTAL_LISTING_PRICE_LABEL = '出品価格の合計';
 
-/** 出品中の件数（合計行の左の値 A。UI-SPEC §1.2） */
-export const LISTING_COUNT_LABEL = '出品中';
+/**
+ * 状態そのものの名前（UI-SPEC §1.3-3 の見出し行 / §1.4-2 のバッジ）。
+ * 売れている側は SOLD_RECORDS_LABEL（一覧の状態チップ）と SOLD_BADGE_LABEL（詳細のバッジ）で
+ * 語が違うが、出品中側はどこでもこの 1 語なので分けない。
+ */
+export const LISTING_STATUS_LABEL = '出品中';
+
+/** 出品中の件数（合計行の左の値 A。UI-SPEC §1.2）。状態名と同じ語 */
+export const LISTING_COUNT_LABEL = LISTING_STATUS_LABEL;
 
 /** 一覧のメタ行に出す日付の意味づけ（UI-SPEC §1.2「{種別}　M/D 販売 / M/D 出品」） */
 export const SOLD_DATE_LABEL = '販売';
@@ -309,4 +316,127 @@ export function targetProfitLabel(kind: RecordKind): string {
  */
 export function metricLabel(metric: MetricType): string {
   return metric === 'sales' ? '売上金額' : TOTAL_PROFIT_LABEL;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 記録フォーム（UI-SPEC §1.3 / 採用案 3c）とレコード詳細（§1.4 / 採用案 3d）の表示語。
+// どちらも「販売価格から控除を縦に引いて結果に至る」1 枚の伝票なので、行の語は共通にする。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 記録フォームのシートヘッダ（UI-SPEC §1.3-2）。中央の見出しは新規と編集で出し分ける */
+export const NEW_RECORD_TITLE = '新しい記録';
+export const EDIT_RECORD_TITLE = '記録を編集';
+export const CANCEL_LABEL = 'キャンセル';
+export const SAVE_LABEL = '保存';
+
+/**
+ * レコード詳細のメタ行の状態バッジ（UI-SPEC §1.4-2）。
+ * 一覧の状態チップ（SOLD_RECORDS_LABEL =「売れた記録」）は絞り込みの対象を指すが、
+ * こちらはこの 1 件の状態を指すので「記録」を付けない。
+ */
+export const SOLD_BADGE_LABEL = '売れた';
+
+/** レコード詳細の売却トグル（UI-SPEC §1.4-5）。状態を変える唯一の手段（§5-13） */
+export const MARK_AS_SOLD_LABEL = '売れた状態にする';
+
+/** 商品名の欄（UI-SPEC §1.3-4）。必須であることは欄名ではなくキャプションで示す（SPEC §5.2） */
+export const ITEM_NAME_LABEL = '商品名';
+export const ITEM_NAME_CAPTION = '商品名（必須）';
+export const ITEM_NAME_PLACEHOLDER = '例：えんぴつ';
+
+/** 商品名が空のレコードの表示（一覧・レコード詳細） */
+export const UNTITLED_LABEL = '無題';
+
+/**
+ * 伝票・レシートで梱包材とその他をまとめた 1 行（UI-SPEC §1.3-10 / §1.4-4）。
+ * 計算タブの内訳（ENVELOPE_AND_OTHERS_LABEL =「梱包・その他」）とは幅の制約が違うため、
+ * 設計案どおり伝票側は詰めない語を使う。
+ */
+export const ENVELOPE_AND_OTHERS_FIELD_LABEL = '梱包材・その他';
+
+/** 値の入っていない欄に出す語（UI-SPEC §1.3-10 / §1.4-4。40% グレーで出す） */
+export const UNSET_INPUT_LABEL = '未入力';
+
+/** メモ（UI-SPEC §1.3-13 / §1.4-6） */
+export const MEMO_LABEL = 'メモ';
+export const MEMO_EMPTY_LABEL = 'なし';
+
+/** 日付の欄名（UI-SPEC §1.3-12 / §1.4-2） */
+export const LISTED_DATE_FIELD_LABEL = '出品日';
+export const SOLD_DATE_FIELD_LABEL = '販売日';
+
+/** レコード詳細の下端操作列（UI-SPEC §1.4-7）と削除の確認アラート（SPEC §5.4） */
+export const EDIT_RECORD_LABEL = '編集する';
+export const DELETE_LABEL = '削除';
+export const DELETE_CONFIRM_TITLE = '削除しますか？';
+
+/** 伝票の控除行の行名（UI-SPEC §1.3-7〜9 / §1.4-4）:「− 送料」 */
+export function deductionLabel(name: string): string {
+  return `− ${name}`;
+}
+
+/** 伝票の加算行の行名（UI-SPEC §1.3-10）:「＋ 梱包材・その他」 */
+export function additionLabel(name: string): string {
+  return `＋ ${name}`;
+}
+
+/** レコード詳細のレシートの手数料行（UI-SPEC §1.4-4）:「販売手数料 (10%)」 */
+export function commissionRowLabel(rate: number): string {
+  return `${COMMISSION_LABEL} (${rate}%)`;
+}
+
+/**
+ * 記録フォームの状態切替リンク（UI-SPEC §1.3-3）:「出品中にする」/「売れた記録にする」。
+ * 引数は**切り替えた先**の状態。見出し行には今の状態が出ているので、リンクは行き先を名乗る。
+ */
+export function switchStatusLabel(toSold: boolean): string {
+  return `${toSold ? SOLD_RECORDS_LABEL : LISTING_STATUS_LABEL}にする`;
+}
+
+/**
+ * 日付カードの折りたたみ見出し（UI-SPEC §1.3-12）:「販売日 今日（2026/08/09）」。
+ *
+ * 畳んだままでも操作対象の日付が読めるようにする（optionalCostsLabel と同じ考え方）。
+ * 出す日付は状態によって変わる ── 出品中には販売日がない（SPEC.md §3.2）ため。
+ */
+export function dateSectionLabel(isSold: boolean, dateText: string): string {
+  return `${isSold ? SOLD_DATE_FIELD_LABEL : LISTED_DATE_FIELD_LABEL} ${dateText}`;
+}
+
+/** 当日の日付（UI-SPEC §1.3-12）:「今日（2026/08/09）」。判定は呼び出し側（暦日差 0） */
+export function todayDateLabel(dateText: string): string {
+  return `今日（${dateText}）`;
+}
+
+/**
+ * メモの折りたたみ見出し（UI-SPEC §1.3-13）。
+ * 入力済みなら畳んだままでもそれが分かるよう語を変える（optionalCostsLabel と同じ考え方）。
+ */
+export function memoSectionLabel(memo: string): string {
+  return memo === '' ? `${MEMO_LABEL}を書く` : MEMO_LABEL;
+}
+
+/**
+ * レコード詳細のメタ行（UI-SPEC §1.4-2）:
+ *
+ *     売却済み: 「不用品 ・ 8/2 出品 → 8/9 販売（7日）」
+ *     出品中:   「不用品 ・ 8/2 出品（7日経過）」
+ *
+ * 出品中は行き先の日付がないので矢印を出さず、経過日数だけを添える。
+ * 日数は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
+ */
+export function recordTimelineText(timeline: {
+  kind: RecordKind;
+  /** 出品日「8/2」 */
+  listedDate: string;
+  /** 販売日「8/9」。出品中は null */
+  soldDate: string | null;
+  days: number;
+}): string {
+  const listed = `${timeline.listedDate} ${LISTED_DATE_LABEL}`;
+  const head = `${recordKindLabel(timeline.kind)} ・ ${listed}`;
+
+  return timeline.soldDate == null
+    ? `${head}（${formatElapsedDays(timeline.days)}）`
+    : `${head} → ${timeline.soldDate} ${SOLD_DATE_LABEL}（${timeline.days}日）`;
 }

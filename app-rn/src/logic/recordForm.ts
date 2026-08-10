@@ -10,6 +10,7 @@ import type { SaveRecordInput } from '@/db/repository';
 import type { RecordKind, SaleRecord } from '@/db/schema';
 
 import { parseNumericInput } from './input';
+import type { CostInput } from './profit';
 
 /** 手数料 Stepper の初期値と範囲（SPEC §3.2 RecordFormView: 0〜50、初期 10） */
 export const DEFAULT_COMMISSION = 10;
@@ -144,6 +145,28 @@ export function changeKind(values: RecordFormValues, kind: RecordKind): RecordFo
  */
 export function canSave(values: RecordFormValues): boolean {
   return values.itemName !== '';
+}
+
+/**
+ * 伝票カードの各行と結果行が使う金額（UI-SPEC §1.3）。
+ *
+ * 入力中の文字列を数値に直すだけで、丸めはしない（丸めは表示の瞬間だけ。SPEC §2.6）。
+ * 保存前のフォーム上でも「販売価格 − 各経費 = 純利益」が成り立って見えるようにするためのもので、
+ * 計算そのものは logic/profit.ts に委ねる（画面でも、ここでも、式を再実装しない）。
+ *
+ * 不用品の仕入価格を 0 に落とすのは calcForm.toCostInput と同じ扱い。
+ * changeKind が切替時にクリアしているので通常は 0 だが、行を出していない金額が
+ * 結果に効かないことを、表示に使う側でも保証しておく（SPEC-V2 §1.3）。
+ */
+export function toCostInput(values: RecordFormValues): CostInput {
+  return {
+    salesPrice: parseNumericInput(values.salesPrice),
+    purchasePrice: values.kind === 'used' ? 0 : parseNumericInput(values.purchasePrice),
+    postage: parseNumericInput(values.postage),
+    envelopeCost: parseNumericInput(values.envelopeCost),
+    othersCost: parseNumericInput(values.othersCost),
+    commission: values.commission,
+  };
 }
 
 /** repository に渡す保存入力へ変換する。空文字・"." は 0 扱い（SPEC §5.1） */

@@ -6,7 +6,15 @@
 // 入力のフィルタは src/logic/input.ts（SPEC §5.1 / 決定 §7-9）に委譲する。
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
 import { MiniCalculator } from '@/components/MiniCalculator';
 import { sanitizeNumericInput } from '@/logic/input';
@@ -27,6 +35,13 @@ type Props = {
   disabled?: boolean;
   /** 数値欄のみ電卓ボタンを出す（Swift 版の isNumeric） */
   showCalculator?: boolean;
+  /** 行の高さ。伝票カード（UI-SPEC §1.3）は行数が多いので詰める */
+  rowHeight?: number;
+  /**
+   * 数値の見た目の上書き（伝票カードの「販売価格 24px 太字」「控除 20px 赤」。UI-SPEC §1.3-6〜9）。
+   * 無効時の色だけはこれより後に当てる（無効かどうかが行の色より優先して読めるように）。
+   */
+  valueStyle?: StyleProp<TextStyle>;
 };
 
 export function NumericField({
@@ -36,6 +51,8 @@ export function NumericField({
   placeholder = '0',
   disabled = false,
   showCalculator = true,
+  rowHeight = ROW_HEIGHT,
+  valueStyle,
 }: Props) {
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
@@ -50,12 +67,12 @@ export function NumericField({
 
   return (
     <View>
-      <View style={styles.row}>
+      <View style={[styles.row, { height: rowHeight }]}>
         <Text style={[styles.label, { color: valueColor }]} numberOfLines={1}>
           {label}
         </Text>
         <TextInput
-          style={[styles.input, { color: valueColor }]}
+          style={[styles.input, { color: colors.label }, valueStyle, disabled && { color: valueColor }]}
           value={value}
           onChangeText={(text) => onChangeValue(sanitizeNumericInput(text))}
           placeholder={placeholder}
@@ -97,8 +114,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    height: ROW_HEIGHT,
-    // 左右の余白はカード側が持つ
+    // 高さは rowHeight（既定 ROW_HEIGHT）。左右の余白はカード側が持つ
   },
   label: {
     fontSize: 16,

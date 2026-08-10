@@ -6,24 +6,38 @@ import { describe, expect, it } from 'vitest';
 
 import {
   COMMISSION_LABEL,
+  ENVELOPE_AND_OTHERS_FIELD_LABEL,
   EXPENSES_LABEL,
+  LISTING_COUNT_LABEL,
+  LISTING_STATUS_LABEL,
+  POSTAGE_LABEL,
   PURCHASE_PRICE_LABEL,
   REQUIRED_SALES_PRICE_LABEL,
   SALES_PRICE_LABEL,
+  SOLD_BADGE_LABEL,
+  SOLD_RECORDS_LABEL,
   TARGET_TAB_LABEL,
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
+  additionLabel,
   commissionFieldLabel,
   commissionItemLabel,
+  commissionRowLabel,
+  dateSectionLabel,
+  deductionLabel,
   lowerPriceWarning,
+  memoSectionLabel,
   metricLabel,
   optionalCostsLabel,
   profitLabel,
   profitTabLabel,
   recordKindLabel,
+  recordTimelineText,
   requiredPriceFormulaLines,
   requiredPriceSummary,
+  switchStatusLabel,
   targetProfitLabel,
+  todayDateLabel,
 } from './labels';
 
 describe('§1.1 種別の表示名', () => {
@@ -208,5 +222,81 @@ describe('§1.3 データタブの指標セグメント', () => {
   it('売上金額はそのまま / netProfit は集計なので「収支」', () => {
     expect(metricLabel('sales')).toBe('売上金額');
     expect(metricLabel('netProfit')).toBe(TOTAL_PROFIT_LABEL);
+  });
+});
+
+describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
+  it('控除行は記号を前置する', () => {
+    expect(deductionLabel(POSTAGE_LABEL)).toBe('− 送料');
+    expect(deductionLabel(PURCHASE_PRICE_LABEL)).toBe('− 仕入価格');
+  });
+
+  it('加算行（梱包材・その他）は ＋ を前置する', () => {
+    expect(additionLabel(ENVELOPE_AND_OTHERS_FIELD_LABEL)).toBe('＋ 梱包材・その他');
+  });
+
+  it('レコード詳細の手数料行は率を括弧で添える', () => {
+    expect(commissionRowLabel(10)).toBe(`${COMMISSION_LABEL} (10%)`);
+  });
+
+  it('記録フォームの手数料行は計算タブと同じ短縮形', () => {
+    expect(deductionLabel(commissionFieldLabel(10))).toBe('− 手数料 10%');
+  });
+});
+
+describe('UI-SPEC §1.3-3 記録フォームの状態切替リンク', () => {
+  it('リンクは切り替えた先の状態を名乗る', () => {
+    expect(switchStatusLabel(false)).toBe('出品中にする');
+    expect(switchStatusLabel(true)).toBe('売れた記録にする');
+  });
+});
+
+describe('UI-SPEC §1.3-12 日付カードの見出し', () => {
+  it('当日は「今日（…）」で包む', () => {
+    expect(todayDateLabel('2026/08/09')).toBe('今日（2026/08/09）');
+  });
+
+  it('売却済みは販売日、出品中は出品日を畳んだ見出しに出す', () => {
+    expect(dateSectionLabel(true, '今日（2026/08/09）')).toBe('販売日 今日（2026/08/09）');
+    expect(dateSectionLabel(false, '2026/08/02')).toBe('出品日 2026/08/02');
+  });
+});
+
+describe('UI-SPEC §1.3-13 メモの折りたたみ見出し', () => {
+  it('未入力なら操作を促し、入力済みなら中身があることを示す', () => {
+    expect(memoSectionLabel('')).toBe('メモを書く');
+    expect(memoSectionLabel('傷あり')).toBe('メモ');
+  });
+});
+
+describe('UI-SPEC §1.4-2 レコード詳細のメタ行', () => {
+  it('確定デザインの文をそのまま組み立てる', () => {
+    expect(
+      recordTimelineText({ kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 }),
+    ).toBe('不用品 ・ 8/2 出品 → 8/9 販売（7日）');
+  });
+
+  it('出品中は矢印を出さず経過日数を添える', () => {
+    expect(
+      recordTimelineText({ kind: 'sourced', listedDate: '8/2', soldDate: null, days: 7 }),
+    ).toBe('仕入品 ・ 8/2 出品（7日経過）');
+  });
+
+  it('出品当日は 0 日（§5-2）', () => {
+    expect(
+      recordTimelineText({ kind: 'used', listedDate: '8/9', soldDate: null, days: 0 }),
+    ).toBe('不用品 ・ 8/9 出品（0日経過）');
+  });
+});
+
+describe('UI-SPEC §1.4-2 状態の語', () => {
+  it('詳細のバッジは「売れた」で、一覧の状態チップ（売れた記録）とは別語', () => {
+    expect(SOLD_BADGE_LABEL).toBe('売れた');
+    expect(SOLD_BADGE_LABEL).not.toBe(SOLD_RECORDS_LABEL);
+  });
+
+  it('出品中はどこでも同じ 1 語', () => {
+    expect(LISTING_STATUS_LABEL).toBe('出品中');
+    expect(LISTING_COUNT_LABEL).toBe(LISTING_STATUS_LABEL);
   });
 });

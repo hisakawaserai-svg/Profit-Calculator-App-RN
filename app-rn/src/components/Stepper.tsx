@@ -1,16 +1,25 @@
 // SwiftUI の Stepper 相当。CalcView の「手数料: N%」（SPEC §3.2、0〜50・初期値 10）で使う。
+//
+// 記録フォームの伝票カード（UI-SPEC §1.3-9）では行の形が違う
+// （左が行名・右が手数料「額」で、− ＋ はその間に入る）ため、
+// ボタンだけを StepperButtons として切り出して共用する。
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/theme';
 
-type Props = {
-  label: string;
+type ButtonsProps = {
   value: number;
   minimumValue: number;
   maximumValue: number;
   step?: number;
   onChangeValue: (value: number) => void;
+  /** 「〜を増やす / 減らす」の主語。行名（「手数料 10%」）を渡す */
+  accessibilityLabel: string;
+};
+
+type Props = Omit<ButtonsProps, 'accessibilityLabel'> & {
+  label: string;
 };
 
 export function Stepper({
@@ -22,6 +31,32 @@ export function Stepper({
   onChangeValue,
 }: Props) {
   const colors = useThemeColors();
+
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
+      <StepperButtons
+        value={value}
+        minimumValue={minimumValue}
+        maximumValue={maximumValue}
+        step={step}
+        onChangeValue={onChangeValue}
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
+
+/** − ＋ の 2 連ボタンだけ。行の組み立ては呼び出し側が決める */
+export function StepperButtons({
+  value,
+  minimumValue,
+  maximumValue,
+  step = 1,
+  onChangeValue,
+  accessibilityLabel,
+}: ButtonsProps) {
+  const colors = useThemeColors();
   const canDecrement = value > minimumValue;
   const canIncrement = value < maximumValue;
 
@@ -31,31 +66,28 @@ export function Stepper({
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
-      <View style={[styles.buttons, { backgroundColor: colors.disabledBackground }]}>
-        <Pressable
-          onPress={() => clampedChange(-step)}
-          disabled={!canDecrement}
-          accessibilityLabel={`${label}を減らす`}
-          style={({ pressed }) => [
-            styles.button,
-            { opacity: !canDecrement ? 0.3 : pressed ? 0.5 : 1 },
-          ]}>
-          <Ionicons name="remove" size={20} color={colors.label} />
-        </Pressable>
-        <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-        <Pressable
-          onPress={() => clampedChange(step)}
-          disabled={!canIncrement}
-          accessibilityLabel={`${label}を増やす`}
-          style={({ pressed }) => [
-            styles.button,
-            { opacity: !canIncrement ? 0.3 : pressed ? 0.5 : 1 },
-          ]}>
-          <Ionicons name="add" size={20} color={colors.label} />
-        </Pressable>
-      </View>
+    <View style={[styles.buttons, { backgroundColor: colors.disabledBackground }]}>
+      <Pressable
+        onPress={() => clampedChange(-step)}
+        disabled={!canDecrement}
+        accessibilityLabel={`${accessibilityLabel}を減らす`}
+        style={({ pressed }) => [
+          styles.button,
+          { opacity: !canDecrement ? 0.3 : pressed ? 0.5 : 1 },
+        ]}>
+        <Ionicons name="remove" size={20} color={colors.label} />
+      </Pressable>
+      <View style={[styles.divider, { backgroundColor: colors.separator }]} />
+      <Pressable
+        onPress={() => clampedChange(step)}
+        disabled={!canIncrement}
+        accessibilityLabel={`${accessibilityLabel}を増やす`}
+        style={({ pressed }) => [
+          styles.button,
+          { opacity: !canIncrement ? 0.3 : pressed ? 0.5 : 1 },
+        ]}>
+        <Ionicons name="add" size={20} color={colors.label} />
+      </Pressable>
     </View>
   );
 }

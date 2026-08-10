@@ -28,6 +28,7 @@ import {
   LISTED_DATE_LABEL,
   SOLD_DATE_LABEL,
   expectedProfitText,
+  UNTITLED_LABEL,
   recordKindLabel,
 } from '@/logic/labels';
 import { listingDays } from '@/logic/listingDays';
@@ -57,7 +58,7 @@ export function RecordRow({ record, isSoldMode, today }: Props) {
     <View style={styles.row}>
       <View style={styles.mainLine}>
         <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
-          {record.itemName === '' ? '無題' : record.itemName}
+          {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
         </Text>
         <Text
           style={[
