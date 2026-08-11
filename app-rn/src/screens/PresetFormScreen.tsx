@@ -237,8 +237,16 @@ export function PresetFormScreen({ type, preset }: Props) {
                 { color: colors.label, borderColor: colors.separator },
               ]}
               value={initial}
-              // 2 文字で打ち止める（§1.2）。maxLength ではなく書記素で数える純粋関数を通す
-              onChangeText={(text) => setInitial(clampPresetInitial(text))}
+              // 打っている最中は数えない（§1.2）。日本語入力は「ふうとう」と打ってから
+              // 「封筒」に変換するので、onChangeText で 2 文字に切ると 3 文字目が入らず
+              // 変換に辿り着けない（maxLength を使っても同じ ── 変換中の文字も数えられる）。
+              //
+              // React Native は変換中かどうかを JS に出さない（iOS の markedTextRange も
+              // Android の composing span もネイティブ内部で完結していて、対応するイベントがない）。
+              // 変換が確定していることを確実に言えるのは欄を離れたときなので、そこで数える。
+              onChangeText={setInitial}
+              // 確定後の文字数で打ち止める（§1.2）。書記素で数える純粋関数を通す
+              onBlur={() => setInitial(clampPresetInitial)}
               // 未入力でも何が出るか分かるよう、名前から導出した文字を薄く出す（§3.3-5）
               placeholder={presetInitial({ name, initial: '' })}
               placeholderTextColor={colors.mutedLabel}

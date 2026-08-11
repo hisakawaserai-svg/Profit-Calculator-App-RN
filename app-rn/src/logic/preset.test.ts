@@ -59,11 +59,22 @@ describe('§1.2 頭文字の導出', () => {
   });
 });
 
-describe('§1.2 入力欄の打ち止め', () => {
+describe('§1.2 確定後の打ち止め', () => {
   it('2 文字を超えたぶんを落とす', () => {
     expect(clampPresetInitial('100')).toBe('10');
     expect(clampPresetInitial('A4')).toBe('A4');
     expect(clampPresetInitial('')).toBe('');
+  });
+
+  it('日本語入力の変換途中（ひらがな）も、通せば切れてしまう', () => {
+    // だから打っている最中には通さない（§1.2）。「ふうとう」を 2 文字で切ると
+    // 「封筒」に変換できなくなる ── 通すのは onBlur と保存の直前だけ
+    expect(clampPresetInitial('ふうとう')).toBe('ふう');
+  });
+
+  it('変換が確定していれば 2 文字に収まる（切り落としが起きない）', () => {
+    expect(clampPresetInitial('封筒')).toBe('封筒');
+    expect(clampPresetInitial('段ボール')).toBe('段ボ');
   });
 });
 
@@ -252,6 +263,29 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
     });
 
     expect(result).toEqual({ valid: true, name: '宅配 100サイズ', initial: '', value: 1050 });
+  });
+
+  it('欄を離れずに保存した長い頭文字も、ここで切り詰まる（§1.2 の安全網）', () => {
+    // 入力中は切らないので、変換直後の 3 文字以上がそのまま渡ってくることがある
+    const result = validatePreset({
+      type: 'packaging',
+      name: '封筒（A4）',
+      initial: '封筒だ',
+      value: '15',
+    });
+
+    expect(result).toEqual({ valid: true, name: '封筒（A4）', initial: '封筒', value: 15 });
+  });
+
+  it('長い名前は切らずに無効にする（変換中の入力を消さない。§1.4）', () => {
+    // 名前は打ち止めず、20 文字を超えたら保存を止めるだけ ── 変換途中で
+    // 上限を超えても、確定して縮めば有効に戻る
+    expect(validatePreset({
+      type: 'packaging',
+      name: 'あ'.repeat(21),
+      initial: '',
+      value: '15',
+    })).toEqual({ valid: false, reason: 'name-too-long' });
   });
 });
 

@@ -81,7 +81,14 @@ export function presetInitial(preset: { name: string; initial: string }): string
   return name.find((char) => char.trim().length > 0) ?? '';
 }
 
-/** 頭文字の入力欄の打ち止め（§1.2）。2 文字を超えたぶんを落とすだけ */
+/**
+ * 頭文字を 2 文字に切り詰める（§1.2）。
+ *
+ * **打っている最中には通さない。** 日本語入力は「ふうとう」と打ってから「封筒」に変換するので、
+ * 1 文字ごとに切ると変換前のひらがなが入り切らず、漢字に辿り着けない。
+ * 通すのは**変換が確定したあと** ── 欄を離れたとき（PresetFormScreen の onBlur）と、
+ * 保存の直前（validatePreset）の 2 箇所だけ。
+ */
 export function clampPresetInitial(text: string): string {
   return presetGraphemes(text).slice(0, PRESET_INITIAL_MAX_LENGTH).join('');
 }
@@ -241,6 +248,8 @@ export function validatePreset(draft: PresetDraft): PresetValidation {
   return {
     valid: true,
     name,
+    // 欄を離れずに保存を押した場合の安全網（§1.2）。入力中は切らないので、
+    // ここに 3 文字以上が渡ってくることがある
     initial: clampPresetInitial(draft.initial.trim()),
     value: parsed,
   };
