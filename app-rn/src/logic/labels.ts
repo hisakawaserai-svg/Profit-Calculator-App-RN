@@ -22,6 +22,7 @@ import {
   PRESET_RATE_MAX,
   type PresetInvalidReason,
 } from './preset';
+import { TAG_NAME_MAX_LENGTH, TAG_NAME_SEPARATOR, type TagInvalidReason } from './tag';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -775,6 +776,26 @@ export function presetBlockedNote(reason: PresetInvalidReason, type: PresetType)
       return '入数を入れてください';
     case 'pack-price-out-of-range':
       return '購入価格は 0 以上で入れてください';
+  }
+}
+
+/**
+ * タグの保存が押せない理由（SPEC-V4 §1.3）。presetBlockedNote と同じ役割。
+ *
+ * プリセットと違って**重複を咎める文言がある** ── タグは絞り込みの意味そのもので、
+ * 同名が 2 つあると解除バーがどちらのことか言えなくなる（§1.3）。
+ */
+export function tagBlockedNote(reason: TagInvalidReason): string {
+  switch (reason) {
+    case 'name-required':
+      return '名前を入れてください';
+    case 'name-too-long':
+      return `名前は${TAG_NAME_MAX_LENGTH}文字までです`;
+    // 理由を「CSV の区切りに使うから」まで言わない ── 打ち直す手は変わらない
+    case 'name-has-separator':
+      return `「${TAG_NAME_SEPARATOR}」は使えません`;
+    case 'name-duplicated':
+      return '同じ名前のタグがあります';
   }
 }
 

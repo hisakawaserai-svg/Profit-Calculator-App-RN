@@ -261,6 +261,7 @@ describe('§1.5.1 repository: site_name の保存と取得', () => {
     saleDate: null,
     memo: '',
     siteName: '',
+    tagIds: [],
   };
 
   beforeEach(() => {
@@ -324,6 +325,7 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
     saleDate: new Date(2026, 7, 5, 12, 0, 0),
     memo: '',
     siteName: '',
+    tagIds: [],
   };
 
   beforeEach(() => {

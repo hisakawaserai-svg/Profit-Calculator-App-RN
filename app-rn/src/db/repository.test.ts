@@ -18,6 +18,7 @@ import { netProfit, totalExpenses } from '../logic/profit';
 import { toDbDate } from './dates';
 import { createRepository, type Repository, type SaveRecordInput } from './repository';
 import * as schema from './schema';
+import { createTagRepository, type TagRepository } from './tags';
 
 const drizzleDir = fileURLToPath(new URL('../../drizzle/', import.meta.url));
 
@@ -48,6 +49,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // タグ（SPEC-V4 §1.4）。タグを使う describe 群は自前で上書きする
+  tagIds: [],
 };
 
 describe('§2.4 保存時の正規化: 不用品の仕入価格は 0 に強制する', () => {
@@ -593,5 +596,96 @@ describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () 
     const saved = repo.getById(created.id);
     expect(saved?.isSold).toBe(true);
     expect(saved?.saleDate).toBe('2026-08-05T15:45:00.000');
+  });
+});
+
+describe('SPEC-V4 §4.4 タグが付いても集計が二重にならない', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, { generateId: randomUUID });
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+  });
+
+  const sold = (tagIds: string[]) =>
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      isSold: true,
+      saleDate: new Date(2026, 7, 5, 12, 0, 0),
+      tagIds,
+    });
+
+  /**
+   * §4.4 の案 B（JOIN + DISTINCT）を退けた理由をテストで固定する。
+   * タグを 2 つ付けた記録が 2 行に増えると、件数も収支も倍になる ──
+   * EXISTS（案 A）は行を増やさないので、集計は付ける前と変わらない。
+   */
+  it('タグを 2 つ付けても careerSummary の件数・合計は変わらない', () => {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+    const record = sold([]);
+    const before = repo.careerSummary({ isSoldMode: true });
+
+    repo.update(record.id, {
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      isSold: true,
+      saleDate: new Date(2026, 7, 5, 12, 0, 0),
+      tagIds: [clothes.id, summer.id],
+    });
+
+    expect(repo.careerSummary({ isSoldMode: true })).toEqual(before);
+  });
+
+  it('一覧・月次グループ・分析でもレコードが重複しない', () => {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+    sold([clothes.id, summer.id]);
+
+    expect(repo.filteredRecords({ isSoldMode: true })).toHaveLength(1);
+    expect(repo.filteredAndGrouped({ isSoldMode: true })[0].recordCount).toBe(1);
+    expect(repo.analyticsSummary({ monthKey: null }).recordCount).toBe(1);
+  });
+});
+
+describe('SPEC-V4 §4.6 countRecords: 絞り込みシート下部の「N 件」', () => {
+  let repo: Repository;
+
+  beforeEach(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+  });
+
+  const create = (over: Partial<SaveRecordInput>) =>
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, ...over });
+
+  beforeEach(() => {
+    // 売却済み 2026-08 に 2 件（うち 1 件は仕入品）／2026-07 に 1 件／出品中 1 件
+    create({ isSold: true, saleDate: new Date(2026, 7, 5) });
+    create({ kind: 'sourced', purchasePrice: 100, isSold: true, saleDate: new Date(2026, 7, 6) });
+    create({ isSold: true, saleDate: new Date(2026, 6, 5) });
+    create({ isSold: false, saleDate: null });
+  });
+
+  it('件数だけを返す（条件は buildWhere と同じなので一覧の件数と必ず一致する）', () => {
+    const filter = { isSoldMode: true, monthKey: '2026-08' };
+
+    expect(repo.countRecords(filter)).toBe(2);
+    expect(repo.countRecords(filter)).toBe(repo.filteredRecords(filter).length);
+  });
+
+  it('状態・期間・種別の 3 条件が効く', () => {
+    expect(repo.countRecords({ isSoldMode: true })).toBe(3);
+    expect(repo.countRecords({ isSoldMode: false })).toBe(1);
+    expect(repo.countRecords({ isSoldMode: true, kind: 'sourced' })).toBe(1);
+    expect(repo.countRecords({ isSoldMode: true, monthKey: '2026-07' })).toBe(1);
+  });
+
+  it('0 件でも落ちずに 0 を返す', () => {
+    expect(repo.countRecords({ isSoldMode: true, monthKey: '2020-01' })).toBe(0);
   });
 });

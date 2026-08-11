@@ -202,5 +202,8 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     memo: values.memo,
     // 販売サイト名（SPEC-V3 §1.5.1）。計算にも buildWhere にも入らない、表示と CSV だけの列
     siteName: values.siteName,
+    // タグ（SPEC-V4 §1.4）。フォームがタグ行を持つのは Step 3 なので、いまは常に空配列。
+    // SaveRecordInput 側を省略可にしないのは「渡し忘れて静かに全部外れる」を防ぐため
+    tagIds: [],
   };
 }

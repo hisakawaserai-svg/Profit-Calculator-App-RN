@@ -48,6 +48,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // タグ（SPEC-V4 §1.4）。この経路ではタグを付けないので空配列
+  tagIds: [],
 };
 
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0);
@@ -187,7 +189,7 @@ repo.setSoldStatus(listing1.id, false);
 assert.equal(repo.getById(listing1.id)?.saleDate, null, 'トグル OFF で saleDate が null に戻る');
 
 // update / remove
-repo.update(sold3.id, { ...sold3, itemName: 'スニーカー（値下げ）', salesPrice: 8000, saleStartDate: d(2026, 8, 1), saleDate: d(2026, 8, 3) });
+repo.update(sold3.id, { ...sold3, tagIds: [], itemName: 'スニーカー（値下げ）', salesPrice: 8000, saleStartDate: d(2026, 8, 1), saleDate: d(2026, 8, 3) });
 assert.equal(repo.getById(sold3.id)?.salesPrice, 8000);
 repo.remove(sold3.id);
 assert.equal(repo.getById(sold3.id), undefined);

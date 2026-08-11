@@ -43,6 +43,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // タグ（SPEC-V4 §1.4）。集計テストではタグを付けないので空配列
+  tagIds: [],
 };
 
 const d = (y: number, m: number, day: number, h = 12, min = 0) =>

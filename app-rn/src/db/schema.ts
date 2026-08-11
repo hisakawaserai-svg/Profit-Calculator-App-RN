@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 // SPEC.md §1 SaleRecordEntities に対応するテーブル。
 // - 金額・手数料率は Double のまま保持し、丸めは表示時のみ（SPEC §2.6）
@@ -63,6 +63,44 @@ export const presets = sqliteTable('presets', {
 
 export type Preset = typeof presets.$inferSelect;
 export type NewPreset = typeof presets.$inferInsert;
+
+// SPEC-V4 §1.6 のタグ。プリセット（presets）には同居させない（§1.1）──
+// タグは中間テーブルから**参照される側**で、削除の作法が根本的に違うため。
+// - 初期値（seed）は投入しない。0 件から始める（§1.2 / 決定 §9-7）
+// - 数値も頭文字も持たない。名前そのものを読ませるチップとして出る（§0.1）
+// - colorKey に drizzle の enum を付けないのは presets と同じ理由（読み出し時に
+//   normalizePresetColor() で正規化する。§1.3）
+export const tags = sqliteTable('tags', {
+  id: text('id').primaryKey(), // UUID（seed がないので固定 ID は不要）
+  name: text('name').notNull(),
+  colorKey: text('color_key').notNull(), // PresetColorKey（§1.1 でパレットを共有）
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (table) => [
+  // 全アクセスが「全件を並び順で」なので、この 1 本で足りる（§1.5）
+  index('idx_tags_order').on(table.sortOrder),
+]);
+
+export type Tag = typeof tags.$inferSelect;
+export type NewTag = typeof tags.$inferInsert;
+
+// 記録とタグの多対多（SPEC-V4 §1.6）。関係だけを持ち、付けた日時などの列は足さない。
+//
+// **references() は意図の表明で、削除の保証は repository 側が持つ**（§1.4）──
+// SQLite の外部キーは接続ごとに PRAGMA foreign_keys = ON が要り、既定は OFF。
+// 「有効になっているつもり」で孤児行が残ると、絞り込みの件数が静かに狂う。
+export const recordTags = sqliteTable('record_tags', {
+  recordId: text('record_id').notNull().references(() => saleRecords.id),
+  tagId: text('tag_id').notNull().references(() => tags.id),
+}, (table) => [
+  // 複合 PK。「同じタグを二重に付ける」が DB の側で起きなくなり、
+  // record_id 先頭のインデックス（記録 → タグ）も自動で手に入る
+  primaryKey({ columns: [table.recordId, table.tagId] }),
+  // 絞り込み（§4）と使用件数（§3.3）は「タグ → 記録」の向きに引く。
+  // 複合 PK は record_id が先頭なのでこの向きには効かない
+  index('idx_record_tags_tag').on(table.tagId),
+]);
+
+export type RecordTag = typeof recordTags.$inferSelect;
 
 /**
  * プリセットの種類（SPEC-V3 §1.1）。RecordKind と同じく文字列 enum。

@@ -12,6 +12,9 @@ import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import type { ChartUnit } from '../logic/analytics';
 import { CHART_KEY_LENGTH, chartKeyToDate, monthKeyToDate, toDbDate } from './dates';
 import { saleRecords, type RecordKind, type SaleRecord } from './schema';
+// 中間テーブル（record_tags）の書き込みは tags.ts が持つ（SPEC-V4 §1.4）。
+// ここは「記録本体と同じトランザクションで呼ぶ」責務だけを引き受ける。
+import { deleteRecordTags, writeRecordTags } from './tags';
 
 /** expo-sqlite / better-sqlite3 どちらの同期ドライバも受け付ける */
 export type Database = BaseSQLiteDatabase<'sync', any, any>;
@@ -131,6 +134,14 @@ export type SaveRecordInput = {
    * 省略可にしないのは、保存経路が「入れ忘れて空になる」ことを型で防ぐため（§6.1）。
    */
   siteName: string;
+  /**
+   * 付けるタグの id（SPEC-V4 §1.4）。空配列 = タグなし。
+   *
+   * **省略可にしない。** siteName と同じ理由で、保存経路が「渡し忘れて静かに全部外れる」
+   * ことを型で防ぐ ── update は全消し → 入れ直しなので（§1.4）、省略できると
+   * 既存のタグが消える経路が作れてしまう。
+   */
+  tagIds: string[];
 };
 
 // ---- SQL 式（SPEC §2 の計算式。丸めなし） ----
@@ -274,14 +285,26 @@ export function createRepository(
       return db.select().from(saleRecords).where(eq(saleRecords.id, id)).get();
     },
 
+    /**
+     * 記録本体と中間行（record_tags）を 1 つのトランザクションで書く（SPEC-V4 §1.4）。
+     * 外部キーに頼らない代わりに、途中で失敗しても「タグだけ付いた記録」が残らないことを
+     * ここで保証する。
+     */
     create(input: SaveRecordInput): SaleRecord {
       const row = { id: generateId(), ...toRow(input) };
-      db.insert(saleRecords).values(row).run();
-      return row;
+      return db.transaction((tx) => {
+        tx.insert(saleRecords).values(row).run();
+        writeRecordTags(tx, row.id, input.tagIds);
+        return row;
+      });
     },
 
+    /** 同上。タグは差分を取らず全消し → 入れ直し（SPEC-V4 §1.4） */
     update(id: string, input: SaveRecordInput): void {
-      db.update(saleRecords).set(toRow(input)).where(eq(saleRecords.id, id)).run();
+      db.transaction((tx) => {
+        tx.update(saleRecords).set(toRow(input)).where(eq(saleRecords.id, id)).run();
+        writeRecordTags(tx, id, input.tagIds);
+      });
     },
 
     /**
@@ -310,8 +333,16 @@ export function createRepository(
         .run();
     },
 
+    /**
+     * 記録の削除（SPEC §5.4）。**中間行も同じトランザクションで消す**（SPEC-V4 §1.4）──
+     * ON DELETE CASCADE には頼らない（PRAGMA foreign_keys の既定は OFF で、
+     * 「有効になっているつもり」の孤児行は絞り込みの件数を静かに狂わせる）。
+     */
     remove(id: string): void {
-      db.delete(saleRecords).where(eq(saleRecords.id, id)).run();
+      db.transaction((tx) => {
+        deleteRecordTags(tx, id);
+        tx.delete(saleRecords).where(eq(saleRecords.id, id)).run();
+      });
     },
 
     // ---- 件数（絞り込みを持たない 2 本。集計は analyticsSummary 側の責務） ----
@@ -336,6 +367,24 @@ export function createRepository(
         .select({ count: sql<number>`count(*)` })
         .from(saleRecords)
         .where(eq(saleRecords.siteName, siteName))
+        .get();
+      return row?.count ?? 0;
+    },
+
+    /**
+     * 絞り込みシート下部の「この条件に合う記録 N 件」（SPEC-V4 §4.6）。**集計はしない。**
+     *
+     * シートは下書きの条件を持ち、タップのたびにこれを引く（同期クエリで数千件規模なので
+     * 引き直して問題にならない。SPEC-V2 §8-6）。条件は buildWhere と同じものを使うので、
+     * 「N 件と出たのに一覧の件数が違う」がそもそも起き得ない。
+     *
+     * 検索語を含めないのは呼び出し側の責務（合計行と同じ扱い。シートに検索欄がない）。
+     */
+    countRecords(filter: RecordListFilter): number {
+      const row = db
+        .select({ count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(buildWhere(filter))
         .get();
       return row?.count ?? 0;
     },
