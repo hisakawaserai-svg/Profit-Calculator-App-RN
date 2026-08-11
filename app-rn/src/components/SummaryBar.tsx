@@ -1,4 +1,4 @@
-// 固定の集計段（UI-SPEC §1.2-3 / §1.5-3。案 34a-A で 1 段に作り替えた）。
+// 記録タブの固定の集計段（UI-SPEC §1.2-3。案 34a-A で 1 段に作り替えた）。
 //
 //   [ この月の収支 ¥12,685        ( 売れた記録 | 出品中 ) ]
 //   [ 経費 ¥2,459                                         ]
@@ -17,11 +17,16 @@
 //
 // 値は「丸め済みの表示文字列」を受け取る。金額かどうか（¥ を付けるか、N 点か）は
 // 呼び出し側の集計の意味で決まるため、この部品は書式に関与しない。
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+//
+// **データタブとは共用しない**（SPEC-V4 §6 / UI-SPEC §1.5。案 36b）。あちらは 3 値で
+// 収支が主役の割り付け（左に 28px の収支・右に売上と経費を小さく積む）で、
+// この部品の「先頭 1 値 ＋ 残りを下に畳む ＋ 右にセグメント」とは骨格から違う ──
+// 1 つの部品に両方を入れると、ほぼ全部のスタイルが分岐で二重になる。専用の
+// DataSummaryBar を別に立ててある。**共有しているのは青い行（FilterNoticeRow）だけ。**
+import { StyleSheet, Text, View } from 'react-native';
 
+import { FilterNoticeRow, type FilterNotice } from '@/components/FilterNoticeRow';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { FILTER_CLEAR_LABEL } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 export type SummaryItem = {
@@ -41,21 +46,14 @@ export type SummarySegment = {
 };
 
 /**
- * 絞り込み中だけ段の下に生える青い行（案 34a-C）。
- *
- * **押せる場所が 1 行に 2 つある。** 左（▽ ＋ 条件文）で絞り込みの面を開き、右端の「解除」で外す。
- * 当たり判定は右端に余白を取って明確に分け、読み上げでも 2 つのボタンとして扱う。
+ * 絞り込み中だけ**段の中に**生える青い行（案 34a-C）。中身は FilterNoticeRow が持つ。
+ * データタブは同じ行を月バーの直下に単体で置く（§6 / 案 36b）── 見た目は同じで、位置だけが違う。
  */
-export type SummaryFilterRow = {
-  /** filterSummaryText の返り値（「仕入品・タグ「洋服」の14件だけ」）。null なら行ごと出ない */
-  text: string | null;
-  onPressFilter: () => void;
-  onClear: () => void;
-};
+export type SummaryFilterRow = FilterNotice;
 
 type Props = {
   items: SummaryItem[];
-  /** 省略すると集計値だけの段になる（データタブ。§6 で同じ形に揃える） */
+  /** 省略すると集計値だけの段になる */
   segment?: SummarySegment;
   filterRow?: SummaryFilterRow;
 };
@@ -117,7 +115,7 @@ export function SummaryBar({ items, segment, filterRow }: Props) {
       </View>
 
       {showFilterRow && (
-        <FilterRow
+        <FilterNoticeRow
           text={filterRow.text as string}
           onPressFilter={filterRow.onPressFilter}
           onClear={filterRow.onClear}
@@ -126,40 +124,6 @@ export function SummaryBar({ items, segment, filterRow }: Props) {
     </View>
   );
 }
-
-function FilterRow({ text, onPressFilter, onClear }: { text: string } & Omit<SummaryFilterRow, 'text'>) {
-  const colors = useThemeColors();
-
-  return (
-    // 段の左右の余白を打ち消して端まで届かせる。青い地が段の中で「生えた」ように見えるため
-    <View style={[styles.filterRow, { backgroundColor: FILTER_ROW_BACKGROUND }]}>
-      <Pressable
-        onPress={onPressFilter}
-        accessibilityRole="button"
-        accessibilityLabel={text}
-        accessibilityHint="絞り込みの条件を変えます"
-        style={({ pressed }) => [styles.filterRowMain, { opacity: pressed ? 0.5 : 1 }]}>
-        <Ionicons name="funnel" size={13} color={colors.blue} />
-        <Text style={[styles.filterRowText, { color: colors.label }]} numberOfLines={1}>
-          {text}
-        </Text>
-      </Pressable>
-      {/* 「解除」は左の当たり判定と重ならないよう、余白ごと自分の側に持つ */}
-      <Pressable
-        onPress={onClear}
-        accessibilityRole="button"
-        accessibilityLabel={`${FILTER_CLEAR_LABEL}する`}
-        style={({ pressed }) => [styles.filterRowClear, { opacity: pressed ? 0.5 : 1 }]}>
-        <Text style={[styles.filterRowClearLabel, { color: colors.blue }]}>
-          {FILTER_CLEAR_LABEL}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
-/** 青い行の地。明暗どちらでも「青みの薄い地」に見える透過（解除バーから引き継ぎ） */
-const FILTER_ROW_BACKGROUND = 'rgba(0, 122, 255, 0.10)';
 
 const styles = StyleSheet.create({
   bar: {
@@ -199,40 +163,21 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 4,
   },
+  // 2 行目は**見出しだけを縮める。** セグメント（186pt）に幅を取られた残りに
+  // 「出品価格の合計 ¥1,234,567」が収まらないことがあり、縮められないと行からはみ出して
+  // 隣の語と**重なって**表示される（RN の Text は切れるのではなく重なる）。
+  //   - 金額側は縮めない（flexShrink 0）── 「¥1,2…」まで詰まった金額は読めても意味がなく、
+  //     見出しは「出品価格の…」まで詰まっても位置と色で何の値かが分かる
   secondaryLabel: {
+    flexShrink: 1,
     fontSize: 12,
   },
   secondaryValue: {
+    flexShrink: 0,
     fontSize: 13,
     fontWeight: '600',
   },
   segment: {
     width: 186,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterRowMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingLeft: 16,
-    paddingRight: 8,
-    paddingVertical: 9,
-  },
-  filterRowText: {
-    flexShrink: 1,
-    fontSize: 13,
-  },
-  filterRowClear: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingVertical: 9,
-  },
-  filterRowClearLabel: {
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

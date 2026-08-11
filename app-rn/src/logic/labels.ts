@@ -11,7 +11,7 @@
 
 import type { PresetType, RecordKind } from '@/db/schema';
 
-import type { ChartUnit } from './analytics';
+import { YEAR_UNIT_MONTH_THRESHOLD, type ChartUnit } from './analytics';
 import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
 import { formatElapsedDays, formatShortDate, formatUnitYen, formatYenTight } from './format';
 import { daysBetween } from './listingDays';
@@ -359,6 +359,7 @@ export const PROFIT_TREND_LABEL = `${TOTAL_PROFIT_LABEL}の推移`;
 const CHART_UNIT_LABELS: Record<ChartUnit, string> = {
   day: '日ごと',
   month: '月ごと',
+  year: '年ごと',
 };
 
 export function chartUnitLabel(unit: ChartUnit): string {
@@ -393,9 +394,13 @@ export function selectedPointTitle(dateText: string, count: number): string {
 /**
  * グラフカードの下に常設する注記（UI-SPEC §1.5-6）。
  * 刻みが勝手に変わるように見えるのを防ぐため、何を選ぶと何が変わるかを先に書いておく。
+ *
+ * 「年ごと」も名指しする ── 記録がたまるとある日いきなり棒の意味が変わるので、
+ * 起きてから驚くより先に書いておくほうがよい。年数は閾値（36 か月）から導いて二重管理を避ける。
  */
 export const CHART_UNIT_NOTE =
-  `${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」に変わり、` +
+  `${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
+  `（記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
   `見出しも「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」になります。`;
 
 // ─────────────────────────────────────────────────────────────────────────────

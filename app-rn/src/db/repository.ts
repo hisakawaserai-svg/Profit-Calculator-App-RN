@@ -95,7 +95,34 @@ export type AnalyticsFilter = {
   monthKey: string | null;
   /** 種別フィルタ。null/undefined = すべて */
   kind?: RecordKind | null;
+  /**
+   * 販売サイト名の完全一致（SPEC-V4 §4.2 / §6）。null/undefined = すべて。
+   *
+   * 記録タブと違い**状態による無視の分岐がない** ── データタブは売却済みだけを見る面なので
+   * （SPEC §6.2）、「選ぶと必ず 0 件になる」状態が起きない。節も常に出る（§6）。
+   */
+  siteName?: string | null;
+  /** タグの OR 条件（SPEC-V4 §4.4）。空配列・undefined = すべて */
+  tagIds?: readonly string[];
 };
+
+/**
+ * 記録タブの絞り込み条件 → データタブの集計条件（SPEC-V4 §6）。
+ *
+ * 絞り込みページは記録タブ・データタブで**同じ画面**を使う（§7.1）ので、下書きから組む条件も
+ * 1 つの型（RecordListFilter）で持ち回る。データタブ側のクエリに渡す直前でここを通す。
+ *
+ * **落ちるのは isSoldMode と searchText だけ。** データタブは isSold = true かつ
+ * saleDate 非 null が固定条件で（SPEC §6.2）、検索欄も持たない。
+ */
+export function toAnalyticsFilter(filter: RecordListFilter): AnalyticsFilter {
+  return {
+    monthKey: filter.monthKey ?? null,
+    kind: filter.kind ?? null,
+    siteName: filter.siteName ?? null,
+    tagIds: filter.tagIds,
+  };
+}
 
 /** データタブの合計行（期間内合計）。すべて丸めなし（SPEC §6.2） */
 export type AnalyticsSummary = {
@@ -250,6 +277,11 @@ function tagExistsSql(tagIds: readonly string[]): SQL {
  * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
  * - 期間は販売日の月キー（"YYYY-MM"）の完全一致。null なら期間条件なし（全期間。§5-5）
  * - 種別（SPEC-V2 §4.2）は指定があればそのまま等値条件にする。
+ * - 販売サイト・タグ（SPEC-V4 §6）は buildWhere と**同じ式**を足す。
+ *
+ * **集計式（netProfitSql / totalExpensesSql）は変更しない。** タグの OR は EXISTS で書いてあり
+ * （§4.4）、行を増やさないので SUM はそのまま正しい ── JOIN + DISTINCT を退けた帰結。
+ * この関数に条件を足すだけで、合計行・集計点・内訳・最古の月の 4 経路すべてに同時に効く。
  */
 function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   const conditions: SQL[] = [
@@ -261,6 +293,13 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   }
   if (filter.kind != null) {
     conditions.push(eq(saleRecords.kind, filter.kind));
+  }
+  // 記録タブの buildWhere にある isSoldMode の分岐はここには要らない（型のコメント参照）
+  if (filter.siteName != null && filter.siteName !== '') {
+    conditions.push(eq(saleRecords.siteName, filter.siteName));
+  }
+  if (filter.tagIds != null && filter.tagIds.length > 0) {
+    conditions.push(tagExistsSql(filter.tagIds));
   }
   return sql.join(conditions, sql` AND `);
 }
@@ -618,6 +657,9 @@ export function createRepository(
 
     /**
      * 条件に合う最古の月キー（UI-SPEC §5-14「◀ はデータのある最古の月で無効」）。
+     * データタブから開いた絞り込みページのタグの使用件数（SPEC-V4 §6 / §4.2.1）は
+     * analyticsCountsByTagForFilter（下）。
+     *
      * 記録タブの earliestMonthKey と役割は同じだが、対象がデータタブの集合
      * （売却済み・saleDate 非 null）なので条件を共有できない。月バーが動かす範囲そのものを
      * 返すため、呼び出し側は monthKey を外した filter を渡す。0 件なら null。
@@ -629,6 +671,29 @@ export function createRepository(
         .where(buildAnalyticsWhere({ ...filter, monthKey: null }))
         .get();
       return row?.earliest ?? null;
+    },
+
+    /**
+     * データタブから開いた絞り込みページのタグの使用件数（SPEC-V4 §6 / §4.2.1）。
+     *
+     * 記録タブの `countsByTagForFilter` と**数え方の考え方は同じ**（選択中のタグ以外の
+     * すべての条件で絞った件数 ＝「押したら何件出るか」の予告）だが、**数える集合が違う**。
+     * データタブは `isSold = true` かつ `saleDate` 非 null が固定条件（SPEC §6.2）で、
+     * 記録タブ側の `buildWhere` はその条件を持たない ── そのまま使うと、下部に出る件数
+     * （`analyticsSummary.recordCount`）と行の数字が食い違う。
+     *
+     * `tagIds` だけを外す理由は記録タブ側と同じ（タグは OR なので、織り込むと逆向きの嘘になる）。
+     * 期間・種別・販売サイトは効いたまま。1 本のクエリで全タグぶん数える（§3.3）。
+     */
+    analyticsCountsByTagForFilter(filter: AnalyticsFilter): Map<string, number> {
+      const rows = db
+        .select({ tagId: recordTags.tagId, count: sql<number>`count(*)` })
+        .from(recordTags)
+        .innerJoin(saleRecords, eq(saleRecords.id, recordTags.recordId))
+        .where(buildAnalyticsWhere({ ...filter, tagIds: undefined }))
+        .groupBy(recordTags.tagId)
+        .all();
+      return new Map(rows.map((row) => [row.tagId, row.count]));
     },
 
     /** チャートの集計点（SPEC §6.2 AggregatedPoint）。日付キーの昇順 */

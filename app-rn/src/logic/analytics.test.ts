@@ -19,6 +19,7 @@ import {
   nearestRecordedIndex,
   yAxisLowerBound,
   yAxisUpperBound,
+  YEAR_UNIT_MONTH_THRESHOLD,
   type ChartPoint,
 } from './analytics';
 
@@ -26,14 +27,39 @@ import {
 const d = (y: number, m: number, day: number, h = 12, min = 0) =>
   new Date(y, m - 1, day, h, min, 0, 0);
 
-describe('§5-5 刻みは期間から自動で決まる（月を選択 = 日ごと / 全期間 = 月ごと）', () => {
-  it('月を選んでいれば日ごと', () => {
-    expect(chartUnitFor('2026-08')).toBe('day');
-    expect(chartUnitFor('2025-01')).toBe('day');
+describe('§5-5 刻みは期間から自動で決まる（月 = 日ごと / 全期間 = 月ごと・36 か月超で年ごと）', () => {
+  const today = d(2026, 8, 10);
+
+  it('月を選んでいれば日ごと（記録がどれだけ古くても変わらない）', () => {
+    expect(chartUnitFor({ monthKey: '2026-08', earliestMonthKey: '2026-01', today })).toBe('day');
+    expect(chartUnitFor({ monthKey: '2025-01', earliestMonthKey: '2015-01', today })).toBe('day');
   });
 
-  it('全期間（null）なら月ごと', () => {
-    expect(chartUnitFor(null)).toBe('month');
+  it('全期間で 36 か月以内なら月ごと', () => {
+    // 2026-08 から見て 2024-09 は 24 か月ぶん
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2024-09', today })).toBe('month');
+    // 同じ月に 1 件だけ = 1 か月
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2026-08', today })).toBe('month');
+  });
+
+  it('境界: ちょうど 36 か月は月ごと、37 か月から年ごと', () => {
+    // 2023-09 〜 2026-08 は両端を含めて 36 か月
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2023-09', today })).toBe('month');
+    // 1 か月古いだけで 37 か月になり、切り替わる
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2023-08', today })).toBe('year');
+  });
+
+  it('全期間で 37 か月以上なら年ごと（5 年ぶんの棒 60 本を作らない）', () => {
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2021-09', today })).toBe('year');
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2015-01', today })).toBe('year');
+  });
+
+  it('全期間で記録が 1 件もなければ月ごと（軸そのものが引けない）', () => {
+    expect(chartUnitFor({ monthKey: null, earliestMonthKey: null, today })).toBe('month');
+  });
+
+  it('閾値は 36 か月（画面ではなくここに閉じている）', () => {
+    expect(YEAR_UNIT_MONTH_THRESHOLD).toBe(36);
   });
 });
 
@@ -223,9 +249,20 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
       ]);
     });
 
+    it('年ごとは 1 年ずつ、両端の年を含む', () => {
+      const slots = chartSlots('year', d(2022, 11, 20), d(2026, 2, 5));
+      expect(slots.map((slot) => slot.key)).toEqual(['2022', '2023', '2024', '2025', '2026']);
+    });
+
+    it('年ごとの代表日は元日（集計キー → 日付の変換と揃える）', () => {
+      const slots = chartSlots('year', d(2025, 6, 15), d(2026, 6, 15));
+      expect(slots.map((slot) => slot.date)).toEqual([d(2025, 1, 1), d(2026, 1, 1)]);
+    });
+
     it('キーは repository の集計キーと同じ形式（0 埋め）', () => {
       expect(chartSlots('day', d(2026, 3, 5), d(2026, 3, 5))[0].key).toBe('2026-03-05');
       expect(chartSlots('month', d(2026, 3, 1), d(2026, 3, 1))[0].key).toBe('2026-03');
+      expect(chartSlots('year', d(2026, 3, 1), d(2026, 3, 1))[0].key).toBe('2026');
     });
   });
 
@@ -257,6 +294,24 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
         { key: '2026-07-01', date: d(2026, 7, 1), profit: 0, recordCount: 0 },
         { key: '2026-07-02', date: d(2026, 7, 2), profit: 0, recordCount: 0 },
         { key: '2026-07-03', date: d(2026, 7, 3), profit: 0, recordCount: 0 },
+      ]);
+    });
+
+    it('年ごとも同じ ── 記録のない年が空きの枠として入る', () => {
+      const dense = densifySeries(
+        [point('2022', d(2022, 1, 1), 1000), point('2026', d(2026, 1, 1), 2000)],
+        'year',
+        { from: d(2022, 5, 9), to: d(2026, 8, 10) },
+      );
+
+      expect(dense.map((slot) => slot.key)).toEqual(['2022', '2023', '2024', '2025', '2026']);
+      expect(dense[0].profit).toBe(1000);
+      expect(dense[4].profit).toBe(2000);
+      // 記録のなかった 3 年ぶんも枠として残る（詰めない）
+      expect(dense.slice(1, 4)).toEqual([
+        { key: '2023', date: d(2023, 1, 1), profit: 0, recordCount: 0 },
+        { key: '2024', date: d(2024, 1, 1), profit: 0, recordCount: 0 },
+        { key: '2025', date: d(2025, 1, 1), profit: 0, recordCount: 0 },
       ]);
     });
 
@@ -363,13 +418,16 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
 describe('§6.2 / §1.5-5 軸ラベル・選択した点の見出しの書式', () => {
   const date = d(2026, 8, 9, 14, 30);
 
-  it('X 軸ラベルは 日ごと = MM/DD、月ごと = YYYY/MM', () => {
+  it('X 軸ラベルは 日ごと = MM/DD、月ごと = YYYY/MM、年ごと = YYYY', () => {
     expect(formatChartLabel(date, 'day')).toBe('08/09');
     expect(formatChartLabel(date, 'month')).toBe('2026/08');
+    // 年ごとに「2026/08」と出すと、その年の 8 月だけを指しているように読める
+    expect(formatChartLabel(date, 'year')).toBe('2026');
   });
 
   it('選択した点の見出しは刻みの粒度に合わせる', () => {
     expect(formatPointDate(date, 'day')).toBe('8月9日');
     expect(formatPointDate(date, 'month')).toBe('2026年8月');
+    expect(formatPointDate(date, 'year')).toBe('2026年');
   });
 });

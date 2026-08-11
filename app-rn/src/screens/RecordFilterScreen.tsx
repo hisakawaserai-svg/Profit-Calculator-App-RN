@@ -1,13 +1,22 @@
-// 絞り込みページ（SPEC-V4 §4.2 / 案 33c・35a〜35f）。記録タブの Stack に積む 1 枚。
+// 絞り込みページ（SPEC-V4 §4.2 / §6 / 案 33c・35a〜35f）。
+// **記録タブとデータタブの Stack に、同じ画面を 1 枚ずつ積む。**
 //
 // **下から出るシートをやめて push するページにした**（案 33c）── シートでは販売サイトだけが
 // 2 枚目に分かれ、3 条件のうち 1 つだけ操作の深さが違っていた。1 枚のページなら 3 条件が
 // 同じ深さで縦に並び、タグが数十件になっても縦に伸ばせる。
 //
+// **タブごとに画面をコピーしない**（§7.1）。3 条件も操作も同じで、分けると片方だけ直る事故が起きる。
+// 違いは Stack が持つ state（RecordFilterState）から読む 2 点だけで、画面には分岐を書かない:
+//   - `isSoldMode` … データタブは常に true（§6）。**販売サイトの節が常に出る**のはその帰結で、
+//     「出品中では節を消す」分岐（§4.2）は記録タブ側だけの話。下部の見出しも
+//     matchingRecordLabel(true) = 「この条件に合う記録」で自然に決まる
+//   - `scope` … 件数を数える集合（§6 / FilterScope）。データタブは isSold / saleDate 非 null が
+//     固定条件なので、記録タブの数え方をそのまま使うと下部の数もタグの行の数字も食い違う
+//
 // この画面が持たない判断:
 // - **条件は選んだ瞬間から効く。** 「完了」は置かない（戻れば結果が見える。下部の件数も常に動く）
-// - **絞り込みの state を持たない。** 記録タブの Stack が持つ（RecordFilterState）
-// - **一覧は引かない。** 下部に出すのは件数だけ（useRecordCount）
+// - **絞り込みの state を持たない。** 開いたタブの Stack が持つ（RecordFilterState）
+// - **一覧は引かない。** 下部に出すのは件数だけ（useFilteredRecordCount）
 //
 // 表示語はすべて labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 import { Ionicons } from '@expo/vector-icons';
@@ -51,7 +60,7 @@ import { useThemeColors } from '@/theme';
 
 export function RecordFilterScreen() {
   const colors = useThemeColors();
-  const { filter, setFilter, isSoldMode, monthKey, clearFilter } = useRecordFilterState();
+  const { scope, filter, setFilter, isSoldMode, monthKey, clearFilter } = useRecordFilterState();
 
   const { tags } = useTagList();
   const siteNames = useSiteNames();
@@ -69,13 +78,14 @@ export function RecordFilterScreen() {
     () => ({ isSoldMode, monthKey, kind, siteName, tagIds }),
     [isSoldMode, monthKey, kind, siteName, tagIds],
   );
-  const matchCount = useFilteredRecordCount(countFilter);
+  const matchCount = useFilteredRecordCount(countFilter, scope);
   /**
-   * タグの行に出す使用件数（§4.2.1 / §2.2 の例外）。**下部の件数と同じ filter をそのまま渡す** ──
-   * `tagIds` を外すのは repository の側の責務で、2 か所で条件を組み立てない。
-   * こうしておくと「1 と出ている行を押して 0 件になる」が構造として起きない。
+   * タグの行に出す使用件数（§4.2.1 / §2.2 の例外）。**下部の件数と同じ filter と scope を
+   * そのまま渡す** ── `tagIds` を外すのも集合を選ぶのも repository の側の責務で、
+   * 2 か所で条件を組み立てない。こうしておくと「1 と出ている行を押して 0 件になる」が
+   * 構造として起きない（タブが変わっても同じ理由で守られる）。
    */
-  const counts = useTagCountsForFilter(countFilter);
+  const counts = useTagCountsForFilter(countFilter, scope);
 
   const visibleTags = useMemo(() => searchTags(tags, keyword), [tags, keyword]);
   const selectedNames = useMemo(

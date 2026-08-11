@@ -7,8 +7,10 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
+import type { FilterScope } from '@/logic/recordFilter';
+
 import { repository, tagRepository } from './client';
-import type { RecordListFilter } from './repository';
+import { toAnalyticsFilter, type RecordListFilter } from './repository';
 import type { Tag } from './schema';
 import type { TagInput } from './tags';
 
@@ -191,9 +193,16 @@ function querySiteNames(refreshToken: object): string[] {
 }
 
 /** refreshToken の理由は queryList と同じ */
-function queryCountsForFilter(filter: RecordListFilter, refreshToken: object): Map<string, number> {
+function queryCountsForFilter(
+  filter: RecordListFilter,
+  scope: FilterScope,
+  refreshToken: object,
+): Map<string, number> {
   void refreshToken;
-  return repository.countsByTagForFilter(filter);
+  // 数える集合は開いたタブの集計に合わせる（FilterScope / analyticsCountsByTagForFilter 参照）
+  return scope === 'data'
+    ? repository.analyticsCountsByTagForFilter(toAnalyticsFilter(filter))
+    : repository.countsByTagForFilter(filter);
 }
 
 /**
@@ -206,12 +215,22 @@ function queryCountsForFilter(filter: RecordListFilter, refreshToken: object): M
  *
  * **tagIds を外すのは repository 側の責務**なので、呼び出し側は下部の件数に渡すのと
  * 同じ filter をそのまま渡してよい（2 か所で条件を組み立てないための分担）。
+ *
+ * `scope` は**どのタブから開いた絞り込みか**（§6）。データタブは isSold / saleDate 非 null が
+ * 固定条件なので、数える集合そのものが変わる ── 下部の件数（useFilteredRecordCount）に
+ * 渡す scope と必ず同じものを渡すこと。片方だけ違うと、行の数字と下部の数が食い違う。
  */
-export function useTagCountsForFilter(filter: RecordListFilter): Map<string, number> {
+export function useTagCountsForFilter(
+  filter: RecordListFilter,
+  scope: FilterScope,
+): Map<string, number> {
   const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
   const refresh = useCallback(() => setRefreshToken({}), []);
 
   useFocusEffect(refresh);
 
-  return useMemo(() => queryCountsForFilter(filter, refreshToken), [filter, refreshToken]);
+  return useMemo(
+    () => queryCountsForFilter(filter, scope, refreshToken),
+    [filter, scope, refreshToken],
+  );
 }

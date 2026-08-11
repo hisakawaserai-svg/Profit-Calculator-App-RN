@@ -4,26 +4,63 @@
 //
 // 案 7b で切替が 3 つとも廃止されたため、この層からも対応する概念が消えている（§6-10）:
 //   - 指標切替（売上金額 / 収支）  → MetricType / METRIC_TYPES
-//   - 表示単位切替（明細/日別/月別/年別） → CHART_UNITS と 'record' / 'year'
+//   - 表示単位切替（明細/日別/月別/年別） → CHART_UNITS と 'record'
 //   - 期間指定（startDate / endDate と ◀▶ の平行移動） → Period / defaultPeriod / shiftPeriod
 // 期間は月キー（または全期間）だけになり、刻みはそこから自動で決まる（§5-5）。
+// 'year' だけは後から戻っている ── **切替としてではなく**、全期間が長くなったときに
+// 自動で選ばれる刻みとして（36 か月超。YEAR_UNIT_MONTH_THRESHOLD）。
 
-import { formatMonthDay, formatMonthTitle } from './format';
+import { formatMonthDay, formatMonthTitle, formatYearTitle } from './format';
 
 /**
- * グラフの刻み（UI-SPEC §5-5）。期間から自動で決まる 2 値。
+ * グラフの刻み（UI-SPEC §5-5）。期間から自動で決まる 3 値。
  * 設計案 6b の 62 日規則は採らない（期間指定 UI そのものがないため働く場面がない）。
  */
-export type ChartUnit = 'day' | 'month';
+export type ChartUnit = 'day' | 'month' | 'year';
 
 /**
- * 期間 → 刻み（UI-SPEC §5-5「月を選択 = 日ごと / 全期間 = 月ごと」）。
- * 画面に切替を出さないので、ここが刻みを決める唯一の場所になる。
+ * 全期間で「年ごと」へ切り替わる月数の境界（UI-SPEC §5-5）。**36 か月ちょうどまでは月ごと。**
  *
- * @param monthKey 表示中の月キー "YYYY-MM"。null = 全期間
+ * 横スクロールはさせない（§1.5「期間ぶんを画面幅に収める」）ので、棒の幅は
+ * 画面幅 ÷ スロット数で決まる。3 年ぶん = 36 本なら iPhone 幅でも 1 本あたりの幅が残るが、
+ * それを超えると 10pt を切って潰れ始める（5 年ぶんの 60 本では棒の形が読めない）。
+ * スクロールを入れずに読める密度を保つ側を採る。
  */
-export function chartUnitFor(monthKey: string | null): ChartUnit {
-  return monthKey == null ? 'month' : 'day';
+export const YEAR_UNIT_MONTH_THRESHOLD = 36;
+
+/**
+ * 期間が覆う月数（両端の月を含む）。"最も古い記録の月から今月まで" の数え方。
+ * 同じ月なら 1、隣の月なら 2。
+ */
+function monthCount(span: { from: Date; to: Date }): number {
+  return (
+    (span.to.getFullYear() - span.from.getFullYear()) * 12 +
+    (span.to.getMonth() - span.from.getMonth()) +
+    1
+  );
+}
+
+/**
+ * 期間 → 刻み（UI-SPEC §5-5）。**月を選択 = 日ごと / 全期間 = 月ごと（36 か月超なら年ごと）。**
+ *
+ * 画面に切替を出さないので、ここが刻みを決める唯一の場所になる（画面側では分岐しない）。
+ * 月数は chartSpan が出す範囲から数える ── 軸が覆う範囲と刻みの判定が同じ範囲を見ることで、
+ * 「軸は 5 年ぶんなのに刻みは月ごと」のような食い違いが起こらない。
+ *
+ * 記録が 1 件もない全期間（span = null）は月ごと。軸そのものが引けないので
+ * どちらでも表示は変わらないが、記録が増えたときに近いほうを既定にしておく。
+ */
+export function chartUnitFor(params: {
+  /** 表示中の月キー "YYYY-MM"。null = 全期間 */
+  monthKey: string | null;
+  earliestMonthKey: string | null;
+  today: Date;
+}): ChartUnit {
+  if (params.monthKey != null) return 'day';
+
+  const span = chartSpan(params);
+  if (span == null) return 'month';
+  return monthCount(span) > YEAR_UNIT_MONTH_THRESHOLD ? 'year' : 'month';
 }
 
 /** SPEC §6.2 Y 軸上限 = max(1000, データ最大値) × 1.15。目盛りを丸める前の素の上限 */
@@ -53,7 +90,7 @@ export function yAxisLowerBound(values: number[]): number {
 
 /** グラフの 1 スロット。repository の集計点（AggregatedPoint）と構造的に互換 */
 export type ChartPoint = {
-  /** 集計キー（日ごと = "YYYY-MM-DD" / 月ごと = "YYYY-MM"） */
+  /** 集計キー（日ごと = "YYYY-MM-DD" / 月ごと = "YYYY-MM" / 年ごと = "YYYY"） */
   key: string;
   date: Date;
   profit: number;
@@ -79,6 +116,10 @@ function dayKey(date: Date): string {
 
 function monthKeyOf(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function yearKeyOf(date: Date): string {
+  return String(date.getFullYear());
 }
 
 /**
@@ -107,9 +148,20 @@ export function chartSpan(params: {
   return { from: monthKeyStart(earliestMonthKey), to: today };
 }
 
-/** from 〜 to（両端を含む）の全スロットを刻みの粒度で並べる。空の期間なら空配列 */
+/**
+ * from 〜 to（両端を含む）の全スロットを刻みの粒度で並べる。空の期間なら空配列。
+ * 埋め方は 3 つの刻みで同じ ── 記録のない日・月・年も枠として置く（densifySeries が 0 で埋める）。
+ */
 export function chartSlots(unit: ChartUnit, from: Date, to: Date): { key: string; date: Date }[] {
   const slots: { key: string; date: Date }[] = [];
+
+  if (unit === 'year') {
+    for (let year = from.getFullYear(); year <= to.getFullYear(); year += 1) {
+      const date = new Date(year, 0, 1);
+      slots.push({ key: yearKeyOf(date), date });
+    }
+    return slots;
+  }
 
   if (unit === 'day') {
     const last = new Date(to.getFullYear(), to.getMonth(), to.getDate());
@@ -292,12 +344,15 @@ export function dualAxisBounds(
   };
 }
 
-/** X 軸ラベル（Swift 版 AxisValueLabel の書式） */
+/**
+ * X 軸ラベル（Swift 版 AxisValueLabel の書式）。刻みと同じ粒度まで出す ──
+ * 年ごとの軸に「2026/01」と出すと、その年の 1 月だけを指しているように読める。
+ */
 export function formatChartLabel(date: Date, unit: ChartUnit): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  return unit === 'day'
-    ? `${month}/${String(date.getDate()).padStart(2, '0')}`
-    : `${date.getFullYear()}/${month}`;
+  if (unit === 'day') return `${month}/${String(date.getDate()).padStart(2, '0')}`;
+  if (unit === 'year') return String(date.getFullYear());
+  return `${date.getFullYear()}/${month}`;
 }
 
 /**
@@ -306,5 +361,7 @@ export function formatChartLabel(date: Date, unit: ChartUnit): string {
  * 指しているように読めるため。
  */
 export function formatPointDate(date: Date, unit: ChartUnit): string {
-  return unit === 'day' ? formatMonthDay(date) : formatMonthTitle(date);
+  if (unit === 'day') return formatMonthDay(date);
+  if (unit === 'year') return formatYearTitle(date.getFullYear());
+  return formatMonthTitle(date);
 }

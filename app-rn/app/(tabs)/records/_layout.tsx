@@ -19,13 +19,15 @@ export const unstable_settings = {
 
 // 絞り込みの state（3 条件・状態・期間）は**この Stack が持つ**（RecordFilterState）。
 // 一覧と絞り込みページが別ルートになったので、両方から同じ値を触れる位置がここになる。
-// タブ全体（(tabs)/_layout.tsx）へ上げるとデータタブと共有になってしまう（決定 §9-9）。
+// データタブも自分の Stack に**もう 1 つ**同じ Provider を置く（SPEC-V4 §6）── 2 つは
+// React の木の上で兄弟なので値は混ざらない。タブ全体（(tabs)/_layout.tsx）へ上げると
+// 1 つになり、両タブで共有されてしまう（決定 §9-9）。
 export default function RecordsLayout() {
   /** 「今日」は Stack のマウント時に 1 回だけ決める（初期表示は今月。§5-14） */
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
 
   return (
-    <RecordFilterProvider currentMonthKey={currentMonthKey}>
+    <RecordFilterProvider scope="records" currentMonthKey={currentMonthKey}>
       <Stack />
     </RecordFilterProvider>
   );

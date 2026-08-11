@@ -13,24 +13,33 @@
 // - 内訳の行は記録タブと同じ RecordRow を共用する（§6-11）。
 // - グラフは棒（刻みごとの収支・左軸）と折れ線（累計収支・右軸）の組み合わせ（§1.5-4）。
 //   棒タップでその日の記録が下に並ぶ。
+//
+// 上部の割り付けは案 36b（SPEC-V4 §6 / UI-SPEC §1.5。Step 5）:
+//   ヘッダ ＋ 月バー（右端に ▽）＋ 青い行（絞り込み中だけ）＋ 集計段（収支が主役）
+//   - **種別セグメントは廃止**。種別・販売サイト・タグの 3 条件は ▽ から開く絞り込みページに一本化
+//     （記録タブと同じ画面。§4.2 / §6）
+//   - **青い行は月バーの直下**。集計段の中に入れると、絞り込みの有無で集計とグラフの距離が変わる
+//   - 絞り込みの state はデータタブの Stack が持つ（RecordFilterState）。
+//     記録タブとは**別の Provider** なので共有されない（決定 §9-9）
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import Svg, { Polyline } from 'react-native-svg';
 
+import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
+import { FilterNoticeRow } from '@/components/FilterNoticeRow';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
-import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
 import { toMonthKey } from '@/db/dates';
 import type { AggregatedPoint } from '@/db/repository';
 import type { SaleRecord } from '@/db/schema';
 import { useAnalyticsData } from '@/db/useRecords';
+import { useTagList } from '@/db/useTags';
 import {
   chartSpan,
-  chartUnitFor,
   cumulativeProfits,
   densifySeries,
   dualAxisBounds,
@@ -44,22 +53,25 @@ import {
 } from '@/logic/analytics';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  DEFAULT_KIND_FILTER,
-  KIND_FILTER_OPTIONS,
-  toKindCondition,
-  type KindFilter,
-} from '@/logic/kindFilter';
-import {
   CHART_UNIT_NOTE,
   CLEAR_SELECTION_LABEL,
   CUMULATIVE_PROFIT_LABEL,
   EXPENSES_LABEL,
+  FILTER_LABEL,
   PROFIT_TREND_LABEL,
   TOTAL_SALES_LABEL,
   chartBarLegendLabel,
   periodProfitLabel,
   selectedPointTitle,
 } from '@/logic/labels';
+import {
+  activeFilterCount,
+  filterSummaryText,
+  pruneMissingTags,
+  toFilterConditions,
+  type RecordFilterDraft,
+} from '@/logic/recordFilter';
+import { useRecordFilterState } from '@/screens/RecordFilterState';
 import { useThemeColors } from '@/theme';
 
 const CHART_HEIGHT = 220;
@@ -99,6 +111,12 @@ const CHART_TOP_PADDING = 10;
  */
 const RECORD_DETAIL_PATHNAME = '/data/record/[id]' as const;
 
+/**
+ * 絞り込みページのルート（SPEC-V4 §4.2 / §6）。**データタブ自身の Stack に積む。**
+ * 画面の実体は記録タブと同じ RecordFilterScreen で、詳細と同じく入口だけを分けてある。
+ */
+const DATA_FILTER_PATHNAME = '/data/filter' as const;
+
 export function DataScreen() {
   const colors = useThemeColors();
   const router = useRouter();
@@ -107,24 +125,52 @@ export function DataScreen() {
   const today = useMemo(() => new Date(), []);
   const currentMonthKey = useMemo(() => toMonthKey(today), [today]);
 
-  /** 表示中の月キー "YYYY-MM"。null = 全期間。初期表示は今月（§5-14） */
-  const [monthKey, setMonthKey] = useState<string | null>(currentMonthKey);
-  /** 種別フィルタ（SPEC-V2 §4.2）。絞ると合計・グラフ・内訳のすべてがその種別だけになる */
-  const [kindFilter, setKindFilter] = useState<KindFilter>(DEFAULT_KIND_FILTER);
-  /** タップされた棒のキー。null = 未選択 */
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /**
+   * 期間と 3 条件は**データタブの Stack が持つ**（RecordFilterState / SPEC-V4 §6）。
+   * 絞り込みが push するページになったので、グラフとページの両方が同じ値を読むため。
+   * **記録タブとは別の Provider** なので共有されない（決定 §9-9）。
+   */
+  const {
+    filter: recordFilter,
+    setFilter: setRecordFilter,
+    monthKey,
+    setMonthKey,
+    clearFilter,
+  } = useRecordFilterState();
+  /**
+   * タップされた棒。**どの絞り込みの下で選んだか**まで持つ（null = 未選択）。
+   *
+   * 絞り込みを変えると集計対象が変わり、選んでいた棒はもう同じ集合を指していないので外す ──
+   * 期間を変えたとき（changeMonth）と同じ扱い。条件は絞り込みページで選んだ瞬間から効く（§4.2）ので、
+   * **選んだときの下書きと今の下書きが同じものかを描画時に見て決める**
+   * （効果の中で setState すると描画が 2 周する）。
+   */
+  const [selection, setSelection] = useState<{ key: string; filter: RecordFilterDraft } | null>(
+    null,
+  );
+  const selectedKey = selection != null && selection.filter === recordFilter ? selection.key : null;
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
 
-  const filter = useMemo(
-    () => ({ monthKey, kind: toKindCondition(kindFilter) }),
-    [monthKey, kindFilter],
+  // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
+  const { tags } = useTagList();
+
+  // データタブは状態を持たない（isSold = true 固定。SPEC §6.2）ので、
+  // toFilterConditions には常に true を渡す ── 販売サイトの条件が落ちる分岐は起きない（§6）
+  const { kind, siteName, tagIds } = useMemo(
+    () => toFilterConditions(recordFilter, true),
+    [recordFilter],
   );
-  // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ
-  const unit = chartUnitFor(monthKey);
-  const { summary, series, details, earliestMonthKey, monthsWithRecords } = useAnalyticsData(
+  const filter = useMemo(
+    () => ({ monthKey, kind, siteName, tagIds }),
+    [monthKey, kind, siteName, tagIds],
+  );
+  // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ。
+  // 全期間の刻みは対象の月数で決まり（36 か月超なら年ごと）、判定に最古の月が要るので
+  // 取得側が chartUnitFor に決めさせて返す ── 画面はここで分岐しない
+  const { summary, series, details, earliestMonthKey, monthsWithRecords, unit } = useAnalyticsData(
     filter,
-    unit,
     selectedKey,
+    today,
   );
 
   // X 軸は日付の軸にする（§1.5-4）。repository が返すのは記録のある点だけなので、
@@ -135,16 +181,23 @@ export function DataScreen() {
   }, [series, unit, monthKey, earliestMonthKey, today]);
 
   /** 期間を変えると刻みも集計対象も変わるので、選択中の棒は外す */
-  const changeMonth = useCallback((next: string | null) => {
-    setMonthKey(next);
-    setSelectedKey(null);
-  }, []);
+  const changeMonth = useCallback(
+    (next: string | null) => {
+      setMonthKey(next);
+      setSelection(null);
+    },
+    [setMonthKey],
+  );
 
-  /** 種別を切り替えると集計対象が変わるので、選択中の棒も外す（期間の変更と同じ扱い） */
-  const selectKindFilter = useCallback((index: number) => {
-    setKindFilter(KIND_FILTER_OPTIONS[index].value);
-    setSelectedKey(null);
-  }, []);
+  /**
+   * 消えたタグを絞り込みから落とす（§4.7）。記録タブと同じ理由・同じ形 ──
+   * 設定タブでタグを消すと tagIds に存在しない id が残り、青い行の文言と条件の数が実体と合わなくなる。
+   */
+  useFocusEffect(
+    useCallback(() => {
+      setRecordFilter(pruneMissingTags(recordFilter, tags));
+    }, [recordFilter, setRecordFilter, tags]),
+  );
 
   // 行タップ → レコード詳細へプッシュ遷移（UI-SPEC §2）。
   // データタブ自身の Stack に積むので、戻ればこのグラフに帰ってくる（選択したままの状態で）。
@@ -155,6 +208,9 @@ export function DataScreen() {
     [router],
   );
 
+  /** 絞り込みは push する 1 枚のページ（案 33c）。戻れば結果が見えるので「完了」は要らない */
+  const openFilterPage = useCallback(() => router.push(DATA_FILTER_PATHNAME), [router]);
+
   // 期間を動かした結果、選択中の棒が範囲外に出ていることがある
   const selectedPoint = series.find((point) => point.key === selectedKey);
 
@@ -162,20 +218,30 @@ export function DataScreen() {
   const selectNearest = useCallback(
     (index: number) => {
       const nearest = nearestRecordedIndex(densePoints, index);
-      if (nearest != null) setSelectedKey(densePoints[nearest].key);
+      if (nearest != null) setSelection({ key: densePoints[nearest].key, filter: recordFilter });
     },
-    [densePoints],
+    [densePoints, recordFilter],
   );
 
-  // 合計行は 3 値（UI-SPEC §1.5-3）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
+  const filterCount = activeFilterCount(recordFilter);
+  /**
+   * 青い行の文言（§4.3）。件数に渡すのは**この条件に合う記録の数**（summary.recordCount）──
+   * 記録タブでは「いま一覧に出ている件数」だったが、データタブに一覧はなく、
+   * 行の下にあるのはグラフ。**グラフが何件を集計した結果か**を言うのが、
+   * 「文のすぐ下にあるものを説明する」という §4.3 の趣旨に合う。
+   * 検索欄がないので、記録タブのような「下部の件数との食い違い」も起きない。
+   */
+  const summaryText = filterSummaryText(recordFilter, tags, summary.recordCount);
+
+  // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
-  const summaryItems: SummaryItem[] = [
+  const profitValue: DataSummaryValue = {
+    label: periodProfitLabel(monthKey),
+    value: formatYenSymbol(summary.totalNetProfit),
+    color: colors.green,
+  };
+  const contextValues: [DataSummaryValue, DataSummaryValue] = [
     { label: TOTAL_SALES_LABEL, value: formatYenSymbol(summary.totalSales), color: colors.blue },
-    {
-      label: periodProfitLabel(monthKey),
-      value: formatYenSymbol(summary.totalNetProfit),
-      color: colors.green,
-    },
     { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
   ];
 
@@ -185,27 +251,35 @@ export function DataScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* 2 段目。**右端に絞り込みの入口（▽）**（案 34a-B / 36b）。記録タブと同じ扱いで、
+            効いている間は青ベタ。数は出さない ── 条件は下の青い行に文で並ぶ */}
         <MonthNavBar
           monthKey={monthKey}
           earliestMonthKey={earliestMonthKey}
           currentMonthKey={currentMonthKey}
           onChangeMonth={changeMonth}
           onPressTitle={() => setShowPeriodSheet(true)}
-        />
-
-        {/* 集計段は 1 段になった（案 34a-A）。データタブは状態を持たない
-            （isSold = true 固定。SPEC §6.2）ので、右のセグメントには**種別**を置く。
-            旧・種別の巡回チップの置き換え ── チップの部品（FilterChip）は案 34a-B で
-            廃止したので、記録タブと同じ「右にセグメント」の形に寄せた。
-            ▽ ＋ 絞り込みの面に差し替えるのは Step 5（§6） */}
-        <SummaryBar
-          items={summaryItems}
-          segment={{
-            options: KIND_FILTER_OPTIONS.map((option) => option.label),
-            selectedIndex: KIND_FILTER_OPTIONS.findIndex((option) => option.value === kindFilter),
-            onChange: selectKindFilter,
+          filter={{
+            active: filterCount > 0,
+            onPress: openFilterPage,
+            accessibilityLabel: FILTER_LABEL,
           }}
         />
+
+        {/* 青い行は**月バーの直下**（案 36b）── 集計段とグラフカードの間に挟むと、
+            絞り込みの有無で集計とグラフの距離が変わる。ここなら
+            「期間 → 絞り込み → その結果」の順に読め、集計とグラフは常に隣り合ったまま */}
+        {summaryText != null && (
+          <FilterNoticeRow
+            text={summaryText}
+            onPressFilter={openFilterPage}
+            onClear={clearFilter}
+          />
+        )}
+
+        {/* 集計段（案 36b）。**収支が主役**で、売上と経費は右に小さく積む。
+            種別セグメントは廃止し、種別は絞り込みページの 1 節に一本化した（§6） */}
+        <DataSummaryBar profit={profitValue} context={contextValues} />
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
@@ -232,7 +306,7 @@ export function DataScreen() {
               point={selectedPoint}
               unit={unit}
               details={details}
-              onClear={() => setSelectedKey(null)}
+              onClear={() => setSelection(null)}
               onPressRecord={openDetail}
             />
           )}

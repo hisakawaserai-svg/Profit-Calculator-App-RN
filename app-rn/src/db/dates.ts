@@ -65,11 +65,12 @@ export function monthKeysBetween(from: string, to: string): string[] {
 export const CHART_KEY_LENGTH: Record<ChartUnit, number> = {
   day: 10, // YYYY-MM-DD
   month: 7, // YYYY-MM
+  year: 4, // YYYY
 };
 
-/** 集計キー → その刻みの代表日（日ごと = その日 0:00 / 月ごと = 月初） */
+/** 集計キー → その刻みの代表日（日ごと = その日 0:00 / 月ごと = 月初 / 年ごと = 元日） */
 export function chartKeyToDate(key: string, unit: ChartUnit): Date {
-  return unit === 'day'
-    ? fromDbDate(`${key}T00:00:00.000`)
-    : fromDbDate(`${key}-01T00:00:00.000`);
+  if (unit === 'day') return fromDbDate(`${key}T00:00:00.000`);
+  if (unit === 'year') return fromDbDate(`${key}-01-01T00:00:00.000`);
+  return fromDbDate(`${key}-01T00:00:00.000`);
 }

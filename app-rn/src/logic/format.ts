@@ -1,9 +1,40 @@
 // 表示用の文字列組み立て。金額の丸めは必ず roundForDisplay を通す（SPEC §2.6）。
+//
+// **桁区切りは「表示の文字列を組み立てる瞬間」だけに入れる。**
+// 丸めと同じ扱いで（決定 §7-2 / §2.6「合算後の表示の瞬間だけ」）、集計値そのものは触らない。
+// CSV 書き出し（SPEC-V3 §5・未実装）では**桁区切りを入れないこと** ──
+// "12,685" は表計算ソフトが数値として読めず（区切り文字とも衝突する）、
+// 書き出した金額で合計や並べ替えができなくなる。CSV は素の数値を書く。
 
 import { formatCalculatorNumber } from './calculator';
 import { roundForDisplay } from './profit';
 
-/** 金額表示「1234 円」。丸めは §2.6 の Math.round（桁区切りは Swift 版に合わせて付けない） */
+/**
+ * 整数部に 3 桁区切りを入れる（`12685` → `"12,685"`）。
+ *
+ * `toLocaleString('ja-JP')` を使わないのは、RN のエンジン（Hermes）では Intl の有無が
+ * ビルド構成で変わり、環境によって区切りが出たり出なかったりするため。表示の見た目が
+ * 端末任せになるより、自前で組んで常に同じ形にするほうがよい。
+ *
+ * 負号は区切りの対象外（`-` を残して絶対値側だけ刻む）。小数部があればそのまま残す ──
+ * 金額は roundForDisplay を通った整数のはずだが、ここで落とすと丸めの規則を
+ * この関数が二重に持つことになる（丸めは呼び出し側の責務。§2.6）。
+ * 非有限値（NaN / Infinity）は区切りようがないのでそのまま文字列にする。
+ */
+export function groupDigits(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+
+  const sign = value < 0 ? '-' : '';
+  const [integer, fraction] = Math.abs(value).toString().split('.');
+  const grouped = integer.replace(/\B(?=(\d{3})+$)/g, ',');
+  return fraction == null ? `${sign}${grouped}` : `${sign}${grouped}.${fraction}`;
+}
+
+/**
+ * 金額表示「1234 円」。丸めは §2.6 の Math.round。
+ * 桁区切りは付けない（Swift 版に合わせる）── 区切りを入れたのは「¥」表記のほう
+ * （formatYenSymbol）だけで、こちらは計算タブの内訳など桁の小さい値に使う。
+ */
 export function formatYen(value: number): string {
   return `${roundForDisplay(value)} 円`;
 }
@@ -41,9 +72,16 @@ export function formatYenTight(value: number): string {
   return `${roundForDisplay(value)}円`;
 }
 
-/** 金額表示「¥1234」。月カード（Swift 版 MonthlySummaryCard）の表記 */
+/**
+ * 金額表示「¥12,685」。月カード（Swift 版 MonthlySummaryCard）の表記。
+ *
+ * **3 桁区切りを入れる**（Claude Design のモックの表記）── 合計や一覧の行は 5 桁を超えると
+ * 区切りなしでは桁が数えられない（`¥15145` は一目では読めない）。
+ * 丸めの規則は変えていない: roundForDisplay を**通したあとの値**に区切りを入れるだけで、
+ * 丸めるのは従来どおり合算後・表示の瞬間だけ（決定 §7-2 / §2.6）。
+ */
 export function formatYenSymbol(value: number): string {
-  return `¥${roundForDisplay(value)}`;
+  return `¥${groupDigits(roundForDisplay(value))}`;
 }
 
 /**
@@ -51,7 +89,7 @@ export function formatYenSymbol(value: number): string {
  *
  * **符号を文字でも出す**のは、正負を緑／赤だけで伝えると色が唯一の手がかりになるため
  * （§0.1「色は識別の補助」）。0 は符号なしの「¥0」── 「+¥0」は増えたと読める。
- * 桁区切りは付けない（formatYenSymbol と同じ方針）。
+ * 桁区切りは formatYenSymbol に任せる（符号の外側では刻まない ──「+¥4,500」）。
  */
 export function formatSignedYenSymbol(value: number): string {
   const rounded = roundForDisplay(value);
@@ -119,4 +157,4 @@ export function formatRecordDate(date: Date): string {
 
 // 日時「2026/08/09 14:30」を組み立てる formatRecordDateTime は、データタブの「明細」
 // （時刻まで含めた販売日がそのまま集計キーになる単位）の廃止で参照元がなくなったため削除した
-// （UI-SPEC §6-10）。刻みは日ごと / 月ごとの 2 値になり、時刻を出す場所はもうない。
+// （UI-SPEC §6-10）。刻みは日ごと / 月ごと / 年ごとのいずれかで、時刻を出す場所はもうない。

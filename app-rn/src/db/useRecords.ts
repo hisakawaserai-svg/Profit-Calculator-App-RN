@@ -10,9 +10,11 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { ChartUnit } from '@/logic/analytics';
+import { chartUnitFor, type ChartUnit } from '@/logic/analytics';
+import type { FilterScope } from '@/logic/recordFilter';
 
 import { repository } from './client';
+import { toAnalyticsFilter } from './repository';
 import type {
   AggregatedPoint,
   AnalyticsFilter,
@@ -159,9 +161,12 @@ export function useRecordList(
 }
 
 /** refreshToken を引数に取る理由は query() のコメントを参照 */
-function queryCount(filter: RecordListFilter, refreshToken: object): number {
+function queryCount(filter: RecordListFilter, scope: FilterScope, refreshToken: object): number {
   void refreshToken;
-  return repository.countRecords(filter);
+  // データタブは合計行と同じ 1 本から数を取る（FilterScope のコメント参照）
+  return scope === 'data'
+    ? repository.analyticsSummary(toAnalyticsFilter(filter)).recordCount
+    : repository.countRecords(filter);
 }
 
 /**
@@ -174,13 +179,13 @@ function queryCount(filter: RecordListFilter, refreshToken: object): number {
  * **検索語は渡さない**（呼び出し側の責務）。下部の件数に検索を含めないのは §4.6 の決定で、
  * タグの検索欄（§4.2.2）も一覧の見え方を変えるだけでここには効かない。
  */
-export function useFilteredRecordCount(filter: RecordListFilter): number {
+export function useFilteredRecordCount(filter: RecordListFilter, scope: FilterScope): number {
   const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
   const refresh = useCallback(() => setRefreshToken({}), []);
 
   useFocusEffect(refresh);
 
-  return useMemo(() => queryCount(filter, refreshToken), [filter, refreshToken]);
+  return useMemo(() => queryCount(filter, scope, refreshToken), [filter, scope, refreshToken]);
 }
 
 export type RecordData = {
@@ -277,6 +282,16 @@ export type AnalyticsData = {
   earliestMonthKey: string | null;
   /** 記録が 1 件以上ある月キー（古い順）。期間シートの月グリッドの濃淡に使う（UI-SPEC §1.2） */
   monthsWithRecords: string[];
+  /**
+   * 集計に使った刻み（UI-SPEC §5-5）。**画面ではなくここで決まる。**
+   *
+   * 全期間の刻みは対象の月数（= 最古の月から今月まで）で変わるが、その最古の月を知っているのは
+   * この問い合わせ自身なので、画面が先に刻みを決めて渡すことができない（決めるには
+   * earliestMonthKey が要り、earliestMonthKey を得るには問い合わせが要る）。
+   * そこで earliestMonthKey を引いてから chartUnitFor に決めさせ、結果を画面へ返す。
+   * 判定そのものは純粋関数（logic/analytics）に閉じたままで、ここは呼ぶだけ。
+   */
+  unit: ChartUnit;
 };
 
 const NO_DETAILS: SaleRecord[] = [];
@@ -284,16 +299,21 @@ const NO_DETAILS: SaleRecord[] = [];
 /** refreshToken を引数に取る理由は query() のコメントを参照 */
 function queryAnalytics(
   filter: AnalyticsFilter,
-  unit: ChartUnit,
+  today: Date,
   refreshToken: object,
 ): Omit<AnalyticsData, 'details'> {
   void refreshToken;
+  // 刻みは最古の月に依存するので、集計点より先に引く（AnalyticsData.unit のコメント参照）
+  const earliestMonthKey = repository.analyticsEarliestMonthKey(filter);
+  const unit = chartUnitFor({ monthKey: filter.monthKey, earliestMonthKey, today });
+
   return {
     summary: repository.analyticsSummary(filter),
     series: repository.analyticsSeries(filter, unit),
-    earliestMonthKey: repository.analyticsEarliestMonthKey(filter),
+    earliestMonthKey,
     // 記録タブと同じ盤面を出すため、こちらも絞り込みを見ない全記録で引く（UI-SPEC §1.2）
     monthsWithRecords: repository.monthsWithRecords(),
+    unit,
   };
 }
 
@@ -314,14 +334,17 @@ function queryAnalyticsDetails(
  * 集計は repository の SQL 側で完結しているので、画面が受け取るのは
  * 集計済みの点と合計値だけ。レコード実体は「タップされた 1 点の内訳」しか読まない。
  *
+ * 刻み（日ごと / 月ごと / 年ごと）は期間から自動で決まる（§5-5）。決めるのに最古の月が要るので
+ * 引数では受け取らず、ここで決めて `unit` として返す（AnalyticsData.unit のコメント参照）。
+ *
  * @param filter      集計対象（月キー + 種別）。monthKey = null で全期間、kind = null で全種別
- * @param unit        グラフの刻み（日ごと / 月ごと）。期間から自動で決まる（§5-5）
  * @param selectedKey タップされた点のキー。null なら内訳は引かない
+ * @param today       「今日」。全期間の範囲の右端で、刻みの判定にも使う
  */
 export function useAnalyticsData(
   filter: AnalyticsFilter,
-  unit: ChartUnit,
   selectedKey: string | null,
+  today: Date,
 ): AnalyticsData {
   const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
   const refresh = useCallback(() => setRefreshToken({}), []);
@@ -330,13 +353,13 @@ export function useAnalyticsData(
   useFocusEffect(refresh);
 
   const data = useMemo(
-    () => queryAnalytics(filter, unit, refreshToken),
-    [filter, unit, refreshToken],
+    () => queryAnalytics(filter, today, refreshToken),
+    [filter, today, refreshToken],
   );
   // 点を選び直したときに引き直すのは内訳だけなので、集計本体とはメモを分ける
   const details = useMemo(
-    () => queryAnalyticsDetails(filter, unit, selectedKey, refreshToken),
-    [filter, unit, selectedKey, refreshToken],
+    () => queryAnalyticsDetails(filter, data.unit, selectedKey, refreshToken),
+    [filter, data.unit, selectedKey, refreshToken],
   );
 
   return { ...data, details };

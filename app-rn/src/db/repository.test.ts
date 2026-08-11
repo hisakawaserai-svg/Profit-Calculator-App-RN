@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -775,5 +776,133 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
   it('earliestMonthKey も同じ条件で動く（buildWhere の 4 経路すべてに効く。§4.4）', () => {
     expect(repo.earliestMonthKey({ isSoldMode: true, siteName: 'ラクマ' })).toBe('2026-08');
     expect(repo.earliestMonthKey({ isSoldMode: true, siteName: '無い名前' })).toBeNull();
+  });
+});
+
+describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere に足した 2 条件）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let db: ReturnType<typeof drizzle>;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, { generateId: randomUUID });
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    // 売却済み 3 件（メルカリ 2 / ラクマ 1）。販売日は 8/1・8/2・8/3 で 1 日ずつずらす
+    sold({ saleDate: soldOn(1), siteName: 'メルカリ', tagIds: [clothes.id] });
+    sold({ saleDate: soldOn(2), siteName: 'メルカリ', tagIds: [summer.id] });
+    sold({ saleDate: soldOn(3), siteName: 'ラクマ', tagIds: [clothes.id, summer.id] });
+    // 出品中 1 件（タグ付き・サイト名は空）。データタブの集合には入らない
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
+  });
+
+  /**
+   * §4.4 の案 B（JOIN + DISTINCT）を退けた理由を、**データタブの集計でも**固定する。
+   * 合計行は sum(salesPrice) / sum(totalExpenses) を引いているので、タグ 2 つで行が
+   * 2 行に増えると件数だけでなく**金額が静かに倍になる**。EXISTS は行を増やさない。
+   */
+  it('タグ 2 つの記録が analyticsSummary で二重に計上されない', () => {
+    // 8/3 の 1 件だけを見る（この記録にタグが 2 つ付いている）
+    const one = { monthKey: null, siteName: 'ラクマ' };
+    const withoutTags = repo.analyticsSummary(one);
+    const withBothTags = repo.analyticsSummary({ ...one, tagIds: [clothes.id, summer.id] });
+
+    expect(withoutTags.recordCount).toBe(1);
+    // 件数も金額も、タグの条件を足す前とまったく同じ
+    expect(withBothTags).toEqual(withoutTags);
+    expect(withBothTags.totalSales).toBe(base.salesPrice);
+  });
+
+  it('タグの OR がグラフの集計点（analyticsSeries）にも効く', () => {
+    const both = repo.analyticsSeries({ monthKey: null, tagIds: [clothes.id, summer.id] }, 'day');
+
+    // 3 件が 3 日に分かれているので点も 3 つ。両方付いた 8/3 の点も 1 件のまま
+    expect(both.map((point) => point.key)).toEqual(['2026-08-01', '2026-08-02', '2026-08-03']);
+    expect(both.every((point) => point.recordCount === 1)).toBe(true);
+
+    // 1 つだけなら、そのタグが付いた 2 日ぶんに減る
+    expect(
+      repo.analyticsSeries({ monthKey: null, tagIds: [clothes.id] }, 'day').map((p) => p.key),
+    ).toEqual(['2026-08-01', '2026-08-03']);
+  });
+
+  it('販売サイトで絞れる（合計・集計点・最古の月のすべてに効く）', () => {
+    expect(repo.analyticsSummary({ monthKey: null, siteName: 'メルカリ' }).recordCount).toBe(2);
+    expect(repo.analyticsSeries({ monthKey: null, siteName: 'ラクマ' }, 'day')).toHaveLength(1);
+    expect(repo.analyticsEarliestMonthKey({ monthKey: null, siteName: 'ラクマ' })).toBe('2026-08');
+    expect(repo.analyticsEarliestMonthKey({ monthKey: null, siteName: '無い名前' })).toBeNull();
+  });
+
+  /**
+   * 記録タブと違い、**状態による無視の分岐はない**（§6）── データタブは売却済みだけを見る面なので、
+   * 「選ぶと必ず 0 件になる」状態が起きない。節も常に出る。
+   */
+  it('内訳（analyticsDetails）にも同じ条件が効く', () => {
+    const details = repo.analyticsDetails(
+      { monthKey: null, tagIds: [clothes.id] },
+      'day',
+      '2026-08-01',
+    );
+    expect(details).toHaveLength(1);
+    expect(
+      repo.analyticsDetails({ monthKey: null, tagIds: [summer.id] }, 'day', '2026-08-01'),
+    ).toHaveLength(0);
+  });
+
+  describe('タグの使用件数（§4.2.1）はデータタブの集合で数える', () => {
+    it('出品中の記録は数に入らない（記録タブの countsByTagForFilter との違い）', () => {
+      // 「洋服」は売却済み 2 件＋出品中 1 件に付いている
+      expect(repo.countsByTagForFilter({ isSoldMode: false }).get(clothes.id)).toBe(1);
+      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(2);
+      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(summer.id)).toBe(2);
+    });
+
+    /**
+     * **saleDate 非 null まで織り込む**（SPEC §6.2）。記録タブの buildWhere はこの条件を
+     * 持たないので、そのまま使うと下部の件数（analyticsSummary.recordCount）と食い違う。
+     * 保存経路は isSold なら saleDate を必ず埋めるが（§5.2）、条件が抜けていれば
+     * 古いデータや直接書き込みで壊れるので、SQL の側で固定しておく。
+     */
+    it('売却済みでも saleDate が無い記録は数に入らない', () => {
+      const orphan = repo.create({
+        ...base,
+        kind: 'used',
+        purchasePrice: 0,
+        isSold: true,
+        saleDate: soldOn(4),
+        tagIds: [clothes.id],
+      });
+      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(3);
+
+      // 販売日だけを落とす（保存経路では作れない状態を直接作る）
+      db.run(sql`UPDATE sale_records SET sale_date = NULL WHERE id = ${orphan.id}`);
+
+      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(2);
+      // 下部の件数と必ず同じ集合で数えていること
+      expect(repo.analyticsSummary({ monthKey: null, tagIds: [clothes.id] }).recordCount).toBe(2);
+    });
+
+    /** 選択中のタグだけを外して数える（OR なので、織り込むと逆向きの嘘になる。§4.2.1） */
+    it('選択中のタグは条件から外れ、ほかの条件は効いたまま', () => {
+      const counts = repo.analyticsCountsByTagForFilter({
+        monthKey: null,
+        siteName: 'メルカリ',
+        tagIds: [clothes.id],
+      });
+
+      // メルカリの 2 件は「洋服」1 件・「春夏物」1 件。tagIds は数えるときに外れる
+      expect(counts.get(clothes.id)).toBe(1);
+      expect(counts.get(summer.id)).toBe(1);
+    });
   });
 });

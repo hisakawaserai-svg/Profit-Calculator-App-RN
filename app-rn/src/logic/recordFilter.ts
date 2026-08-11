@@ -14,6 +14,19 @@ import type { Tag } from '@/db/schema';
 import { DEFAULT_KIND_FILTER, kindFilterLabel, toKindCondition, type KindFilter } from './kindFilter';
 import { filterSitePartLabel, filterSummaryLabel, filterTagPartLabel } from './labels';
 
+/**
+ * どのタブから開いた絞り込みか（SPEC-V4 §6）。**画面は 1 つで、数える集合だけが違う。**
+ *
+ * 絞り込みページ（RecordFilterScreen）は記録タブ・データタブで共用する ── 3 条件も操作も
+ * 同じなので、画面を 2 つに分けてコピーすると片方だけ直る事故が起きる。
+ * 一方で**件数の数え方は必ず違う**: データタブは `isSold = true` かつ `saleDate` 非 null が
+ * 固定条件（SPEC §6.2）で、記録タブの数え方には後者が入っていない。
+ * 下部の件数とタグの行の数字は、開いたタブの集計と同じ集合で数えないと嘘になる。
+ *
+ * 3 条件そのもの（RecordFilterDraft）はこの値で変わらない。変わるのは**数える対象**だけ。
+ */
+export type FilterScope = 'records' | 'data';
+
 /** 絞り込みシートが編集する下書き（§4.2）。3 条件ちょうどで、これ以上増やさない */
 export type RecordFilterDraft = {
   /** 種別（SPEC-V2 §4.2）。'all' = 絞り込みなし */

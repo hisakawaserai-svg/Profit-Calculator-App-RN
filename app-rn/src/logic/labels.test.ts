@@ -36,6 +36,7 @@ import {
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
   additionLabel,
+  chartBarLegendLabel,
   chartUnitLabel,
   commissionFieldLabel,
   commissionItemLabel,
@@ -277,18 +278,24 @@ describe('UI-SPEC §1.5 データタブの語', () => {
     expect(PROFIT_TREND_LABEL).toBe(`${TOTAL_PROFIT_LABEL}の推移`);
   });
 
-  it('刻みは日ごと / 月ごとの 2 語（§5-5）', () => {
+  it('刻みは日ごと / 月ごと / 年ごとの 3 語（§5-5）', () => {
     expect(chartUnitLabel('day')).toBe('日ごと');
     expect(chartUnitLabel('month')).toBe('月ごと');
+    expect(chartUnitLabel('year')).toBe('年ごと');
+  });
+
+  it('凡例は棒が何かを言う（刻みの語を畳んである）', () => {
+    expect(chartBarLegendLabel('year')).toBe('年ごとの収支');
   });
 
   it('選択した点の見出しは日付と件数を並べる（§1.5-5）', () => {
     expect(selectedPointTitle('8月9日', 3)).toBe('8月9日の記録　3件');
   });
 
-  it('注記は全期間で何が変わるかを名指しする（§1.5-6）', () => {
+  it('注記は全期間で何が変わるかを名指しする（年ごとへの切替も含めて。§1.5-6）', () => {
     expect(CHART_UNIT_NOTE).toBe(
-      '全期間を選ぶと刻みが「月ごと」に変わり、見出しも「全期間の収支」になります。',
+      '全期間を選ぶと刻みが「月ごと」（記録が3年ぶんを超えると「年ごと」）に変わり、' +
+        '見出しも「全期間の収支」になります。',
     );
   });
 });
