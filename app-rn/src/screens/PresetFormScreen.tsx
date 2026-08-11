@@ -173,6 +173,10 @@ export function PresetFormScreen({ type, preset }: Props) {
               label={presetValueFieldLabel(type)}
               value={value}
               onChangeValue={setValue}
+              // 電卓は残す（「1000 ÷ 30」の単価計算に使う。§3.3）が、その中の
+              // 「梱包材から選ぶ」は出さない ── プリセットからプリセットを選ぶ経路は作らない（§4.2）。
+              // 梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう
+              canPickPackaging={false}
             />
             {/* §3.3: 無効の理由は値の欄の下に 1 行（ボタンがグレーなだけでは理由が分からない） */}
             {!validation.valid && (

@@ -63,6 +63,11 @@ type Props = {
   presetType?: PresetType;
   /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
   canOpenSettings?: boolean;
+  /**
+   * 電卓の中に「🏷 梱包材から選ぶ」を出すか（SPEC-V3 §4.5）。
+   * **プリセット編集画面の値の欄からは false**（§4.2。MiniCalculator 参照）。
+   */
+  canPickPackaging?: boolean;
 };
 
 export function NumericField({
@@ -77,6 +82,7 @@ export function NumericField({
   valueStyle,
   presetType,
   canOpenSettings = true,
+  canPickPackaging = true,
 }: Props) {
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
@@ -147,6 +153,7 @@ export function NumericField({
           onSubmit={(result) => onChangeValue(sanitizeNumericInput(result))}
           // 電卓の中の梱包材シートも設定タブへ遷移できるかは同じ条件（SPEC-V3 §4.5）
           canOpenSettings={canOpenSettings}
+          canPickPackaging={canPickPackaging}
           onClose={() => setShowCalc(false)}
         />
       ) : null}

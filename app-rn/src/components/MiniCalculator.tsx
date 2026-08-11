@@ -107,6 +107,14 @@ type Props = {
    * 記録フォームからは false（PresetPickerSheet と同じ理由。モーダルの裏に遷移するため）。
    */
   canOpenSettings?: boolean;
+  /**
+   * 「🏷 梱包材から選ぶ」を出すか（既定 true。SPEC-V3 §4.5）。
+   *
+   * **プリセット編集画面の値の欄からは false**（§4.2 の「プリセットからプリセットを選ぶ経路は
+   * 作らない」）。梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに
+   * 「封筒」を選べてしまう。電卓そのものは残す ──「1000 ÷ 30」の単価計算に使うため（§3.3）。
+   */
+  canPickPackaging?: boolean;
   onClose: () => void;
 };
 
@@ -116,6 +124,7 @@ export function MiniCalculator({
   targetText,
   onSubmit,
   canOpenSettings = true,
+  canPickPackaging = true,
   onClose,
 }: Props) {
   const colors = useThemeColors();
@@ -231,20 +240,24 @@ export function MiniCalculator({
                     {additionLabel(CALC_ADD_ROW_LABEL)}
                   </Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => setShowPacking(true)}
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.addRow,
-                    styles.pickPacking,
-                    { opacity: pressed ? 0.5 : 1 },
-                  ]}>
-                  {/* タグ印はプリセットの入口の合図（行のタグボタンと同じ pricetag-outline） */}
-                  <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
-                  <Text style={[styles.addRowLabel, { color: colors.blue }]}>
-                    {CALC_PICK_PACKAGING_LABEL}
-                  </Text>
-                </Pressable>
+                {/* 出さないときは詰め物も置かない。左「＋ 行を足す」と右「AC」の
+                    2 つ構成に戻るだけで、どちらの位置も変わらない（space-between） */}
+                {canPickPackaging && (
+                  <Pressable
+                    onPress={() => setShowPacking(true)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.addRow,
+                      styles.pickPacking,
+                      { opacity: pressed ? 0.5 : 1 },
+                    ]}>
+                    {/* タグ印はプリセットの入口の合図（行のタグボタンと同じ pricetag-outline） */}
+                    <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
+                    <Text style={[styles.addRowLabel, { color: colors.blue }]}>
+                      {CALC_PICK_PACKAGING_LABEL}
+                    </Text>
+                  </Pressable>
+                )}
                 <Pressable
                   onPress={() => handleKey(CALC_KEY_CLEAR_ALL)}
                   accessibilityRole="button"
