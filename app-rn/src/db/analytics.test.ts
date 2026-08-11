@@ -238,7 +238,7 @@ describe('§6.2 チャート集計: 刻みごとの日付キーに丸めて合�
   });
 });
 
-describe('UI-SPEC §1.5-5 選択した棒の一覧', () => {
+describe('UI-SPEC §1.5-5 選択した点の一覧', () => {
   it('並びは収支（netProfit）の降順で固定（指標切替の廃止。§6-10）', () => {
     // 8 月: スニーカー 売上 8800 / 収支 8800−(4000+750+880)=3170
     //       腕時計   売上 20000 / 収支 20000−(15000+2000)=3000
@@ -255,6 +255,24 @@ describe('UI-SPEC §1.5-5 選択した棒の一覧', () => {
 
   it('期間外のキーを指定しても期間条件が優先されて 0 件になる', () => {
     expect(repo.analyticsDetails(period(AUGUST), 'day', '2026-07-05')).toHaveLength(0);
+  });
+});
+
+describe('UI-SPEC §1.2 期間シートの月グリッド（monthsWithRecords）', () => {
+  it('売却済みは販売日の月で数える（出品日の月ではない）', () => {
+    // july1 は 2026-06-20 出品 → 2026-07-05 販売。数えるのは 2026-07 だけ
+    expect(repo.monthsWithRecords()).toContain('2026-07');
+    expect(repo.monthsWithRecords()).not.toContain('2026-06');
+  });
+
+  it('出品中は出品日の月で数える（データタブの対象外でもグリッドには出る）', () => {
+    // 出品中の商品（2026-08-04 出品）。データタブの集計からは外れるが、
+    // グリッドの濃淡は状態を無視した全記録で決まる（§1.2 の派生決定）
+    expect(repo.monthsWithRecords()).toContain('2026-08');
+  });
+
+  it('古い順に重複なく並ぶ', () => {
+    expect(repo.monthsWithRecords()).toEqual(['2025-03', '2026-07', '2026-08']);
   });
 });
 

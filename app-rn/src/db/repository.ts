@@ -155,6 +155,20 @@ function monthKeySql(isSoldMode: boolean): SQL<string> {
   return sql<string>`substr(${basisDateSql(isSoldMode)}, 1, 7)`;
 }
 
+/**
+ * 状態を問わない基準日（期間シートの「記録あり」判定。UI-SPEC §1.2）。
+ *
+ * basisDateSql は「いま見ている状態」で基準日を選ぶが、こちらは**状態チップを無視する**ので
+ * レコード自身の状態で選ぶ ── 売却済みは販売日、出品中は出品日。
+ * 絞り込みでグリッドの見た目が変わると期間選びの手がかりとして不安定になる、という理由での判定なので、
+ * 状態・種別・検索のいずれにも依存させない（§1.2 の派生決定）。
+ */
+const recordMonthKeySql = sql<string>`substr(
+  case when ${saleRecords.isSold}
+    then coalesce(${saleRecords.saleDate}, ${saleRecords.saleStartDate})
+    else ${saleRecords.saleStartDate}
+  end, 1, 7)`;
+
 /** LIKE 用エスケープ（% _ \ をリテラル扱いにする） */
 function likePattern(searchText: string): string {
   return `%${searchText.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -399,6 +413,23 @@ export function createRepository(
       return row?.earliest ?? null;
     },
 
+    /**
+     * 記録が 1 件以上ある月キーの一覧（期間シートの月グリッド。UI-SPEC §1.2）。古い順。
+     *
+     * **絞り込みを一切受け取らない**のが要点 ── 種別・状態・検索を無視した全記録で判定する
+     * （§1.2 の派生決定）。絞り込むたびにグリッドの濃淡が変わると、期間を選ぶときの
+     * 手がかりとして当てにならなくなるため。記録タブ・データタブのどちらから開いても同じ盤面になる。
+     */
+    monthsWithRecords(): string[] {
+      return db
+        .select({ monthKey: recordMonthKeySql })
+        .from(saleRecords)
+        .groupBy(recordMonthKeySql)
+        .orderBy(recordMonthKeySql)
+        .all()
+        .map((row) => row.monthKey);
+    },
+
     /** 画面下部の累計（SPEC §6.1 CareerSummarySection）。丸めなしで返す */
     careerSummary(filter: RecordListFilter): CareerSummary {
       const row = db
@@ -473,7 +504,7 @@ export function createRepository(
     },
 
     /**
-     * 選択された棒の内訳（UI-SPEC §1.5-5「選択日の一覧」）。
+     * 選択された点の内訳（UI-SPEC §1.5-5「選択日の一覧」）。
      * タップされた 1 点ぶんだけを引くので、全期間ぶんのレコードを画面に持ち込まずに済む。
      *
      * 並びは純利益の降順で固定。指標切替（売上金額 / 収支）を廃止してグラフが収支だけになったので、

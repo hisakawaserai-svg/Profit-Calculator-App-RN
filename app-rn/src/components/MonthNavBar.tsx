@@ -13,9 +13,6 @@ import { formatMonthTitle } from '@/logic/format';
 import { ALL_PERIOD_LABEL } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
-/** 無効な矢印の色（UI-SPEC §1.2） */
-const DISABLED_ARROW_COLOR = 'rgba(60, 60, 67, 0.25)';
-
 type Props = {
   /** 表示中の月キー "YYYY-MM"。null = 全期間 */
   monthKey: string | null;
@@ -95,7 +92,7 @@ function ArrowButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: !enabled }}
       accessibilityLabel={accessibilityLabel}>
-      <Ionicons name={name} size={20} color={enabled ? colors.blue : DISABLED_ARROW_COLOR} />
+      <Ionicons name={name} size={20} color={enabled ? colors.blue : colors.disabledContent} />
     </Pressable>
   );
 }

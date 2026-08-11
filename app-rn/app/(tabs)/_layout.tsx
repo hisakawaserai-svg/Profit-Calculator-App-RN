@@ -34,7 +34,7 @@ export default function TabLayout() {
         name="index"
         options={{ title: '計算', tabBarIcon: tabIcon('calculator', 'calculator-outline') }}
       />
-      {/* 記録・設定はタブ内に Stack を持ち（月別詳細・使いかたへのプッシュ遷移。UI-SPEC §2）、
+      {/* 記録・データ・設定はタブ内に Stack を持ち（レコード詳細・使いかたへのプッシュ遷移。UI-SPEC §2）、
           ヘッダーはその Stack 側が出すのでタブのヘッダーは切る */}
       <Tabs.Screen
         name="records"
@@ -46,7 +46,11 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="data"
-        options={{ title: 'データ', tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline') }}
+        options={{
+          title: 'データ',
+          tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline'),
+          headerShown: false,
+        }}
       />
       <Tabs.Screen
         name="settings"

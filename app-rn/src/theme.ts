@@ -22,6 +22,13 @@ export type ThemeColors = {
   mutedLabel: string;
   /** Divider 相当 */
   separator: string;
+  /**
+   * 「選べない／中身がない」ことを示す最も薄い前景色（UI-SPEC §1.2）。
+   * 月バーの無効な矢印、期間シートの記録のない月・未来の月に使う。
+   * 設計案の指定は明色の `rgba(60,60,67,.25)`。暗色は同じ薄さに見えるところまで反転させる
+   * （黒地にそのまま置くと消えてしまい、「薄い」ではなく「無い」に見える）。
+   */
+  disabledContent: string;
   /** 純利益プラス・必要販売価格 */
   green: string;
   /** 純利益マイナス */
@@ -71,6 +78,7 @@ const light: ThemeColors = {
   secondaryLabel: 'rgba(60, 60, 67, 0.6)',
   mutedLabel: 'rgba(60, 60, 67, 0.4)',
   separator: 'rgba(60, 60, 67, 0.29)',
+  disabledContent: 'rgba(60, 60, 67, 0.25)',
   green: '#34C759',
   red: '#FF3B30',
   orange: '#FF9500',
@@ -93,6 +101,7 @@ const dark: ThemeColors = {
   secondaryLabel: 'rgba(235, 235, 245, 0.6)',
   mutedLabel: 'rgba(235, 235, 245, 0.4)',
   separator: 'rgba(84, 84, 88, 0.6)',
+  disabledContent: 'rgba(235, 235, 245, 0.25)',
   green: '#30D158',
   red: '#FF453A',
   orange: '#FF9F0A',

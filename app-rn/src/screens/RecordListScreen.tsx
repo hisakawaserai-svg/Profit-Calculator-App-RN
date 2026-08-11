@@ -113,7 +113,7 @@ export function RecordListScreen() {
     () => ({ isSoldMode, monthKey, kind }),
     [isSoldMode, monthKey, kind],
   );
-  const { records, summary, earliestMonthKey, refresh } = useRecordList(
+  const { records, summary, earliestMonthKey, monthsWithRecords, refresh } = useRecordList(
     filter,
     sortType,
     summaryFilter,
@@ -308,7 +308,7 @@ export function RecordListScreen() {
       <PeriodSheet
         visible={showPeriodSheet}
         monthKey={monthKey}
-        earliestMonthKey={earliestMonthKey}
+        monthsWithRecords={monthsWithRecords}
         currentMonthKey={currentMonthKey}
         onSelect={setMonthKey}
         onClose={() => setShowPeriodSheet(false)}

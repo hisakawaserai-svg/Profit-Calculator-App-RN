@@ -74,6 +74,22 @@ export const ALL_PERIOD_LABEL = '全期間';
 /** 期間シートの見出し（UI-SPEC §1.2）。記録タブ・データタブで同じシートを開く */
 export const PERIOD_SHEET_TITLE = '表示する期間';
 
+/**
+ * 期間シートの先頭に固定するクイック選択（UI-SPEC §1.2-2）。
+ * 「全期間」は月バーと同じ語（ALL_PERIOD_LABEL）を使う ── 選んだ結果が月バーに出るので、
+ * ボタンとバーで語が違うと同じものを指していると読めない。
+ */
+export const THIS_MONTH_LABEL = '今月';
+export const LAST_MONTH_LABEL = '先月';
+
+/**
+ * 月グリッドの凡例（UI-SPEC §1.2-4）。
+ * 濃淡の意味を名指しする ── 薄いマスを見た人に理由を自分で埋めさせないため（§8.10.5 と同じ方針）。
+ * 未来の月も「記録なし」と同じ薄さで、違いは押せるかどうかだけなので、凡例は 2 項目で足りる。
+ */
+export const HAS_RECORDS_LEGEND_LABEL = '記録あり';
+export const NO_RECORDS_LEGEND_LABEL = '記録なし';
+
 /** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は LISTING_COUNT_LABEL と同じ語 */
 export const SOLD_RECORDS_LABEL = '売れた記録';
 
@@ -325,8 +341,9 @@ export function targetProfitLabel(kind: RecordKind): string {
 export const PROFIT_TREND_LABEL = `${TOTAL_PROFIT_LABEL}の推移`;
 
 /**
- * グラフカード右上に出す現在の刻み（UI-SPEC §1.5-4）。**表示のみで押せない** ──
+ * 現在の刻み（UI-SPEC §1.5-4）。**表示のみで押せない** ──
  * 刻みは期間から自動で決まり、選ばせる操作ではないため（§5-5）。
+ * 単独では出さず、凡例の棒の側の語に組み込む（chartBarLegendLabel）。
  */
 const CHART_UNIT_LABELS: Record<ChartUnit, string> = {
   day: '日ごと',
@@ -337,10 +354,27 @@ export function chartUnitLabel(unit: ChartUnit): string {
   return CHART_UNIT_LABELS[unit];
 }
 
-/** 選択中の棒を外すリンク（UI-SPEC §1.5-5）。棒をもう一度押す経路は持たないので語で出す */
+/**
+ * 凡例の棒の側（UI-SPEC §1.5-4）:「日ごとの収支」/「月ごとの収支」。左軸が表すもの。
+ *
+ * 刻みの表示（旧・見出しの右）をこの語に畳んである ── 棒が何かを言えば刻みも言えるので、
+ * 「日ごと」を 2 か所に出す必要がない。凡例と刻みで別々に場所を取ると、
+ * グラフ 1 つに説明が 2 段付くことになる。
+ */
+export function chartBarLegendLabel(unit: ChartUnit): string {
+  return `${chartUnitLabel(unit)}の${TOTAL_PROFIT_LABEL}`;
+}
+
+/**
+ * 凡例の折れ線の側（UI-SPEC §1.5-4）。右軸が表すもの。
+ * 起点は表示中の期間の先頭なので、最後の値は合計行の収支と一致する（logic/analytics 参照）。
+ */
+export const CUMULATIVE_PROFIT_LABEL = `累計${TOTAL_PROFIT_LABEL}`;
+
+/** 選択中の点を外すリンク（UI-SPEC §1.5-5）。点をもう一度押す経路は持たないので語で出す */
 export const CLEAR_SELECTION_LABEL = '選択を解除';
 
-/** 選択した棒の一覧の見出し（UI-SPEC §1.5-5）:「8月9日の記録　3件」 */
+/** 選択した点の一覧の見出し（UI-SPEC §1.5-5）:「8月9日の記録　3件」 */
 export function selectedPointTitle(dateText: string, count: number): string {
   return `${dateText}の記録　${count}件`;
 }

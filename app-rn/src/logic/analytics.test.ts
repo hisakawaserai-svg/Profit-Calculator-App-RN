@@ -7,11 +7,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  chartSlots,
+  chartSpan,
   chartUnitFor,
+  cumulativeProfits,
+  densifySeries,
+  dualAxisBounds,
   formatChartLabel,
   formatPointDate,
+  nearestRecordedIndex,
   yAxisLowerBound,
   yAxisUpperBound,
+  type ChartPoint,
 } from './analytics';
 
 /** ローカル時刻の Date を組み立てる（DB もローカル暦で扱うため） */
@@ -56,7 +63,247 @@ describe('Y 軸下限（負の収支を軸下に隠さないための拡張）',
   });
 });
 
-describe('§6.2 / §1.5-5 軸ラベル・選択した棒の見出しの書式', () => {
+describe('UI-SPEC §1.5-4 累計収支（折れ線）', () => {
+  it('期間の先頭からの running sum', () => {
+    expect(cumulativeProfits([100, 200, 50])).toEqual([100, 300, 350]);
+  });
+
+  it('赤字の点では下がる（単調増加とは限らない）', () => {
+    expect(cumulativeProfits([100, -300, 50])).toEqual([100, -200, -150]);
+  });
+
+  it('最後の値は期間の合計と一致する（合計行と食い違わないこと）', () => {
+    const values = [1200, -400, 900];
+    const cumulative = cumulativeProfits(values);
+    expect(cumulative[cumulative.length - 1]).toBe(
+      values.reduce((sum, value) => sum + value, 0),
+    );
+  });
+
+  it('点が 1 つもなければ空', () => {
+    expect(cumulativeProfits([])).toEqual([]);
+  });
+});
+
+describe('UI-SPEC §1.5-4 2 軸の範囲: キリのいい目盛りと 0 の高さ', () => {
+  /** 負側が占める割合。両軸で等しければ 0 は同じ高さに来る */
+  const negativeRatio = (max: number, min: number) => -min / max;
+  /** 目盛りの並び（0 を除く上側） */
+  const ticks = (max: number, sections: number) =>
+    Array.from({ length: sections }, (_, i) => (max / sections) * (i + 1));
+
+  it('半端な数を避けてキリのいい目盛りにする（8596 → 3000/6000/9000）', () => {
+    // 素の上限は 7475 × 1.15 = 8596。4 等分すると 2149 という半端な数になっていた
+    const bounds = dualAxisBounds([7475], [7475]);
+    expect(ticks(bounds.barMax, bounds.sections)).toEqual([3000, 6000, 9000]);
+  });
+
+  it('累計側も同じ規則で丸める（14588 → 5000/10000/15000）', () => {
+    const bounds = dualAxisBounds([7475], [12685]);
+    expect(ticks(bounds.cumulativeMax, bounds.sections)).toEqual([5000, 10000, 15000]);
+  });
+
+  it('データが小さくても目盛りは丸める（下駄の 1000 → 300/600/900/1200）', () => {
+    const bounds = dualAxisBounds([500], [500]);
+    expect(ticks(bounds.barMax, bounds.sections)).toEqual([300, 600, 900, 1200]);
+  });
+
+  it('上限はデータを必ず覆う', () => {
+    const bounds = dualAxisBounds([7475], [12685]);
+    expect(bounds.barMax).toBeGreaterThanOrEqual(7475);
+    expect(bounds.cumulativeMax).toBeGreaterThanOrEqual(12685);
+  });
+
+  it('段数は両軸で共有する（罫線が 1 組に収まる）', () => {
+    const bounds = dualAxisBounds([7475], [12685]);
+    expect(bounds.sections).toBe(3);
+  });
+
+  it('どちらにも負値がなければ両軸とも下限 0', () => {
+    const bounds = dualAxisBounds([1000, 2000], [1000, 3000]);
+    expect(bounds.barMin).toBe(0);
+    expect(bounds.cumulativeMin).toBe(0);
+    expect(bounds.sectionsBelow).toBe(0);
+  });
+
+  it('棒だけが負でも、負側の割合は両軸で等しくなる', () => {
+    const bounds = dualAxisBounds([2000, -1000], [2000, 1000]);
+    expect(negativeRatio(bounds.barMax, bounds.barMin)).toBeCloseTo(
+      negativeRatio(bounds.cumulativeMax, bounds.cumulativeMin),
+      10,
+    );
+    expect(bounds.cumulativeMin).toBeLessThan(0);
+  });
+
+  it('累計だけが負でも同じ（割合の大きい方に合わせて広げる）', () => {
+    const bounds = dualAxisBounds([2000, 1000], [-5000, -8000]);
+    expect(negativeRatio(bounds.barMax, bounds.barMin)).toBeCloseTo(
+      negativeRatio(bounds.cumulativeMax, bounds.cumulativeMin),
+      10,
+    );
+    // 累計の下限は実データを覆えていること（軸から食み出さない）
+    expect(bounds.cumulativeMin).toBeLessThanOrEqual(-8000);
+  });
+
+  it('負側の目盛りもキリのいい数（下は上と同じ幅で刻む）', () => {
+    const bounds = dualAxisBounds([7475, -2000], [7475, -2000]);
+    const step = bounds.barMax / bounds.sections;
+    expect(bounds.barMin).toBe(-step * bounds.sectionsBelow);
+    expect(step % 1000).toBe(0);
+  });
+});
+
+describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
+
+  describe('chartSpan: 軸が覆う範囲', () => {
+    it('過去の月は 1 日から末日まで', () => {
+      const span = chartSpan({
+        monthKey: '2026-07',
+        earliestMonthKey: '2026-01',
+        today: d(2026, 8, 10),
+      });
+      expect(span).toEqual({ from: d(2026, 7, 1), to: d(2026, 7, 31) });
+    });
+
+    it('今月は今日まで（来ていない日まで軸を伸ばさない）', () => {
+      const today = new Date(2026, 7, 10, 9, 30);
+      const span = chartSpan({ monthKey: '2026-08', earliestMonthKey: '2026-01', today });
+      expect(span).toEqual({ from: d(2026, 8, 1), to: today });
+    });
+
+    it('うるう年の 2 月は 29 日まで', () => {
+      const span = chartSpan({
+        monthKey: '2024-02',
+        earliestMonthKey: '2024-01',
+        today: d(2026, 8, 10),
+      });
+      expect(span?.to).toEqual(d(2024, 2, 29));
+    });
+
+    it('全期間は最も古い記録の月から今月まで', () => {
+      const today = d(2026, 8, 10);
+      const span = chartSpan({ monthKey: null, earliestMonthKey: '2025-03', today });
+      expect(span).toEqual({ from: d(2025, 3, 1), to: today });
+    });
+
+    it('全期間で記録が 1 件もなければ軸を引けない', () => {
+      expect(
+        chartSpan({ monthKey: null, earliestMonthKey: null, today: d(2026, 8, 10) }),
+      ).toBeNull();
+    });
+  });
+
+  describe('chartSlots: 等間隔のスロット', () => {
+    it('日ごとは 1 日ずつ、両端を含む', () => {
+      const slots = chartSlots('day', d(2026, 7, 1), d(2026, 7, 31));
+      expect(slots).toHaveLength(31);
+      expect(slots[0].key).toBe('2026-07-01');
+      expect(slots[30].key).toBe('2026-07-31');
+    });
+
+    it('月をまたいでも日付が連続する', () => {
+      const slots = chartSlots('day', d(2026, 1, 30), d(2026, 2, 2));
+      expect(slots.map((slot) => slot.key)).toEqual([
+        '2026-01-30',
+        '2026-01-31',
+        '2026-02-01',
+        '2026-02-02',
+      ]);
+    });
+
+    it('月ごとは 1 か月ずつ、年をまたいで続く', () => {
+      const slots = chartSlots('month', d(2025, 11, 20), d(2026, 2, 5));
+      expect(slots.map((slot) => slot.key)).toEqual([
+        '2025-11',
+        '2025-12',
+        '2026-01',
+        '2026-02',
+      ]);
+    });
+
+    it('キーは repository の集計キーと同じ形式（0 埋め）', () => {
+      expect(chartSlots('day', d(2026, 3, 5), d(2026, 3, 5))[0].key).toBe('2026-03-05');
+      expect(chartSlots('month', d(2026, 3, 1), d(2026, 3, 1))[0].key).toBe('2026-03');
+    });
+  });
+
+  describe('densifySeries: 記録のない日は空白', () => {
+    const point = (key: string, date: Date, profit: number): ChartPoint => ({
+      key,
+      date,
+      profit,
+      recordCount: 1,
+    });
+
+    it('月初と月末だけの記録が 30 日ぶん離れて並ぶ', () => {
+      const dense = densifySeries(
+        [point('2026-07-01', d(2026, 7, 1), 1000), point('2026-07-31', d(2026, 7, 31), 2000)],
+        'day',
+        { from: d(2026, 7, 1), to: d(2026, 7, 31) },
+      );
+
+      expect(dense).toHaveLength(31);
+      expect(dense[0].profit).toBe(1000);
+      expect(dense[30].profit).toBe(2000);
+      // 間はすべて空（棒が出ない）
+      expect(dense.slice(1, 30).every((slot) => slot.recordCount === 0)).toBe(true);
+    });
+
+    it('埋めたスロットは値も件数も 0（棒を出さない目印になる）', () => {
+      const dense = densifySeries([], 'day', { from: d(2026, 7, 1), to: d(2026, 7, 3) });
+      expect(dense).toEqual([
+        { key: '2026-07-01', date: d(2026, 7, 1), profit: 0, recordCount: 0 },
+        { key: '2026-07-02', date: d(2026, 7, 2), profit: 0, recordCount: 0 },
+        { key: '2026-07-03', date: d(2026, 7, 3), profit: 0, recordCount: 0 },
+      ]);
+    });
+
+    it('空白の日をまたいでも累計は横ばいで伸びる', () => {
+      const dense = densifySeries(
+        [point('2026-07-01', d(2026, 7, 1), 1000), point('2026-07-05', d(2026, 7, 5), 500)],
+        'day',
+        { from: d(2026, 7, 1), to: d(2026, 7, 5) },
+      );
+      expect(cumulativeProfits(dense.map((slot) => slot.profit))).toEqual([
+        1000, 1000, 1000, 1000, 1500,
+      ]);
+    });
+  });
+
+  describe('nearestRecordedIndex: タップは最も近い棒を選ぶ', () => {
+    const slots = (pattern: string): ChartPoint[] =>
+      [...pattern].map((mark, index) => ({
+        key: String(index),
+        date: new Date(2026, 6, index + 1),
+        profit: mark === '#' ? 100 : 0,
+        recordCount: mark === '#' ? 1 : 0,
+      }));
+
+    it('押した位置に記録があればそのまま', () => {
+      expect(nearestRecordedIndex(slots('#..#'), 3)).toBe(3);
+    });
+
+    it('空きを押したら近い側の棒を選ぶ', () => {
+      expect(nearestRecordedIndex(slots('#....#'), 1)).toBe(0);
+      expect(nearestRecordedIndex(slots('#....#'), 4)).toBe(5);
+    });
+
+    it('同じ距離なら古い側（左）を選ぶ', () => {
+      expect(nearestRecordedIndex(slots('#.#'), 1)).toBe(0);
+    });
+
+    it('遠く離れていても必ずどれかを選ぶ（空振りにしない）', () => {
+      expect(nearestRecordedIndex(slots('#..............'), 14)).toBe(0);
+    });
+
+    it('記録が 1 件もなければ null', () => {
+      expect(nearestRecordedIndex(slots('....'), 2)).toBeNull();
+    });
+  });
+});
+
+describe('§6.2 / §1.5-5 軸ラベル・選択した点の見出しの書式', () => {
   const date = d(2026, 8, 9, 14, 30);
 
   it('X 軸ラベルは 日ごと = MM/DD、月ごと = YYYY/MM', () => {
@@ -64,7 +311,7 @@ describe('§6.2 / §1.5-5 軸ラベル・選択した棒の見出しの書式', 
     expect(formatChartLabel(date, 'month')).toBe('2026/08');
   });
 
-  it('選択した棒の見出しは刻みの粒度に合わせる', () => {
+  it('選択した点の見出しは刻みの粒度に合わせる', () => {
     expect(formatPointDate(date, 'day')).toBe('8月9日');
     expect(formatPointDate(date, 'month')).toBe('2026年8月');
   });

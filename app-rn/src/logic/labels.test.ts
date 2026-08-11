@@ -244,7 +244,7 @@ describe('UI-SPEC §1.5 データタブの語', () => {
     expect(chartUnitLabel('month')).toBe('月ごと');
   });
 
-  it('選択した棒の見出しは日付と件数を並べる（§1.5-5）', () => {
+  it('選択した点の見出しは日付と件数を並べる（§1.5-5）', () => {
     expect(selectedPointTitle('8月9日', 3)).toBe('8月9日の記録　3件');
   });
 

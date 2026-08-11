@@ -95,6 +95,8 @@ export type RecordListPage = {
   summary: CareerSummary;
   /** 条件に合う最古の月キー。null = 0 件。月バーの ◀ の無効化に使う（UI-SPEC §5-14） */
   earliestMonthKey: string | null;
+  /** 記録が 1 件以上ある月キー（古い順）。期間シートの月グリッドの濃淡に使う（UI-SPEC §1.2） */
+  monthsWithRecords: string[];
   /** 書き込み後に呼んで再取得する */
   refresh: () => void;
 };
@@ -116,6 +118,9 @@ function queryList(
       monthKey: null,
       searchText: '',
     }),
+    // 月グリッドの濃淡は絞り込みを一切見ない（UI-SPEC §1.2 の派生決定）。
+    // filter を渡す口を作らないことで、あとから絞り込みが混ざるのを防ぐ
+    monthsWithRecords: repository.monthsWithRecords(),
   };
 }
 
@@ -216,10 +221,12 @@ export type AnalyticsData = {
   summary: AnalyticsSummary;
   /** チャートの集計点。日付キーの昇順・丸めなし */
   series: AggregatedPoint[];
-  /** 選択中の棒の内訳。未選択なら空配列 */
+  /** 選択中の点の内訳。未選択なら空配列 */
   details: SaleRecord[];
   /** データのある最古の月キー。null = 0 件。月バーの ◀ の無効化に使う（UI-SPEC §5-14） */
   earliestMonthKey: string | null;
+  /** 記録が 1 件以上ある月キー（古い順）。期間シートの月グリッドの濃淡に使う（UI-SPEC §1.2） */
+  monthsWithRecords: string[];
 };
 
 const NO_DETAILS: SaleRecord[] = [];
@@ -235,6 +242,8 @@ function queryAnalytics(
     summary: repository.analyticsSummary(filter),
     series: repository.analyticsSeries(filter, unit),
     earliestMonthKey: repository.analyticsEarliestMonthKey(filter),
+    // 記録タブと同じ盤面を出すため、こちらも絞り込みを見ない全記録で引く（UI-SPEC §1.2）
+    monthsWithRecords: repository.monthsWithRecords(),
   };
 }
 
@@ -257,7 +266,7 @@ function queryAnalyticsDetails(
  *
  * @param filter      集計対象（月キー + 種別）。monthKey = null で全期間、kind = null で全種別
  * @param unit        グラフの刻み（日ごと / 月ごと）。期間から自動で決まる（§5-5）
- * @param selectedKey タップされた棒のキー。null なら内訳は引かない
+ * @param selectedKey タップされた点のキー。null なら内訳は引かない
  */
 export function useAnalyticsData(
   filter: AnalyticsFilter,
@@ -274,7 +283,7 @@ export function useAnalyticsData(
     () => queryAnalytics(filter, unit, refreshToken),
     [filter, unit, refreshToken],
   );
-  // 棒を選び直したときに引き直すのは内訳だけなので、集計本体とはメモを分ける
+  // 点を選び直したときに引き直すのは内訳だけなので、集計本体とはメモを分ける
   const details = useMemo(
     () => queryAnalyticsDetails(filter, unit, selectedKey, refreshToken),
     [filter, unit, selectedKey, refreshToken],

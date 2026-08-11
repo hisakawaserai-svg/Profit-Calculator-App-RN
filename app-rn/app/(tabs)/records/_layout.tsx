@@ -4,9 +4,11 @@ import { Stack } from 'expo-router';
 // タブ側のヘッダーは (tabs)/_layout.tsx で切ってあるので、ヘッダーはこの Stack が出す。
 //
 // anchor（旧 initialRouteName）は「この Stack の起点は一覧である」ことの宣言。
-// データタブの行タップは同じ [id] ルートへ push する（§2 / §6-9 の「1 系統に統一」）が、
-// これがないと記録タブの Stack が詳細 1 枚だけに置き換わり、戻る導線が消える
-// （実機で確認: 戻るボタンもスワイプバックも出ない）。anchor があると一覧の上に積まれる。
+// [id] ルートへ外から直接入ったとき（ディープリンク・リロード）に一覧を下に積み、
+// 戻る導線が消えないようにする。
+//
+// データタブからの遷移は**データタブ自身の Stack**（app/(tabs)/data/record/[id].tsx）を使う。
+// ここへ push すると、詳細から戻ったときに開いたタブ（データ）ではなく記録の一覧に着いてしまう。
 export const unstable_settings = {
   anchor: 'index',
 };

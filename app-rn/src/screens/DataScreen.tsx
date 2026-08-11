@@ -8,14 +8,17 @@
 //
 // - 対象は isSold = true かつ saleDate 非 null のみ。出品中は一切含まれない（SPEC §6.2）。
 // - 集計（Σ salesPrice / Σ netProfit / 刻みごとのグループ化）はすべて repository の SQL 側で完結する。
-//   この画面はレコードを 1 件もループしない。読むレコード実体は「タップされた棒の内訳」だけ。
+//   この画面はレコードを 1 件もループしない。読むレコード実体は「タップされた点の内訳」だけ。
 // - 丸めは合算後の表示の瞬間のみ（決定 §7-2 / §2.6）。金額表示は format を通す。
 // - 内訳の行は記録タブと同じ RecordRow を共用する（§6-11）。
+// - グラフは棒（刻みごとの収支・左軸）と折れ線（累計収支・右軸）の組み合わせ（§1.5-4）。
+//   棒タップでその日の記録が下に並ぶ。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
+import Svg, { Polyline } from 'react-native-svg';
 
 import { FilterChip } from '@/components/FilterChip';
 import { MonthNavBar } from '@/components/MonthNavBar';
@@ -27,12 +30,17 @@ import type { AggregatedPoint } from '@/db/repository';
 import type { SaleRecord } from '@/db/schema';
 import { useAnalyticsData } from '@/db/useRecords';
 import {
+  chartSpan,
   chartUnitFor,
+  cumulativeProfits,
+  densifySeries,
+  dualAxisBounds,
   formatChartLabel,
   formatPointDate,
-  yAxisLowerBound,
-  yAxisUpperBound,
+  nearestRecordedIndex,
+  type ChartPoint,
   type ChartUnit,
+  type DualAxisBounds,
 } from '@/logic/analytics';
 import { formatYenSymbol } from '@/logic/format';
 import {
@@ -44,10 +52,11 @@ import {
 import {
   CHART_UNIT_NOTE,
   CLEAR_SELECTION_LABEL,
+  CUMULATIVE_PROFIT_LABEL,
   EXPENSES_LABEL,
   PROFIT_TREND_LABEL,
   TOTAL_SALES_LABEL,
-  chartUnitLabel,
+  chartBarLegendLabel,
   periodProfitLabel,
   selectedPointTitle,
 } from '@/logic/labels';
@@ -58,12 +67,40 @@ const CHART_HEIGHT = 220;
 const Y_AXIS_WIDTH = 52;
 /** X 軸ラベルを出す点の目安の数（Swift 版 AxisMarks(desiredCount: 5)） */
 const LABEL_COUNT = 5;
+/** 軸の内側の余白（左右）。1 本目・最後の棒が軸に張り付かないようにする */
+const EDGE_SPACING = 12;
+/** 棒の太さの上限と、スロット幅に対する比率（日付の軸ではスロットが細くなるため） */
+const MAX_BAR_WIDTH = 12;
+const BAR_WIDTH_RATIO = 0.6;
+/**
+ * X 軸ラベルの枠幅。既定では**棒の幅**が枠になるので、日付の軸では棒が細くなったぶん
+ * ラベルが「0…」に潰れる。日付 1 つぶん（"08/01"）が入る幅を明示する。
+ *
+ * ただし枠を広げると**ラベルが棒の右へずれる**。ライブラリは枠を
+ * 「左端 = 棒の左端 − spacing/2、幅 = labelWidth + spacing」に置くので、
+ * 枠の中央（＝文字の中央）は棒の左端 + labelWidth/2 に来る ── labelWidth が棒の幅と等しい
+ * 既定でだけ棒の中央と一致する。広げたぶんは X_LABEL_SHIFT で左へ戻す。
+ */
+const X_LABEL_WIDTH = 36;
+
+/** ラベルの中央を棒の中央に戻す量（上記）。棒の幅ぶんだけ戻し過ぎないよう半分ずつで打ち消す */
+const xLabelShift = (barWidth: number) => (barWidth - X_LABEL_WIDTH) / 2;
+/**
+ * ライブラリが本体の上に足す余白。gifted-charts-core の
+ * `getExtendedContainerHeightWithPadding`（containerHeight + 10）に由来する固定値で、
+ * 本体の上端はカードの上端ではなくここから始まる。自前で重ねる折れ線も同じだけ下げる。
+ */
+const CHART_TOP_PADDING = 10;
 
 /** 種別チップの巡回順（記録タブと同じ「すべて → 不用品 → 仕入品 → すべて」。UI-SPEC §1.2） */
 const KIND_CYCLE: KindFilter[] = ['all', 'used', 'sourced'];
 
-/** レコード詳細のルート。記録タブと同じ 1 系統（UI-SPEC §2 / §6-9） */
-const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
+/**
+ * レコード詳細のルート。**データタブ自身の Stack の中**にある入口（UI-SPEC §2）。
+ * 画面の実体は記録タブと同じ SaleRecordDetailScreen で、入口だけタブごとに分けてある ──
+ * 記録タブのルートへ push すると、詳細から戻ったときに記録タブの一覧に着いてしまうため。
+ */
+const RECORD_DETAIL_PATHNAME = '/data/record/[id]' as const;
 
 export function DataScreen() {
   const colors = useThemeColors();
@@ -85,13 +122,20 @@ export function DataScreen() {
     () => ({ monthKey, kind: toKindCondition(kindFilter) }),
     [monthKey, kindFilter],
   );
-  // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、見出しの右に現在の刻みを表示するだけ
+  // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ
   const unit = chartUnitFor(monthKey);
-  const { summary, series, details, earliestMonthKey } = useAnalyticsData(
+  const { summary, series, details, earliestMonthKey, monthsWithRecords } = useAnalyticsData(
     filter,
     unit,
     selectedKey,
   );
+
+  // X 軸は日付の軸にする（§1.5-4）。repository が返すのは記録のある点だけなので、
+  // 期間の全スロットを作って空きを 0 で埋める ── 7/1 と 7/31 が隣り合わないように
+  const densePoints = useMemo(() => {
+    const span = chartSpan({ monthKey, earliestMonthKey, today });
+    return span == null ? [] : densifySeries(series, unit, span);
+  }, [series, unit, monthKey, earliestMonthKey, today]);
 
   /** 期間を変えると刻みも集計対象も変わるので、選択中の棒は外す */
   const changeMonth = useCallback((next: string | null) => {
@@ -105,24 +149,26 @@ export function DataScreen() {
     setSelectedKey(null);
   }, []);
 
-  // 行タップ → レコード詳細へプッシュ遷移（記録タブと同じ [id] ルート。UI-SPEC §2）。
-  //
-  // withAnchor は「別のタブの Stack へ入るときに、その Stack の起点（anchor = 記録の一覧）も
-  // 一緒に積む」指定。これがないと記録タブの Stack が詳細 1 枚に置き換わり、
-  // 戻るボタンもスワイプバックも出ないまま詰む（実機で確認した）。
-  // 起点そのものの宣言は app/(tabs)/records/_layout.tsx の unstable_settings 側にある。
+  // 行タップ → レコード詳細へプッシュ遷移（UI-SPEC §2）。
+  // データタブ自身の Stack に積むので、戻ればこのグラフに帰ってくる（選択したままの状態で）。
   const openDetail = useCallback(
     (record: SaleRecord) => {
-      router.push(
-        { pathname: RECORD_DETAIL_PATHNAME, params: { id: record.id } },
-        { withAnchor: true },
-      );
+      router.push({ pathname: RECORD_DETAIL_PATHNAME, params: { id: record.id } });
     },
     [router],
   );
 
   // 期間を動かした結果、選択中の棒が範囲外に出ていることがある
   const selectedPoint = series.find((point) => point.key === selectedKey);
+
+  /** タップされたスロット → 最も近い「記録のある」スロットを選ぶ（§1.5-4） */
+  const selectNearest = useCallback(
+    (index: number) => {
+      const nearest = nearestRecordedIndex(densePoints, index);
+      if (nearest != null) setSelectedKey(densePoints[nearest].key);
+    },
+    [densePoints],
+  );
 
   // 合計行は 3 値（UI-SPEC §1.5-3）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
@@ -140,7 +186,7 @@ export function DataScreen() {
 
   return (
     <>
-      <Tabs.Screen options={screenOptions} />
+      <Stack.Screen options={screenOptions} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <MonthNavBar
           monthKey={monthKey}
@@ -163,24 +209,20 @@ export function DataScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
-            <View style={styles.chartHeader}>
-              <Text style={[styles.chartTitle, { color: colors.label }]}>
-                {PROFIT_TREND_LABEL}
-              </Text>
-              {/* 刻みは表示のみ。押しても切り替わらない（§5-5） */}
-              <Text style={[styles.chartUnit, { color: colors.secondaryLabel }]}>
-                {chartUnitLabel(unit)}
-              </Text>
-            </View>
+            <Text style={[styles.chartTitle, { color: colors.label }]}>
+              {PROFIT_TREND_LABEL}
+            </Text>
+            {/* 凡例。棒の側の語が刻み（日ごと / 月ごと）も兼ねる（§1.5-4） */}
+            <ChartLegend unit={unit} showCumulative={showsCumulative(densePoints)} />
 
             {series.length === 0 ? (
               <EmptyChart />
             ) : (
               <ChartView
-                series={series}
+                points={densePoints}
                 unit={unit}
                 selectedKey={selectedKey}
-                onSelect={setSelectedKey}
+                onSelectIndex={selectNearest}
               />
             )}
           </View>
@@ -203,7 +245,7 @@ export function DataScreen() {
       <PeriodSheet
         visible={showPeriodSheet}
         monthKey={monthKey}
-        earliestMonthKey={earliestMonthKey}
+        monthsWithRecords={monthsWithRecords}
         currentMonthKey={currentMonthKey}
         onSelect={changeMonth}
         onClose={() => setShowPeriodSheet(false)}
@@ -225,72 +267,277 @@ function EmptyChart() {
 }
 
 /**
- * 収支の棒グラフ（UI-SPEC §1.5-4）。指標が収支だけになったので折れ線の分岐はない。
- * 選択中の棒だけ濃色（緑）、他は 30% 不透明。
+ * 累計の折れ線（と右軸）を出すか。**記録のあるスロットが 2 つ以上あるときだけ**（UI-SPEC §1.5-4）。
+ * 1 つしかない期間では累計＝その点自身で、線が引けず軸も左と同じ数字になる。
+ * 空きスロットは数に入れない ── 日付の軸にすると空きは常に大量にあるため。
+ */
+function showsCumulative(points: ChartPoint[]): boolean {
+  return points.filter((point) => point.recordCount > 0).length > 1;
+}
+
+/**
+ * 凡例（UI-SPEC §1.5-4）。棒と折れ線が別々のものを指すので、色見本と語を対で出す。
+ * 棒の側の語（「日ごとの収支」）が刻みの表示も兼ねる ── グラフ 1 つに説明を 2 段付けないため。
+ *
+ * **累計は右端に寄せる。** 累計の軸が右にあるので、凡例も同じ側に置かないと
+ * どちらの軸の話なのかを目で往復して探すことになる（左＝左軸、右＝右軸で揃える）。
+ */
+function ChartLegend({
+  unit,
+  showCumulative,
+}: {
+  unit: ChartUnit;
+  showCumulative: boolean;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={styles.legend}>
+      <View style={styles.legendItem}>
+        {/* 見本はグラフの棒そのものの形と色にする（縦長・緑） */}
+        <View style={[styles.legendBar, { backgroundColor: colors.green }]} />
+        <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>
+          {chartBarLegendLabel(unit)}
+        </Text>
+      </View>
+      {showCumulative && (
+        <View style={styles.legendItem}>
+          <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>
+            {CUMULATIVE_PROFIT_LABEL}
+          </Text>
+          <View style={[styles.legendLine, { backgroundColor: colors.indigo }]} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * 収支のグラフ（UI-SPEC §1.5-4）。**棒と折れ線の組み合わせ**:
+ *   - 棒（緑・左軸）  = その日／その月の収支
+ *   - 折れ線（藍・右軸）= 期間の初めからの累計収支
+ *
+ * X 軸は**日付の軸**で、記録のない日も同じ幅のスロットを持つ（空きは棒なし・累計は横ばい）。
+ * 詰めて並べると 7/1 と 7/31 の 2 件が隣り合ってしまい、間隔が読めなくなるため。
+ *
+ * 累計は棒より 1 桁以上大きくなるので軸を分ける。分けたうえで **0 の高さと段数は揃える**
+ * （範囲の決め方は logic/analytics の dualAxisBounds）── 桁を合わせるために
+ * 0 の位置までずらすと、「棒は黒字なのに線は赤字」に見えるような読み違いが起きる。
+ *
+ * **押す対象は棒ではなくスロットの列**（下記 TapColumns）。日付の軸にしたことで棒は細くなり、
+ * 空きスロットには押す実体すらないので、ライブラリの「棒の矩形だけが反応する」判定では
+ * 押せないマスが大量にできる。列を押して最も近い棒を選ぶ形にしてある。
  */
 function ChartView({
-  series,
+  points,
   unit,
   selectedKey,
-  onSelect,
+  onSelectIndex,
 }: {
-  series: AggregatedPoint[];
+  points: ChartPoint[];
   unit: ChartUnit;
   selectedKey: string | null;
-  onSelect: (key: string) => void;
+  onSelectIndex: (index: number) => void;
 }) {
   const colors = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
 
-  const values = series.map((point) => point.profit);
-  const maxValue = yAxisUpperBound(values);
-  const minValue = yAxisLowerBound(values);
+  const profits = points.map((point) => point.profit);
+  const cumulative = cumulativeProfits(profits);
+  const bounds = dualAxisBounds(profits, cumulative);
+  const withCumulative = showsCumulative(points);
 
-  // 画面の padding (16×2) ＋ カードの padding (16×2) ＋ Y 軸ラベル幅を引いた残り
-  const chartWidth = Math.max(windowWidth - 64 - Y_AXIS_WIDTH, 160);
-  // ラベルは全点に付けると潰れるので間引く（Swift 版の desiredCount: 5 相当）
-  const labelStep = Math.max(1, Math.ceil(series.length / LABEL_COUNT));
+  // 画面の padding (16×2) ＋ カードの padding (16×2) ＋ Y 軸ラベル幅を引いた残り。
+  // 右軸を出さないときはそのぶん本体が広く使える
+  const plotWidth = Math.max(
+    windowWidth - 64 - Y_AXIS_WIDTH * (withCumulative ? 2 : 1),
+    160,
+  );
+  // 1 スロットの幅。**期間の全スロットを横スクロールなしで収める** ──
+  // 月内の分布を一目で読むのがこのグラフの主題で、スクロールするとその一目が失われる
+  const pitch = (plotWidth - EDGE_SPACING * 2) / points.length;
+  const barWidth = Math.max(2, Math.min(MAX_BAR_WIDTH, pitch * BAR_WIDTH_RATIO));
 
-  const data = series.map((point, index) => ({
+  // ラベルは全スロットに付けると潰れるので間引く（Swift 版の desiredCount: 5 相当）
+  const labelStep = Math.max(1, Math.ceil(points.length / LABEL_COUNT));
+
+  const barData = points.map((point, index) => ({
+    // 空きスロットも同じ幅の枠として並べる（値 0 なので棒は描かれない）
     value: point.profit,
     label: index % labelStep === 0 ? formatChartLabel(point.date, unit) : '',
     // 選択中の棒だけ濃く（未選択のときは全点そのままの色）
     frontColor:
       selectedKey == null || selectedKey === point.key ? colors.green : dim(colors.green),
-    onPress: () => onSelect(point.key),
+    // 押す判定は上に重ねた列（TapColumns）が持つ
+    disablePress: true,
   }));
 
+  const axisLabelStyle = { color: colors.secondaryLabel, fontSize: 10 };
+  // 棒・折れ線・タップ列は同じ式（EDGE_SPACING + i × pitch）で並ぶが、X 軸ラベルだけは
+  // ライブラリが枠の中央に置くので、枠を広げたぶん右へずれる。ここで棒の中央へ戻す
+  const xAxisLabelStyle = {
+    ...axisLabelStyle,
+    transform: [{ translateX: xLabelShift(barWidth) }],
+  };
+  // 目盛りはキリのいい数（dualAxisBounds）だが、割り算の誤差で末尾に小数が出ることがあるので丸める。
+  // 丸めるのは軸ラベルの表示だけで、集計値そのものは丸めない（決定 §7-2）
+  const formatYLabel = (label: string) => String(Math.round(Number(label)));
+
   return (
-    <BarChart
-      height={CHART_HEIGHT}
-      width={chartWidth}
-      maxValue={maxValue}
-      noOfSections={4}
-      // 収支がマイナスの点を軸下に隠さないための下方向の目盛り（logic/analytics 参照）
-      {...(minValue < 0 ? { mostNegativeValue: minValue, noOfSectionsBelowXAxis: 2 } : null)}
-      yAxisColor={colors.separator}
-      xAxisColor={colors.separator}
-      rulesColor={colors.separator}
-      yAxisTextStyle={{ color: colors.secondaryLabel, fontSize: 10 }}
-      xAxisLabelTextStyle={{ color: colors.secondaryLabel, fontSize: 10 }}
-      yAxisLabelWidth={Y_AXIS_WIDTH}
-      initialSpacing={16}
-      endSpacing={16}
-      // 常に最新（期間の終わり側）が見えるようにする（Swift 版 chartScrollPosition(initialX: endDate)）
-      scrollToEnd
-      // アニメーション中は各点の onPress が取りこぼされることがあるため切る
-      isAnimated={false}
-      data={data}
-      barWidth={12}
-      barBorderRadius={4}
-      spacing={36}
-      frontColor={colors.green}
-    />
+    <View>
+      <BarChart
+        height={CHART_HEIGHT}
+        width={plotWidth}
+        maxValue={bounds.barMax}
+        noOfSections={bounds.sections}
+        // 収支がマイナスの点を軸下に隠さないための下方向の目盛り（logic/analytics 参照）
+        {...(bounds.sectionsBelow > 0
+          ? {
+              mostNegativeValue: bounds.barMin,
+              noOfSectionsBelowXAxis: bounds.sectionsBelow,
+            }
+          : null)}
+        yAxisColor={colors.separator}
+        xAxisColor={colors.separator}
+        rulesColor={colors.separator}
+        yAxisTextStyle={axisLabelStyle}
+        xAxisLabelTextStyle={xAxisLabelStyle}
+        labelWidth={X_LABEL_WIDTH}
+        yAxisLabelWidth={Y_AXIS_WIDTH}
+        formatYLabel={formatYLabel}
+        {...(withCumulative
+          ? {
+              // 右軸（累計）。上限・段数は dualAxisBounds が左軸と 0 の高さを揃えて決めている
+              secondaryYAxis: {
+                maxValue: bounds.cumulativeMax,
+                noOfSections: bounds.sections,
+                yAxisColor: colors.separator,
+                yAxisTextStyle: axisLabelStyle,
+                yAxisLabelWidth: Y_AXIS_WIDTH,
+                formatYLabel,
+                ...(bounds.sectionsBelow > 0
+                  ? {
+                      mostNegativeValue: bounds.cumulativeMin,
+                      noOfSectionsBelowXAxis: bounds.sectionsBelow,
+                    }
+                  : null),
+              },
+            }
+          : null)}
+        initialSpacing={EDGE_SPACING}
+        endSpacing={EDGE_SPACING}
+        // アニメーション中は描画が追いつかないことがあるため切る
+        isAnimated={false}
+        data={barData}
+        barWidth={barWidth}
+        barBorderRadius={Math.min(4, barWidth / 2)}
+        spacing={pitch - barWidth}
+        frontColor={colors.green}
+      />
+
+      {withCumulative && (
+        <CumulativeLine
+          values={cumulative}
+          bounds={bounds}
+          pitch={pitch}
+          barWidth={barWidth}
+        />
+      )}
+
+      <TapColumns
+        count={points.length}
+        pitch={pitch}
+        onSelectIndex={onSelectIndex}
+      />
+    </View>
   );
 }
 
 /**
- * 選択した棒の記録一覧（UI-SPEC §1.5-5）。
+ * 累計収支の折れ線（UI-SPEC §1.5-4）。**自前で描く。**
+ *
+ * ライブラリにも棒グラフへ線を重ねる機能（showLine / lineConfig）はあるが、線を描く SVG の
+ * 幅が「Y 軸ラベルぶんだけ足りない」ため、**右端が必ず切れる**（実機で確認: 31 日の月では
+ * 26 日目あたりから線が消えた）。線の x 座標には Y 軸ラベル幅が足されるのに、
+ * 器の幅にはそれが入っていないため。日付の軸にしてスロットが増えるほど切れ方が目立つ。
+ *
+ * 自前で描けば、**タップ列（TapColumns）と同じ式で x を出せる**ので棒との位置も必ず揃う。
+ * y は「0 が下端・上限が上端」の線形写像で、棒と同じ描画高さ（CHART_HEIGHT）を共有する。
+ * 右軸の目盛りは引き続きライブラリの secondaryYAxis が描く（数字だけの担当）。
+ */
+function CumulativeLine({
+  values,
+  bounds,
+  pitch,
+  barWidth,
+}: {
+  values: number[];
+  bounds: DualAxisBounds;
+  pitch: number;
+  barWidth: number;
+}) {
+  const colors = useThemeColors();
+
+  // 0 より下の段ぶんだけ描画域が下に伸びる（段の高さは上下で同じ）
+  const stepHeight = CHART_HEIGHT / bounds.sections;
+  const height = CHART_HEIGHT + stepHeight * bounds.sectionsBelow;
+  const y = (value: number) => CHART_HEIGHT * (1 - value / bounds.cumulativeMax);
+
+  const polyline = values
+    .map((value, index) => `${EDGE_SPACING + index * pitch + barWidth / 2},${y(value)}`)
+    .join(' ');
+
+  return (
+    <Svg
+      style={[styles.lineOverlay, { left: Y_AXIS_WIDTH, top: CHART_TOP_PADDING, height }]}
+      pointerEvents="none">
+      <Polyline
+        points={polyline}
+        fill="none"
+        stroke={colors.indigo}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * グラフに重ねる透明な「列」（UI-SPEC §1.5-4）。1 スロット 1 列で、押すと
+ * **最も近い記録のある棒**が選ばれる（判定は logic/analytics の nearestRecordedIndex）。
+ *
+ * ライブラリの押下判定は棒の矩形そのものなので、細い棒・低い棒・空きスロットが押せない。
+ * 列は**高さいっぱい**なので、縦方向は狙わなくてよく、横方向だけ合わせればよくなる。
+ *
+ * 位置は自前で計算する: 本体の左端は Y 軸ラベルぶん内側にあり、そこから
+ * `initialSpacing + i × pitch` がスロット i の左端。ライブラリと同じ値を使って並べている。
+ */
+function TapColumns({
+  count,
+  pitch,
+  onSelectIndex,
+}: {
+  count: number;
+  pitch: number;
+  onSelectIndex: (index: number) => void;
+}) {
+  return (
+    <View style={[styles.tapColumns, { left: Y_AXIS_WIDTH + EDGE_SPACING }]} pointerEvents="box-none">
+      {Array.from({ length: count }, (_, index) => (
+        <Pressable
+          key={index}
+          style={[styles.tapColumn, { left: index * pitch, width: pitch }]}
+          onPress={() => onSelectIndex(index)}
+          accessibilityRole="button"
+        />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * 選択した点の記録一覧（UI-SPEC §1.5-5）。
  * 行は記録タブと同じ RecordRow・同じカードの見た目にする（§6-11）── 同じレコードが
  * 画面によって違う形で出ると、どれが同じものか読み直すことになるため。
  * 対象は売却済みだけなので isSoldMode は常に true。
@@ -356,18 +603,51 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 12,
   },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   chartTitle: {
     fontSize: 17,
     fontWeight: '700',
   },
-  chartUnit: {
-    fontSize: 13,
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 左＝左軸（棒）／右＝右軸（累計）。凡例の位置と軸の位置を揃える（§1.5-4）
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // 見本は本体と同じ形にする（棒は縦長・折れ線は横線）
+  legendBar: {
+    width: 8,
+    height: 12,
+    borderRadius: 2,
+  },
+  legendLine: {
+    width: 14,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  legendLabel: {
+    fontSize: 12,
+  },
+  // 累計の折れ線。棒と同じ座標系（左端は Y 軸ラベルのぶん内側）に重ねる
+  lineOverlay: {
+    position: 'absolute',
+    right: 0,
+  },
+  // グラフに重ねる透明な列。高さいっぱいなので縦方向は狙わなくてよい
+  tapColumns: {
+    position: 'absolute',
+    top: CHART_TOP_PADDING,
+    height: CHART_HEIGHT,
+  },
+  tapColumn: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
   },
   emptyChart: {
     height: CHART_HEIGHT,

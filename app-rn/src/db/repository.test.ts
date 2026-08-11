@@ -516,6 +516,20 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
     });
   });
 
+  describe('monthsWithRecords: 期間シートの月グリッドの濃淡（UI-SPEC §1.2）', () => {
+    it('状態チップを無視して両方の状態から集める（古い順・重複なし）', () => {
+      // 売れた記録は 2026-06 / 2026-08、出品中は 2026-07 / 2026-08。
+      // 2026-07 は出品中しかない月なので、状態で絞っていない証拠になる
+      expect(repo.monthsWithRecords()).toEqual(['2026-06', '2026-07', '2026-08']);
+    });
+
+    it('種別で絞られない（引数を取らないので絞りようがないことを固定する）', () => {
+      // 不用品しかない月・仕入品しかない月のどちらも落ちない
+      expect(repo.monthsWithRecords()).toContain('2026-07'); // 仕入品の出品中だけ
+      expect(repo.monthsWithRecords()).toContain('2026-06'); // 不用品の売れた記録だけ
+    });
+  });
+
   describe('careerSummary.totalSales: 出品価格の合計（UI-SPEC §6-3）', () => {
     it('出品中の Σ salesPrice が取れる', () => {
       expect(repo.careerSummary({ isSoldMode: false }).totalSales).toBe(1500 + 800);

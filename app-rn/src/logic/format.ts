@@ -43,7 +43,7 @@ export function formatShortDate(date: Date): string {
 }
 
 /**
- * 選択した棒の見出しに出す日付「8月9日」（UI-SPEC §1.5-5「8月9日の記録　N件」）。
+ * 選択した点の見出しに出す日付「8月9日」（UI-SPEC §1.5-5「8月9日の記録　N件」）。
  * メタ行の formatShortDate（「8/9」）と分けてあるのは、こちらが見出しの語
  * （「…の記録」）に続く位置にあり、スラッシュ表記だと日付の切れ目が読み取りにくいため。
  */
@@ -55,6 +55,19 @@ export function formatMonthDay(date: Date): string {
 export function formatMonthHeader(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${date.getFullYear()}年${month}月`;
+}
+
+/** 期間シートの年ブロックの見出し「2026年」（UI-SPEC §1.2-3） */
+export function formatYearTitle(year: number): string {
+  return `${year}年`;
+}
+
+/**
+ * 期間シートの月グリッドの 1 マス「8月」（UI-SPEC §1.2-3）。
+ * 年は見出しが持っているので、マスには月だけを出す（4 列に 12 個入る幅に収めるため）。
+ */
+export function formatMonthCell(month: number): string {
+  return `${month}月`;
 }
 
 /** ナビゲーションタイトル用の「2026年8月」（SPEC §3.2「YYYY年M月の収支」） */

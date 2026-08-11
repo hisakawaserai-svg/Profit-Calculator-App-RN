@@ -26,7 +26,7 @@ export function chartUnitFor(monthKey: string | null): ChartUnit {
   return monthKey == null ? 'month' : 'day';
 }
 
-/** SPEC §6.2 Y 軸上限 = max(1000, データ最大値) × 1.15 */
+/** SPEC §6.2 Y 軸上限 = max(1000, データ最大値) × 1.15。目盛りを丸める前の素の上限 */
 export function yAxisUpperBound(values: number[]): number {
   const maxValue = values.length === 0 ? 0 : Math.max(...values);
   return Math.max(1000, maxValue) * 1.15;
@@ -43,6 +43,224 @@ export function yAxisLowerBound(values: number[]): number {
   return minValue < 0 ? minValue * 1.15 : 0;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// X 軸を「日付の軸」にする（UI-SPEC §1.5-4）。
+//
+// repository が返すのは**記録のある集計点だけ**なので、そのまま並べると 7/1 と 7/31 の
+// 2 件が隣り合って出てしまい、30 日の間隔が見えない。ここで期間の全スロット（日 or 月）を
+// 作り、記録のない位置は値 0・件数 0 で埋める。棒は出ず、累計は横ばいで伸びる。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** グラフの 1 スロット。repository の集計点（AggregatedPoint）と構造的に互換 */
+export type ChartPoint = {
+  /** 集計キー（日ごと = "YYYY-MM-DD" / 月ごと = "YYYY-MM"） */
+  key: string;
+  date: Date;
+  profit: number;
+  recordCount: number;
+};
+
+/** 月キー "YYYY-MM" → その月の 1 日（db/dates と同じだが、logic から db を参照しないため再掲） */
+function monthKeyStart(monthKey: string): Date {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month - 1, 1);
+}
+
+/** その月の末日（翌月 0 日）。月末までの軸を引くのに使う */
+function monthKeyEnd(monthKey: string): Date {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month, 0);
+}
+
+function dayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function monthKeyOf(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * X 軸が覆う範囲（UI-SPEC §1.5-4）。
+ *
+ * | 期間 | 範囲 |
+ * |---|---|
+ * | 過去の月 | その月の 1 日 〜 末日 |
+ * | 今月 | 1 日 〜 **今日**（まだ来ていない日まで軸を伸ばすと、右半分が常に空になる） |
+ * | 全期間 | 最も古い記録の月 〜 今月 |
+ *
+ * 記録が 1 件もない全期間では軸の引きようがないので null（呼び出し側は空表示にする）。
+ */
+export function chartSpan(params: {
+  monthKey: string | null;
+  earliestMonthKey: string | null;
+  today: Date;
+}): { from: Date; to: Date } | null {
+  const { monthKey, earliestMonthKey, today } = params;
+
+  if (monthKey != null) {
+    const isCurrentMonth = monthKey === monthKeyOf(today);
+    return { from: monthKeyStart(monthKey), to: isCurrentMonth ? today : monthKeyEnd(monthKey) };
+  }
+  if (earliestMonthKey == null) return null;
+  return { from: monthKeyStart(earliestMonthKey), to: today };
+}
+
+/** from 〜 to（両端を含む）の全スロットを刻みの粒度で並べる。空の期間なら空配列 */
+export function chartSlots(unit: ChartUnit, from: Date, to: Date): { key: string; date: Date }[] {
+  const slots: { key: string; date: Date }[] = [];
+
+  if (unit === 'day') {
+    const last = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    for (
+      let date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+      date <= last;
+      date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+    ) {
+      slots.push({ key: dayKey(date), date });
+    }
+    return slots;
+  }
+
+  const last = new Date(to.getFullYear(), to.getMonth(), 1);
+  for (
+    let date = new Date(from.getFullYear(), from.getMonth(), 1);
+    date <= last;
+    date = new Date(date.getFullYear(), date.getMonth() + 1, 1)
+  ) {
+    slots.push({ key: monthKeyOf(date), date });
+  }
+  return slots;
+}
+
+/**
+ * 記録のあるスロットに集計値を入れ、ない位置は 0 で埋める（UI-SPEC §1.5-4）。
+ * これで X 軸が日付の間隔をそのまま表す ── 「月末に集中して売れた」が形で読める。
+ */
+export function densifySeries(
+  points: readonly ChartPoint[],
+  unit: ChartUnit,
+  span: { from: Date; to: Date },
+): ChartPoint[] {
+  const byKey = new Map(points.map((point) => [point.key, point]));
+
+  return chartSlots(unit, span.from, span.to).map(
+    (slot) => byKey.get(slot.key) ?? { ...slot, profit: 0, recordCount: 0 },
+  );
+}
+
+/**
+ * タップ位置から選ぶスロット（UI-SPEC §1.5-4）。
+ * 押された位置から**外側へ広げながら、記録のあるスロットを探す**。
+ *
+ * 日付の軸にしたことでスロットの大半が空になり得るので、押した位置ちょうどに記録がないことが
+ * 普通に起きる。そこで「最も近い棒」を選ぶ ── 空振りに見える操作を作らないため。
+ * 同じ距離に 2 つあるときは**古い側**（左）を採る（どちらかに決めておけばよく、
+ * 左右で揺れないことのほうが大事）。記録が 1 件もなければ null。
+ */
+export function nearestRecordedIndex(
+  points: readonly ChartPoint[],
+  index: number,
+): number | null {
+  for (let distance = 0; distance < points.length; distance += 1) {
+    const before = index - distance;
+    if (before >= 0 && points[before].recordCount > 0) return before;
+    const after = index + distance;
+    if (after < points.length && points[after].recordCount > 0) return after;
+  }
+  return null;
+}
+
+/**
+ * 期間の初めからの累計収支（UI-SPEC §1.5-4 の折れ線）。
+ *
+ * 累計の起点は**表示中の期間の先頭**で、アプリ全体の通算ではない ── グラフが答えるのは
+ * 「この期間でどこまで積み上がったか」で、期間を選び直せば起点も動く。
+ * 最後の値は合計行の収支と一致する（同じ集合の合計なので、見比べたときに食い違わない）。
+ */
+export function cumulativeProfits(values: readonly number[]): number[] {
+  let running = 0;
+  return values.map((value) => {
+    running += value;
+    return running;
+  });
+}
+
+/** 左（棒＝刻みごとの収支）と右（折れ線＝累計収支）の 2 軸の範囲 */
+export type DualAxisBounds = {
+  /** 左軸の上限・下限（下限は 0 以下） */
+  barMax: number;
+  barMin: number;
+  /** 右軸の上限・下限（下限は 0 以下） */
+  cumulativeMax: number;
+  cumulativeMin: number;
+  /** 0 より上の目盛りの段数。**両軸で同じ**にして罫線を 1 組に保つ */
+  sections: number;
+  /** 0 より下の目盛りの段数。0 なら負の領域を描かない */
+  sectionsBelow: number;
+};
+
+/** 目盛り幅の候補（1 桁の倍率）。3 を入れてあるので「3000 / 6000 / 9000」が出る */
+const NICE_STEPS = [1, 1.5, 2, 3, 5, 10];
+
+/** 目安の段数。実際の段数は刻み幅を丸めた結果で決まるので、これより増減する */
+const TARGET_SECTIONS = 4;
+
+/**
+ * 目盛り 1 段ぶんの「キリのいい」幅（UI-SPEC §1.5-4）。
+ * 素の上限を段数で割った値以上で、いちばん近い 1 / 1.5 / 2 / 3 / 5 × 10^n を返す。
+ */
+function niceStep(rawStep: number): number {
+  if (rawStep <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  return (NICE_STEPS.find((step) => normalized <= step) ?? 10) * magnitude;
+}
+
+/**
+ * 2 軸の範囲を決める（UI-SPEC §1.5-4）。満たすことが 2 つある。
+ *
+ * 1. **目盛りがキリのいい数**であること。素の上限（max(1000, 最大値) × 1.15）をそのまま
+ *    段数で割ると「2149 / 4298 / …」のような半端な数字が並ぶので、1 段の幅を
+ *    1 / 1.5 / 2 / 3 / 5 × 10^n に丸め、上限は「丸めた幅 × 段数」に取り直す。
+ * 2. **0 の高さが両軸で揃う**こと。桁の違う 2 系列なので軸は分けるが、0 の位置まで
+ *    別々にすると「棒は 0 より上なのに線は 0 より下」といった読み違いが起きる。
+ *
+ * 2 を満たす仕掛けが**段数を両軸で共有**すること ── 幅は軸ごとに丸めるが、上下の段数を
+ * 揃えれば負側が占める割合（下の段数 ÷ 上の段数）も自動的に一致し、0 は同じ高さに来る。
+ * 罫線も 1 組で済む（段数が違うと、左右のラベルが別の高さに並ぶ）。
+ */
+export function dualAxisBounds(
+  barValues: number[],
+  cumulativeValues: number[],
+): DualAxisBounds {
+  const barStep = niceStep(yAxisUpperBound(barValues) / TARGET_SECTIONS);
+  const cumulativeStep = niceStep(yAxisUpperBound(cumulativeValues) / TARGET_SECTIONS);
+
+  // 段数は「どちらの軸も収まる」ように大きい方を採る
+  const sections = Math.max(
+    Math.ceil(yAxisUpperBound(barValues) / barStep),
+    Math.ceil(yAxisUpperBound(cumulativeValues) / cumulativeStep),
+  );
+  const sectionsBelow = Math.max(
+    0, // 負値がないとき Math.ceil(-0 / step) は -0 になるので、ここで 0 に落とす
+    Math.ceil(-yAxisLowerBound(barValues) / barStep),
+    Math.ceil(-yAxisLowerBound(cumulativeValues) / cumulativeStep),
+  );
+  /** 負の領域がないときは素直に 0 を返す（-0 を外へ出さない） */
+  const lowerBound = (step: number) => (sectionsBelow === 0 ? 0 : -step * sectionsBelow);
+
+  return {
+    barMax: barStep * sections,
+    barMin: lowerBound(barStep),
+    cumulativeMax: cumulativeStep * sections,
+    cumulativeMin: lowerBound(cumulativeStep),
+    sections,
+    sectionsBelow,
+  };
+}
+
 /** X 軸ラベル（Swift 版 AxisValueLabel の書式） */
 export function formatChartLabel(date: Date, unit: ChartUnit): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -52,8 +270,8 @@ export function formatChartLabel(date: Date, unit: ChartUnit): string {
 }
 
 /**
- * 選択した棒の見出しに出す日付（UI-SPEC §1.5-5「8月9日の記録　N件」）。
- * 刻みと同じ粒度で出す ── 月ごとの棒に日付まで出すと、実在しない「その月の 1 日」を
+ * 選択した点の見出しに出す日付（UI-SPEC §1.5-5「8月9日の記録　N件」）。
+ * 刻みと同じ粒度で出す ── 月ごとの点に日付まで出すと、実在しない「その月の 1 日」を
  * 指しているように読めるため。
  */
 export function formatPointDate(date: Date, unit: ChartUnit): string {
