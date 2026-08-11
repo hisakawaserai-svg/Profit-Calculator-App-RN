@@ -1,10 +1,20 @@
 // 表示用の文字列組み立て。金額の丸めは必ず roundForDisplay を通す（SPEC §2.6）。
 
+import { formatCalculatorNumber } from './calculator';
 import { roundForDisplay } from './profit';
 
 /** 金額表示「1234 円」。丸めは §2.6 の Math.round（桁区切りは Swift 版に合わせて付けない） */
 export function formatYen(value: number): string {
   return `${roundForDisplay(value)} 円`;
+}
+
+/**
+ * 電卓の合計「175 円」（UI-SPEC §7.1-5）。**roundForDisplay は通さない** ──
+ * 行の結果は小数第 1 位まで出る（`10 ÷ 3` → `3.3`）ので、合計だけ整数に丸めると
+ * 見えている行を足した数と合計が食い違う（§7.6 派生決定）。丸めは電卓の規則に合わせる。
+ */
+export function formatCalcTotal(value: number): string {
+  return `${formatCalculatorNumber(value)} 円`;
 }
 
 /**

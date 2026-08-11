@@ -33,6 +33,8 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   saleStartDate: '2026-07-01T09:00:00.000',
   saleDate: null,
   memo: '',
+  // 販売サイト名（SPEC-V3 §1.5.1）。既存レコードはバックフィルしないので空文字が既定
+  siteName: '',
   ...partial,
 });
 

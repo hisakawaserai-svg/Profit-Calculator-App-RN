@@ -299,6 +299,8 @@ function RecordForm({
           {values.kind === 'sourced' && (
             <NumericField
               label={deductionLabel(PURCHASE_PRICE_LABEL)}
+              // 電卓の見出しは「− 仕入価格の計算」ではなく「仕入価格の計算」（UI-SPEC §7.1）
+              calculatorLabel={PURCHASE_PRICE_LABEL}
               value={values.purchasePrice}
               onChangeValue={(value) => update('purchasePrice', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
@@ -309,6 +311,7 @@ function RecordForm({
           {/* 8. 送料 */}
           <NumericField
             label={deductionLabel(POSTAGE_LABEL)}
+            calculatorLabel={POSTAGE_LABEL}
             value={values.postage}
             onChangeValue={(value) => update('postage', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}

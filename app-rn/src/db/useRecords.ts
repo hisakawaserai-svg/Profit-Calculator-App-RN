@@ -183,6 +183,25 @@ export function useRecord(id: string): RecordData {
   return { record, refresh };
 }
 
+/** 記録の総件数。refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryTotalCount(refreshToken: object): number {
+  void refreshToken;
+  return repository.totalCount();
+}
+
+/**
+ * 設定タブ「データ」群の「記録の件数」（UI-SPEC §1.6-4）。
+ * 設定画面は記録を書き換えないので、拾うのは画面復帰（useFocusEffect）だけでよい。
+ */
+export function useRecordCount(): number {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  return useMemo(() => queryTotalCount(refreshToken), [refreshToken]);
+}
+
 /**
  * 出品中⇔売却済みの切り替え（UI-SPEC §8.1 / §8.4）。呼び出し側で refresh すること。
  * 売れた側は saleDate（省略時は今日）、出品中に戻す側は null にして即保存する。

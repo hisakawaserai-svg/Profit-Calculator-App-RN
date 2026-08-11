@@ -1,23 +1,58 @@
-// 設定タブ（UI-SPEC §1.6 案 5b）。
+// 設定タブ（UI-SPEC §1.6 案 5b ＋ SPEC-V3 §3.1 / 設計案 24a）。
 //
 // モーダル（app/settings.tsx）からタブへ昇格した（UI-SPEC §6-8）。入口が常設になったので
 // 計算タブのヘッダから歯車を外してある（§6-7）。
 // 「使いかた」は設定タブ配下への push（§5-9）。他の画面の「？」からのシート表示は
 // ステップ 6 で足すので、ここではまだ push だけ。
 //
-// §1.6 の残りの群（入力を減らす（今後）/ データ / バージョン表記）と
-// 手数料の既定値（defaultCommission）はステップ 1 の完了条件外なので、まだ置いていない。
+// 群の並びは UI-SPEC §1.6 のまま:
+//   使いかた / 記録の既定値 / 入力を減らす / データ / バージョン表記。
+// 「入力を減らす」（旧「（今後）」・非活性）を SPEC-V3 Step 2 で活性化し、
+// 3 行を**カード**にした（設計案 24a。理由は PresetSummaryCard の冒頭）。
+// 「データ」群の書き出し（CSV）は Step 6 まで「準備中」のまま置く（SPEC-V3 §6.2）。
+//
+// 手数料の既定値（defaultCommission。UI-SPEC §1.6-2）はまだ無いので、
+// 「記録の既定値」群は種別だけ。
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { PresetSummaryCard } from '@/components/PresetSummaryCard';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
+import { usePresetList } from '@/db/usePresets';
+import { useRecordCount } from '@/db/useRecords';
+import {
+  CSV_EXPORT_LABEL,
+  DATA_SECTION_TITLE,
+  PREPARING_LABEL,
+  PRESET_SECTION_NOTE,
+  PRESET_SECTION_TITLE,
+  presetCountLabel,
+  RECORD_COUNT_LABEL,
+  versionLabel,
+} from '@/logic/labels';
+import { PRESET_TYPES } from '@/logic/preset';
 import { useSettings } from '@/settings';
 import { useThemeColors } from '@/theme';
+
+/** app.json の version。取れない経路（開発ビルドの一部）では行ごと出さない */
+const APP_VERSION = Constants.expoConfig?.version ?? null;
 
 export default function SettingsScreen() {
   const colors = useThemeColors();
   const { defaultRecordKind, setDefaultRecordKind } = useSettings();
+  // 3 種ぶん個別に引く。フックの数は固定なので、配列を回して呼んでいるわけではない
+  const sitePresets = usePresetList('site');
+  const shippingPresets = usePresetList('shipping');
+  const packagingPresets = usePresetList('packaging');
+  const recordCount = useRecordCount();
+
+  const presetsByType = {
+    site: sitePresets.presets,
+    shipping: shippingPresets.presets,
+    packaging: packagingPresets.presets,
+  };
 
   return (
     <>
@@ -56,6 +91,50 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* SPEC-V3 §3.1 / 設計案 24a: 3 種を 3 枚のカードで。追加の口はここに置かない */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+            {PRESET_SECTION_TITLE}
+          </Text>
+          {PRESET_TYPES.map((type) => (
+            <PresetSummaryCard key={type} type={type} presets={presetsByType[type]} />
+          ))}
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {PRESET_SECTION_NOTE}
+          </Text>
+        </View>
+
+        {/* UI-SPEC §1.6-4: データ群。書き出しは Step 6 まで非活性（SPEC-V3 §6.2） */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+            {DATA_SECTION_TITLE}
+          </Text>
+          <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
+            <View style={styles.row} accessibilityRole="text">
+              <Text style={[styles.label, { color: colors.disabledContent }]}>
+                {CSV_EXPORT_LABEL}
+              </Text>
+              <Text style={[styles.rowValue, { color: colors.disabledContent }]}>
+                {PREPARING_LABEL}
+              </Text>
+            </View>
+            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: colors.label }]}>{RECORD_COUNT_LABEL}</Text>
+              <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
+                {presetCountLabel(recordCount)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* UI-SPEC §1.6-5: フッタ。中央・上に余白 */}
+        {APP_VERSION != null && (
+          <Text style={[styles.version, { color: colors.secondaryLabel }]}>
+            {versionLabel(APP_VERSION)}
+          </Text>
+        )}
       </ScrollView>
     </>
   );
@@ -80,6 +159,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 12,
   },
+  // 行を積むカードは行の側に余白を持たせる（区切り線をカードの端まで引くため）
+  rowCard: {
+    paddingVertical: 0,
+    paddingHorizontal: 16,
+    gap: 0,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48,
+  },
+  rowValue: {
+    fontSize: 15,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+  },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -94,5 +191,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginLeft: 4,
+  },
+  version: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 10,
   },
 });

@@ -6,6 +6,8 @@
 // システム標準色もここに集約する。
 import { useColorScheme } from 'react-native';
 
+import type { PresetColorKey } from '@/logic/preset';
+
 export type ThemeColors = {
   /** UIColor.systemGroupedBackground 相当。画面の地色 */
   background: string;
@@ -33,9 +35,12 @@ export type ThemeColors = {
   green: string;
   /** 純利益マイナス */
   red: string;
-  /** 販売手数料の行・電卓の演算子キー */
+  /**
+   * 販売手数料の行（UI-SPEC §1.1 / §1.3 / §1.4）。
+   * 電卓の演算子キーは青に変えたので、電卓の中にオレンジは出ない（§7.1）。
+   */
   orange: string;
-  /** 電卓ボタン・決定ボタン */
+  /** 電卓ボタン・電卓の演算子キー・決定ボタン */
   blue: string;
   gray: string;
   /** ヘルプの「目標利益の逆算」 */
@@ -69,6 +74,24 @@ export type ThemeColors = {
    * iOS 純正バーの半透明はブラー（背景をぼかす処理）であって単純な α 合成ではない。
    */
   barBackground: string;
+  /**
+   * プリセットのバッジの色（SPEC-V3 §1.3）。キーは logic/preset.ts の PresetColorKey。
+   *
+   * **既存のセマンティック色（green = 収支プラス / red = 経費 / orange = 販売手数料）とは
+   * 別の定義にしてある**（§1.3）。同じ色相を使っていても、セマンティック色を直したときに
+   * バッジの色まで動かないようにするため。
+   *
+   * 値が `{ background, foreground }` の対なのは、白文字が乗らない色（yellow など）が
+   * あるため（§1.3）。**前景色は色ごとに読める方を選んである**ので、
+   * 明色と暗色で白黒が入れ替わる色がある（暗色側は地色が明るくなるぶん黒が読める）。
+   */
+  presetTones: Record<PresetColorKey, PresetTone>;
+};
+
+/** バッジ 1 色ぶん。文字色を色ごとに持つ理由は ThemeColors.presetTones を参照 */
+export type PresetTone = {
+  background: string;
+  foreground: string;
 };
 
 const light: ThemeColors = {
@@ -92,6 +115,18 @@ const light: ThemeColors = {
   highlightBackground: 'rgba(0, 122, 255, 0.12)',
   barBackground: '#F2F2F7',
   expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
+  presetTones: {
+    red: { background: '#FF3B30', foreground: '#FFFFFF' },
+    orange: { background: '#F07800', foreground: '#FFFFFF' },
+    yellow: { background: '#FFCC00', foreground: '#000000' },
+    green: { background: '#2E9E4F', foreground: '#FFFFFF' },
+    teal: { background: '#1E93AE', foreground: '#FFFFFF' },
+    blue: { background: '#007AFF', foreground: '#FFFFFF' },
+    indigo: { background: '#5856D6', foreground: '#FFFFFF' },
+    purple: { background: '#9A3FCB', foreground: '#FFFFFF' },
+    pink: { background: '#FF2D55', foreground: '#FFFFFF' },
+    brown: { background: '#8E6B4A', foreground: '#FFFFFF' },
+  },
 };
 
 const dark: ThemeColors = {
@@ -116,6 +151,18 @@ const dark: ThemeColors = {
   highlightBackground: 'rgba(10, 132, 255, 0.24)',
   barBackground: '#000000',
   expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
+  presetTones: {
+    red: { background: '#FF453A', foreground: '#FFFFFF' },
+    orange: { background: '#FF9F0A', foreground: '#000000' },
+    yellow: { background: '#FFD60A', foreground: '#000000' },
+    green: { background: '#30D158', foreground: '#000000' },
+    teal: { background: '#40C8E0', foreground: '#000000' },
+    blue: { background: '#0A84FF', foreground: '#FFFFFF' },
+    indigo: { background: '#7D7BEA', foreground: '#FFFFFF' },
+    purple: { background: '#BF5AF2', foreground: '#FFFFFF' },
+    pink: { background: '#FF375F', foreground: '#FFFFFF' },
+    brown: { background: '#AC8E68', foreground: '#000000' },
+  },
 };
 
 export const themes = { light, dark };

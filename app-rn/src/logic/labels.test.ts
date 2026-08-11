@@ -39,6 +39,19 @@ import {
   lowerPriceWarning,
   memoSectionLabel,
   optionalCostsLabel,
+  CALC_ADD_ROW_LABEL,
+  CALC_KEY_BACKSPACE,
+  CALC_KEY_CLEAR_ALL,
+  CALC_KEY_DIVIDE,
+  CALC_KEY_EQUALS,
+  CALC_KEY_MINUS,
+  CALC_KEY_MULTIPLY,
+  CALC_KEY_PLUS,
+  CALC_SUBMIT_LABEL,
+  CALC_TOTAL_LABEL,
+  calcRowSignLabel,
+  calculatorBlockedNote,
+  calculatorTitle,
   profitLabel,
   profitTabLabel,
   recordKindLabel,
@@ -54,6 +67,17 @@ import {
   switchStatusLabel,
   targetProfitLabel,
   todayDateLabel,
+  presetAddLabel,
+  presetCountLabel,
+  presetDeleteConfirmMessage,
+  presetDeleteLabel,
+  presetEditValueNote,
+  presetFormTitle,
+  presetListNote,
+  presetOverflowLabel,
+  presetValueFieldLabel,
+  presetValueText,
+  versionLabel,
 } from './labels';
 
 describe('§1.1 種別の表示名', () => {
@@ -412,5 +436,111 @@ describe('UI-SPEC §8.10.1 行のチップの「選べない理由」', () => {
     expect(notes.chips).toBe('出品日（8/20）だけが選べます');
     // 3 つとも落ちる状態なので、盤面と行で同じ言い方になる
     expect(notes.chips).toBe(notes.calendar);
+  });
+});
+
+describe('UI-SPEC §7 電卓', () => {
+  it('見出しは行き先を明示する（§7.1）', () => {
+    expect(calculatorTitle('梱包材')).toBe('梱包材の計算');
+    expect(calculatorTitle('送料')).toBe('送料の計算');
+    // 逆算モードの入力欄も同じ規則で作る
+    expect(calculatorTitle('目標の純利益')).toBe('目標の純利益の計算');
+  });
+
+  it('書き戻しは「入れる」、合計行は「合計」（§7.1）', () => {
+    expect(CALC_SUBMIT_LABEL).toBe('入れる');
+    expect(CALC_TOTAL_LABEL).toBe('合計');
+  });
+
+  it('積み上げの末尾は記録フォームと同じ「＋ …」の形（§7.1-4）', () => {
+    expect(additionLabel(CALC_ADD_ROW_LABEL)).toBe('＋ 行を足す');
+  });
+
+  it('記号は × ÷ で、`*` `/` は画面に出さない（§7.1）', () => {
+    expect(CALC_KEY_MULTIPLY).toBe('×');
+    expect(CALC_KEY_DIVIDE).toBe('÷');
+    expect([CALC_KEY_MULTIPLY, CALC_KEY_DIVIDE]).not.toContain('*');
+    expect([CALC_KEY_MULTIPLY, CALC_KEY_DIVIDE]).not.toContain('/');
+  });
+
+  it('C は AC と ⌫ の 2 キーに分かれる（§7.1）', () => {
+    expect(CALC_KEY_CLEAR_ALL).toBe('AC');
+    expect(CALC_KEY_BACKSPACE).toBe('⌫');
+  });
+
+  it('行の中の計算を確定するキーは = （§7.1 追補）', () => {
+    expect(CALC_KEY_EQUALS).toBe('=');
+  });
+
+  it('行頭の記号はキーパッドと同じ字を使う（§7.2）', () => {
+    expect(calcRowSignLabel('+')).toBe(CALC_KEY_PLUS);
+    expect(calcRowSignLabel('-')).toBe(CALC_KEY_MINUS);
+    // 積み上げ行の「＋」は additionLabel の「＋」と同じ字（半角に振れない）
+    expect(additionLabel('x').startsWith(calcRowSignLabel('+'))).toBe(true);
+  });
+
+  it('「入れる」が押せない理由を名指しする（§7.4。グレーなだけでは分からない）', () => {
+    expect(calculatorBlockedNote('negative')).toBe('合計がマイナスのままでは入れられません');
+    expect(calculatorBlockedNote('empty')).toBe('数字を入れると合計が出ます');
+  });
+});
+
+// ---- SPEC-V3 §3 プリセットの表示語 ----
+
+describe('SPEC-V3 §3 プリセットの表示語', () => {
+  it('値は種類で単位が変わる（§2.1）:「10%」/「210円」', () => {
+    expect(presetValueText('site', 10)).toBe('10%');
+    expect(presetValueText('site', 3.5)).toBe('3.5%');
+    expect(presetValueText('shipping', 210)).toBe('210円');
+    expect(presetValueText('packaging', 0)).toBe('0円');
+  });
+
+  it('設定タブのカードは件数と「ほかN件」で数に戻す（§3.1 / 設計案 24a）', () => {
+    expect(presetCountLabel(4)).toBe('4件');
+    expect(presetOverflowLabel(2)).toBe('ほか2件');
+  });
+
+  it('追加行は記録フォームの「＋ …」と同じ形（§3.2-3）', () => {
+    expect(presetAddLabel('shipping')).toBe('＋ 送料を追加');
+    expect(presetAddLabel('site')).toBe('＋ 販売サイトを追加');
+  });
+
+  it('見出しは追加と編集で語だけが違う（§3.3-1）', () => {
+    expect(presetFormTitle('packaging', true)).toBe('梱包材を追加');
+    expect(presetFormTitle('packaging', false)).toBe('梱包材を編集');
+  });
+
+  it('値の欄の見出しは率と金額で分かれる（§3.3-4）', () => {
+    expect(presetValueFieldLabel('site')).toBe('手数料率（%）');
+    expect(presetValueFieldLabel('shipping')).toBe('金額');
+  });
+
+  it('編集の注記は「保存済みの記録は変わらない」を値の語で言う（§1.5 / 設計案 25b）', () => {
+    expect(presetEditValueNote('shipping')).toBe(
+      '金額を変えても、これまでの記録の金額はそのままです。',
+    );
+    expect(presetEditValueNote('site')).toBe(
+      '手数料率を変えても、これまでの記録の手数料はそのままです。',
+    );
+  });
+
+  it('削除の確認は件数と「記録は残る」を 1 文で言う（設計案 25c）', () => {
+    expect(presetDeleteConfirmMessage('shipping', 18)).toBe(
+      'この送料を使った記録が18件あります。記録とその金額は残り、今後の入力候補から外れます。',
+    );
+  });
+
+  it('削除の口は種類を名乗る（設計案 25b の下端）', () => {
+    expect(presetDeleteLabel('site')).toBe('この販売サイトを削除');
+  });
+
+  it('一覧の注記は種類ごとに 1 行で、記録が変わらないことは販売サイトだけが言う（§3.5）', () => {
+    expect(presetListNote('site')).toContain('保存済みの記録の手数料は変わりません');
+    expect(presetListNote('shipping')).not.toContain('保存済み');
+    expect(presetListNote('packaging')).not.toContain('保存済み');
+  });
+
+  it('バージョン表記（UI-SPEC §1.6-5）', () => {
+    expect(versionLabel('1.0.0')).toBe('バージョン 1.0.0');
   });
 });

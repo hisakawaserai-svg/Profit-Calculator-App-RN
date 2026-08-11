@@ -19,8 +19,9 @@
 // **記録のない月と未来の月は見た目では区別しない。違いは押せるかどうかだけ。**
 // 盤面の組み立て（年の範囲・各マスの状態）は logic/periodGrid.ts の純粋関数が決める。
 import { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { SheetModal } from '@/components/SheetModal';
 import { monthKeyToDate, shiftMonthKey } from '@/db/dates';
 import { formatMonthCell, formatMonthTitle, formatYearTitle } from '@/logic/format';
 import {
@@ -67,63 +68,67 @@ export function PeriodSheet({
     [currentMonthKey, monthsWithRecords],
   );
 
-  // 選んだ時点で反映してシートを閉じる（§1.2「挙動」）。確定ボタンは置かない
-  const choose = (next: string | null) => {
-    onSelect(next);
-    onClose();
-  };
-
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="閉じる" />
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.label }]}>{PERIOD_SHEET_TITLE}</Text>
+    <SheetModal visible={visible} onClose={onClose}>
+      {(close) => {
+        // 選んだ時点で反映してシートを閉じる（§1.2「挙動」）。確定ボタンは置かない。
+        // 閉じるのは close 経由（下がり切ってから onClose）
+        const choose = (next: string | null) => {
+          onSelect(next);
+          close();
+        };
 
-        {/* クイック選択は ScrollView の外に置いて先頭に固定する（§1.2-2）。
-            「今月」を選んでいるときはこのボタンとグリッドの該当月の**両方**がハイライトされる。
-            グリッドから直接その月を選んだ場合も同じ状態になる（経由で区別しない） */}
-        <View style={styles.quickRow}>
-          <QuickButton
-            label={THIS_MONTH_LABEL}
-            selected={monthKey === currentMonthKey}
-            onPress={() => choose(currentMonthKey)}
-          />
-          <QuickButton
-            label={LAST_MONTH_LABEL}
-            selected={monthKey === lastMonthKey}
-            onPress={() => choose(lastMonthKey)}
-          />
-          <QuickButton
-            label={ALL_PERIOD_LABEL}
-            // 全期間のときグリッドにハイライトは出ない（月を選んでいないため）
-            selected={monthKey == null}
-            onPress={() => choose(null)}
-          />
-        </View>
+        return (
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <Text style={[styles.title, { color: colors.label }]}>{PERIOD_SHEET_TITLE}</Text>
 
-        <ScrollView contentContainerStyle={styles.gridContent}>
-          {blocks.map((block) => (
-            <View key={block.year} style={styles.yearBlock}>
-              <Text style={[styles.yearTitle, { color: colors.secondaryLabel }]}>
-                {formatYearTitle(block.year)}
-              </Text>
-              <View style={styles.monthGrid}>
-                {block.months.map((cell) => (
-                  <MonthButton
-                    key={cell.monthKey}
-                    cell={cell}
-                    selected={monthKey === cell.monthKey}
-                    onPress={() => choose(cell.monthKey)}
-                  />
-                ))}
-              </View>
+            {/* クイック選択は ScrollView の外に置いて先頭に固定する（§1.2-2）。
+                「今月」を選んでいるときはこのボタンとグリッドの該当月の**両方**がハイライトされる。
+                グリッドから直接その月を選んだ場合も同じ状態になる（経由で区別しない） */}
+            <View style={styles.quickRow}>
+              <QuickButton
+                label={THIS_MONTH_LABEL}
+                selected={monthKey === currentMonthKey}
+                onPress={() => choose(currentMonthKey)}
+              />
+              <QuickButton
+                label={LAST_MONTH_LABEL}
+                selected={monthKey === lastMonthKey}
+                onPress={() => choose(lastMonthKey)}
+              />
+              <QuickButton
+                label={ALL_PERIOD_LABEL}
+                // 全期間のときグリッドにハイライトは出ない（月を選んでいないため）
+                selected={monthKey == null}
+                onPress={() => choose(null)}
+              />
             </View>
-          ))}
-        </ScrollView>
 
-        <Legend />
-      </View>
-    </Modal>
+            <ScrollView contentContainerStyle={styles.gridContent}>
+              {blocks.map((block) => (
+                <View key={block.year} style={styles.yearBlock}>
+                  <Text style={[styles.yearTitle, { color: colors.secondaryLabel }]}>
+                    {formatYearTitle(block.year)}
+                  </Text>
+                  <View style={styles.monthGrid}>
+                    {block.months.map((cell) => (
+                      <MonthButton
+                        key={cell.monthKey}
+                        cell={cell}
+                        selected={monthKey === cell.monthKey}
+                        onPress={() => choose(cell.monthKey)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <Legend />
+          </View>
+        );
+      }}
+    </SheetModal>
   );
 }
 
@@ -231,10 +236,6 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
   sheet: {
     maxHeight: '80%',
     paddingHorizontal: 16,

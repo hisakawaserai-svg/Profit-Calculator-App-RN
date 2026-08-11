@@ -25,6 +25,10 @@ export const saleRecords = sqliteTable('sale_records', {
   // 既存行を埋めるために必要で、アプリ側は常に明示指定する（SPEC-V2 §2.1）。
   // 不用品は purchasePrice = 0 が repository の toRow で保証される（SPEC-V2 §2.4）。
   kind: text('kind', { enum: ['used', 'sourced'] }).notNull().default('used'),
+  // 販売サイト名の「写し」（SPEC-V3 §1.5.1 / 決定 §8-1）。プリセットの id は持たない ──
+  // 参照ではなく「そのとき何と書いてあったか」なので、プリセットを直しても過去の記録は動かない。
+  // 空文字 = 未設定（NULL は使わない。既存列と同じ方針）。計算式にも buildWhere にも入らない。
+  siteName: text('site_name').notNull().default(''),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),
@@ -33,6 +37,34 @@ export const saleRecords = sqliteTable('sale_records', {
 
 export type SaleRecord = typeof saleRecords.$inferSelect;
 export type NewSaleRecord = typeof saleRecords.$inferInsert;
+
+// SPEC-V3 §1.6 のプリセット。販売サイト / 送料 / 梱包材は「名前・色・頭文字・数値」を持つ点で
+// 構造が同じなので、1 テーブルに type 列で 3 種を同居させる（§1.1）。
+// - value は 1 列で兼用。単位は type が決める（site = 手数料率 %, それ以外 = 円。§2.1）
+// - 記録はプリセットの id を参照しない（§1.5）ので、削除は物理削除でよい
+// - colorKey に drizzle の enum 指定は付けない。色を 1 つ足すたびにマイグレーションが要るのは重く、
+//   値の妥当性は読み出し時に normalizePresetColor() で担保する（§1.6）
+export const presets = sqliteTable('presets', {
+  id: text('id').primaryKey(), // UUID。初期値だけは内容が読める固定 ID（§2.4）
+  type: text('type', { enum: ['site', 'shipping', 'packaging'] }).notNull(),
+  name: text('name').notNull(),
+  colorKey: text('color_key').notNull(), // PresetColorKey（§1.3）
+  initial: text('initial').notNull().default(''), // 空 = name から導出（§1.2）
+  value: real('value').notNull().default(0), // site = %, それ以外 = 円
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (table) => [
+  // 全アクセスが「ある種類を並び順で全件」なので、この 1 本で足りる（§1.6）
+  index('idx_presets_type_order').on(table.type, table.sortOrder),
+]);
+
+export type Preset = typeof presets.$inferSelect;
+export type NewPreset = typeof presets.$inferInsert;
+
+/**
+ * プリセットの種類（SPEC-V3 §1.1）。RecordKind と同じく文字列 enum。
+ * type 列の定義から導出しているので、schema と型が食い違うことはない。
+ */
+export type PresetType = Preset['type'];
 
 /**
  * レコード種別（SPEC-V2 §1.1）。boolean ではなく文字列 enum にしてあるのは、

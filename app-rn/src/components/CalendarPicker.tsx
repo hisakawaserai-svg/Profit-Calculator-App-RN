@@ -15,9 +15,10 @@
 // 日付だけを選び、時刻は元の値のまま引き継ぐ（DateField と同じ扱い）。
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DateChips } from '@/components/DateChips';
+import { SheetModal } from '@/components/SheetModal';
 import { formatMonthTitle } from '@/logic/format';
 import {
   CHOOSE_MONTH_LABEL,
@@ -108,7 +109,8 @@ export function CalendarPicker({
     [choosingMonth, month, range],
   );
 
-  const select = (date: Date) => {
+  /** 日付を入れて閉じる。閉じるのは close 経由（下がり切ってから onClose） */
+  const selectAndClose = (date: Date, close: () => void) => {
     // 時刻は元の値から引き継ぐ（日付だけを選ぶ欄なので時刻は編集しない）
     onChangeValue(
       new Date(
@@ -122,18 +124,22 @@ export function CalendarPicker({
       ),
     );
     // 選んだ時点で用は済む。「決定」を挟むと 1 タップぶん増えるだけ（§8 の方針）
-    onClose();
+    close();
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={CLOSE_LABEL} />
+    <SheetModal onClose={onClose}>
+      {(close) => (
       <View style={[styles.sheet, { backgroundColor: colors.background }]}>
         <Text style={[styles.sheetTitle, { color: colors.label }]}>{title}</Text>
 
         {/* 行と同じチップを上部にも置く（§8.10.2）。シートを開いてから「やっぱり昨日」と
             気づいたときに、盤面から目当ての日を探し直さずに済む */}
-        <DateChips chips={chips} onSelect={select} style={styles.chips} />
+        <DateChips
+          chips={chips}
+          onSelect={(date) => selectAndClose(date, close)}
+          style={styles.chips}
+        />
 
         <View style={styles.monthBar}>
           <MonthArrow
@@ -218,7 +224,7 @@ export function CalendarPicker({
                       key={column}
                       day={day}
                       flagLabel={flagLabel}
-                      onPress={() => select(day.date)}
+                      onPress={() => selectAndClose(day.date, close)}
                       colors={colors}
                     />
                   ),
@@ -235,12 +241,13 @@ export function CalendarPicker({
 
         <Pressable
           style={[styles.closeButton, { backgroundColor: colors.blue }]}
-          onPress={onClose}
+          onPress={close}
           accessibilityRole="button">
           <Text style={styles.closeLabel}>{CLOSE_LABEL}</Text>
         </Pressable>
       </View>
-    </Modal>
+      )}
+    </SheetModal>
   );
 }
 
@@ -373,10 +380,6 @@ function MonthArrow({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
   sheet: {
     paddingHorizontal: 16,
     paddingTop: 12,

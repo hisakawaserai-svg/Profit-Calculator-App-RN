@@ -2,11 +2,13 @@
 //
 // 行型（ラベル左・数値右・行高 60px）にしたのは UI-SPEC §3.2 の決定。
 // 枠付きの入力欄を縦に積む形をやめ、カードの中に行として並べる。
-// 各金額行の右端に電卓ボタンを置く（SPEC §3.2「→ MiniCalculatorView を popover 表示」）。
+// 各金額行の右端に電卓ボタンを置く。押すと下から電卓のシートが出る（UI-SPEC §7.1）。
+// 欄ごとに変わるのは見出しの語（calculatorLabel）だけで、行の形もボタンの位置も変えない（§7.6）。
 // 入力のフィルタは src/logic/input.ts（SPEC §5.1 / 決定 §7-9）に委譲する。
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -35,6 +37,12 @@ type Props = {
   disabled?: boolean;
   /** 数値欄のみ電卓ボタンを出す（Swift 版の isNumeric） */
   showCalculator?: boolean;
+  /**
+   * 電卓の見出し「{行き先}の計算」に使う語（UI-SPEC §7.1）。
+   * 既定は行のラベルだが、伝票カードのように行名に記号が付く欄（「− 送料」）では
+   * 欄そのものの名前（「送料」）を渡す ── 見出しは行き先を指す語であって、行の見た目ではない。
+   */
+  calculatorLabel?: string;
   /** 行の高さ。伝票カード（UI-SPEC §1.3）は行数が多いので詰める */
   rowHeight?: number;
   /**
@@ -51,11 +59,13 @@ export function NumericField({
   placeholder = '0',
   disabled = false,
   showCalculator = true,
+  calculatorLabel,
   rowHeight = ROW_HEIGHT,
   valueStyle,
 }: Props) {
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
+  const calcLabel = calculatorLabel ?? label;
 
   // 無効は文字色だけで示す（UI-SPEC §1.1「挙動」）。
   //
@@ -83,10 +93,15 @@ export function NumericField({
         />
         {showCalculator ? (
           <Pressable
-            onPress={() => setShowCalc(true)}
+            onPress={() => {
+              // 下から出るシート（UI-SPEC §7.1）はキーボードと同じ側から出るので、
+              // 欄を編集中に押されたときはキーボードを引っ込めてから開く
+              Keyboard.dismiss();
+              setShowCalc(true);
+            }}
             disabled={disabled}
             hitSlop={8}
-            accessibilityLabel={`${label}の電卓`}
+            accessibilityLabel={`${calcLabel}の電卓`}
             style={({ pressed }) => [
               styles.calcButton,
               { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },
@@ -96,9 +111,10 @@ export function NumericField({
         ) : null}
       </View>
 
-      {/* 開いている間だけマウントして、表示欄を現在の入力値で初期化する */}
+      {/* 開いている間だけマウントして、編集中の行を現在の入力値で初期化する（UI-SPEC §7.2） */}
       {showCalculator && showCalc ? (
         <MiniCalculator
+          fieldLabel={calcLabel}
           targetText={value}
           // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
           onSubmit={(result) => onChangeValue(sanitizeNumericInput(result))}

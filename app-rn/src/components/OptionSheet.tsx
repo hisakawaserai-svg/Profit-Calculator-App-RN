@@ -3,8 +3,9 @@
 //
 // SPEC-V2 §7-10 で同居させていた種別フィルタは、合計行のチップへ移したのでこのシートから外した
 // （UI-SPEC §3.2）。シートが持つのは「1 つの選択値 ＋ 先頭の任意アクション」だけになる。
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { SheetModal } from '@/components/SheetModal';
 import { useThemeColors } from '@/theme';
 
 export type SheetOption<T extends string> = { label: string; value: T };
@@ -39,42 +40,45 @@ export function OptionSheet<T extends string>({
   const colors = useThemeColors();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="閉じる" />
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.label }]}>{title}</Text>
-        <ScrollView bounces={false}>
-          {action != null && (
-            <Pressable
-              style={[
-                styles.group,
-                styles.option,
-                { backgroundColor: colors.secondaryBackground },
-              ]}
-              onPress={() => {
-                action.onPress();
-                onClose();
-              }}
-              accessibilityRole="button">
-              <Text style={[styles.optionLabel, { color: colors.blue }]}>{action.label}</Text>
-            </Pressable>
-          )}
-          {heading != null && <SectionHeading text={heading} spaced={action != null} />}
-          {groups.map((group, groupIndex) => (
-            <OptionGroup
-              key={group.map((option) => option.value).join(',')}
-              options={group}
-              spaced={groupIndex > 0}
-              selectedValue={selectedValue}
-              onSelect={(value) => {
-                onSelect(value);
-                onClose();
-              }}
-            />
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
+    // 幕はシートと一緒に上がってこない（不透明度だけで出る。SheetModal 参照）。
+    // 選んだ時点で閉じる行も close を通し、下がり切ってから onClose が呼ばれるようにする
+    <SheetModal visible={visible} onClose={onClose}>
+      {(close) => (
+        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+          <Text style={[styles.title, { color: colors.label }]}>{title}</Text>
+          <ScrollView bounces={false}>
+            {action != null && (
+              <Pressable
+                style={[
+                  styles.group,
+                  styles.option,
+                  { backgroundColor: colors.secondaryBackground },
+                ]}
+                onPress={() => {
+                  action.onPress();
+                  close();
+                }}
+                accessibilityRole="button">
+                <Text style={[styles.optionLabel, { color: colors.blue }]}>{action.label}</Text>
+              </Pressable>
+            )}
+            {heading != null && <SectionHeading text={heading} spaced={action != null} />}
+            {groups.map((group, groupIndex) => (
+              <OptionGroup
+                key={group.map((option) => option.value).join(',')}
+                options={group}
+                spaced={groupIndex > 0}
+                selectedValue={selectedValue}
+                onSelect={(value) => {
+                  onSelect(value);
+                  close();
+                }}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </SheetModal>
   );
 }
 
@@ -136,10 +140,6 @@ function OptionGroup<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
   sheet: {
     maxHeight: '60%',
     paddingHorizontal: 16,

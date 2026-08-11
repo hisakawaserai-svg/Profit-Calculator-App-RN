@@ -46,6 +46,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   saleStartDate: new Date(2026, 7, 1, 12, 0, 0),
   saleDate: null,
   memo: '',
+  // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
+  siteName: '',
 };
 
 describe('§2.4 保存時の正規化: 不用品の仕入価格は 0 に強制する', () => {

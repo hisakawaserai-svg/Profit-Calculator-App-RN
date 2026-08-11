@@ -125,6 +125,12 @@ export type SaveRecordInput = {
   saleStartDate: Date;
   saleDate: Date | null;
   memo: string;
+  /**
+   * 販売サイト名の写し（SPEC-V3 §1.5.1）。空文字 = 未設定。
+   * プリセットの id ではなく名前そのものを持つので、プリセットを直しても過去の記録は動かない。
+   * 省略可にしないのは、保存経路が「入れ忘れて空になる」ことを型で防ぐため（§6.1）。
+   */
+  siteName: string;
 };
 
 // ---- SQL 式（SPEC §2 の計算式。丸めなし） ----
@@ -256,6 +262,8 @@ export function createRepository(
       saleStartDate: toDbDate(input.saleStartDate),
       saleDate: saleDate ? toDbDate(saleDate) : null,
       memo: input.memo,
+      // 写しなので正規化しない（SPEC-V3 §1.5.1）。率を手で変えても名前は消さない
+      siteName: input.siteName,
     };
   }
 
@@ -304,6 +312,32 @@ export function createRepository(
 
     remove(id: string): void {
       db.delete(saleRecords).where(eq(saleRecords.id, id)).run();
+    },
+
+    // ---- 件数（絞り込みを持たない 2 本。集計は analyticsSummary 側の責務） ----
+
+    /** 設定タブ「データ」群の「記録の件数」（UI-SPEC §1.6-4）。出品中も含めた全件 */
+    totalCount(): number {
+      const row = db.select({ count: sql<number>`count(*)` }).from(saleRecords).get();
+      return row?.count ?? 0;
+    },
+
+    /**
+     * ある販売サイト名を写した記録の件数（SPEC-V3 §1.5.1）。
+     * プリセットの削除確認（設計案 25c）が使う。
+     *
+     * **数えられるのは販売サイトだけ。** 記録はプリセットの id を持たず（§1.5）、
+     * 名前の写しがあるのは site_name の 1 列だけなので、送料・梱包材には対応する数え方がない。
+     * 写しなので同名の別プリセットも数に入るが、利用者から見れば「この名前を使った記録」で
+     * 合っている（削除で消えるのも入力候補としての名前）。
+     */
+    countBySiteName(siteName: string): number {
+      const row = db
+        .select({ count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(eq(saleRecords.siteName, siteName))
+        .get();
+      return row?.count ?? 0;
     },
 
     // ---- 検索・絞り込み・月次グループ化（SPEC §4.1 filteredAndGrouped 相当） ----

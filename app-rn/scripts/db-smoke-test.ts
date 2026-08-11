@@ -46,6 +46,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   othersCost: 0,
   commission: 10,
   memo: '',
+  // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
+  siteName: '',
 };
 
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0);

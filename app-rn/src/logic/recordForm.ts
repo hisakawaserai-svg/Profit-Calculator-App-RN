@@ -187,5 +187,8 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     // isSold=false のときの null 化は repository に任せる（SPEC §5.2、二重実装しない）
     saleDate: values.saleDate,
     memo: values.memo,
+    // 販売サイト名（SPEC-V3 §1.5.1）。プリセットの選択 UI が入るまでは常に空文字で、
+    // フォームが値を持つのは Step 3（RecordFormValues.siteName）から
+    siteName: '',
   };
 }

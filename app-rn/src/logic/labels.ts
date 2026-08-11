@@ -9,11 +9,19 @@
 // **改名しない**（§5.3）。ここで扱うのは画面に出る文字列だけ。
 // 「手取り」はアプリ内のどこでも使わない（§1.2 / §7-8）。
 
-import type { RecordKind } from '@/db/schema';
+import type { PresetType, RecordKind } from '@/db/schema';
 
 import type { ChartUnit } from './analytics';
+import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
 import { formatElapsedDays, formatShortDate, formatYenTight } from './format';
 import { daysBetween } from './listingDays';
+import {
+  isRatePreset,
+  PRESET_INITIAL_MAX_LENGTH,
+  PRESET_NAME_MAX_LENGTH,
+  PRESET_RATE_MAX,
+  type PresetInvalidReason,
+} from './preset';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -644,6 +652,228 @@ export function recordTimelineText(timeline: {
   return timeline.soldDate == null
     ? `${head}（${formatElapsedDays(timeline.days)}）`
     : `${head} → ${timeline.soldDate} ${SOLD_DATE_LABEL}（${timeline.days}日）`;
+}
+
+// ---- UI-SPEC §7 電卓 ----
+
+/** 電卓シートの見出し（§7.1）。行き先の欄の名前をそのまま冠する */
+export function calculatorTitle(fieldLabel: string): string {
+  return `${fieldLabel}の計算`;
+}
+
+/** 合計を欄へ書き戻すボタン（§7.1）。「OK」ではなく行き先が読める語にする */
+export const CALC_SUBMIT_LABEL = '入れる';
+
+/** 積み上げた行の合計（§7.1） */
+export const CALC_TOTAL_LABEL = '合計';
+
+/**
+ * 積み上げの末尾（§7.1-4）。記録フォームの「＋ 梱包材・その他」と同じ形にするため、
+ * 「＋ 」は additionLabel が付ける（半角の `+` に振れないよう字を 1 か所に持つ）。
+ */
+export const CALC_ADD_ROW_LABEL = '行を足す';
+
+/** 四則の記号（§7.1）。画面には `*` `/` を出さない */
+export const CALC_KEY_MULTIPLY = '×';
+export const CALC_KEY_DIVIDE = '÷';
+
+/**
+ * 行の中の計算を確定するキー（§7.1 追補）。
+ * 行を積み上げる `＋` `−` とは別で、こちらは 1 行の中だけに効く。
+ */
+export const CALC_KEY_EQUALS = '=';
+
+/** キーパッドの積み上げ記号（§7.2）。行頭に出る記号でもある（calcRowSignLabel） */
+export const CALC_KEY_MINUS = '−';
+export const CALC_KEY_PLUS = '＋';
+
+/**
+ * 訂正（§7.3）。旧 `C` を全消去と 1 手戻すに分けたもの。
+ *
+ * `AC` は `=` を入れた際にキーパッドから出し（4×4 に 17 個は入らない）、
+ * 「＋ 行を足す」と同じ行の右端に置いた。行全体に効く操作なので積み上げの側にある方が近く、
+ * `0` の隣で押し間違える心配もなくなる（§7.1 が文字色で避けようとしていた事故）。
+ */
+export const CALC_KEY_CLEAR_ALL = 'AC';
+export const CALC_KEY_BACKSPACE = '⌫';
+
+/** `AC` `⌫` の読み上げ語。字だけでは何が起きるか読めないため */
+export const CALC_CLEAR_ALL_A11Y_LABEL = 'すべて消す';
+export const CALC_BACKSPACE_A11Y_LABEL = '1 文字消す';
+
+/** 行頭の記号（§7.2）。1 行目にも `＋` を出す（列がそろう。派生決定） */
+export function calcRowSignLabel(sign: CalcRowSign): string {
+  return sign === '-' ? CALC_KEY_MINUS : CALC_KEY_PLUS;
+}
+
+/**
+ * 「入れる」が押せない理由を合計行の下に出す 1 行（§7.4）。
+ * ボタンがグレーなだけでは理由が分からないため、無効の間だけ名指しする。
+ */
+export function calculatorBlockedNote(reason: CalcSubmitBlockedReason): string {
+  return reason === 'negative'
+    ? `${CALC_TOTAL_LABEL}がマイナスのままでは入れられません`
+    : '数字を入れると合計が出ます';
+}
+
+// ---- SPEC-V3 §1 プリセット ----
+//
+// 3 種の表示名と、編集シートの保存が無効なときの理由（§3.3）。
+// 判定そのものは logic/preset.ts が持ち、ここは理由コードを文言に写すだけ
+// （calculatorBlockedNote と同じ分担）。
+
+/** 種類そのものの表示名（§2.1 の見出し）。設定タブの行・一覧・選択シートで共通 */
+const PRESET_TYPE_LABELS: Record<PresetType, string> = {
+  site: '販売サイト',
+  shipping: POSTAGE_LABEL,
+  packaging: ENVELOPE_COST_LABEL,
+};
+
+export function presetTypeLabel(type: PresetType): string {
+  return PRESET_TYPE_LABELS[type];
+}
+
+/**
+ * 保存が押せない理由を値の欄の下に出す 1 行（§3.3）。
+ * ボタンがグレーなだけでは理由が分からない（UI-SPEC §7.4 と同じ方針）。
+ *
+ * 名前の重複は弾かないので、それを咎める文言はここにない（§1.4）。
+ */
+export function presetBlockedNote(reason: PresetInvalidReason, type: PresetType): string {
+  switch (reason) {
+    case 'name-required':
+      return '名前を入れてください';
+    case 'name-too-long':
+      return `名前は${PRESET_NAME_MAX_LENGTH}文字までです`;
+    case 'value-out-of-range':
+      return isRatePreset(type)
+        ? `${COMMISSION_SHORT_LABEL}率は 0〜${PRESET_RATE_MAX} の範囲で入れてください`
+        : '金額は 0 以上で入れてください';
+  }
+}
+
+/** バッジの右に出す値（§3.2 の一覧・§3.3 のプレビュー）:「210円」/「10%」 */
+export function presetValueText(type: PresetType, value: number): string {
+  return isRatePreset(type) ? `${value}%` : formatYenTight(value);
+}
+
+// ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
+
+/** 群の見出し（§3.1）。UI-SPEC §1.6-3 の「（今後）」を外した形 */
+export const PRESET_SECTION_TITLE = '入力を減らす';
+
+/** 群の下の注記 1 行（§3.1） */
+export const PRESET_SECTION_NOTE =
+  'よく使う値を登録しておくと、記録するときに選ぶだけで入ります。';
+
+/** 登録件数（§3.1）。カードの中に収まりきらないぶんの数でもある（presetOverflowLabel） */
+export function presetCountLabel(count: number): string {
+  return `${count}件`;
+}
+
+/**
+ * カードに出しきれなかった残りの数（設計案 24a）。
+ * 「＋3」ではなく件数として読める語にする ── カードの中の他の文字（金額）と並ぶため。
+ */
+export function presetOverflowLabel(count: number): string {
+  return `ほか${presetCountLabel(count)}`;
+}
+
+/** 1 件も登録がない種類のカードに出す 1 行（設計案 24a）。一覧の空表示（§3.2）とは別の短い形 */
+export const PRESET_CARD_EMPTY_LABEL = 'まだ登録がありません';
+
+// ---- SPEC-V3 §3.2 一覧画面 ----
+
+/** カード末尾の追加行（§3.2-3）:「＋ 送料を追加」。「＋ 」は additionLabel が付ける */
+export function presetAddLabel(type: PresetType): string {
+  return additionLabel(`${presetTypeLabel(type)}を追加`);
+}
+
+/** 空表示（§3.2-4）。EmptyState の見出しと本文 */
+export const PRESET_EMPTY_TITLE = '登録がありません';
+export function presetEmptyBody(type: PresetType): string {
+  return `よく使う${presetTypeLabel(type)}を登録すると、記録するときに選ぶだけで入ります。`;
+}
+
+/** 一覧の下の注記（§3.5）。「保存済みの記録は変わらない」は販売サイトの行で 1 度だけ明示する */
+export function presetListNote(type: PresetType): string {
+  switch (type) {
+    case 'site':
+      return '選ぶと手数料率が入ります。保存済みの記録の手数料は変わりません。';
+    case 'shipping':
+      return '選ぶと送料が入ります。実際の料金は各配送サービスの案内で確認してください。';
+    case 'packaging':
+      return '電卓の中から複数選べます。合計が梱包材の欄に入ります。';
+  }
+}
+
+/** ヘッダ右の編集モードの切り替え（設計案 25a）。押した先ではなく今の状態から見た行き先を出す */
+export const PRESET_EDIT_MODE_LABEL = '編集';
+export const PRESET_EDIT_MODE_DONE_LABEL = '完了';
+
+// ---- SPEC-V3 §3.3 追加・編集画面 ----
+
+export function presetFormTitle(type: PresetType, isNew: boolean): string {
+  return `${presetTypeLabel(type)}を${isNew ? '追加' : '編集'}`;
+}
+
+export const PRESET_NAME_FIELD_LABEL = '名前';
+
+/** 値の欄の見出し（§2.1）。site だけ率で、他は金額 */
+export function presetValueFieldLabel(type: PresetType): string {
+  return isRatePreset(type) ? `${COMMISSION_SHORT_LABEL}率（%）` : '金額';
+}
+
+export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
+export const PRESET_INITIAL_FIELD_LABEL = 'バッジの文字';
+
+/** 頭文字の欄の下の 1 行（§1.2）。空のままでも何が出るかを先に言う */
+export const PRESET_INITIAL_NOTE = `名前の先頭が入ります。${PRESET_INITIAL_MAX_LENGTH}文字まで変えられます。`;
+
+/**
+ * 編集のときだけ出す注記（設計案 25b）。§1.5 の帰結を、値を書き換える場所で名指しする。
+ * 追加のときは出さない（まだ「これまでの記録」がない）。
+ */
+export function presetEditValueNote(type: PresetType): string {
+  return isRatePreset(type)
+    ? `${COMMISSION_SHORT_LABEL}率を変えても、これまでの記録の${COMMISSION_SHORT_LABEL}はそのままです。`
+    : '金額を変えても、これまでの記録の金額はそのままです。';
+}
+
+/** 編集画面の下端（設計案 25b）:「この送料を削除」 */
+export function presetDeleteLabel(type: PresetType): string {
+  return `この${presetTypeLabel(type)}を削除`;
+}
+
+/**
+ * 削除の確認（設計案 25c）。**使った記録の件数が数えられて 1 件以上のときだけ出す。**
+ *
+ * 消えるのは今後の入力候補だけで、記録に写った金額は残る（§1.5）── そこが利用者の
+ * いちばんの気がかりなので、件数と「残る」ことを 1 文に入れる。
+ */
+export function presetDeleteConfirmMessage(type: PresetType, usageCount: number): string {
+  return `この${presetTypeLabel(type)}を使った記録が${presetCountLabel(usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
+}
+
+/** 削除したあとの取り消しバー（§3.2）。プリセットは手で作った資産なので記録と同じ扱いにする */
+export function presetDeletedMessage(type: PresetType): string {
+  return `${presetTypeLabel(type)}を削除しました`;
+}
+
+// ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
+
+export const DATA_SECTION_TITLE = 'データ';
+
+/** CSV 書き出し（SPEC-V3 §5.6）。Step 6 で活性化するまでは「準備中」を付けたまま置く */
+export const CSV_EXPORT_LABEL = '書き出し（CSV）';
+export const PREPARING_LABEL = '準備中';
+
+/** 記録の件数（UI-SPEC §1.6-4）。値は presetCountLabel と同じ「N件」 */
+export const RECORD_COUNT_LABEL = '記録の件数';
+
+/** 設定タブ最下部のバージョン表記（UI-SPEC §1.6-5） */
+export function versionLabel(version: string): string {
+  return `バージョン ${version}`;
 }
 
 // 状態カードの補足行（旧 statusCardTimelineText。UI-SPEC §8.9）は**置かない**。
