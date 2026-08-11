@@ -860,6 +860,50 @@ export function presetDeletedMessage(type: PresetType): string {
   return `${presetTypeLabel(type)}を削除しました`;
 }
 
+// ---- SPEC-V3 §4 入力時の選択 ----
+
+/**
+ * 単一選択シートの見出し（§4.3-1）:「送料を選ぶ」。
+ * 行の右端のタグボタン（§4.1）の読み上げ語にも同じ語を使う ── 押すと開くシートの
+ * 見出しがそのままボタンの名前になるので、語を分ける理由がない。
+ */
+export function presetPickerTitle(type: PresetType): string {
+  return `${presetTypeLabel(type)}を選ぶ`;
+}
+
+/**
+ * 選択シートの空表示（§4.3）。見出しは設定タブのカード（PRESET_CARD_EMPTY_LABEL）と同じ語、
+ * 本文は一覧の空表示（presetEmptyBody）と同じ文。同じ「登録がない」状態を、
+ * 出てくる場所ごとに違う言い方で説明しない。
+ */
+export const PRESET_PICKER_EMPTY_TITLE = PRESET_CARD_EMPTY_LABEL;
+
+/**
+ * シート末尾のリンク（§4.3-3）。登録があるときは「編集する」、0 件のときは「追加する」。
+ * 「▸」を字で持つのは presetAddLabel の「＋」と同じ扱い（記号も表示語のうち）。
+ */
+export const PRESET_PICKER_EDIT_LINK = '設定で編集する ▸';
+export const PRESET_PICKER_ADD_LINK = '設定で追加する ▸';
+
+/**
+ * リンクを出せない場所（記録フォーム。RN の Modal の裏に遷移してしまう）での空表示の本文。
+ *
+ * リンクを落とすだけだと、0 件の人にはどこへ行けば登録できるのかが画面から消える。
+ * **押せないリンクの代わりに、行き先を文で名指しする** ── 押せる青字がないので、
+ * 反応しないボタンを探させることにはならない。
+ */
+export function presetPickerEmptyBodyWithoutLink(type: PresetType): string {
+  return `${presetEmptyBody(type)}\n設定タブの「${PRESET_SECTION_TITLE}」から追加できます。`;
+}
+
+/**
+ * 伝票カードの販売サイト名の行の「✕」（§1.5.1）。
+ * 消えるのは名前の写しだけで、率は残る ── 読み上げでもそれが分かるよう名前を主語にする。
+ */
+export function siteNameClearLabel(name: string): string {
+  return `${name}を外す`;
+}
+
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
 export const DATA_SECTION_TITLE = 'データ';

@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   clampPresetInitial,
   DEFAULT_PRESET_COLOR_KEY,
+  findPresetByName,
+  findPresetByValue,
   isRatePreset,
   normalizePresetColor,
   PRESET_COLOR_KEYS,
@@ -249,5 +251,40 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
     });
 
     expect(result).toEqual({ valid: true, name: '宅配 100サイズ', initial: '', value: 1050 });
+  });
+});
+
+describe('§4.1 / §4.3 欄の値・名前からプリセットを引く', () => {
+  const shipping = [
+    { name: 'ネコポス', value: 210 },
+    { name: 'ゆうパケット', value: 250 },
+    { name: '手渡し', value: 0 },
+  ];
+  const sites = [
+    { name: 'メルカリ', value: 10 },
+    { name: 'ラクマ', value: 10 },
+  ];
+
+  it('値が一致する行を返す', () => {
+    expect(findPresetByValue(shipping, 250)?.name).toBe('ゆうパケット');
+  });
+
+  it('一致しない値は null', () => {
+    expect(findPresetByValue(shipping, 999)).toBeNull();
+  });
+
+  it('空欄（null）は 0 円のプリセットに当てない ── 未入力の欄にバッジを出さないため', () => {
+    expect(findPresetByValue(shipping, null)).toBeNull();
+    expect(findPresetByValue(shipping, 0)?.name).toBe('手渡し');
+  });
+
+  it('同じ値が 2 件あるときは並び順で先の 1 件', () => {
+    expect(findPresetByName(sites, 'ラクマ')?.value).toBe(10);
+    expect(findPresetByValue(sites, 10)?.name).toBe('メルカリ');
+  });
+
+  it('名前が空文字（未設定）なら null。消えたプリセットの名前も引けない（§1.5.1）', () => {
+    expect(findPresetByName(sites, '')).toBeNull();
+    expect(findPresetByName(sites, 'もう無いサイト')).toBeNull();
   });
 });

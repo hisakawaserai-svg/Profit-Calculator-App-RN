@@ -26,6 +26,7 @@ describe('newCalcValues', () => {
       othersCost: '',
       targetProfit: '',
       commission: DEFAULT_COMMISSION,
+      siteName: '',
     });
   });
 });
@@ -49,6 +50,10 @@ describe('UI-SPEC §5-8 クリアの有効・無効', () => {
 
   it('種別を既定値から変えると有効（クリアで既定種別に戻るため）', () => {
     expect(hasAnyInput({ ...newCalcValues('used'), kind: 'sourced' }, 'used')).toBe(true);
+  });
+
+  it('販売サイトを選んだだけでも有効（クリアで札も外れるため。SPEC-V3 §1.5.1）', () => {
+    expect(hasAnyInput({ ...newCalcValues('used'), siteName: 'メルカリ' }, 'used')).toBe(true);
   });
 
   it('設定の既定種別が変われば、同じ値でも判定が変わる', () => {
@@ -399,6 +404,11 @@ describe('toInitialAmounts', () => {
 
   it('不用品では仕入価格を渡さない（欄を出していないため）', () => {
     expect(toInitialAmounts({ ...values, kind: 'used' }, '1000').purchasePrice).toBe('');
+  });
+
+  it('選んだ販売サイトの名前も引き継ぐ（SPEC-V3 §1.5.1）', () => {
+    const withSite = { ...values, siteName: 'メルカリ' };
+    expect(toInitialAmounts(withSite, withSite.salesPrice).siteName).toBe('メルカリ');
   });
 
   it('逆算の目標額は引き継がない（レコードの項目ではない）', () => {

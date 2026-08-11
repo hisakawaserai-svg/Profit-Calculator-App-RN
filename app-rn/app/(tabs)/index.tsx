@@ -30,10 +30,12 @@ import {
   partValueColor,
 } from '@/components/CostProportionBar';
 import { NumericField } from '@/components/NumericField';
+import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SiteNameRow } from '@/components/SiteNameRow';
 import { Stepper } from '@/components/Stepper';
-import type { RecordKind } from '@/db/schema';
+import type { Preset, RecordKind } from '@/db/schema';
 import {
   hasAnyInput,
   newCalcValues,
@@ -146,6 +148,15 @@ export default function CalcScreen() {
     [defaultRecordKind],
   );
 
+  /**
+   * 販売サイトのプリセットを選んだとき（SPEC-V3 §4.3 / §1.5.1）。
+   * **率と名前を同時に入れる**のがこの機能の要で、率だけを update すると
+   * 「どこで売ったか」が画面のどこにも残らない。上書きの確認は挟まない（§4.3）。
+   */
+  const selectSite = useCallback((preset: Preset) => {
+    setValues((current) => ({ ...current, commission: preset.value, siteName: preset.name }));
+  }, []);
+
   const isTargetMode = mode === MODE_TARGET;
   const { kind } = values;
 
@@ -240,6 +251,8 @@ export default function CalcScreen() {
                 onChangeValue={(value) => update('salesPrice', value)}
                 // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
                 disabled={isTargetMode}
+                // 送料行にタグボタンがあるので、このカードの他の金額行も同じ幅を空けて右端を揃える
+                reservePresetSlot
               />
               <Divider colors={colors} />
               {/* 不用品では仕入価格を出さない（値は 0 扱い。SPEC-V2 §1.3） */}
@@ -249,6 +262,7 @@ export default function CalcScreen() {
                     label={PURCHASE_PRICE_LABEL}
                     value={values.purchasePrice}
                     onChangeValue={(value) => update('purchasePrice', value)}
+                    reservePresetSlot
                   />
                   <Divider colors={colors} />
                 </>
@@ -257,8 +271,12 @@ export default function CalcScreen() {
                 label={POSTAGE_LABEL}
                 value={values.postage}
                 onChangeValue={(value) => update('postage', value)}
+                // 送料はプリセットから選べる（SPEC-V3 §4.2）
+                presetType="shipping"
               />
               <Divider colors={colors} />
+              {/* 手数料はタグボタンを率の値とステッパーの間に置く（SPEC-V3 §4.4）。
+                  ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
               <View style={styles.stepperRow}>
                 <Stepper
                   label={commissionFieldLabel(values.commission)}
@@ -266,8 +284,23 @@ export default function CalcScreen() {
                   minimumValue={MIN_COMMISSION}
                   maximumValue={MAX_COMMISSION}
                   onChangeValue={(value) => update('commission', value)}
+                  accessory={
+                    <PresetTagButton
+                      type="site"
+                      value={values.commission}
+                      // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
+                      selectedName={values.siteName}
+                      onSelect={selectSite}
+                    />
+                  }
                 />
               </View>
+              {/* 選んだ販売サイトの名前（§1.5.1）。未設定なら行ごと出ない。
+                  この画面では記録しないので、値は state に持つだけで「この内容で記録する」で引き継ぐ */}
+              <SiteNameRow
+                siteName={values.siteName}
+                onClear={() => update('siteName', '')}
+              />
               <Divider colors={colors} />
 
               {/* 6. 梱包材・その他は畳んでおく（UI-SPEC §1.1-6） */}
@@ -282,11 +315,13 @@ export default function CalcScreen() {
                   label={ENVELOPE_COST_LABEL}
                   value={values.envelopeCost}
                   onChangeValue={(value) => update('envelopeCost', value)}
+                  reservePresetSlot
                 />
                 <NumericField
                   label={OTHERS_COST_LABEL}
                   value={values.othersCost}
                   onChangeValue={(value) => update('othersCost', value)}
+                  reservePresetSlot
                 />
               </CollapsibleSection>
             </View>

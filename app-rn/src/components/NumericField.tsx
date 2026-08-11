@@ -19,7 +19,9 @@ import {
 } from 'react-native';
 
 import { MiniCalculator } from '@/components/MiniCalculator';
-import { sanitizeNumericInput } from '@/logic/input';
+import { PresetTagButton, PresetTagSlot } from '@/components/PresetTagButton';
+import type { PresetType } from '@/db/schema';
+import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import { useThemeColors } from '@/theme';
 
 /** UI-SPEC §1.1-5「行高 60px」 */
@@ -50,6 +52,23 @@ type Props = {
    * 無効時の色だけはこれより後に当てる（無効かどうかが行の色より優先して読めるように）。
    */
   valueStyle?: StyleProp<TextStyle>;
+  /**
+   * プリセットの選択ボタンを出す行（SPEC-V3 §4.1 / §4.2）。**渡された行にだけ**タグボタンが
+   * 数値欄の右端・電卓ボタンの左隣に出る。行の形も電卓の位置も変えない
+   * （UI-SPEC §7.6 の「NumericField は行き先を渡すだけ」と同じ拡張の仕方）。
+   */
+  presetType?: PresetType;
+  /**
+   * タグボタンを出さない行で、出す行と同じ幅を空ける（設計案 26a-2 の派生）。
+   *
+   * **同じカードにタグボタンのある行があるときは、他の行に必ず渡す。** 伝票カードも
+   * 入力カードも金額を縦に読む面で、行ごとに数字の右端がずれると
+   * 「販売価格から引いていって結果に至る」流れが読めなくなる。
+   * カード全体にタグボタンが 1 つもない画面（プリセット編集の「金額」など）では渡さない。
+   */
+  reservePresetSlot?: boolean;
+  /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
+  canOpenSettings?: boolean;
 };
 
 export function NumericField({
@@ -62,6 +81,9 @@ export function NumericField({
   calculatorLabel,
   rowHeight = ROW_HEIGHT,
   valueStyle,
+  presetType,
+  reservePresetSlot = false,
+  canOpenSettings = true,
 }: Props) {
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
@@ -91,6 +113,19 @@ export function NumericField({
           editable={!disabled}
           accessibilityLabel={label}
         />
+        {presetType == null ? (
+          reservePresetSlot ? <PresetTagSlot /> : null
+        ) : (
+          <PresetTagButton
+            type={presetType}
+            // 空欄は「選んでいない」。0 円のプリセットのバッジが未入力の欄に出ないようにする
+            value={value === '' ? null : parseNumericInput(value)}
+            // 書き戻しは電卓と同じ経路を通す（§4.3）。プリセットの値が範囲外でも必ず正規化される
+            onSelect={(preset) => onChangeValue(sanitizeNumericInput(String(preset.value)))}
+            disabled={disabled}
+            canOpenSettings={canOpenSettings}
+          />
+        )}
         {showCalculator ? (
           <Pressable
             onPress={() => {

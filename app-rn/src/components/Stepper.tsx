@@ -4,6 +4,7 @@
 // （左が行名・右が手数料「額」で、− ＋ はその間に入る）ため、
 // ボタンだけを StepperButtons として切り出して共用する。
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/theme';
@@ -20,6 +21,12 @@ type ButtonsProps = {
 
 type Props = Omit<ButtonsProps, 'accessibilityLabel'> & {
   label: string;
+  /**
+   * 率の値（ラベル）と ± の間に置くもの（SPEC-V3 §4.4 のタグボタン）。
+   * ± の右や外側ではなくここなのは、行の右端が「率を 1 目盛り動かす」操作で閉じているため ──
+   * 選ぶ操作を挟むと、± を続けて押すときに指の位置が毎回変わる。
+   */
+  accessory?: ReactNode;
 };
 
 export function Stepper({
@@ -29,12 +36,14 @@ export function Stepper({
   maximumValue,
   step = 1,
   onChangeValue,
+  accessory,
 }: Props) {
   const colors = useThemeColors();
 
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
+      {accessory}
       <StepperButtons
         value={value}
         minimumValue={minimumValue}
@@ -97,8 +106,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   label: {
+    // タグボタン（accessory）が入っても ± が右端に残るよう、余りはラベルが吸う
+    flex: 1,
     fontSize: 16,
   },
   buttons: {

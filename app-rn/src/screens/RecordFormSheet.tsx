@@ -39,10 +39,12 @@ import {
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
+import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
+import { SiteNameRow } from '@/components/SiteNameRow';
 import { StepperButtons } from '@/components/Stepper';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
-import type { SaleRecord } from '@/db/schema';
+import type { Preset, SaleRecord } from '@/db/schema';
 import { saveRecord } from '@/db/useRecords';
 import { formatRecordDate, formatYen } from '@/logic/format';
 import {
@@ -182,6 +184,15 @@ function RecordForm({
   };
 
   /**
+   * 販売サイトのプリセットを選んだとき（SPEC-V3 §4.3 / §1.5.1）。
+   * **率と名前を同時に入れる**。名前は「そのとき何と書いてあったか」の写しで、
+   * このあと手で率を変えても消えない（消せるのは下の行の「✕」だけ）。
+   */
+  const selectSite = (preset: Preset) => {
+    setValues((current) => ({ ...current, commission: preset.value, siteName: preset.name }));
+  };
+
+  /**
    * 見出し行のリンクによる状態の切り替え（UI-SPEC §8.7）。
    *
    * 売れた記録にすると日付カードを開いて売れた日の行をその場で出し、初期値は今日
@@ -291,6 +302,8 @@ function RecordForm({
             onChangeValue={(value) => update('salesPrice', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
             valueStyle={styles.salesPriceValue}
+            // 送料行にタグボタンがあるので、この伝票の他の金額行も同じ幅を空けて右端を揃える
+            reservePresetSlot
           />
 
           <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -305,6 +318,7 @@ function RecordForm({
               onChangeValue={(value) => update('purchasePrice', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              reservePresetSlot
             />
           )}
 
@@ -316,6 +330,11 @@ function RecordForm({
             onChangeValue={(value) => update('postage', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
             valueStyle={[styles.deductionValue, { color: colors.red }]}
+            // 送料はプリセットから選べる（SPEC-V3 §4.2）
+            presetType="shipping"
+            // このフォームは RN の Modal なので、設定タブへ遷移してもその裏に積まれる。
+            // 押しても何も起きないように見えるリンクは出さない（PresetPickerSheet 参照）
+            canOpenSettings={false}
           />
 
           {/* 9. 手数料。他の行と違って入れるのは「率」で、伝票に載るのはそこから出た「額」。
@@ -324,6 +343,15 @@ function RecordForm({
             <Text style={[styles.rowLabel, { color: colors.label }]} numberOfLines={1}>
               {deductionLabel(commissionFieldLabel(values.commission))}
             </Text>
+            {/* タグボタンは率の値とステッパーの間（SPEC-V3 §4.4）。± はそのまま残す */}
+            <PresetTagButton
+              type="site"
+              value={values.commission}
+              // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
+              selectedName={values.siteName}
+              onSelect={selectSite}
+              canOpenSettings={false}
+            />
             <StepperButtons
               value={values.commission}
               minimumValue={MIN_COMMISSION}
@@ -335,6 +363,10 @@ function RecordForm({
               {formatYen(commissionCost(costs))}
             </Text>
           </View>
+
+          {/* 9a. 選んだ販売サイトの名前（SPEC-V3 §1.5.1）。手数料行の直下に 1 行。
+              未設定なら行ごと出ないので、通常の伝票の高さは変わらない */}
+          <SiteNameRow siteName={values.siteName} onClear={() => update('siteName', '')} />
 
           {/* 10. 梱包材・その他。畳んだ状態では「未入力」か合計だけを出す（UI-SPEC §1.3-10） */}
           <CollapsibleSection
@@ -357,6 +389,7 @@ function RecordForm({
               onChangeValue={(value) => update('envelopeCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              reservePresetSlot
             />
             <NumericField
               label={OTHERS_COST_LABEL}
@@ -364,6 +397,7 @@ function RecordForm({
               onChangeValue={(value) => update('othersCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              reservePresetSlot
             />
           </CollapsibleSection>
 

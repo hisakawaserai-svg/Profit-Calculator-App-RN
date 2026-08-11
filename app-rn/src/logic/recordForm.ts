@@ -42,6 +42,14 @@ export type RecordFormValues = {
   saleDate: Date;
   isSold: boolean;
   memo: string;
+  /**
+   * 販売サイト名の写し（SPEC-V3 §1.5.1）。空文字 = 未設定。
+   *
+   * 入るのは**販売サイトのプリセットを選んだときだけ**で、率（commission）と同時に入る（§4.3）。
+   * 手で率を変えても消さない ── 名前は利用者が付けた札で、率の微調整で無効になるものではない。
+   * 消せるのは伝票カードの「✕」からだけ。計算にも集計にも入らない。
+   */
+  siteName: string;
 };
 
 /**
@@ -57,6 +65,9 @@ export type InitialAmounts = Pick<
   | 'envelopeCost'
   | 'othersCost'
   | 'commission'
+  // 計算タブで選んだ販売サイトの名前も引き継ぐ（§1.5.1）。率だけ渡すと、
+  // 「この内容で記録する」を押した瞬間に札だけが落ちる
+  | 'siteName'
 >;
 
 /**
@@ -89,6 +100,7 @@ export function newFormValues(
     saleDate: now,
     isSold: false,
     memo: '',
+    siteName: amounts?.siteName ?? '',
   };
 }
 
@@ -123,6 +135,7 @@ export function recordToFormValues(
     saleDate: record.saleDate == null ? now : fromDbDate(record.saleDate),
     isSold: record.isSold,
     memo: record.memo,
+    siteName: record.siteName,
   };
 }
 
@@ -187,8 +200,7 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     // isSold=false のときの null 化は repository に任せる（SPEC §5.2、二重実装しない）
     saleDate: values.saleDate,
     memo: values.memo,
-    // 販売サイト名（SPEC-V3 §1.5.1）。プリセットの選択 UI が入るまでは常に空文字で、
-    // フォームが値を持つのは Step 3（RecordFormValues.siteName）から
-    siteName: '',
+    // 販売サイト名（SPEC-V3 §1.5.1）。計算にも buildWhere にも入らない、表示と CSV だけの列
+    siteName: values.siteName,
   };
 }

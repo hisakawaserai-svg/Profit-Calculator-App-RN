@@ -103,6 +103,36 @@ export function isRatePreset(type: PresetType): boolean {
 }
 
 /**
+ * 欄の値と一致するプリセット（§4.1 のバッジ・§4.3 のチェック）。
+ *
+ * 空欄（null）は「選んでいない」── 0 円のプリセットがあると、何も入れていない欄に
+ * バッジが出てしまうため、値がないことと 0 であることを分ける。
+ * 同じ値が 2 件あるときは並び順で先の 1 件（§3.4 の sortOrder 昇順で渡ってくる）。
+ */
+export function findPresetByValue<T extends { value: number }>(
+  presets: readonly T[],
+  value: number | null,
+): T | null {
+  if (value == null) return null;
+  return presets.find((preset) => preset.value === value) ?? null;
+}
+
+/**
+ * 写した名前から引く（§1.5.1 の販売サイト）。
+ *
+ * 率ではなく名前で引くのは、手で率を変えても札が残る仕様だから ── 10% → 8% にした
+ * 記録でも、選んだサイトのバッジは出たままにする。プリセットを消したり改名したりすると
+ * 引けなくなるが、そのときバッジが消えるだけで名前の写し自体は記録に残る。
+ */
+export function findPresetByName<T extends { name: string }>(
+  presets: readonly T[],
+  name: string,
+): T | null {
+  if (name === '') return null;
+  return presets.find((preset) => preset.name === name) ?? null;
+}
+
+/**
  * 保存が無効な理由（§1.4）。文言は labels.presetBlockedNote が持つ。
  * 名前の重複は**弾かない**ので、ここに理由として現れない（§1.4）。
  */

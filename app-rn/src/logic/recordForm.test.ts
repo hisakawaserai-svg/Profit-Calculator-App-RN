@@ -60,12 +60,15 @@ describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
         envelopeCost: '20',
         othersCost: '5',
         commission: 8,
+        siteName: 'メルカリ',
       },
       NOW,
     );
 
     expect(values.salesPrice).toBe('1000');
     expect(values.commission).toBe(8);
+    // 率と一緒に選んだ販売サイトの名前も引き継ぐ（SPEC-V3 §1.5.1）
+    expect(values.siteName).toBe('メルカリ');
     // 引き継ぐのは金額・手数料・種別だけ。商品名は空・出品中のまま
     expect(values.itemName).toBe('');
     expect(values.isSold).toBe(false);
@@ -87,6 +90,7 @@ describe('SPEC-V2 §1.4 種別の初期値', () => {
       envelopeCost: '',
       othersCost: '',
       commission: 10,
+      siteName: '',
     } as const;
 
     // 設定は不用品でも、画面の見た目に合わせて仕入品で開く
@@ -190,6 +194,34 @@ describe('SPEC-V2 §1.1 保存入力への種別の受け渡し', () => {
   });
 });
 
+describe('SPEC-V3 §1.5.1 販売サイト名の写し', () => {
+  const base = () => ({ ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ' });
+
+  it('引き継ぎなしの新規は空文字（未設定）', () => {
+    expect(base().siteName).toBe('');
+    expect(toSaveInput(base()).siteName).toBe('');
+  });
+
+  it('選んだ名前をそのまま保存する', () => {
+    expect(toSaveInput({ ...base(), siteName: 'メルカリ', commission: 10 }).siteName).toBe(
+      'メルカリ',
+    );
+  });
+
+  it('手で率を変えても名前は消えない（率の微調整で札は無効にならない）', () => {
+    const values = { ...base(), siteName: 'メルカリ', commission: 8 };
+
+    expect(toSaveInput(values).commission).toBe(8);
+    expect(toSaveInput(values).siteName).toBe('メルカリ');
+  });
+
+  it('種別を切り替えても名前は消えない（金額の欄ではないため）', () => {
+    const values = { ...base(), kind: 'sourced' as const, siteName: 'メルカリ' };
+
+    expect(changeKind(values, 'used').siteName).toBe('メルカリ');
+  });
+});
+
 describe('§5.2 saleDate の正規化は repository に任せる', () => {
   it('出品中でもフォームの saleDate はそのまま渡す（null 化は repository 側）', () => {
     const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', isSold: false };
@@ -221,6 +253,12 @@ describe('編集時の初期値（Swift 版 loadInitialData 相当）', () => {
     expect(values.saleDate).toEqual(new Date(2026, 6, 20, 10, 0, 0));
     expect(values.saleStartDate).toEqual(new Date(2026, 6, 1, 9, 0, 0));
     expect(values.memo).toBe('メモ');
+  });
+
+  it('保存済みの販売サイト名をフォームへ戻す（SPEC-V3 §1.5.1）', () => {
+    expect(recordToFormValues(record({ siteName: 'メルカリ' }), NOW).siteName).toBe('メルカリ');
+    // 既存レコードはバックフィルしないので空文字のまま
+    expect(recordToFormValues(record(), NOW).siteName).toBe('');
   });
 
   it('出品中（saleDate = null）のレコードは販売日の初期表示を当日にする', () => {

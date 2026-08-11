@@ -41,6 +41,14 @@ export type CalcFormValues = {
   targetProfit: string;
   /** 手数料「率」(%)。10 = 10% */
   commission: number;
+  /**
+   * 選んだ販売サイトの名前（SPEC-V3 §1.5.1）。空文字 = 未設定。
+   *
+   * 計算タブは記録を作らないので、これは**画面ローカルの state**でしかない ──
+   * 「この内容で記録する」で toInitialAmounts に乗ってフォームへ渡り、そこで初めて
+   * 保存の対象になる（kind と同じ扱い。SPEC-V2 §1.4）。計算式には一切入らない。
+   */
+  siteName: string;
 };
 
 /**
@@ -57,6 +65,7 @@ export function newCalcValues(defaultKind: RecordKind): CalcFormValues {
     othersCost: '',
     targetProfit: '',
     commission: DEFAULT_COMMISSION,
+    siteName: '',
   };
 }
 
@@ -341,5 +350,6 @@ export function toInitialAmounts(
     envelopeCost: values.envelopeCost,
     othersCost: values.othersCost,
     commission: values.commission,
+    siteName: values.siteName,
   };
 }

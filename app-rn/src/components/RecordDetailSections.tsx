@@ -98,6 +98,14 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
         amount={commissionCost(record)}
         color={colors.orange}
       />
+      {/* 販売サイト名の写し（SPEC-V3 §1.5.1）。手数料行の下に薄く 1 行。
+          「✕」は置かない ── 詳細は表示専用の画面で、直すのはフォーム経由（§4.2）。
+          未設定（空文字）の記録では行ごと出ないので、既存の記録の見た目は変わらない */}
+      {record.siteName !== '' && (
+        <Text style={[styles.siteName, { color: colors.secondaryLabel }]} numberOfLines={1}>
+          {record.siteName}
+        </Text>
+      )}
       <ReceiptDeductionRow
         label={ENVELOPE_AND_OTHERS_FIELD_LABEL}
         amount={packingCost}
@@ -545,6 +553,11 @@ const styles = StyleSheet.create({
   salesPrice: {
     fontSize: 24,
     fontWeight: '700',
+  },
+  siteName: {
+    // 手数料行に付く補足なので、行名（15px）より小さく・上に詰めて出す（SPEC-V3 §1.5.1）
+    fontSize: 13,
+    marginTop: -6,
   },
   deductionAmount: {
     fontSize: 17,
