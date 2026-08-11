@@ -77,12 +77,36 @@ export function useTag(id: string | undefined): Tag | null {
   return useMemo(() => (id == null ? null : (tagRepository.getById(id) ?? null)), [id]);
 }
 
+/** refreshToken の理由は queryList と同じ */
+function queryRecordTagIds(recordId: string | undefined, refreshToken: object): string[] {
+  void refreshToken;
+  return recordId == null ? [] : tagRepository.tagIdsByRecord(recordId);
+}
+
 /**
- * ある記録に付いているタグの id（フォームを開くときの初期値。§3.1）。
- * 並びは sortOrder 昇順。id が無ければ新規作成なので空配列。
+ * ある記録に付いているタグの id（sortOrder 昇順。id が無ければ空配列）。
+ *
+ * 2 か所から使う（§3.1 / §3.4）:
+ * - 記録フォームの初期値 ── 開いた時点の値を state に写すだけなので refresh は使わない
+ * - レコード詳細のタグの節 ── **フォームを保存した直後に呼び出し側が refresh する**。
+ *   詳細画面の上にフォームがモーダルで乗るので画面の焦点は動かず、
+ *   useFocusEffect（他画面から戻ったとき）だけでは書き換わったタグを拾えない。
  */
-export function useRecordTagIds(recordId: string | undefined): string[] {
-  return useMemo(() => (recordId == null ? [] : tagRepository.tagIdsByRecord(recordId)), [recordId]);
+export function useRecordTagIds(recordId: string | undefined): {
+  tagIds: string[];
+  refresh: () => void;
+} {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  const tagIds = useMemo(
+    () => queryRecordTagIds(recordId, refreshToken),
+    [recordId, refreshToken],
+  );
+
+  return { tagIds, refresh };
 }
 
 /**

@@ -23,6 +23,7 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -43,9 +44,12 @@ import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SiteNameRow } from '@/components/SiteNameRow';
 import { StepperButtons } from '@/components/Stepper';
+import { TagChip } from '@/components/TagChip';
+import { TagPickerSheet } from '@/components/TagPickerSheet';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
-import type { Preset, SaleRecord } from '@/db/schema';
+import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import { saveRecord } from '@/db/useRecords';
+import { useRecordTagIds, useTagList } from '@/db/useTags';
 import { formatRecordDate, formatYen } from '@/logic/format';
 import {
   CANCEL_LABEL,
@@ -67,6 +71,8 @@ import {
   SAVE_LABEL,
   SOLD_DATE_FIELD_LABEL,
   SOLD_RECORDS_LABEL,
+  TAG_LABEL,
+  TAG_PICKER_OPEN_LABEL,
   UNSET_INPUT_LABEL,
   additionLabel,
   commissionFieldLabel,
@@ -81,6 +87,7 @@ import {
 import { daysBetween } from '@/logic/listingDays';
 import { commissionCost, netProfit } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
+import { selectedTags } from '@/logic/tag';
 import {
   ITEM_NAME_REQUIRED_MESSAGE,
   MAX_COMMISSION,
@@ -146,13 +153,21 @@ function RecordForm({
 }) {
   const colors = useThemeColors();
 
+  // タグの一覧（SPEC-V4 §3.1）。チップを描くのに名前と色が要るので、id だけでは足りない。
+  // 選択シートで作られた新しいタグを拾うため、シートには refresh を渡す
+  const { tags, refresh: refreshTags } = useTagList();
+  // 編集のときだけ、いま付いているタグが初期値になる（新規は空。§3.1）
+  const { tagIds: savedTagIds } = useRecordTagIds(record?.id);
+
   // 新規の種別は設定の既定値。ただし計算タブから開いたときは initialAmounts.kind が優先される
   // （SPEC-V2 §1.4）。開いている間だけマウントされるので、ここで一度読めばよい
   const [values, setValues] = useState<RecordFormValues>(() =>
     record == null
       ? newFormValues(getDefaultRecordKind(), initialAmounts)
-      : recordToFormValues(record),
+      : recordToFormValues(record, undefined, savedTagIds),
   );
+  /** タグ選択シート（§3.2）。開いている間だけマウントする */
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（日付欄の「今日（…）」の基準） */
@@ -292,7 +307,23 @@ function RecordForm({
             </Text>
           </View>
 
-          {/* 5. 種別セレクタ。商品名の直下・金額の積み上げの直前（UI-SPEC §6-6） */}
+          {/* 4a. タグ行（SPEC-V4 §3.1）。商品名の直下・種別セレクタの上（決定 §9-3）──
+              番号を 4a にしてあるのは、他の番号が UI-SPEC §1.3-N を指しているため
+              （§9a の販売サイト名の行と同じ扱い）。
+              タグは「何を売ったか」の情報で金額ではないので、金額の積み上げの中に混ぜない。
+              0 件でもラベルと「＋」だけの行を出す（出したり消したりすると機能に気付けない） */}
+          <TagFieldRow
+            tags={selectedTags(tags, values.tagIds)}
+            onOpenPicker={() => setTagPickerOpen(true)}
+            onRemove={(id) =>
+              update(
+                'tagIds',
+                values.tagIds.filter((tagId) => tagId !== id),
+              )
+            }
+          />
+
+          {/* 5. 種別セレクタ。タグ行の直下・金額の積み上げの直前（UI-SPEC §6-6 / 決定 §9-3） */}
           <RecordKindSelector kind={values.kind} onChange={updateKind} />
 
           {/* 6. 販売価格。伝票の一番上で、ここから下へ引いていく */}
@@ -476,7 +507,70 @@ function RecordForm({
           </CollapsibleSection>
         </View>
       </ScrollView>
+
+      {/* タグ選択シート（§3.2）。**選んだ瞬間にフォームの state に入る**が、
+          記録との紐付けが DB に入るのは「保存」を押したときだけ（UI-SPEC §8.6）。
+          設定タブへのリンクは出さない ── このフォームは RN の Modal なので、
+          遷移してもその裏に積まれてしまう（プリセットの選択シートと同じ判断） */}
+      {tagPickerOpen && (
+        <TagPickerSheet
+          selectedIds={values.tagIds}
+          onChange={(tagIds) => update('tagIds', tagIds)}
+          onTagsChanged={refreshTags}
+          canOpenSettings={false}
+          onClose={() => setTagPickerOpen(false)}
+        />
+      )}
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * 伝票カードのタグ行（SPEC-V4 §3.1）。「タグ」ラベル ＋ 選択中のチップ ＋「＋」。
+ *
+ * - **0 件でも行ごと消さない** ── 出したり消したりすると機能に気付けない（SPEC-V3 §4.1 と同じ判断）
+ * - チップが増えたら**折り返して 2 段目に伸びる**。横スクロールにすると端のタグが見えない。
+ *   数が増えるのは利用者が選んだ結果なので、高さが伸びるのは受け入れる
+ * - 「✕」を押すとその場で 1 つ外れる（シートを開き直さずに済む）
+ * - 並びは tags.sortOrder 昇順（§1.5）。呼び出し側が selectedTags で解決して渡す
+ */
+function TagFieldRow({
+  tags,
+  onOpenPicker,
+  onRemove,
+}: {
+  tags: Tag[];
+  onOpenPicker: () => void;
+  onRemove: (id: string) => void;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={styles.tagRow}>
+      <Text style={[styles.tagRowLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
+      <View style={styles.tagRowChips}>
+        {tags.map((tag) => (
+          <TagChip
+            key={tag.id}
+            tag={tag}
+            variant="selected"
+            onRemove={() => onRemove(tag.id)}
+          />
+        ))}
+        {/* 「＋」はチップの列の最後尾。チップが折り返しても、常に最後のチップの隣にいる */}
+        <Pressable
+          onPress={onOpenPicker}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={TAG_PICKER_OPEN_LABEL}
+          style={({ pressed }) => [
+            styles.tagAddButton,
+            { borderColor: colors.separator, opacity: pressed ? 0.5 : 1 },
+          ]}>
+          <Ionicons name="add" size={18} color={colors.blue} />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -597,6 +691,33 @@ const styles = StyleSheet.create({
   },
   itemNameCaption: {
     fontSize: 12,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    // チップが折り返して 2 段になっても、ラベルは 1 段目の高さに留める
+    alignItems: 'flex-start',
+    gap: 12,
+    minHeight: 32,
+  },
+  tagRowLabel: {
+    fontSize: 16,
+    // チップ（縦 4px の余白 ＋ 15px の字）と 1 行目の中心が揃うぶんだけ下げる
+    paddingTop: 4,
+  },
+  tagRowChips: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tagAddButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   salesPriceValue: {
     fontSize: 24,

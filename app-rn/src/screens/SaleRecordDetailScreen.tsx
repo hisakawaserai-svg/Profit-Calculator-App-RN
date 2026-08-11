@@ -41,10 +41,12 @@ import {
 } from 'react-native';
 
 import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
+import { TagChip } from '@/components/TagChip';
 import { UndoBar } from '@/components/UndoBar';
 import { fromDbDate } from '@/db/dates';
-import type { SaleRecord } from '@/db/schema';
+import type { SaleRecord, Tag } from '@/db/schema';
 import { deleteRecord, setSaleDate, setSoldStatus, useRecord } from '@/db/useRecords';
+import { useRecordTagIds, useTagList } from '@/db/useTags';
 import { formatShortDate } from '@/logic/format';
 import {
   DELETE_CONFIRM_TITLE,
@@ -56,6 +58,7 @@ import {
   MEMO_LABEL,
   REVERT_TO_LISTING_CONFIRM_LABEL,
   SOLD_BADGE_LABEL,
+  TAG_SECTION_LABEL,
   UNDO_LABEL,
   UNTITLED_LABEL,
   CANCEL_LABEL,
@@ -64,6 +67,7 @@ import {
 } from '@/logic/labels';
 import { listingDays } from '@/logic/listingDays';
 import { initialSaleDate } from '@/logic/saleDate';
+import { selectedTags } from '@/logic/tag';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -74,6 +78,11 @@ export function SaleRecordDetailScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const { record, refresh } = useRecord(id);
+  // タグ（SPEC-V4 §3.4 / 設計案 32b）。名前と色は tags の側にしかないので 2 つ合わせて解決する。
+  // フォームで付け替えるとどちらも変わり得るので、保存の後は両方を引き直す
+  const { tags } = useTagList();
+  const { tagIds, refresh: refreshTagIds } = useRecordTagIds(id);
+  const recordTags = selectedTags(tags, tagIds);
   const [showForm, setShowForm] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（出品中の経過日数の基準） */
   const today = useMemo(() => new Date(), []);
@@ -213,6 +222,13 @@ export function SaleRecordDetailScreen() {
             onPressSoldDate={() => setHighlightSoldDate(false)}
           />
 
+          {/* 5a. タグ（SPEC-V4 §3.4 / 設計案 32b）。**表示のみ**で、付け替えはフォーム経由
+              （SiteNameRow と同じ扱い）。メモと同じ「補足」の並びに置くのは、レシートカードの
+              位置と大きさをタグの数で動かさないため ── 決定 §9-12 は「メタ行の下・商品名の直後」
+              としていたが、そこに置くとタグが増えるたびに金額の面が下へ押し出される。
+              **0 件のときはカードごと出さない**（メモと違い、空欄を埋める操作がこの画面に無い） */}
+          {recordTags.length > 0 && <TagSection tags={recordTags} />}
+
           {/* 6. メモ */}
           <View style={styles.memoSection}>
             <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{MEMO_LABEL}</Text>
@@ -273,7 +289,12 @@ export function SaleRecordDetailScreen() {
         visible={showForm}
         record={record}
         onClose={() => setShowForm(false)}
-        onSaved={refresh}
+        // フォームはこの画面の上のモーダルなので焦点が動かない ──
+        // タグの節も明示的に引き直さないと、付け替えが反映されない
+        onSaved={() => {
+          refresh();
+          refreshTagIds();
+        }}
       />
     </>
   );
@@ -292,6 +313,37 @@ function timelineText(record: SaleRecord, today: Date): string {
     soldDate: saleDate == null ? null : formatShortDate(saleDate),
     days: listingDays({ saleStartDate, saleDate }, today),
   });
+}
+
+/**
+ * タグの節（SPEC-V4 §3.4 / 設計案 32b）。メモと同じ「見出し ＋ カード」の形。
+ *
+ * チップは**表示のみ**（「✕」を出さない）── この画面に保存の口が無いため。
+ * 外すのは編集フォームのタグ行（§3.1）で、そこには「保存」がある。
+ *
+ * 地色は敷く（§2.3 の表は記録詳細を `plain` としていたが、案 32b の絵は薄い地のチップ）──
+ * カードの中に複数のチップが折り返して並ぶので、地が無いと点と名前の連なりが
+ * 1 つの文に見えてしまい、どこまでが 1 つのタグなのか読めない。
+ * 「✕」は `onRemove` を渡さなければ出ないので、押せる印は付かない。
+ * 並びは tags.sortOrder 昇順（§1.5）。呼び出し側が selectedTags で解決して渡す。
+ */
+function TagSection({ tags }: { tags: Tag[] }) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={styles.tagSection}>
+      <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+        {TAG_SECTION_LABEL}
+      </Text>
+      {/* チップは折り返して下に伸びる。カードの高さがタグの数で変わっても、
+          上のレシートカードは動かない（この節をレシートの下に置いた理由そのもの） */}
+      <View style={[styles.card, styles.tagCard, { backgroundColor: colors.secondaryBackground }]}>
+        {tags.map((tag) => (
+          <TagChip key={tag.id} tag={tag} variant="selected" />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 /** メタ行の状態バッジ（UI-SPEC §1.4-2）。状態を**表示**するだけで、変えるのはトグルの役割（§5-13） */
@@ -345,6 +397,16 @@ const styles = StyleSheet.create({
   },
   memoSection: {
     gap: 6,
+  },
+  tagSection: {
+    gap: 6,
+  },
+  tagCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    // チップが自前で左右の余白を持つので、カードの内側は少し詰めて名前の左端を揃える
+    padding: 12,
   },
   sectionTitle: {
     fontSize: 13,

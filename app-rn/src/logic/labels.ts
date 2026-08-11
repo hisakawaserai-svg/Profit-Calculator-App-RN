@@ -1078,6 +1078,78 @@ export const TAG_NAME_PLACEHOLDER = '名前';
  */
 export const TAG_COLOR_FIELD_LABEL = '色';
 
+/**
+ * 編集画面の下端の削除（§2.3。PresetFormScreen の presetDeleteLabel と同じ形）。
+ * 追加のときは出さないので「この」で始めてよい ── 指しているのはいま開いている 1 件。
+ */
+export const TAG_DELETE_LABEL = `この${TAG_LABEL}を削除`;
+
+/**
+ * 削除の確認（§2.3）。**使用件数が 1 件以上のときだけ出す。**
+ *
+ * 一覧のスワイプ削除は確認を挟まない（§2.2。使用件数が行に出ていて、UndoBar で戻せる）が、
+ * **編集画面からの削除は押した先で前の画面に戻るので、取り消しの口をその場に置けない。**
+ * 押し切る前に「何件から外れるか」を言えるのはここだけなので、プリセット（設計案 25c）と
+ * 同じ条件で 1 枚だけ出す。
+ *
+ * 言うのは tagDeletedMessage と同じ 2 つ ── 記録は残ること、外れるのはタグだけであること。
+ */
+export function tagDeleteConfirmMessage(usageCount: number): string {
+  return `このタグが付いた記録が${presetCountLabel(usageCount)}あります。記録は残り、このタグだけが外れます。`;
+}
+
+// ---- SPEC-V4 §3 入力（記録フォームのタグ行・選択シート） ----
+
+/**
+ * 記録フォームのタグ行の「＋」の読み上げ語（§3.1）。
+ * 見た目は記号 1 つなので、何が開くのかは読み上げの側だけが言える。
+ */
+export const TAG_PICKER_OPEN_LABEL = 'タグを選ぶ';
+
+/**
+ * 選択シートの検索欄（§3.2-2）。**「探す」だけでなく「作る」まで言う** ──
+ * ここが新規作成の入口（§3.2-3）を兼ねていることは、打ち始めるまで画面に出ない。
+ */
+export const TAG_PICKER_SEARCH_PLACEHOLDER = 'タグを探す・作る';
+
+/**
+ * 検索語に完全一致する既存タグが無いときだけ先頭に出る行（§3.2-3）。
+ * 「＋」を字で持つのは TAG_ADD_LABEL（additionLabel）と同じ扱い ── 記号も表示語のうち。
+ */
+export function tagCreateLabel(name: string): string {
+  return `＋『${name}』を作る`;
+}
+
+/**
+ * シート右上の「完了」（§3.2-1）。選択はチェックした瞬間にフォームへ反映されるので、
+ * これは確定ではなく**閉じる**ボタン。プリセットの編集モードの「完了」と同じ語でよい
+ * （どちらも「この面での操作を終える」の意）。
+ */
+export const TAG_PICKER_DONE_LABEL = PRESET_EDIT_MODE_DONE_LABEL;
+
+/**
+ * シート末尾のリンク（§3.2-5）。行き先はプリセットとは別（設定タブのタグ一覧）だが、
+ * **語は同じ**にする ── 同じ「設定へ行って直す」動きを、シートごとに違う言い方で出さない。
+ * 記録フォームから開いたときは出さない（RN の Modal の裏に遷移してしまうため）。
+ */
+export const TAG_PICKER_EDIT_LINK = PRESET_PICKER_EDIT_LINK;
+
+/**
+ * 1 件も登録がないときの選択シートの本文（§3.2）。一覧の空表示（TAG_EMPTY_BODY）と
+ * 語を分けるのは、**ここには作る場所が既にある**から ── 「記録を追加するときにも作れます」は、
+ * まさにその記録フォームの上で読むと行き先の分からない案内になる。
+ */
+export const TAG_PICKER_EMPTY_BODY = '上の欄に名前を入れると、その場で作れます。';
+
+// ---- SPEC-V4 §3.4 レコード詳細のタグ ----
+
+/**
+ * 詳細画面のタグの節の見出し（設計案 32b）。メモと同じ「補足」の並びに置くので、
+ * メモ（MEMO_LABEL）と同じ形の見出しを付ける ── 見出しの無いカードが 1 枚だけ挟まると、
+ * 何のカードなのかがチップの中身からしか読めない。
+ */
+export const TAG_SECTION_LABEL = TAG_LABEL;
+
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
 export const DATA_SECTION_TITLE = 'データ';

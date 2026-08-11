@@ -222,6 +222,49 @@ describe('SPEC-V3 §1.5.1 販売サイト名の写し', () => {
   });
 });
 
+describe('SPEC-V4 §3.1 タグ', () => {
+  const base = () => ({ ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ' });
+
+  it('新規は 0 件から始まる（計算タブから引き継ぐものが無い。決定 §9-4）', () => {
+    expect(base().tagIds).toEqual([]);
+  });
+
+  it('タグを付けなくても保存できる（§0：必須にしない）', () => {
+    expect(canSave(base())).toBe(true);
+    expect(toSaveInput(base()).tagIds).toEqual([]);
+  });
+
+  it('選んだタグをそのまま保存入力へ渡す', () => {
+    expect(toSaveInput({ ...base(), tagIds: ['tag-1', 'tag-2'] }).tagIds).toEqual([
+      'tag-1',
+      'tag-2',
+    ]);
+  });
+
+  it('編集は付いているタグを初期値にする（並びは呼び出し側が sortOrder 昇順で渡す）', () => {
+    expect(recordToFormValues(record(), NOW, ['tag-2', 'tag-1']).tagIds).toEqual([
+      'tag-2',
+      'tag-1',
+    ]);
+  });
+
+  it('タグを渡さなければ 0 件（既存レコードはバックフィルしない）', () => {
+    expect(recordToFormValues(record(), NOW).tagIds).toEqual([]);
+  });
+
+  it('全部外した状態も保存できる（中間テーブルは全消し → 入れ直し。§1.4）', () => {
+    const values = { ...base(), tagIds: ['tag-1'] };
+
+    expect(toSaveInput({ ...values, tagIds: [] }).tagIds).toEqual([]);
+  });
+
+  it('種別を切り替えてもタグは消えない（金額の欄ではないため）', () => {
+    const values = { ...base(), kind: 'sourced' as const, tagIds: ['tag-1'] };
+
+    expect(changeKind(values, 'used').tagIds).toEqual(['tag-1']);
+  });
+});
+
 describe('§5.2 saleDate の正規化は repository に任せる', () => {
   it('出品中でもフォームの saleDate はそのまま渡す（null 化は repository 側）', () => {
     const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', isSold: false };

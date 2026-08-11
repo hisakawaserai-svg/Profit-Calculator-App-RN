@@ -4,7 +4,11 @@
 // （「210円」/「10%」）・頭文字を前提に組まれていて、4 つ目の種類として足すと
 // 「値の列を出すか」の分岐が一覧・編集・プレビューの全部に入る。
 // **部品は流用する** ── スワイプ削除は記録一覧（SPEC §5.4）と同じ ReanimatedSwipeable、
-// 取り消しは UndoBar、色の丸は TagFormSheet。
+// 取り消しは UndoBar、色の丸は TagFormScreen。
+//
+// **追加・編集の開き方はプリセットと揃える**（§2.3）── 一覧が設定タブからの push なので、
+// その上にシートを重ねると「戻る」と「キャンセル」が同じ画面に 2 つ並ぶ（SPEC-V3 §3.3 /
+// 設計案 25b と同じ理由）。よって行タップも「＋ 追加」も `tags/edit` への push。
 //
 // 削除の作法もプリセットと違う（§2.2）:
 // - **確認アラートを挟まない。** 左スワイプ →「削除」で即座に消え、UndoBar で取り消せる。
@@ -12,7 +16,7 @@
 //   （設計案 25c）で、タグは使用件数が**一覧の行に常時出ている**（§2.2-2）。
 // - **消えたことの重さは UndoBar の文言で言う**（§2.2 / tagDeletedMessage）。
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -36,23 +40,29 @@ import {
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
-import { TagFormSheet } from './TagFormSheet';
-
-/**
- * 編集シートの開き方（§2.3）。追加と編集で同じシートを使うので、
- * 「開いているか」と「何を編集しているか」を 1 つの state で持つ。
- * `{ tag: null }` が追加、`{ tag }` が編集。null は閉じている状態。
- */
-type FormState = { tag: Tag | null } | null;
-
 /** 削除したタグと、剥がれた記録の id（§1.4）。取り消しは**両方**を書き戻す */
 type DeletedTag = { tag: Tag; recordIds: string[] };
 
 export function TagListScreen() {
   const colors = useThemeColors();
+  const router = useRouter();
   const { tags, counts, refresh } = useTagList();
-  const [form, setForm] = useState<FormState>(null);
   const [deleted, setDeleted] = useState<DeletedTag | null>(null);
+
+  /**
+   * 追加・編集は隣の画面への push（§2.3。PresetListScreen.openForm と同じ形）。
+   * 一覧の state は渡さない ── 開いた先は自分で引き直す。
+   * 戻ってきたときの反映は useTagList の useFocusEffect が行う。
+   */
+  const openForm = useCallback(
+    (tag: Tag | null) => {
+      router.push({
+        pathname: '/settings/tags/edit',
+        params: tag == null ? undefined : { id: tag.id },
+      });
+    },
+    [router],
+  );
 
   /**
    * 削除（§2.2）。確認は挟まない。**中間行も一緒に消える**（§1.4）ので、
@@ -89,7 +99,7 @@ export function TagListScreen() {
             title={TAG_EMPTY_TITLE}
             body={TAG_EMPTY_BODY}
             actionLabel={TAG_ADD_LABEL}
-            onPressAction={() => setForm({ tag: null })}
+            onPressAction={() => openForm(null)}
           />
         ) : (
           // 赤い削除ボタンが角からはみ出さないよう、カードの側で切る
@@ -103,7 +113,7 @@ export function TagListScreen() {
                 <TagRow
                   tag={tag}
                   usageCount={counts.get(tag.id) ?? 0}
-                  onPress={() => setForm({ tag })}
+                  onPress={() => openForm(tag)}
                   onDelete={() => deleteNow(tag)}
                 />
               </View>
@@ -112,7 +122,7 @@ export function TagListScreen() {
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             {/* §2.2-3: カード末尾の「＋ 追加」。プリセット一覧と同じ形 */}
             <Pressable
-              onPress={() => setForm({ tag: null })}
+              onPress={() => openForm(null)}
               accessibilityRole="button"
               style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
               <Text style={[styles.addLabel, { color: colors.blue }]}>{TAG_ADD_LABEL}</Text>
@@ -123,15 +133,6 @@ export function TagListScreen() {
         {/* §2.2-5: 注記 1 行。タグは記録に紐付く（§0.1）ぶん、消したときに何が起きるかを名指しする */}
         <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_LIST_NOTE}</Text>
       </ScrollView>
-
-      {form != null && (
-        <TagFormSheet
-          tag={form.tag}
-          tags={tags}
-          onSaved={refresh}
-          onClose={() => setForm(null)}
-        />
-      )}
 
       {deleted != null && (
         <UndoBar

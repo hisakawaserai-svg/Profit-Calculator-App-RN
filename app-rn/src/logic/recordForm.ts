@@ -50,6 +50,15 @@ export type RecordFormValues = {
    * 消せるのは伝票カードの「✕」からだけ。計算にも集計にも入らない。
    */
   siteName: string;
+  /**
+   * 付けるタグの id（SPEC-V4 §3.1）。**空配列でも保存できる**（§0：必須にしない）。
+   *
+   * 並びは `tags.sortOrder` 昇順（§1.5）── 選択シートは一覧の並びのままチェックを付けるので、
+   * ここも同じ順で入る。DB への書き込みは保存の瞬間だけで、フォームを開いている間は
+   * この配列が正（UI-SPEC §8.6）。**タグ本体の新規作成だけは先に書き込む**（§3.2）が、
+   * 記録との紐付けはここに載るまで DB に無い。
+   */
+  tagIds: string[];
 };
 
 /**
@@ -101,6 +110,9 @@ export function newFormValues(
     isSold: false,
     memo: '',
     siteName: amounts?.siteName ?? '',
+    // タグは常に 0 件から始まる（SPEC-V4 §3.4 / 決定 §9-4）。計算タブにはタグ行が無いので、
+    // siteName のように引き継ぐ元も無い ── InitialAmounts が tagIds を持たないのはそのため
+    tagIds: [],
   };
 }
 
@@ -115,10 +127,17 @@ export function amountToInput(value: number): string {
   return value > 0 ? String(value) : '';
 }
 
-/** 編集時の初期値。DB のレコードをフォームの一時状態へ展開する */
+/**
+ * 編集時の初期値。DB のレコードをフォームの一時状態へ展開する。
+ *
+ * タグだけは `sale_records` の列ではなく中間テーブルにあるので、引いたものを外から渡す
+ * （SPEC-V4 §3.1。tagRepository.tagIdsByRecord が sortOrder 昇順で返す）。
+ * ここで DB を触らないのは、この関数が純粋関数だから。
+ */
 export function recordToFormValues(
   record: SaleRecord,
   now: Date = new Date(),
+  tagIds: readonly string[] = [],
 ): RecordFormValues {
   return {
     itemName: record.itemName,
@@ -136,6 +155,7 @@ export function recordToFormValues(
     isSold: record.isSold,
     memo: record.memo,
     siteName: record.siteName,
+    tagIds: [...tagIds],
   };
 }
 
@@ -202,8 +222,9 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     memo: values.memo,
     // 販売サイト名（SPEC-V3 §1.5.1）。計算にも buildWhere にも入らない、表示と CSV だけの列
     siteName: values.siteName,
-    // タグ（SPEC-V4 §1.4）。フォームがタグ行を持つのは Step 3 なので、いまは常に空配列。
-    // SaveRecordInput 側を省略可にしないのは「渡し忘れて静かに全部外れる」を防ぐため
-    tagIds: [],
+    // タグ（SPEC-V4 §1.4 / §3.1）。**中間テーブルは全消し → 入れ直し**なので、
+    // ここが空配列ならその記録からタグが全部外れる。SaveRecordInput 側を省略可に
+    // しないのは「渡し忘れて静かに全部外れる」を防ぐため
+    tagIds: values.tagIds,
   };
 }
