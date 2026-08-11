@@ -125,8 +125,10 @@ export const OTHERS_COST_LABEL = 'その他';
 /** 内訳の 1 行目。入力欄の「販売価格」と区別して、計算に入った売上の総額を指す */
 export const TOTAL_SALES_AMOUNT_LABEL = '売上総額';
 
-/** 内訳では梱包材とその他を 1 行にまとめる（UI-SPEC §1.1-3a） */
-export const ENVELOPE_AND_OTHERS_LABEL = '梱包・その他';
+// 旧 ENVELOPE_AND_OTHERS_LABEL（「梱包・その他」）は削除した。
+// 計算タブの内訳が帯グラフと同じ一覧（costBreakdown.parts）を使うようになり、
+// 帯の区画と行が 1 対 1 になったため ── まとめた 1 行には対応する区画も色もない。
+// 伝票・レシートのまとめ行は ENVELOPE_AND_OTHERS_FIELD_LABEL のままで、こちらは残る。
 
 /** 結果カード・固定バーの折りたたみ見出し（UI-SPEC §1.1-2 / §1.1-3a） */
 export const BREAKDOWN_LABEL = '内訳';
@@ -484,8 +486,8 @@ export const UNTITLED_LABEL = '無題';
 
 /**
  * 伝票・レシートで梱包材とその他をまとめた 1 行（UI-SPEC §1.3-10 / §1.4-4）。
- * 計算タブの内訳（ENVELOPE_AND_OTHERS_LABEL =「梱包・その他」）とは幅の制約が違うため、
- * 設計案どおり伝票側は詰めない語を使う。
+ * 計算タブの内訳は帯グラフと同じ項目別の一覧（梱包材・その他は別の行）なので、
+ * まとめた語を持つのは伝票・レシート側だけになった。
  */
 export const ENVELOPE_AND_OTHERS_FIELD_LABEL = '梱包材・その他';
 

@@ -37,6 +37,7 @@ import { SiteNameRow } from '@/components/SiteNameRow';
 import { Stepper } from '@/components/Stepper';
 import type { Preset, RecordKind } from '@/db/schema';
 import {
+  costBreakdown,
   hasAnyInput,
   newCalcValues,
   profitBreakdown,
@@ -45,6 +46,7 @@ import {
   toInitialAmounts,
   toRequiredCostInput,
   type CalcFormValues,
+  type CostBreakdown,
   type RequiredPriceResult,
 } from '@/logic/calcForm';
 import { formatYen, formatYenSymbol } from '@/logic/format';
@@ -53,9 +55,7 @@ import {
   BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
   CLEAR_LABEL,
-  COMMISSION_LABEL,
   DEDUCTED_LABEL,
-  ENVELOPE_AND_OTHERS_LABEL,
   ENVELOPE_COST_LABEL,
   EXPENSES_LABEL,
   OTHERS_COST_LABEL,
@@ -78,13 +78,7 @@ import {
   requiredPriceSummary,
   targetProfitLabel,
 } from '@/logic/labels';
-import {
-  commissionCost,
-  netProfit,
-  roundForDisplay,
-  totalExpenses,
-  type CostInput,
-} from '@/logic/profit';
+import { netProfit, roundForDisplay, totalExpenses, type CostInput } from '@/logic/profit';
 import { MAX_COMMISSION, MIN_COMMISSION } from '@/logic/recordForm';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useSettings } from '@/settings';
@@ -228,7 +222,6 @@ export default function CalcScreen() {
             ) : (
               <ProfitPanel
                 values={values}
-                costs={costs}
                 kind={kind}
                 colors={colors}
                 profit={profit}
@@ -475,8 +468,9 @@ function StickyResultBar({
 
       {expanded && (
         <View style={styles.stickyBreakdown}>
-          {/* 売上は 2 段目に出ているので、内訳では繰り返さない（UI-SPEC §1.1-2 の 3 行） */}
-          <BreakdownRows costs={costs} kind={kind} colors={colors} />
+          {/* 売上は 2 段目に出ているので、内訳では繰り返さない（UI-SPEC §1.1-2 の 3 行）。
+              色と並びは結果カード・逆算パネルと同じ 1 つの部品が持つ */}
+          <BreakdownPartList breakdown={costBreakdown(costs, kind)} colors={colors} />
         </View>
       )}
     </Animated.View>
@@ -497,7 +491,6 @@ function Divider({ colors }: { colors: ThemeColors }) {
  */
 function ProfitPanel({
   values,
-  costs,
   kind,
   colors,
   profit,
@@ -505,7 +498,6 @@ function ProfitPanel({
   onToggleBreakdown,
 }: {
   values: CalcFormValues;
-  costs: CostInput;
   kind: RecordKind;
   colors: ThemeColors;
   profit: number;
@@ -544,7 +536,7 @@ function ProfitPanel({
         expanded={expanded}
         onToggle={onToggleBreakdown}
         align="center">
-        <BreakdownRows costs={costs} kind={kind} colors={colors} showSalesRow />
+        <BreakdownPartList breakdown={breakdown} colors={colors} showSalesRow />
       </CollapsibleSection>
     </View>
   );
@@ -615,18 +607,7 @@ function TargetPanel({
         align="center"
         expanded={expanded}
         onToggle={onToggleBreakdown}>
-        {/* 項目別の金額。帯と同じ順・同じ色にして、どの区画がどの行かを色で追えるようにする */}
-        <View style={styles.partList}>
-          {result.parts.map((part) => (
-            <View key={part.key} style={styles.partRow}>
-              <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
-              <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
-              <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
-                {formatYen(part.amount)}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <BreakdownPartList breakdown={result} colors={colors} />
 
         <View style={[styles.methodDivider, { backgroundColor: colors.separator }]} />
 
@@ -664,76 +645,50 @@ function FormulaBlock({
 }
 
 /**
- * 内訳の行（UI-SPEC §1.1-3a）。
- * 固定バーは 2 段目に売上を出しているので、売上総額の行は結果カード側だけに出す（§1.1-2）。
- * 仕入価格の行は仕入品のときだけ（SPEC-V2 §1.3）。
+ * 内訳の一覧（UI-SPEC §1.1-3a / §1.1-3b）。**結果側・逆算側・固定バーで同じ 1 つの部品**。
+ *
+ * 帯グラフと同じ順・同じ色（左の色見本 = 区画の色）にして、どの区画がどの行かを色で追える
+ * ようにする。以前は結果側だけが色のない行の並びで、同じ画面の 2 つのモードで内訳の読み方が
+ * 変わっていた ── 帯は共通（CostProportionBar）なのに、その凡例にあたる一覧が
+ * 片方だけ灰色では、色の対応を確かめる手段が逆算側にしかないことになる。
+ *
+ * 行の材料は logic/calcForm の costBreakdown が作る（画面では計算も並べ替えもしない）。
+ * 0 円の項目と、不用品の仕入価格が落ちるのもその中の決定（§1.1-3a）。
  */
-function BreakdownRows({
-  costs,
-  kind,
+function BreakdownPartList({
+  breakdown,
   colors,
   showSalesRow = false,
 }: {
-  costs: CostInput;
-  kind: RecordKind;
+  breakdown: CostBreakdown;
   colors: ThemeColors;
+  /** 固定バーは 2 段目に売上を出しているので、内訳では繰り返さない（UI-SPEC §1.1-2） */
   showSalesRow?: boolean;
 }) {
   return (
-    <>
+    <View style={styles.partList}>
       {showSalesRow && (
-        <BreakdownRow
-          label={TOTAL_SALES_AMOUNT_LABEL}
-          value={costs.salesPrice}
-          color={colors.label}
-          colors={colors}
-        />
+        <View style={styles.partRow}>
+          {/* 売上総額は帯の全体（区画の合計）で、対応する区画がないので色見本を持たない。
+              下の行と語頭を揃えるために幅だけ空ける */}
+          <View style={styles.swatch} />
+          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>
+            {TOTAL_SALES_AMOUNT_LABEL}
+          </Text>
+          <Text style={[styles.partValue, { color: colors.label }]}>
+            {formatYen(breakdown.salesPrice)}
+          </Text>
+        </View>
       )}
-      {kind === 'sourced' && (
-        <BreakdownRow
-          label={PURCHASE_PRICE_LABEL}
-          value={costs.purchasePrice}
-          color={colors.secondaryLabel}
-          colors={colors}
-        />
-      )}
-      <BreakdownRow
-        label={POSTAGE_LABEL}
-        value={costs.postage}
-        color={colors.secondaryLabel}
-        colors={colors}
-      />
-      <BreakdownRow
-        label={ENVELOPE_AND_OTHERS_LABEL}
-        value={costs.envelopeCost + costs.othersCost}
-        color={colors.secondaryLabel}
-        colors={colors}
-      />
-      <BreakdownRow
-        label={COMMISSION_LABEL}
-        value={commissionCost(costs)}
-        color={colors.orange}
-        colors={colors}
-      />
-    </>
-  );
-}
-
-function BreakdownRow({
-  label,
-  value,
-  color,
-  colors,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  colors: ThemeColors;
-}) {
-  return (
-    <View style={styles.breakdownRow}>
-      <Text style={[styles.breakdownLabel, { color: colors.secondaryLabel }]}>{label}</Text>
-      <Text style={[styles.breakdownValue, { color }]}>{formatYen(value)}</Text>
+      {breakdown.parts.map((part) => (
+        <View key={part.key} style={styles.partRow}>
+          <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
+          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
+          <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
+            {formatYen(part.amount)}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -894,17 +849,6 @@ const styles = StyleSheet.create({
   stickyBreakdown: {
     gap: 6,
     paddingTop: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  breakdownLabel: {
-    fontSize: 14,
-  },
-  breakdownValue: {
-    fontSize: 14,
   },
   bottomBar: {
     position: 'absolute',
