@@ -174,10 +174,12 @@ export function changeKind(values: RecordFormValues, kind: RecordKind): RecordFo
 
 /**
  * SPEC §5.2 の保存バリデーション。
- * 必須は商品名のみ（金額 0・メモ空でも保存可）。Swift 版 `itemName.isEmpty` と同じく trim はしない。
+ * 必須は商品名のみ（金額 0・メモ空でも保存可）。
+ * Swift 版は `itemName.isEmpty` で trim しなかったが、
+ * 空白だけの商品名が保存できてしまうため trim して判定する。
  */
 export function canSave(values: RecordFormValues): boolean {
-  return values.itemName !== '';
+  return values.itemName.trim() !== '';
 }
 
 /**
