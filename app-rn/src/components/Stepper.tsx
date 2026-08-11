@@ -22,8 +22,8 @@ type ButtonsProps = {
 type Props = Omit<ButtonsProps, 'accessibilityLabel'> & {
   label: string;
   /**
-   * 率の値（ラベル）と ± の間に置くもの（SPEC-V3 §4.4 のタグボタン）。
-   * ± の右や外側ではなくここなのは、行の右端が「率を 1 目盛り動かす」操作で閉じているため ──
+   * ラベルの直後に置くもの（SPEC-V3 §4.4 のタグボタン。設計案 29b）。
+   * ± の右や外側ではないのは、行の右端が「率を 1 目盛り動かす」操作で閉じているため ──
    * 選ぶ操作を挟むと、± を続けて押すときに指の位置が毎回変わる。
    */
   accessory?: ReactNode;
@@ -44,14 +44,17 @@ export function Stepper({
     <View style={styles.container}>
       <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
       {accessory}
-      <StepperButtons
-        value={value}
-        minimumValue={minimumValue}
-        maximumValue={maximumValue}
-        step={step}
-        onChangeValue={onChangeValue}
-        accessibilityLabel={label}
-      />
+      {/* ± は行の右端のまま。ラベルとタグボタンが左に寄った分の余りはここが吸う */}
+      <View style={styles.buttonsSlot}>
+        <StepperButtons
+          value={value}
+          minimumValue={minimumValue}
+          maximumValue={maximumValue}
+          step={step}
+          onChangeValue={onChangeValue}
+          accessibilityLabel={label}
+        />
+      </View>
     </View>
   );
 }
@@ -105,13 +108,17 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
   },
   label: {
-    // タグボタン（accessory）が入っても ± が右端に残るよう、余りはラベルが吸う
-    flex: 1,
+    // タグボタン（accessory）はラベルの直後に付く（設計案 29b）ので、余りはラベルではなく
+    // ± の側（buttonsSlot）が吸う。ラベルが長いときだけ縮む
+    flexShrink: 1,
     fontSize: 16,
+  },
+  buttonsSlot: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   buttons: {
     flexDirection: 'row',

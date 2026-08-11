@@ -302,8 +302,6 @@ function RecordForm({
             onChangeValue={(value) => update('salesPrice', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
             valueStyle={styles.salesPriceValue}
-            // 送料行にタグボタンがあるので、この伝票の他の金額行も同じ幅を空けて右端を揃える
-            reservePresetSlot
           />
 
           <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -318,7 +316,6 @@ function RecordForm({
               onChangeValue={(value) => update('purchasePrice', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
-              reservePresetSlot
             />
           )}
 
@@ -343,7 +340,7 @@ function RecordForm({
             <Text style={[styles.rowLabel, { color: colors.label }]} numberOfLines={1}>
               {deductionLabel(commissionFieldLabel(values.commission))}
             </Text>
-            {/* タグボタンは率の値とステッパーの間（SPEC-V3 §4.4）。± はそのまま残す */}
+            {/* タグボタンはラベルの直後（SPEC-V3 §4.4 / 設計案 29b）。± はそのまま残す */}
             <PresetTagButton
               type="site"
               value={values.commission}
@@ -359,7 +356,8 @@ function RecordForm({
               onChangeValue={(value) => update('commission', value)}
               accessibilityLabel={commissionFieldLabel(values.commission)}
             />
-            <Text style={[styles.deductionValue, { color: colors.orange }]}>
+            {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う */}
+            <Text style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}>
               {formatYen(commissionCost(costs))}
             </Text>
           </View>
@@ -389,7 +387,6 @@ function RecordForm({
               onChangeValue={(value) => update('envelopeCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
-              reservePresetSlot
             />
             <NumericField
               label={OTHERS_COST_LABEL}
@@ -397,7 +394,6 @@ function RecordForm({
               onChangeValue={(value) => update('othersCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
-              reservePresetSlot
             />
           </CollapsibleSection>
 
@@ -609,8 +605,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowLabel: {
-    flex: 1,
+    // タグボタンはラベルの直後に付く（設計案 29b）ので、余りはラベルではなく額（commissionValue）が吸う
+    flexShrink: 1,
     fontSize: 16,
+  },
+  commissionValue: {
+    flex: 1,
+    textAlign: 'right',
   },
   packingSummary: {
     fontSize: 15,

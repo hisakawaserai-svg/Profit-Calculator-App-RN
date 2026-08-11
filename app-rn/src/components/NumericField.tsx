@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 
 import { MiniCalculator } from '@/components/MiniCalculator';
-import { PresetTagButton, PresetTagSlot } from '@/components/PresetTagButton';
+import { PresetTagButton } from '@/components/PresetTagButton';
 import type { PresetType } from '@/db/schema';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import { useThemeColors } from '@/theme';
@@ -54,19 +54,13 @@ type Props = {
   valueStyle?: StyleProp<TextStyle>;
   /**
    * プリセットの選択ボタンを出す行（SPEC-V3 §4.1 / §4.2）。**渡された行にだけ**タグボタンが
-   * 数値欄の右端・電卓ボタンの左隣に出る。行の形も電卓の位置も変えない
+   * ラベルの右隣に出る（設計案 29b）。行の形も電卓の位置も変えない
    * （UI-SPEC §7.6 の「NumericField は行き先を渡すだけ」と同じ拡張の仕方）。
+   *
+   * ボタンが増える分は数値欄（flex）が吸うので、金額の右端は他の行とずれない。
+   * 詰め物（旧 PresetTagSlot）を他の行に配る必要はない。
    */
   presetType?: PresetType;
-  /**
-   * タグボタンを出さない行で、出す行と同じ幅を空ける（設計案 26a-2 の派生）。
-   *
-   * **同じカードにタグボタンのある行があるときは、他の行に必ず渡す。** 伝票カードも
-   * 入力カードも金額を縦に読む面で、行ごとに数字の右端がずれると
-   * 「販売価格から引いていって結果に至る」流れが読めなくなる。
-   * カード全体にタグボタンが 1 つもない画面（プリセット編集の「金額」など）では渡さない。
-   */
-  reservePresetSlot?: boolean;
   /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
   canOpenSettings?: boolean;
 };
@@ -82,7 +76,6 @@ export function NumericField({
   rowHeight = ROW_HEIGHT,
   valueStyle,
   presetType,
-  reservePresetSlot = false,
   canOpenSettings = true,
 }: Props) {
   const colors = useThemeColors();
@@ -103,19 +96,8 @@ export function NumericField({
         <Text style={[styles.label, { color: valueColor }]} numberOfLines={1}>
           {label}
         </Text>
-        <TextInput
-          style={[styles.input, { color: colors.label }, valueStyle, disabled && { color: valueColor }]}
-          value={value}
-          onChangeText={(text) => onChangeValue(sanitizeNumericInput(text))}
-          placeholder={placeholder}
-          placeholderTextColor={colors.secondaryLabel}
-          keyboardType="decimal-pad"
-          editable={!disabled}
-          accessibilityLabel={label}
-        />
-        {presetType == null ? (
-          reservePresetSlot ? <PresetTagSlot /> : null
-        ) : (
+        {/* タグボタンはラベルの直後（設計案 29b）。行の右端は全行とも電卓ボタンで揃う */}
+        {presetType != null && (
           <PresetTagButton
             type={presetType}
             // 空欄は「選んでいない」。0 円のプリセットのバッジが未入力の欄に出ないようにする
@@ -126,6 +108,16 @@ export function NumericField({
             canOpenSettings={canOpenSettings}
           />
         )}
+        <TextInput
+          style={[styles.input, { color: colors.label }, valueStyle, disabled && { color: valueColor }]}
+          value={value}
+          onChangeText={(text) => onChangeValue(sanitizeNumericInput(text))}
+          placeholder={placeholder}
+          placeholderTextColor={colors.secondaryLabel}
+          keyboardType="decimal-pad"
+          editable={!disabled}
+          accessibilityLabel={label}
+        />
         {showCalculator ? (
           <Pressable
             onPress={() => {

@@ -244,8 +244,6 @@ export default function CalcScreen() {
                 onChangeValue={(value) => update('salesPrice', value)}
                 // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
                 disabled={isTargetMode}
-                // 送料行にタグボタンがあるので、このカードの他の金額行も同じ幅を空けて右端を揃える
-                reservePresetSlot
               />
               <Divider colors={colors} />
               {/* 不用品では仕入価格を出さない（値は 0 扱い。SPEC-V2 §1.3） */}
@@ -255,7 +253,6 @@ export default function CalcScreen() {
                     label={PURCHASE_PRICE_LABEL}
                     value={values.purchasePrice}
                     onChangeValue={(value) => update('purchasePrice', value)}
-                    reservePresetSlot
                   />
                   <Divider colors={colors} />
                 </>
@@ -268,7 +265,7 @@ export default function CalcScreen() {
                 presetType="shipping"
               />
               <Divider colors={colors} />
-              {/* 手数料はタグボタンを率の値とステッパーの間に置く（SPEC-V3 §4.4）。
+              {/* 手数料はタグボタンをラベル（率を含む）の直後に置く（SPEC-V3 §4.4 / 設計案 29b）。
                   ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
               <View style={styles.stepperRow}>
                 <Stepper
@@ -308,13 +305,11 @@ export default function CalcScreen() {
                   label={ENVELOPE_COST_LABEL}
                   value={values.envelopeCost}
                   onChangeValue={(value) => update('envelopeCost', value)}
-                  reservePresetSlot
                 />
                 <NumericField
                   label={OTHERS_COST_LABEL}
                   value={values.othersCost}
                   onChangeValue={(value) => update('othersCost', value)}
-                  reservePresetSlot
                 />
               </CollapsibleSection>
             </View>
