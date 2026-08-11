@@ -15,6 +15,7 @@ import {
   dualAxisBounds,
   formatChartLabel,
   formatPointDate,
+  labelSlotIndices,
   nearestRecordedIndex,
   yAxisLowerBound,
   yAxisUpperBound,
@@ -268,6 +269,62 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
       expect(cumulativeProfits(dense.map((slot) => slot.profit))).toEqual([
         1000, 1000, 1000, 1000, 1500,
       ]);
+    });
+  });
+
+  describe('labelSlotIndices: X 軸ラベルは両端を必ず打つ', () => {
+    const labels = (slotCount: number) => labelSlotIndices(slotCount, 5);
+
+    it('31 日の月は末尾（31 日）が必ず入る', () => {
+      const indices = labels(31);
+      expect(indices[0]).toBe(0);
+      expect(indices[indices.length - 1]).toBe(30);
+      expect(indices).toEqual([0, 8, 16, 24, 30]);
+    });
+
+    it('30 日の月も末尾が入る（従来は 5 日ぶん余っていた）', () => {
+      const indices = labels(30);
+      expect(indices[indices.length - 1]).toBe(29);
+      expect(indices).toEqual([0, 8, 16, 24, 29]);
+    });
+
+    it('28 日の 2 月も末尾が入る', () => {
+      expect(labels(28)).toEqual([0, 7, 14, 21, 27]);
+    });
+
+    it('うるう年の 29 日も末尾が入る', () => {
+      expect(labels(29)).toEqual([0, 7, 14, 21, 28]);
+    });
+
+    it('日数が変わっても必ず先頭と末尾が入る（28〜31 日と月途中）', () => {
+      for (const slotCount of [1, 2, 3, 5, 8, 11, 20, 28, 29, 30, 31]) {
+        const indices = labels(slotCount);
+        expect(indices[0]).toBe(0);
+        expect(indices[indices.length - 1]).toBe(slotCount - 1);
+      }
+    });
+
+    it('末尾が直前と近すぎるときは直前を落とす（端で 2 つ重ねない）', () => {
+      // 11 スロットは間隔 3 → 0,3,6,9 の 9 が末尾 10 の隣になるので落とす
+      expect(labels(11)).toEqual([0, 3, 6, 10]);
+      expect(labels(8)).toEqual([0, 2, 4, 7]);
+    });
+
+    it('目安の数を超えない', () => {
+      for (let slotCount = 1; slotCount <= 40; slotCount += 1) {
+        expect(labels(slotCount).length).toBeLessThanOrEqual(5);
+      }
+    });
+
+    it('ラベルの間隔は末尾を除いて一定（読み取りの手がかりになる）', () => {
+      const indices = labels(31);
+      const gaps = indices.slice(1, -1).map((value, i) => value - indices[i]);
+      expect(new Set(gaps).size).toBe(1);
+    });
+
+    it('スロットが 1 つなら 1 つだけ / 0 なら空', () => {
+      expect(labels(1)).toEqual([0]);
+      expect(labels(0)).toEqual([]);
     });
   });
 

@@ -151,6 +151,37 @@ export function densifySeries(
 }
 
 /**
+ * X 軸ラベルを打つスロットの添字（UI-SPEC §1.5-4）。**両端を必ず含む。**
+ *
+ * 素朴に「先頭から一定間隔」で打つと、間隔が期間の長さを割り切るときしか末尾に当たらない ──
+ * 31 日の月では 1・8・15・22・29 日で止まり、**月末の 31 日がラベルに現れない**。
+ * ラベルのない 2 日ぶんが軸の右端に残るので、最後の棒が軸の手前で浮いて見える
+ * （30 日の月はさらに悪く、5 日ぶんが残る）。
+ *
+ * そこで間隔は保ったまま**末尾を必ず打つ**。末尾が直前のラベルと近すぎる（間隔の半分以下）
+ * ときは直前のほうを落とす ── 端で 2 つのラベルが重なるのを避けるため。
+ * 期間の日数（28 / 29 / 30 / 31 日）に関わらず、軸の右端は必ずその月の最終日になる。
+ *
+ * @param slotCount スロット数（日ごとならその期間の日数）
+ * @param maxLabels ラベルの目安の数。実際はこれ以下になる
+ */
+export function labelSlotIndices(slotCount: number, maxLabels: number): number[] {
+  if (slotCount <= 0) return [];
+  const last = slotCount - 1;
+  if (last === 0) return [0];
+
+  const step = Math.max(1, Math.ceil(last / Math.max(1, maxLabels - 1)));
+  const indices: number[] = [];
+  for (let index = 0; index < last; index += step) indices.push(index);
+
+  // 末尾は必ず打つ。直前のラベルと近すぎるならそちらを落として場所を空ける
+  if (last - indices[indices.length - 1] <= step / 2) indices.pop();
+  indices.push(last);
+
+  return indices;
+}
+
+/**
  * タップ位置から選ぶスロット（UI-SPEC §1.5-4）。
  * 押された位置から**外側へ広げながら、記録のあるスロットを探す**。
  *

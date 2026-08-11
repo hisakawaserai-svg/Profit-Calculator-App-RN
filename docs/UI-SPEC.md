@@ -282,6 +282,12 @@
   ラベルだけはライブラリが「枠の中央」に置くため、枠を広げると**棒の右へずれる**
   （実機で確認: 7/1 の棒が 07/01 ラベルより左、7/31 の棒が 07/29 ラベル付近に見えた）。
   枠を広げたぶんを打ち消して棒の中央へ戻す。
+- **ラベルは両端に必ず打つ**（`labelSlotIndices`）。先頭から一定間隔で打つだけだと、
+  間隔が期間の長さを割り切るときしか末尾に当たらない ── 31 日の月は 1・8・15・22・29 日で止まり、
+  **月末がラベルに現れない**（30 日の月では 5 日ぶんが無記名で残り、最後の棒が軸の手前で浮いて見える）。
+  間隔は保ったまま末尾を必ず打ち、末尾が直前と近すぎる（間隔の半分以下）ときは直前を落とす。
+  これで月の日数（28 / 29 / 30 / 31 日）に関わらず、軸の右端は必ずその月の最終日になる。
+  ラベルとスロットの左右に残る余白は、両端に置いた同じ幅の内側余白（`initialSpacing` / `endSpacing`）。
 - **横スクロールはさせない。** 期間ぶんを画面幅に収める ── 月内の分布を一目で読むのが主題で、
   スクロールするとその一目が失われる。そのぶん 1 スロットは細くなる（31 日の月で約 7pt）。
 
@@ -408,7 +414,7 @@ TabView（4 タブ）
 | `src/screens/RecordFormSheet.tsx` | 伝票型・状態は見出し行・日付とメモは折りたたみ（案 `3c`）。切替で売れた日の行を開閉（§8.7） |
 | `src/components/DateField.tsx` | 選択できる範囲（`minDate` / `maxDate`）を受け取る（§8.5）。ホイールを廃し、行内チップ＋カレンダーに（§8.10） |
 | `src/screens/DataScreen.tsx` | 指標・単位・期間指定の切替を廃止、月バー＋合計行に（案 `7b`） |
-| `src/logic/analytics.ts` | `ChartUnit` を `day` / `month` の 2 値に。`MetricType` / `CHART_UNITS` / `RESET_SPAN` / 期間の平行移動を削除。累計（`cumulativeProfits`）・2 軸の範囲（`dualAxisBounds`。キリのいい目盛りと 0 の高さ揃え）・日付の軸（`chartSpan` / `chartSlots` / `densifySeries`）・タップ判定（`nearestRecordedIndex`）を追加 |
+| `src/logic/analytics.ts` | `ChartUnit` を `day` / `month` の 2 値に。`MetricType` / `CHART_UNITS` / `RESET_SPAN` / 期間の平行移動を削除。累計（`cumulativeProfits`）・2 軸の範囲（`dualAxisBounds`。キリのいい目盛りと 0 の高さ揃え）・日付の軸（`chartSpan` / `chartSlots` / `densifySeries`）・X 軸ラベルの位置（`labelSlotIndices`。両端を必ず打つ）・タップ判定（`nearestRecordedIndex`）を追加 |
 | `src/logic/labels.ts` | §6-3 / §6-4 の語を追加、`metricLabel` を削除（§6-10） |
 | `src/settings/index.ts` | `defaultCommission` を追加 |
 | `src/db/repository.ts` | 件数取得を追加。`AnalyticsFilter` の期間を月キー／全期間に変更。`monthsWithRecords`（**絞り込みを取らない**月グリッド用の集合。§1.2）を追加 |

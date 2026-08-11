@@ -37,6 +37,7 @@ import {
   dualAxisBounds,
   formatChartLabel,
   formatPointDate,
+  labelSlotIndices,
   nearestRecordedIndex,
   type ChartPoint,
   type ChartUnit,
@@ -65,7 +66,7 @@ import { useThemeColors } from '@/theme';
 const CHART_HEIGHT = 220;
 /** Y 軸ラベルの幅。グラフ本体の幅を画面幅から引くのに使う */
 const Y_AXIS_WIDTH = 52;
-/** X 軸ラベルを出す点の目安の数（Swift 版 AxisMarks(desiredCount: 5)） */
+/** X 軸ラベルを出すスロットの目安の数（Swift 版 AxisMarks(desiredCount: 5)）。両端は必ず打つ */
 const LABEL_COUNT = 5;
 /** 軸の内側の余白（左右）。1 本目・最後の棒が軸に張り付かないようにする */
 const EDGE_SPACING = 12;
@@ -358,13 +359,15 @@ function ChartView({
   const pitch = (plotWidth - EDGE_SPACING * 2) / points.length;
   const barWidth = Math.max(2, Math.min(MAX_BAR_WIDTH, pitch * BAR_WIDTH_RATIO));
 
-  // ラベルは全スロットに付けると潰れるので間引く（Swift 版の desiredCount: 5 相当）
-  const labelStep = Math.max(1, Math.ceil(points.length / LABEL_COUNT));
+  // ラベルは全スロットに付けると潰れるので間引く（Swift 版の desiredCount: 5 相当）。
+  // **両端を必ず含める** ── 先頭から一定間隔だけで打つと、31 日の月は 29 日で止まって
+  // 月末がラベルに現れず、軸の右端が何日なのか読めなくなる（logic/analytics 参照）
+  const labeledIndices = new Set(labelSlotIndices(points.length, LABEL_COUNT));
 
   const barData = points.map((point, index) => ({
     // 空きスロットも同じ幅の枠として並べる（値 0 なので棒は描かれない）
     value: point.profit,
-    label: index % labelStep === 0 ? formatChartLabel(point.date, unit) : '',
+    label: labeledIndices.has(index) ? formatChartLabel(point.date, unit) : '',
     // 選択中の棒だけ濃く（未選択のときは全点そのままの色）
     frontColor:
       selectedKey == null || selectedKey === point.key ? colors.green : dim(colors.green),
