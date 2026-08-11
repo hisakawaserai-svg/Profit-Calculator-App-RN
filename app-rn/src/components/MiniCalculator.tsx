@@ -12,14 +12,18 @@
 // 行の積み上げ・合計・「入れる」の可否はすべて logic/calcMemo.ts の純粋関数が持つ。
 // この画面が持つのは並び（4 列 × 4 行）と見た目だけで、式も合計もここでは組み立てない。
 // 表示語は labels.ts 経由（§0）。記号 → `*` `/` の変換は logic/calculator.ts に閉じる（§7.6）。
+import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
+import { PresetBadge } from '@/components/PresetBadge';
+import { PresetMultiPickerSheet } from '@/components/PresetMultiPickerSheet';
 import { SheetModal } from '@/components/SheetModal';
 import {
   appendDigit,
+  appendPresetRows,
   appendOperator,
   backspace,
   clearAll,
@@ -46,6 +50,7 @@ import {
   CALC_KEY_MINUS,
   CALC_KEY_MULTIPLY,
   CALC_KEY_PLUS,
+  CALC_PICK_PACKAGING_LABEL,
   CALC_SUBMIT_LABEL,
   CALC_TOTAL_LABEL,
   CLOSE_LABEL,
@@ -97,14 +102,26 @@ type Props = {
   targetText: string;
   /** 「入れる」で親の入力欄へ書き戻す。渡すのは**合計だけ**（§7.4） */
   onSubmit: (value: string) => void;
+  /**
+   * 梱包材シート末尾の「設定で編集する ▸」を出すか（既定 true）。
+   * 記録フォームからは false（PresetPickerSheet と同じ理由。モーダルの裏に遷移するため）。
+   */
+  canOpenSettings?: boolean;
   onClose: () => void;
 };
 
 /** 開いている間だけマウントする前提のコンポーネント（初期表示を state の初期値で決めるため）。 */
-export function MiniCalculator({ fieldLabel, targetText, onSubmit, onClose }: Props) {
+export function MiniCalculator({
+  fieldLabel,
+  targetText,
+  onSubmit,
+  canOpenSettings = true,
+  onClose,
+}: Props) {
   const colors = useThemeColors();
   // 積み上げは保存しない。シートを閉じれば消える（§7.4）ので、state はこの 1 つだけ
   const [memo, setMemo] = useState(() => createMemo(targetText));
+  const [showPacking, setShowPacking] = useState(false);
   const rowsRef = useRef<ScrollView>(null);
 
   const total = memoTotal(memo);
@@ -201,9 +218,10 @@ export function MiniCalculator({ fieldLabel, targetText, onSubmit, onClose }: Pr
                 ),
               )}
 
-              {/* 4. 積み上げに効く 2 つの操作。左が「＋ 行を足す」（`＋` キーと同じ。
-                  積み上げの側からも行を足せることを示す）、右が `AC`（§7.3）。
-                  どちらも行の並び全体に効くので、キーパッドではなくここに並べる */}
+              {/* 4. 積み上げに効く 3 つの操作（SPEC-V3 §4.5 / 設計案 26c）。
+                  左が「＋ 行を足す」（`＋` キーと同じ。積み上げの側からも行を足せることを示す）、
+                  中央が「🏷 梱包材から選ぶ」、右が `AC`（§7.3）。
+                  どれも行の並び全体に効くので、キーパッドではなくここに並べる */}
               <View style={styles.stackActions}>
                 <Pressable
                   onPress={() => handleKey(CALC_KEY_PLUS)}
@@ -211,6 +229,20 @@ export function MiniCalculator({ fieldLabel, targetText, onSubmit, onClose }: Pr
                   style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
                   <Text style={[styles.addRowLabel, { color: colors.blue }]}>
                     {additionLabel(CALC_ADD_ROW_LABEL)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setShowPacking(true)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.addRow,
+                    styles.pickPacking,
+                    { opacity: pressed ? 0.5 : 1 },
+                  ]}>
+                  {/* タグ印はプリセットの入口の合図（行のタグボタンと同じ pricetag-outline） */}
+                  <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
+                  <Text style={[styles.addRowLabel, { color: colors.blue }]}>
+                    {CALC_PICK_PACKAGING_LABEL}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -242,6 +274,27 @@ export function MiniCalculator({ fieldLabel, targetText, onSubmit, onClose }: Pr
               </Text>
             )}
           </View>
+
+          {/* 5a. 梱包材の複数選択（§4.5）。電卓の上に重ねて出し、「入れる」で行として積む。
+              電卓はこの下で開いたまま ── 戻ったときに積み上げが残っていることが要件 */}
+          {showPacking && (
+            <PresetMultiPickerSheet
+              canOpenSettings={canOpenSettings}
+              onSubmit={(presets) =>
+                setMemo((current) =>
+                  appendPresetRows(
+                    current,
+                    presets.map((preset) => ({
+                      name: preset.name,
+                      value: preset.value,
+                      colorKey: preset.colorKey,
+                    })),
+                  ),
+                )
+              }
+              onClose={() => setShowPacking(false)}
+            />
+          )}
 
           {/* 6. キーパッド。下端に固定 */}
           <View style={styles.keypad}>
@@ -295,7 +348,8 @@ function SwipeToDeleteMemoRow({
 
 /**
  * 1 行の中身（§7.2）: 記号・品名・式・結果の 4 列。
- * 品名は現時点では常に空で、そのときは列を出さない（幅 0）ので式が左端から始まる（§7.5）。
+ * 品名は手で作った行では空で、そのときは列を出さない（幅 0）ので式が左端から始まる（§7.5）。
+ * 梱包材プリセットから積んだ行にはバッジ ＋ 名前が入る（SPEC-V3 §4.5 / 設計案 26c）。
  */
 function MemoRow({
   row,
@@ -321,9 +375,16 @@ function MemoRow({
         {calcRowSignLabel(row.sign)}
       </Text>
       {row.name !== '' && (
-        <Text style={[styles.rowName, { color: colors.label }]} numberOfLines={1}>
-          {row.name}
-        </Text>
+        <View style={styles.rowNameGroup}>
+          {/* 行の高さ（44px）を変えないところまで小さくする。バッジは色だけが要る印 */}
+          <PresetBadge
+            preset={{ name: row.name, initial: '', colorKey: row.colorKey }}
+            size={18}
+          />
+          <Text style={[styles.rowName, { color: colors.label }]} numberOfLines={1}>
+            {row.name}
+          </Text>
+        </View>
       )}
       <Text
         style={[styles.rowExpression, { color: row.expression === '' ? colors.mutedLabel : colors.label }]}
@@ -460,10 +521,16 @@ const styles = StyleSheet.create({
     width: 18,
     textAlign: 'center',
   },
+  rowNameGroup: {
+    // 品名の列は名前が入った行にだけ出る（§7.5）。バッジ ＋ 名前で 1 かたまり
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: 120,
+  },
   rowName: {
-    // 品名は現時点では常に空なので、この列自体が出ない（§7.5）
+    flexShrink: 1,
     fontSize: 15,
-    maxWidth: 96,
   },
   rowExpression: {
     flex: 1,
@@ -484,6 +551,13 @@ const styles = StyleSheet.create({
   addRow: {
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  pickPacking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    // 3 つの押し所が等間隔に見えるよう、中央だけは左右の余白を詰める
+    paddingHorizontal: 8,
   },
   addRowLabel: {
     fontSize: 15,

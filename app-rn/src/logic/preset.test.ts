@@ -13,6 +13,7 @@ import {
   PRESET_COLOR_KEYS,
   PRESET_TYPES,
   presetInitial,
+  resolvePresetTag,
   toPresetType,
   validatePreset,
   type PresetDraft,
@@ -286,5 +287,63 @@ describe('§4.1 / §4.3 欄の値・名前からプリセットを引く', () =>
   it('名前が空文字（未設定）なら null。消えたプリセットの名前も引けない（§1.5.1）', () => {
     expect(findPresetByName(sites, '')).toBeNull();
     expect(findPresetByName(sites, 'もう無いサイト')).toBeNull();
+  });
+});
+
+describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
+  const shipping = [
+    { name: 'ネコポス', value: 210 },
+    { name: '手渡し', value: 0 },
+  ];
+  const sites = [
+    { name: 'メルカリ', value: 10 },
+    { name: 'ラクマ', value: 6 },
+  ];
+
+  it('名前を写さない欄は値だけで引く（送料）', () => {
+    expect(resolvePresetTag(shipping, 210)).toEqual({
+      kind: 'selected',
+      preset: shipping[0],
+    });
+    expect(resolvePresetTag(shipping, 999)).toEqual({ kind: 'unselected' });
+    expect(resolvePresetTag(shipping, null)).toEqual({ kind: 'unselected' });
+  });
+
+  it('名前も率も一致していれば通常のバッジ', () => {
+    expect(resolvePresetTag(sites, 10, 'メルカリ')).toEqual({
+      kind: 'selected',
+      preset: sites[0],
+    });
+  });
+
+  it('名前は一致するが率が違えば rate-changed（薄いバッジ・▾ なし）', () => {
+    expect(resolvePresetTag(sites, 8, 'メルカリ')).toEqual({
+      kind: 'rate-changed',
+      preset: sites[0],
+    });
+  });
+
+  it('率だけが他のプリセットと一致しても、写した名前の側で判定する', () => {
+    // 10% のメルカリを選んでから 6%（ラクマの率）に下げても、札はメルカリのまま薄くする
+    expect(resolvePresetTag(sites, 6, 'メルカリ')).toEqual({
+      kind: 'rate-changed',
+      preset: sites[0],
+    });
+  });
+
+  it('名前が未設定なら、率が一致していても未選択（§1.5.1 の「率では決めない」）', () => {
+    expect(resolvePresetTag(sites, 10, '')).toEqual({ kind: 'unselected' });
+  });
+
+  it('プリセットが削除・改名されて引けないときは未選択（バッジの色と頭文字が無い）', () => {
+    expect(resolvePresetTag(sites, 10, 'もう無いサイト')).toEqual({ kind: 'unselected' });
+    expect(resolvePresetTag([], 10, 'メルカリ')).toEqual({ kind: 'unselected' });
+  });
+
+  it('空欄は選んだ率と一致しないので rate-changed', () => {
+    expect(resolvePresetTag(sites, null, 'メルカリ')).toEqual({
+      kind: 'rate-changed',
+      preset: sites[0],
+    });
   });
 });

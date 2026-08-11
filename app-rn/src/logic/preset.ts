@@ -133,6 +133,53 @@ export function findPresetByName<T extends { name: string }>(
 }
 
 /**
+ * タグボタンに出す見た目（SPEC-V3 §4.1 / §1.5.1）。判定はここで済ませ、部品は描くだけにする。
+ *
+ * - `unselected` … タグアイコン ＋ ▾
+ * - `selected` … バッジ ＋ ▾（プリセットの値がそのまま入っている）
+ * - `rate-changed` … **薄いバッジ・▾ なし**（名前は残っているが、率は手で動かされている）
+ */
+export type PresetTagState<T> =
+  | { kind: 'unselected' }
+  | { kind: 'selected'; preset: T }
+  | { kind: 'rate-changed'; preset: T };
+
+/**
+ * 欄の状態からタグボタンの見た目を決める（§4.1 / §1.5.1）。
+ *
+ * `selectedName` を渡す欄（販売サイト）は**名前と値の両方**を照合する。
+ * 名前を写す仕様（§1.5.1）は「10% のサイトで 8% で売った」を記録できるようにするためのもので、
+ * 名前が残ること自体は正しい。ただし選択直後と同じバッジのままだと
+ * 「プリセットの率がそのまま入っている」と読めてしまうので、
+ * 率がプリセットと違うときは薄いバッジ（▾ なし）に落として、例外的な率だと分かるようにする。
+ *
+ * `selectedName` を渡さない欄（送料など）は値だけで引く。手で額を変えれば
+ * その時点でどのプリセットとも一致しなくなり、バッジは消える（`unselected`）。
+ * この欄には「名前は合っているが値が違う」状態が存在しないので、`rate-changed` にはならない。
+ *
+ * **プリセットが削除・改名されていて名前で引けないときは `unselected`。**
+ * バッジの色と頭文字はプリセットの保存値そのものなので、消えた行の札は描きようがない
+ * （名前だけから色を作ると、同じ記録が編集のたびに違う色で出る）。
+ * 販売サイト名は欄の下の行（SiteNameRow）に残るので、どこで売ったかは読める。
+ */
+export function resolvePresetTag<T extends { name: string; value: number }>(
+  presets: readonly T[],
+  value: number | null,
+  selectedName?: string,
+): PresetTagState<T> {
+  if (selectedName == null) {
+    const matched = findPresetByValue(presets, value);
+    return matched == null ? { kind: 'unselected' } : { kind: 'selected', preset: matched };
+  }
+
+  const named = findPresetByName(presets, selectedName);
+  if (named == null) return { kind: 'unselected' };
+  return named.value === value
+    ? { kind: 'selected', preset: named }
+    : { kind: 'rate-changed', preset: named };
+}
+
+/**
  * 保存が無効な理由（§1.4）。文言は labels.presetBlockedNote が持つ。
  * 名前の重複は**弾かない**ので、ここに理由として現れない（§1.4）。
  */

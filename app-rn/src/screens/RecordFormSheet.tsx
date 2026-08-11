@@ -302,6 +302,9 @@ function RecordForm({
             onChangeValue={(value) => update('salesPrice', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
             valueStyle={styles.salesPriceValue}
+            // このフォームは RN の Modal なので、どの欄の電卓から開いた梱包材シートでも
+            // 設定タブへは遷移できない（裏に積まれる）。行に選択ボタンのない欄でも渡す
+            canOpenSettings={false}
           />
 
           <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -316,6 +319,7 @@ function RecordForm({
               onChangeValue={(value) => update('purchasePrice', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              canOpenSettings={false}
             />
           )}
 
@@ -387,6 +391,7 @@ function RecordForm({
               onChangeValue={(value) => update('envelopeCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              canOpenSettings={false}
             />
             <NumericField
               label={OTHERS_COST_LABEL}
@@ -394,6 +399,7 @@ function RecordForm({
               onChangeValue={(value) => update('othersCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
+              canOpenSettings={false}
             />
           </CollapsibleSection>
 

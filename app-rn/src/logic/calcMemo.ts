@@ -20,10 +20,19 @@ export type CalcMemoRow = {
   id: number;
   sign: CalcRowSign;
   /**
-   * 品名。**現時点では常に空**（§7.5）。空なら列の幅は 0 で、式が左端から始まる。
-   * 将来の梱包材プリセットで左列に入る想定なので、後から列を足さずに済むよう最初から持たせる。
+   * 品名（§7.5）。梱包材プリセットから積んだ行にはその名前が入る（SPEC-V3 §4.5）。
+   * 手で作った行は空で、空なら列の幅は 0 になり式が左端から始まる。
    */
   name: string;
+  /**
+   * 品名の前に出すバッジの色キー（SPEC-V3 §4.5 / 設計案 26c）。手で作った行は空文字。
+   *
+   * §8-6 は「電卓は数字を読む面なので品名にバッジは出さない」と決めていたが、
+   * 実装してみると**名前だけの行は、自分で打った行と見分けが付かない**。
+   * どれがプリセットから積んだ行かが色で分かる方が、積み上げを読み直すときに速い。
+   * 色そのものはプリセットの保存値で、ここでは持ち回すだけ（正規化は PresetBadge 側）。
+   */
+  colorKey: string;
   /** 表示どおりの式（「1500 ÷ 100」）。四則演算が使え、`3 × 25` も 1 行に収まる */
   expression: string;
 };
@@ -49,7 +58,7 @@ let lastRowId = 0;
 
 function newRow(sign: CalcRowSign, expression = ''): CalcMemoRow {
   lastRowId += 1;
-  return { id: lastRowId, sign, name: '', expression };
+  return { id: lastRowId, sign, name: '', colorKey: '', expression };
 }
 
 /**
@@ -137,6 +146,52 @@ export function commitRow(memo: CalcMemo, sign: CalcRowSign): CalcMemo {
     return { rows: memo.rows, draft: { ...memo.draft, sign } };
   }
   return { rows: [...memo.rows, { ...memo.draft, expression }], draft: newRow(sign) };
+}
+
+/** 梱包材プリセット 1 件ぶん（SPEC-V3 §4.5）。行に写すのは名前・金額・色だけ */
+export type CalcPresetItem = {
+  name: string;
+  value: number;
+  colorKey: string;
+};
+
+/**
+ * 「梱包材から選ぶ」で選んだぶんを行として積む（SPEC-V3 §4.5）。
+ *
+ * - **1 件が 1 行**（`sign = '+'`、`name` はプリセット名、式は金額）。積んである行は消さない。
+ * - 編集中の行が空ならそこから使い、値が入っていればその行を積んでから後ろに続ける。
+ * - **最後の 1 件は編集中の行にする** ── 積んだ直後に `× 2` と打って個数を掛けられるように
+ *   （§2.4 でプリセットに個数欄を持たせなかったぶんを、この続きの打ち方で賄う）。
+ * - 合計は「表示されている行の結果の和」（`memoTotal`）のままなので、ここでは何も足さない。
+ */
+export function appendPresetRows(memo: CalcMemo, items: readonly CalcPresetItem[]): CalcMemo {
+  const last = items.at(-1);
+  if (last == null) return memo;
+
+  const rows = [...memo.rows];
+  const draftExpression = normalizeExpression(memo.draft.expression);
+
+  // 空の draft は id ごと使い回す（行のリストキーが飛ばないように）
+  let base = memo.draft;
+  if (draftExpression !== '') {
+    rows.push({ ...memo.draft, expression: draftExpression });
+    base = newRow('+');
+  }
+
+  for (const item of items.slice(0, -1)) {
+    rows.push({ ...newRow('+'), ...presetRowFields(item) });
+  }
+
+  return { rows, draft: { ...base, ...presetRowFields(last) } };
+}
+
+function presetRowFields(item: CalcPresetItem) {
+  return {
+    sign: '+' as const,
+    name: item.name,
+    colorKey: item.colorKey,
+    expression: formatCalculatorNumber(item.value),
+  };
 }
 
 /**

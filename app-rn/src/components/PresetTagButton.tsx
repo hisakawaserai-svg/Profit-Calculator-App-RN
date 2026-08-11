@@ -9,10 +9,16 @@
 // ラベル側へ寄せれば、詰め物なしで金額の右端は数値欄の flex が、
 // 行の右端は電卓ボタンが揃える。行の高さ（60px / 伝票カードは詰めた値）は変わらない。
 //
-// 2 つの見た目を同じ幅で入れ替える（設計案 26a-2）:
+// 3 つの見た目を同じ幅で入れ替える（設計案 26a-2 ／ 判定は logic/preset の resolvePresetTag）:
 //
 // - 選択中のプリセットがあるとき: **そのバッジ自体がボタン**（右に ▾）
+// - 名前は残っているが率を手で変えたとき: **薄いバッジ・▾ なし**（§1.5.1）
 // - 未選択のとき: タグアイコン（右に ▾）
+//
+// 薄いバッジで ▾ を外すのは、▾ が「今ここに入っている値の出どころ」を指す印だから ──
+// 率が既にプリセットのものではない以上、同じ印を出しておくと
+// 「プリセットの率がそのまま入っている」と読めてしまう。
+// 押したときの挙動は 3 つとも同じ（選択シートが開く）。
 //
 // アイコンを `pricetag-outline` にしてあるのは、隣の電卓ボタンが `calculator-outline`
 // （線画）だから ── 塗りの `pricetag` を並べると、同じ行の 2 つのボタンで線の太さが揃わない。
@@ -26,8 +32,8 @@ import { PresetBadge } from '@/components/PresetBadge';
 import { PresetPickerSheet } from '@/components/PresetPickerSheet';
 import type { Preset, PresetType } from '@/db/schema';
 import { usePresetList } from '@/db/usePresets';
-import { presetPickerTitle } from '@/logic/labels';
-import { findPresetByName, findPresetByValue } from '@/logic/preset';
+import { presetPickerTitle, presetTagStateLabel } from '@/logic/labels';
+import { resolvePresetTag } from '@/logic/preset';
 import { useThemeColors } from '@/theme';
 
 /** 行の中に収める大きさ。一覧の 28px より小さくして、数値と同じ行に並べても重くしない */
@@ -70,10 +76,7 @@ export function PresetTagButton({
   const [showPicker, setShowPicker] = useState(false);
   const { presets } = usePresetList(type);
 
-  const selected =
-    selectedName == null
-      ? findPresetByValue(presets, value)
-      : findPresetByName(presets, selectedName);
+  const tag = resolvePresetTag(presets, value, selectedName);
 
   return (
     <>
@@ -88,17 +91,31 @@ export function PresetTagButton({
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={presetPickerTitle(type)}
+        // 見た目（バッジの濃さ・▾ の有無）で示している状態を読み上げにも乗せる
+        accessibilityValue={{
+          text: presetTagStateLabel(
+            tag.kind,
+            tag.kind === 'unselected' ? '' : tag.preset.name,
+          ),
+        }}
         style={({ pressed }) => [
           styles.button,
           { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },
         ]}>
-        {selected == null ? (
+        {tag.kind === 'unselected' ? (
           <Ionicons name="pricetag-outline" size={ICON_SIZE} color={colors.blue} />
         ) : (
-          <PresetBadge preset={selected} size={BADGE_SIZE} />
+          <PresetBadge
+            preset={tag.preset}
+            size={BADGE_SIZE}
+            muted={tag.kind === 'rate-changed'}
+          />
         )}
-        {/* ▾ は選択中でも未選択でも出す。押すと選び直せることが形から読めるように */}
-        <Ionicons name="chevron-down" size={12} color={colors.blue} />
+        {/* ▾ は「今の値がプリセットのもの」の印。率を手で変えた行では外す（§1.5.1）。
+            未選択のときは出す ── 押すと選べることが形から読めるように */}
+        {tag.kind !== 'rate-changed' && (
+          <Ionicons name="chevron-down" size={12} color={colors.blue} />
+        )}
       </Pressable>
 
       {/* 開いている間だけマウントする（電卓シートと同じ扱い） */}

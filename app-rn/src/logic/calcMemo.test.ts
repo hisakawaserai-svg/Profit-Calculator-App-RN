@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appendDigit,
   appendOperator,
+  appendPresetRows,
   backspace,
   clearAll,
   commitRow,
@@ -262,5 +263,64 @@ describe('「入れる」の有効・無効（§7.4）', () => {
   it('0 以上なら有効。0 でも入れられる', () => {
     expect(submitBlockedReason(press(createMemo(''), '120'))).toBeNull();
     expect(submitBlockedReason(press(createMemo(''), '300−300'))).toBeNull();
+  });
+});
+
+
+describe('梱包材プリセットから行を積む（SPEC-V3 §4.5）', () => {
+  const box = { name: '箱（小）', value: 120, colorKey: 'blue' };
+  const cushion = { name: '緩衝材', value: 40, colorKey: 'green' };
+
+  it('空の編集中の行はそこから使う（空行を挟まない）', () => {
+    const memo = appendPresetRows(createMemo(''), [box]);
+
+    expect(visibleRows(memo)).toEqual(['+ 120 = 120']);
+    expect(memoRows(memo)[0].name).toBe('箱（小）');
+    expect(memoRows(memo)[0].colorKey).toBe('blue');
+    expect(memoTotal(memo)).toBe(120);
+  });
+
+  it('値が入っていれば、その行を積んでから後ろに続ける', () => {
+    const memo = appendPresetRows(press(createMemo(''), '300'), [box]);
+
+    expect(visibleRows(memo)).toEqual(['+ 300 = 300', '+ 120 = 120']);
+    expect(memoTotal(memo)).toBe(420);
+  });
+
+  it('複数件は選んだ順に 1 件 1 行で積まれ、合計に載る', () => {
+    const memo = appendPresetRows(createMemo(''), [box, cushion]);
+
+    expect(memoRows(memo).map((row) => row.name)).toEqual(['箱（小）', '緩衝材']);
+    expect(visibleRows(memo)).toEqual(['+ 120 = 120', '+ 40 = 40']);
+    expect(memoTotal(memo)).toBe(160);
+  });
+
+  it('既に積んだ行は消さない（追加で積むだけ）', () => {
+    const memo = appendPresetRows(press(createMemo(''), '120＋40＋'), [cushion]);
+
+    expect(visibleRows(memo)).toEqual(['+ 120 = 120', '+ 40 = 40', '+ 40 = 40']);
+    expect(memoTotal(memo)).toBe(200);
+  });
+
+  it('最後の 1 件は編集中の行なので、続けて × 2 と打てる（§2.4 の個数）', () => {
+    const memo = press(appendPresetRows(createMemo(''), [box, cushion]), '×2');
+
+    expect(visibleRows(memo)).toEqual(['+ 120 = 120', '+ 40 × 2 = 80']);
+    expect(memoTotal(memo)).toBe(200);
+  });
+
+  it('0 件を渡しても何も起きない', () => {
+    const memo = press(createMemo(''), '120');
+
+    expect(appendPresetRows(memo, [])).toBe(memo);
+  });
+
+  it('行の id は重複しない（空の編集中の行は id ごと使い回す）', () => {
+    const before = createMemo('');
+    const memo = appendPresetRows(before, [box, cushion]);
+    const ids = memoRows(memo).map((row) => row.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.at(-1)).toBe(before.draft.id);
   });
 });

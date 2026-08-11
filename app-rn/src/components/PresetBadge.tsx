@@ -17,9 +17,17 @@ type Props = {
   /** 保存値そのまま。空の initial から名前を使う導出はこの中で行う（§1.2） */
   preset: { name: string; initial: string; colorKey: string };
   size?: number;
+  /**
+   * 薄く出す（SPEC-V3 §1.5.1 の「名前は残っているが率は手で変えた」状態）。
+   *
+   * 色を別に持たせず不透明度で落とすのは、10 色ぶんの薄い版を明暗 2 テーマで
+   * 定義し直さずに、どの色でも同じだけ引っ込ませるため。地色に沈めるのが目的なので、
+   * 前景（文字）も一緒に薄くなってよい。
+   */
+  muted?: boolean;
 };
 
-export function PresetBadge({ preset, size = BADGE_SIZE }: Props) {
+export function PresetBadge({ preset, size = BADGE_SIZE, muted = false }: Props) {
   const colors = useThemeColors();
   const tone = colors.presetTones[normalizePresetColor(preset.colorKey)];
   const text = presetInitial(preset);
@@ -35,6 +43,7 @@ export function PresetBadge({ preset, size = BADGE_SIZE }: Props) {
           borderRadius: size * (8 / BADGE_SIZE),
           backgroundColor: tone.background,
         },
+        muted && styles.muted,
       ]}
       // 読み上げは名前が担う（PresetRow が名前を読む）。2 文字の略号を読ませても意味が伝わらない
       accessibilityElementsHidden
@@ -56,6 +65,10 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // 明暗どちらの地色でも「引っ込んだが読める」ところ。これ以上落とすと頭文字が読めない
+  muted: {
+    opacity: 0.4,
   },
   text: {
     fontWeight: '700',

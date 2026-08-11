@@ -675,6 +675,24 @@ export const CALC_TOTAL_LABEL = '合計';
  */
 export const CALC_ADD_ROW_LABEL = '行を足す';
 
+/**
+ * 積み上げの末尾の中央（SPEC-V3 §4.5 / 設計案 26c）。左「＋ 行を足す」と右「AC」の間。
+ * 頭のタグ印はアイコンで出す（PresetTagButton と同じ `pricetag-outline`）ので、語だけを持つ。
+ */
+export const CALC_PICK_PACKAGING_LABEL = '梱包材から選ぶ';
+
+/**
+ * 複数選択シートのヘッダ左（§4.5 / 設計案 26c）。「キャンセル」ではなく**戻り先の名前**にする ──
+ * このシートは電卓の上に重なって出るので、閉じると電卓に戻ることが語から読める方がよい。
+ * 「‹」はアイコンで出す。
+ */
+export const CALC_PICKER_BACK_LABEL = '電卓';
+
+/** 複数選択シートの合計行（§4.5-3）。選んだ数を「点」で数える（金額と混ざらない単位） */
+export function presetPickedCountLabel(count: number): string {
+  return `選択中${count}点`;
+}
+
 /** 四則の記号（§7.1）。画面には `*` `/` を出さない */
 export const CALC_KEY_MULTIPLY = '×';
 export const CALC_KEY_DIVIDE = '÷';
@@ -871,6 +889,21 @@ export function presetDeletedMessage(type: PresetType): string {
  */
 export function presetPickerTitle(type: PresetType): string {
   return `${presetTypeLabel(type)}を選ぶ`;
+}
+
+/**
+ * タグボタンの読み上げに足す今の状態（§4.1 / §1.5.1）。
+ *
+ * 選択中かどうかは見た目（バッジ・薄いバッジ・タグアイコン）で分かるが、
+ * 読み上げには色も濃さも乗らない。ボタンの名前（presetPickerTitle）は押すと起きることの語なので、
+ * そちらは変えずに、今どうなっているかは値として別に読ませる。
+ */
+export function presetTagStateLabel(
+  state: 'unselected' | 'selected' | 'rate-changed',
+  name: string,
+): string | undefined {
+  if (state === 'unselected') return undefined;
+  return state === 'selected' ? name : `${name}（率は変更ずみ）`;
 }
 
 /**

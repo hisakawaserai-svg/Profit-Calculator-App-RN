@@ -145,6 +145,8 @@ export function NumericField({
           targetText={value}
           // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
           onSubmit={(result) => onChangeValue(sanitizeNumericInput(result))}
+          // 電卓の中の梱包材シートも設定タブへ遷移できるかは同じ条件（SPEC-V3 §4.5）
+          canOpenSettings={canOpenSettings}
           onClose={() => setShowCalc(false)}
         />
       ) : null}
