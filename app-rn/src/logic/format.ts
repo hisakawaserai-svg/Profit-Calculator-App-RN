@@ -47,6 +47,19 @@ export function formatYenSymbol(value: number): string {
 }
 
 /**
+ * 符号つきの金額「+¥1234」「-¥1234」（一覧の行の純利益。設計案 30b）。
+ *
+ * **符号を文字でも出す**のは、正負を緑／赤だけで伝えると色が唯一の手がかりになるため
+ * （§0.1「色は識別の補助」）。0 は符号なしの「¥0」── 「+¥0」は増えたと読める。
+ * 桁区切りは付けない（formatYenSymbol と同じ方針）。
+ */
+export function formatSignedYenSymbol(value: number): string {
+  const rounded = roundForDisplay(value);
+  if (rounded === 0) return formatYenSymbol(0);
+  return rounded > 0 ? `+${formatYenSymbol(rounded)}` : `-${formatYenSymbol(Math.abs(rounded))}`;
+}
+
+/**
  * 見込み額「約¥1234」。出品中の行の「売れたら 約¥…」で使う。
  * 「約」は常に付く（UI-SPEC §5-3: 送料未入力かどうかの判定はしない）。
  */

@@ -158,6 +158,31 @@ export function useRecordList(
   return { ...data, refresh };
 }
 
+/** refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryCount(filter: RecordListFilter, refreshToken: object): number {
+  void refreshToken;
+  return repository.countRecords(filter);
+}
+
+/**
+ * 条件に合う件数だけを引く（絞り込みページの下部。§4.6）。
+ *
+ * 一覧そのものは引かない ── この画面が要るのは数だけで、条件を触るたびに
+ * 数百件を読み直す理由がない。同期クエリで数千件規模（SPEC-V2 §8-6）なので、
+ * タップごとに引いても問題にならない。
+ *
+ * **検索語は渡さない**（呼び出し側の責務）。下部の件数に検索を含めないのは §4.6 の決定で、
+ * タグの検索欄（§4.2.2）も一覧の見え方を変えるだけでここには効かない。
+ */
+export function useFilteredRecordCount(filter: RecordListFilter): number {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  return useMemo(() => queryCount(filter, refreshToken), [filter, refreshToken]);
+}
+
 export type RecordData = {
   /** 対象のレコード。削除済み・不正な id のときは undefined */
   record: SaleRecord | undefined;

@@ -15,14 +15,23 @@ import { useThemeColors } from '@/theme';
 /** 色の点の直径（§2.3）。名前の左に置く ── 金額の行に出ることはないので色が隣と競合しない */
 const DOT_SIZE = 6;
 
+/** active（青ベタ）の文字と点の色。地が常に blue なので、明暗どちらでも白で読める */
+const ACTIVE_FOREGROUND = '#FFFFFF';
+
 /**
- * §2.3 の 3 つの見た目。
+ * §2.3 の見た目。
  *
  * | plain      | 表示のみ（記録詳細・解除バー）。枠線も地色も持たない |
- * | selected   | 選択中・外せる（フォームのタグ行・絞り込みシート）。薄い地 ＋ 右端に「✕」 |
- * | unselected | 未選択（絞り込みシートの候補）。地なし・枠線あり |
+ * | selected   | 選択中・外せる（フォームのタグ行）。薄い地 ＋ 右端に「✕」 |
+ * | unselected | 未選択（絞り込みシートの候補）。白地 ＋ 枠線 |
+ * | active     | 選択中（絞り込みシート）。**青ベタ ＋ 白文字 ＋ 白い点。「✕」は出さない** |
+ *
+ * active を selected と分けるのは、外し方が違うから（設計案 30b）── フォームのタグ行は
+ * チップ 1 つずつに「✕」が付くが、絞り込みシートは**もう一度押して外す**面なので、
+ * 押せる印より「いま効いている / 効いていない」の対比の方が要る。
+ * 塗り分けにしたのはそのため（薄い地では、白地の未選択との差が離れて並ぶと読み取れない）。
  */
-export type TagChipVariant = 'plain' | 'selected' | 'unselected';
+export type TagChipVariant = 'plain' | 'selected' | 'unselected' | 'active';
 
 type Props = {
   /** 保存値そのまま。色キーの正規化はこの中で行う */
@@ -39,7 +48,12 @@ type Props = {
 
 export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: Props) {
   const colors = useThemeColors();
-  const dotColor = colors.presetTones[normalizePresetColor(tag.colorKey)].background;
+  const isActive = variant === 'active';
+  // 青ベタの上では色の点が地に負けるので白に落とす。**色は識別の補助**（§0.1）なので、
+  // 選択中は「青く塗られていること」の方が強い手がかりになり、点の色は要らなくなる
+  const dotColor = isActive
+    ? ACTIVE_FOREGROUND
+    : colors.presetTones[normalizePresetColor(tag.colorKey)].background;
   const isPlaceholder = tag.name === '' && namePlaceholder != null;
   const removable = variant === 'selected' && onRemove != null;
 
@@ -48,7 +62,9 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: P
       style={[
         styles.chip,
         variant === 'selected' && { backgroundColor: colors.disabledBackground },
+        isActive && { backgroundColor: colors.blue },
         variant === 'unselected' && {
+          backgroundColor: colors.secondaryBackground,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.separator,
         },
@@ -57,7 +73,16 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: P
       ]}>
       <View style={[styles.dot, { backgroundColor: dotColor }]} />
       <Text
-        style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
+        style={[
+          styles.name,
+          {
+            color: isActive
+              ? ACTIVE_FOREGROUND
+              : isPlaceholder
+                ? colors.mutedLabel
+                : colors.label,
+          },
+        ]}
         numberOfLines={1}>
         {isPlaceholder ? namePlaceholder : tag.name}
       </Text>
@@ -101,9 +126,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    // 完全な丸（ピル）。角丸の矩形だと、シートの中で入力欄・カードと同じ形に見えて
+    // 「押して選ぶもの」に読めない（設計案 30b）
+    borderRadius: 999,
   },
   borderless: {
     borderWidth: StyleSheet.hairlineWidth,

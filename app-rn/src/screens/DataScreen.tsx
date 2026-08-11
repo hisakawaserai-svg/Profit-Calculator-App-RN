@@ -45,7 +45,7 @@ import {
 import { formatYenSymbol } from '@/logic/format';
 import {
   DEFAULT_KIND_FILTER,
-  kindFilterLabel,
+  KIND_FILTER_OPTIONS,
   toKindCondition,
   type KindFilter,
 } from '@/logic/kindFilter';
@@ -91,9 +91,6 @@ const xLabelShift = (barWidth: number) => (barWidth - X_LABEL_WIDTH) / 2;
  * 本体の上端はカードの上端ではなくここから始まる。自前で重ねる折れ線も同じだけ下げる。
  */
 const CHART_TOP_PADDING = 10;
-
-/** 種別チップの巡回順（記録タブと同じ「すべて → 不用品 → 仕入品 → すべて」。UI-SPEC §1.2） */
-const KIND_CYCLE: KindFilter[] = ['all', 'used', 'sourced'];
 
 /**
  * レコード詳細のルート。**データタブ自身の Stack の中**にある入口（UI-SPEC §2）。
@@ -144,8 +141,8 @@ export function DataScreen() {
   }, []);
 
   /** 種別を切り替えると集計対象が変わるので、選択中の棒も外す（期間の変更と同じ扱い） */
-  const cycleKindFilter = useCallback(() => {
-    setKindFilter((current) => KIND_CYCLE[(KIND_CYCLE.indexOf(current) + 1) % KIND_CYCLE.length]);
+  const selectKindFilter = useCallback((index: number) => {
+    setKindFilter(KIND_FILTER_OPTIONS[index].value);
     setSelectedKey(null);
   }, []);
 
@@ -196,15 +193,17 @@ export function DataScreen() {
           onPressTitle={() => setShowPeriodSheet(true)}
         />
 
-        {/* 合計行は 2 段構成になった（SPEC-V4 §4.1）。データタブは状態を持たない
-            （isSold = true 固定。SPEC §6.2）ので 2 段目はチップだけ。
-            種別の巡回チップを「絞り込み N」＋シートに差し替えるのは Step 5（§6） */}
+        {/* 集計段は 1 段になった（案 34a-A）。データタブは状態を持たない
+            （isSold = true 固定。SPEC §6.2）ので、右のセグメントには**種別**を置く。
+            旧・種別の巡回チップの置き換え ── チップの部品（FilterChip）は案 34a-B で
+            廃止したので、記録タブと同じ「右にセグメント」の形に寄せた。
+            ▽ ＋ 絞り込みの面に差し替えるのは Step 5（§6） */}
         <SummaryBar
           items={summaryItems}
-          chip={{
-            label: kindFilterLabel(kindFilter),
-            onPress: cycleKindFilter,
-            accessibilityLabel: `種別の絞り込み: ${kindFilterLabel(kindFilter)}。押すと切り替える`,
+          segment={{
+            options: KIND_FILTER_OPTIONS.map((option) => option.label),
+            selectedIndex: KIND_FILTER_OPTIONS.findIndex((option) => option.value === kindFilter),
+            onChange: selectKindFilter,
           }}
         />
 

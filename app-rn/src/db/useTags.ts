@@ -7,7 +7,8 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
-import { tagRepository } from './client';
+import { repository, tagRepository } from './client';
+import type { RecordListFilter } from './repository';
 import type { Tag } from './schema';
 import type { TagInput } from './tags';
 
@@ -49,6 +50,37 @@ export function useTagList(): TagListData {
   const { tags, counts } = useMemo(() => queryList(refreshToken), [refreshToken]);
 
   return { tags, counts, refresh };
+}
+
+/** 一覧の行に出すタグ（§2.3）。refreshToken の理由は queryList と同じ */
+function queryRecordTags(recordIds: readonly string[], refreshToken: object): Map<string, Tag[]> {
+  void refreshToken;
+  return tagRepository.tagsByRecord(recordIds);
+}
+
+/**
+ * 一覧に並んでいる記録ぶんのタグをまとめて引く（設計案 30b で行にタグを出したため）。
+ *
+ * **記録の一覧が変わったときだけ引き直す。** 依存に配列そのものを置くと毎描画で別物になるので、
+ * id を連結した文字列を鍵にする ── 並べ替え・絞り込み・月送りはどれも id の並びを変えるので、
+ * これで取りこぼしなく追随する。
+ *
+ * 戻り値は recordId -> タグ（sortOrder 昇順）。**1 件も付いていない記録はキーごと現れない**
+ * ので、呼び出し側で `?? []` すること（tagsByRecord と同じ約束）。
+ */
+export function useRecordTags(recordIds: readonly string[]): Map<string, Tag[]> {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  // 記録の編集でタグが付け替わっていることがあるので、画面復帰でも引き直す
+  useFocusEffect(refresh);
+
+  const key = recordIds.join(',');
+
+  return useMemo(() => queryRecordTags(key === '' ? [] : key.split(','), refreshToken), [
+    key,
+    refreshToken,
+  ]);
 }
 
 /** 設定タブのカードに出す登録件数（§2.1）。refreshToken の理由は queryList と同じ */
@@ -156,4 +188,30 @@ export function useSiteNames(): string[] {
 function querySiteNames(refreshToken: object): string[] {
   void refreshToken;
   return tagRepository.siteNames();
+}
+
+/** refreshToken の理由は queryList と同じ */
+function queryCountsForFilter(filter: RecordListFilter, refreshToken: object): Map<string, number> {
+  void refreshToken;
+  return repository.countsByTagForFilter(filter);
+}
+
+/**
+ * 絞り込み画面のタグの使用件数（§4.2.1 / §2.2 の例外）。
+ * **選択中のタグ以外のすべての条件で絞った件数**（状態・期間・種別・販売サイト）。
+ *
+ * `useTagList` の `counts`（全記録）と使い分ける ── あちらは設定画面と記録フォームの
+ * 「どのタグが生きているか」用。ここの数字は**「押したら何件出るか」の予告**なので、
+ * 下部の件数と同じ集合で数える（理由は repository.countsByTagForFilter を参照）。
+ *
+ * **tagIds を外すのは repository 側の責務**なので、呼び出し側は下部の件数に渡すのと
+ * 同じ filter をそのまま渡してよい（2 か所で条件を組み立てないための分担）。
+ */
+export function useTagCountsForFilter(filter: RecordListFilter): Map<string, number> {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  return useMemo(() => queryCountsForFilter(filter, refreshToken), [filter, refreshToken]);
 }

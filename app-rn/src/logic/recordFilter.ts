@@ -73,16 +73,24 @@ export function hasActiveFilter(filter: RecordFilterDraft): boolean {
 }
 
 /**
- * 解除バーの文言（§4.3）。効いている条件を「仕入品・タグ「洋服」で絞り込み中」のように連ねる。
- * 0 件なら null（バーごと出さない）。
+ * 絞り込み中の青い行の文言（§4.3。案 34a で改訂）。効いている条件を
+ * 「仕入品・タグ「洋服」の14件だけ」のように連ねる。0 件なら null（行ごと出さない）。
  *
- * **画面では文字列を連結しない**ので、語の組み立ても「で絞り込み中」まで含めてここで終える。
- * 並ぶ数は activeFilterCount と必ず一致する（同じ 3 条件を同じ順に見るため）。
+ * **画面では文字列を連結しない**ので、語の組み立ても末尾の「の N件だけ」まで含めてここで終える。
+ * 並ぶ**条件**の数は activeFilterCount と必ず一致する（同じ 3 条件を同じ順に見るため）。
+ *
+ * `matchCount` は**いま一覧に出ている件数**を渡す ── この文のすぐ下に並ぶのがその一覧だから。
+ * シート下部の「この条件に合う記録 N 件」（§4.6）は検索語を含めない数なので、
+ * 検索中は両者が食い違うが、それぞれの数がそれぞれの真下にあるものを説明している。
  *
  * タグが 2 つ以上のときは「タグ「洋服」ほか1件」と畳む ── 全部並べると 1 行に収まらない。
  * 消えたタグ（§4.7）は名前が引けないので、ここに来る前に落としておくこと（pruneMissingTags）。
  */
-export function filterSummaryText(filter: RecordFilterDraft, tags: Tag[]): string | null {
+export function filterSummaryText(
+  filter: RecordFilterDraft,
+  tags: Tag[],
+  matchCount: number,
+): string | null {
   const parts: string[] = [];
   if (filter.kind !== DEFAULT_KIND_FILTER) parts.push(kindFilterLabel(filter.kind));
   if (filter.siteName != null) parts.push(filterSitePartLabel(filter.siteName));
@@ -92,7 +100,7 @@ export function filterSummaryText(filter: RecordFilterDraft, tags: Tag[]): strin
     .filter((name): name is string => name != null);
   if (names.length > 0) parts.push(filterTagPartLabel(names[0], names.length - 1));
 
-  return parts.length === 0 ? null : filterSummaryLabel(parts);
+  return parts.length === 0 ? null : filterSummaryLabel(parts, matchCount);
 }
 
 /**

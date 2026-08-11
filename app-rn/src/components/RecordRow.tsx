@@ -13,14 +13,18 @@
 //   代わりに種別をメタ行に常時表示する（§6-1）。
 // - 見込み額には常に「約」を付ける。送料未入力かどうかの判定はしない（§5-3）。
 // - 「N 日経過」は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
+// - 純利益は符号つき（「+¥1240」）。正負を緑／赤だけに預けない（§0.1。設計案 30b）。
+// - タグはメタ行の左端、日付の後ろに**点 ＋ 名前**で続ける（§2.3。設計案 30b）。
 import { StyleSheet, Text, View } from 'react-native';
 
+import { TagDot } from '@/components/TagChip';
 import { fromDbDate } from '@/db/dates';
-import type { SaleRecord } from '@/db/schema';
+import type { SaleRecord, Tag } from '@/db/schema';
 import {
   formatApproxYenSymbol,
   formatElapsedDays,
   formatShortDate,
+  formatSignedYenSymbol,
   formatYenSymbol,
 } from '@/logic/format';
 import {
@@ -41,9 +45,14 @@ type Props = {
   isSoldMode: boolean;
   /** 「N 日経過」の基準日。省略時は今日（テスト・プレビューから固定日を渡せるように） */
   today?: Date;
+  /**
+   * この記録に付いたタグ（sortOrder 昇順。§1.5）。省略・空なら何も出さない ──
+   * 付いていない記録の方が多いので、空欄や「なし」の語で行を太らせない。
+   */
+  tags?: readonly Tag[];
 };
 
-export function RecordRow({ record, isSoldMode, today }: Props) {
+export function RecordRow({ record, isSoldMode, today, tags = [] }: Props) {
   const colors = useThemeColors();
   const profit = netProfit(record);
 
@@ -69,7 +78,8 @@ export function RecordRow({ record, isSoldMode, today }: Props) {
             },
           ]}
           numberOfLines={1}>
-          {formatYenSymbol(isSoldMode ? profit : record.salesPrice)}
+          {/* 売れた記録は損益なので符号つき。出品中の主金額（出品価格）は損益ではないので素のまま */}
+          {isSoldMode ? formatSignedYenSymbol(profit) : formatYenSymbol(record.salesPrice)}
         </Text>
       </View>
 
@@ -85,6 +95,24 @@ export function RecordRow({ record, isSoldMode, today }: Props) {
             : listingMetaText(record, profit, today ?? new Date())}
         </Text>
       </View>
+
+      {/* タグは**メタ行と同じ列の下に独立して置く**（§2.3）。設計案 30b は日付の後ろに
+          続けていたが、実際の行にはメタ行の右（「経費 ¥…」「売れたら 約¥…・N 日経過」）が
+          あり、同じ行に入れると日付もタグ名も両方省略されて読めなくなる。
+          **チップにはしない** ── 点 ＋ 名前だけの方がメタ行の他の語と同じ重さで読める
+          （チップにすると行の中で最も目立つ要素になる）。 */}
+      {tags.length > 0 && (
+        <View style={styles.tagLine}>
+          {tags.map((tag) => (
+            <View key={tag.id} style={styles.tagItem}>
+              <TagDot colorKey={tag.colorKey} />
+              <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+                {tag.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -126,6 +154,19 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  // タグが多い記録でも行の高さが伸び続けないよう、折り返さず 1 行に収める
+  tagLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    overflow: 'hidden',
+  },
+  tagItem: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   meta: {
     flexShrink: 1,

@@ -1,4 +1,8 @@
 import { Stack } from 'expo-router';
+import { useMemo } from 'react';
+
+import { toMonthKey } from '@/db/dates';
+import { RecordFilterProvider } from '@/screens/RecordFilterState';
 
 // 記録タブの中の Stack。一覧 → レコード詳細のプッシュ遷移を持つ（UI-SPEC §2）。
 // タブ側のヘッダーは (tabs)/_layout.tsx で切ってあるので、ヘッダーはこの Stack が出す。
@@ -13,6 +17,16 @@ export const unstable_settings = {
   anchor: 'index',
 };
 
+// 絞り込みの state（3 条件・状態・期間）は**この Stack が持つ**（RecordFilterState）。
+// 一覧と絞り込みページが別ルートになったので、両方から同じ値を触れる位置がここになる。
+// タブ全体（(tabs)/_layout.tsx）へ上げるとデータタブと共有になってしまう（決定 §9-9）。
 export default function RecordsLayout() {
-  return <Stack />;
+  /** 「今日」は Stack のマウント時に 1 回だけ決める（初期表示は今月。§5-14） */
+  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+
+  return (
+    <RecordFilterProvider currentMonthKey={currentMonthKey}>
+      <Stack />
+    </RecordFilterProvider>
+  );
 }

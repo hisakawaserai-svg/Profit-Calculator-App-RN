@@ -2,6 +2,7 @@
 // - 検証の境界（0 / 1 / 12 / 13 文字、「・」を含む名前、前後空白、重複の判定。§1.3）
 // - 色の自動割り当てが使用済みの色を避けること・使い切ったら先頭へ戻ること（決定 §9-8）
 // - チップの並びが tags.sortOrder に従うこと（§1.5）
+// - 絞り込みページの検索欄が含む一致で絞ること（§4.2.2 / 案 35f）
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +10,7 @@ import { PRESET_COLOR_KEYS } from './preset';
 import {
   liveTagIds,
   nextTagColor,
+  searchTags,
   selectedTags,
   TAG_NAME_MAX_LENGTH,
   validateTag,
@@ -170,5 +172,45 @@ describe('§1.5 selectedTags / liveTagIds: チップの並びは sortOrder に�
   it('0 件は空配列', () => {
     expect(selectedTags(tags, [])).toEqual([]);
     expect(liveTagIds(tags, [])).toEqual([]);
+  });
+});
+
+describe('§4.2.2 searchTags: 絞り込みページの検索欄（案 35f）', () => {
+  // listAll が返す並び（sortOrder 昇順）
+  const tags = [
+    { id: 'a', name: '洋服' },
+    { id: 'b', name: 'こども服' },
+    { id: 'c', name: '食器' },
+    { id: 'd', name: '本・雑誌' },
+  ];
+
+  it('含む一致。「服」で「洋服」も「こども服」も出る（前方一致にしない）', () => {
+    expect(searchTags(tags, '服').map((tag) => tag.id)).toEqual(['a', 'b']);
+  });
+
+  it('空文字なら全件返す（絞っていない状態）', () => {
+    expect(searchTags(tags, '')).toHaveLength(4);
+  });
+
+  it('空白だけでも全件返す', () => {
+    expect(searchTags(tags, '　 ')).toHaveLength(4);
+  });
+
+  it('前後の空白は落としてから照合する（変換確定で末尾に空白が入っても見つかる）', () => {
+    expect(searchTags(tags, ' 洋服 ').map((tag) => tag.id)).toEqual(['a']);
+  });
+
+  it('一致しなければ空配列（0 件表示はここでは決めない）', () => {
+    expect(searchTags(tags, 'くつ')).toEqual([]);
+  });
+
+  it('並びは元のまま（sortOrder 昇順。一致順に並べ替えない）', () => {
+    expect(searchTags(tags, '').map((tag) => tag.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('元の配列は書き換えない', () => {
+    const original = [...tags];
+    searchTags(tags, '服');
+    expect(tags).toEqual(original);
   });
 });

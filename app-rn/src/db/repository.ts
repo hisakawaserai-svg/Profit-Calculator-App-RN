@@ -422,6 +422,37 @@ export function createRepository(
       return row?.count ?? 0;
     },
 
+    /**
+     * 絞り込み画面のタグの行に出す使用件数（SPEC-V4 §4.2.1 / §2.2 の例外）。
+     * tagId -> 件数。0 件のタグはキーごと現れないので、呼び出し側で `?? 0` すること。
+     *
+     * **この数字は「押したら何件出るか」の予告**なので、下部の countRecords と
+     * **同じ集合の上で数える** ── だから `buildWhere` をそのまま使い回す。
+     * 条件の組み立てを 2 か所に書くと、片方だけ直したときに予告と結果が食い違う。
+     *
+     * **渡された filter から `tagIds` だけを外して数える。**
+     * 外す理由は**タグが OR だから**（§4.4）── 「洋服」を選んだ状態で「春夏物」の数字に
+     * 洋服の条件をかけると `洋服 AND 春夏物` の数になるが、実際に押すと `洋服 OR 春夏物` で
+     * 件数は**増える**方向に動く。予告としてまるで嘘になる。タグ以外の条件で絞った数なら、
+     * 押したときの結果を OR の性質を壊さずに予告できる。
+     *
+     * 状態・期間・種別・販売サイトは**そのまま効く**。販売サイトが isSoldMode = false のとき
+     * 無視されるのも buildWhere の規則がそのまま効く（§4.2）── ここで条件を組み直さない
+     * ことの利点そのもの。
+     *
+     * §3.3 と同じく**1 本のクエリで全タグぶん**数える（タグごとに引くと N+1）。
+     */
+    countsByTagForFilter(filter: RecordListFilter): Map<string, number> {
+      const rows = db
+        .select({ tagId: recordTags.tagId, count: sql<number>`count(*)` })
+        .from(recordTags)
+        .innerJoin(saleRecords, eq(saleRecords.id, recordTags.recordId))
+        .where(buildWhere({ ...filter, tagIds: undefined }))
+        .groupBy(recordTags.tagId)
+        .all();
+      return new Map(rows.map((row) => [row.tagId, row.count]));
+    },
+
     // ---- 検索・絞り込み・月次グループ化（SPEC §4.1 filteredAndGrouped 相当） ----
 
     filteredAndGrouped(

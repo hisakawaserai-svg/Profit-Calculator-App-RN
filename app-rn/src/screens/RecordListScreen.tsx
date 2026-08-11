@@ -2,16 +2,18 @@
 // 出品中タブ・実績タブ・月別詳細の 3 画面を 1 画面に統合したもの
 // （MonthlyRecordListScreen + SaleRecordScreen の後継）。
 //
-// 上部の固定段は通常 4 段・絞り込み中は 5 段（SPEC-V4 §4.1 / 決定 §9-1。UI-SPEC §1.2 を改訂）:
-//   ヘッダ（記録 / ⌕ ⇅）＋ 月バー ＋ 集計 2 値 ＋ セグメント ＋（絞り込み中のみ）解除バー
+// 上部の固定段は 3 段（SPEC-V4 §4.1 / 決定 §9-1 の改訂欄。案 34a）:
+//   ヘッダ（記録 / ⌕ ⇅）＋ 月バー（右端に ▽）＋ 集計段（集計 ＋ 状態セグメント）
+// 絞り込み中の青い行は集計段の中に生えるので、段数は増えない（§4.3）。
 // 月グループとプレビュー 3 件の構造は廃止し、その期間のレコードをフラットに並べる。
 //
 // - データ取得は repository（useRecordList 経由）のみ。画面ではクエリも並べ替えも書かない。
-// - 状態（売れた記録 / 出品中）は合計行 2 段目のセグメント。押した先が見える形にした（§4.1）。
-// - 種別・販売サイト・タグの 3 条件は「絞り込み N」チップ → 絞り込みシート（§4.2）。
+// - 状態（売れた記録 / 出品中）は集計段の右のセグメント。押した先が見える形にした（§4.1）。
+// - 種別・販売サイト・タグの 3 条件は、月バー右端の ▽ から**push する絞り込みページ**（§4.2 / 案 33c）。
 //   巡回チップは廃止 ── 選択肢が 3 つ（種別）で済んでいたから成立していた形で、
 //   販売サイトとタグが加わると巡回では表現できない。
-// - 絞り込みは**画面ローカルの state**。永続化せず、データタブとも共有しない（決定 §9-9）。
+// - 絞り込みの state は**記録タブの Stack**（RecordFilterState）。一覧とページの両方が読むため。
+//   永続化せず、データタブとも共有しない（決定 §9-9）。
 // - 期間は月バー。選べるのは全期間か 1 か月のいずれかだけ（§5-5）。初期表示は今月（§5-14）。
 // - 検索は ⌕ を押した間だけヘッダ行に出す。常時表示の検索バーは置かない（§5-10）。
 // - 並び替えは ⇅ のシート。絞り込みの解除は絞り込みシートに一本化したので、
@@ -24,8 +26,6 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { EmptyState } from '@/components/EmptyState';
-import { FilterClearBar } from '@/components/FilterClearBar';
-import { FilterSheet } from '@/components/FilterSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { OptionSheet, type SheetOption } from '@/components/OptionSheet';
 import { PeriodSheet } from '@/components/PeriodSheet';
@@ -34,33 +34,31 @@ import { SearchBar } from '@/components/SearchBar';
 import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
 import { toMonthKey } from '@/db/dates';
 import type { RecordSortType } from '@/db/repository';
-import type { SaleRecord } from '@/db/schema';
+import type { SaleRecord, Tag } from '@/db/schema';
 import { deleteRecord, useRecordList } from '@/db/useRecords';
-import { useSiteNames, useTagList } from '@/db/useTags';
+import { useRecordTags, useTagList } from '@/db/useTags';
 import { formatYenSymbol } from '@/logic/format';
 import {
   EXPENSES_LABEL,
   FILTER_EMPTY_ACTION_LABEL,
   FILTER_EMPTY_TITLE,
+  FILTER_LABEL,
   LISTING_COUNT_LABEL,
   NO_RECORDS_EMPTY_BODY,
   NO_RECORDS_EMPTY_TITLE,
   SOLD_RECORDS_LABEL,
   TOTAL_LISTING_PRICE_LABEL,
   TOTAL_PROFIT_LABEL,
-  filterChipLabel,
   periodProfitLabel,
 } from '@/logic/labels';
 import {
-  EMPTY_RECORD_FILTER,
   activeFilterCount,
-  clearAll,
   effectiveFilter,
   filterSummaryText,
   pruneMissingTags,
   toFilterConditions,
-  type RecordFilterDraft,
 } from '@/logic/recordFilter';
+import { useRecordFilterState } from '@/screens/RecordFilterState';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
 
@@ -97,6 +95,9 @@ const STATUS_SEGMENTS = [SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL];
 /** レコード詳細のルート。月別詳細を廃止して 1 系統に統一した（UI-SPEC §2 / §6-9） */
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 
+/** 絞り込みページのルート（SPEC-V4 §4.2 / 採用案 33c）。記録タブの Stack に積む */
+const RECORD_FILTER_PATHNAME = '/records/filter' as const;
+
 export function RecordListScreen() {
   const colors = useThemeColors();
   const router = useRouter();
@@ -105,30 +106,30 @@ export function RecordListScreen() {
   const today = useMemo(() => new Date(), []);
   const currentMonthKey = useMemo(() => toMonthKey(today), [today]);
 
-  /** true = 売れた記録 / false = 出品中。合計行 2 段目のセグメントで切り替える（§4.1） */
-  const [isSoldMode, setIsSoldMode] = useState(true);
-  /** 表示中の月キー "YYYY-MM"。null = 全期間。初期表示は今月（§5-14） */
-  const [monthKey, setMonthKey] = useState<string | null>(currentMonthKey);
-  /** 絞り込みシートの 3 条件（§4.2）。画面ローカルで持ち、永続化しない（決定 §9-9） */
-  const [recordFilter, setRecordFilter] = useState<RecordFilterDraft>(EMPTY_RECORD_FILTER);
   /**
-   * 出品中に切り替える直前の販売サイトの指定（§4.2）。
-   * 売れた記録に戻したときに復元する。**マウントされている間だけ**保つ ──
-   * タブを離れて戻れば絞り込みごと消える（決定 §9-9）。
+   * 状態・期間・3 条件は**記録タブの Stack が持つ**（RecordFilterState）。
+   * 絞り込みが push するページになり（案 33c）、一覧とページの両方が同じ値を読むため。
+   * 永続化しない・データタブと共有しないのは元のまま（決定 §9-9）。
    */
-  const [lastSiteName, setLastSiteName] = useState<string | null>(null);
+  const {
+    filter: recordFilter,
+    setFilter: setRecordFilter,
+    isSoldMode,
+    changeSoldMode,
+    monthKey,
+    setMonthKey,
+    clearFilter: clearRecordFilter,
+  } = useRecordFilterState();
   const [sortType, setSortType] = useState<RecordSortType>(DEFAULT_SORT);
   /** ⌕ でヘッダ行を検索フィールドに差し替えている間だけ true（§5-10） */
   const [searching, setSearching] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showSortSheet, setShowSortSheet] = useState(false);
-  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
-  // 絞り込みシートの候補（§4.2）。販売サイトは**記録に実在する名前**で、プリセットではない
+  // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
-  const siteNames = useSiteNames();
 
   const { kind, siteName, tagIds } = useMemo(
     () => toFilterConditions(recordFilter, isSoldMode),
@@ -151,6 +152,10 @@ export function RecordListScreen() {
     summaryFilter,
   );
 
+  // 行に出すタグ（§2.3）。並んでいる記録ぶんを 1 本のクエリでまとめて引く（記録ごとに引かない）
+  const recordIds = useMemo(() => records.map((record) => record.id), [records]);
+  const tagsByRecord = useRecordTags(recordIds);
+
   /**
    * 消えたタグを絞り込みから落とす（§4.7）。
    *
@@ -161,33 +166,8 @@ export function RecordListScreen() {
    */
   useFocusEffect(
     useCallback(() => {
-      setRecordFilter((current) => pruneMissingTags(current, tags));
-    }, [tags]),
-  );
-
-  /**
-   * 状態の切り替え（§4.2）。出品中では販売サイトの指定を退避して外し、戻すときに復元する。
-   *
-   * 条件そのものは effectiveFilter / buildWhere の側でも落ちる（二重にする）が、
-   * ここで state からも外すのは、シートの節が消えている間に「すべて解除」の活性や
-   * N の数が販売サイトを数えたままにならないようにするため。
-   */
-  const changeSoldMode = useCallback(
-    (nextIsSold: boolean) => {
-      setIsSoldMode(nextIsSold);
-      if (nextIsSold) {
-        // 退避した指定は 1 回だけ書き戻す。残しておくと、あとで自分で外した指定が
-        // 状態を往復しただけで復活する
-        if (lastSiteName != null) {
-          setRecordFilter((current) => ({ ...current, siteName: lastSiteName }));
-          setLastSiteName(null);
-        }
-        return;
-      }
-      setLastSiteName(recordFilter.siteName);
-      setRecordFilter((current) => ({ ...current, siteName: null }));
-    },
-    [lastSiteName, recordFilter.siteName],
+      setRecordFilter(pruneMissingTags(recordFilter, tags));
+    }, [recordFilter, setRecordFilter, tags]),
   );
 
   const closeSearch = useCallback(() => {
@@ -195,17 +175,12 @@ export function RecordListScreen() {
     setSearchText('');
   }, []);
 
-  /** 「すべて解除」「解除」「絞り込みを解除」の 3 か所から呼ぶ（§4.2 / §4.3 / §4.8）。
-   *  戻すのは 3 条件だけで、期間・検索・並び替えは動かさない */
-  const clearRecordFilter = useCallback(() => {
-    setRecordFilter(clearAll());
-    setLastSiteName(null);
-  }, []);
-
   // 効いている条件の数と解除バーの文言は、必ず同じ下書き（状態を織り込んだ後）から作る（§4.3）
   const appliedFilter = effectiveFilter(recordFilter, isSoldMode);
   const filterCount = activeFilterCount(appliedFilter);
-  const summaryText = filterSummaryText(appliedFilter, tags);
+  // 青い行の件数は**いま一覧に出ている数**（＝検索も効いた後）。文のすぐ下に並ぶのが
+  // その一覧だから。シート下部の「この条件に合う記録 N 件」は検索を含めない数で、別物（§4.6）
+  const summaryText = filterSummaryText(appliedFilter, tags, records.length);
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -226,6 +201,9 @@ export function RecordListScreen() {
   );
 
   const openNewRecordForm = useCallback(() => setShowForm(true), []);
+
+  /** 絞り込みは push する 1 枚のページ（案 33c）。戻れば結果が見えるので「完了」は要らない */
+  const openFilterPage = useCallback(() => router.push(RECORD_FILTER_PATHNAME), [router]);
 
   // 合計行の出し分け（UI-SPEC §1.2「合計行の出し分け」）
   const summaryItems: SummaryItem[] = isSoldMode
@@ -298,15 +276,23 @@ export function RecordListScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* 2 段目。**右端に絞り込みの入口（▽）**を持つ（案 34a-A / 34a-B）。
+            数は出さない ── 効いている条件は下の青い行に文で並ぶ */}
         <MonthNavBar
           monthKey={monthKey}
           earliestMonthKey={earliestMonthKey}
           currentMonthKey={currentMonthKey}
           onChangeMonth={setMonthKey}
           onPressTitle={() => setShowPeriodSheet(true)}
+          filter={{
+            active: filterCount > 0,
+            onPress: openFilterPage,
+            accessibilityLabel: FILTER_LABEL,
+          }}
         />
 
-        {/* 1 段目 = 集計 2 値、2 段目 = セグメント ＋「絞り込み N」チップ（決定 §9-1） */}
+        {/* 3 段目 = 集計段（左に集計・右に状態セグメント）。絞り込み中はこの中に
+            青い行が生えるが、固定段の中なので段数は増えない（案 34a-A / 34a-C） */}
         <SummaryBar
           items={summaryItems}
           segment={{
@@ -314,16 +300,12 @@ export function RecordListScreen() {
             selectedIndex: isSoldMode ? 0 : 1,
             onChange: (index) => changeSoldMode(index === 0),
           }}
-          chip={{
-            label: filterChipLabel(filterCount),
-            onPress: () => setShowFilterSheet(true),
+          filterRow={{
+            text: summaryText,
+            onPressFilter: openFilterPage,
+            onClear: clearRecordFilter,
           }}
         />
-
-        {/* 5 段目。絞り込みが 0 件のときは行ごと出ない（§4.1 / §4.3） */}
-        {summaryText != null && (
-          <FilterClearBar text={summaryText} onClear={clearRecordFilter} />
-        )}
 
         <FlatList
           data={records}
@@ -331,8 +313,10 @@ export function RecordListScreen() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          // 件数は**交代制**（案 34a-D）。絞り込み中は青い行の「N件だけ」が担うので、
+          // ここには出さない ── 同じ数を 2 か所に出さない
           ListHeaderComponent={
-            records.length === 0 ? null : (
+            records.length === 0 || summaryText != null ? null : (
               <Text style={[styles.count, { color: colors.secondaryLabel }]}>
                 {records.length} 件
               </Text>
@@ -345,11 +329,15 @@ export function RecordListScreen() {
               onClearFilter={clearRecordFilter}
             />
           }
+          ItemSeparatorComponent={() => (
+            <View style={[styles.rowSeparator, { backgroundColor: colors.separator }]} />
+          )}
           renderItem={({ item }) => (
             <SwipeToDeleteRow
               record={item}
               isSoldMode={isSoldMode}
               today={today}
+              tags={tagsByRecord.get(item.id) ?? []}
               onPress={() => openDetail(item)}
               onDelete={() => handleDelete(item.id)}
             />
@@ -386,19 +374,6 @@ export function RecordListScreen() {
         selectedValue={sortType}
         onSelect={setSortType}
         onClose={() => setShowSortSheet(false)}
-      />
-      {/* 絞り込みシート（§4.2）。条件は選んだ瞬間から効く（下部の N 件がその場で動く）。
-          N 件は合計行と同じ集計から取る ── summaryFilter は検索を除いた同じ条件なので、
-          「N 件と出たのに一覧の件数が違う」がそもそも起き得ない（§4.6） */}
-      <FilterSheet
-        visible={showFilterSheet}
-        filter={recordFilter}
-        onChange={setRecordFilter}
-        showSite={isSoldMode}
-        siteNames={siteNames}
-        tags={tags}
-        matchCount={summary.recordCount}
-        onClose={() => setShowFilterSheet(false)}
       />
       <RecordFormSheet visible={showForm} onClose={() => setShowForm(false)} onSaved={refresh} />
     </>
@@ -449,12 +424,14 @@ function SwipeToDeleteRow({
   record,
   isSoldMode,
   today,
+  tags,
   onPress,
   onDelete,
 }: {
   record: SaleRecord;
   isSoldMode: boolean;
   today: Date;
+  tags: readonly Tag[];
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -475,11 +452,16 @@ function SwipeToDeleteRow({
         </Pressable>
       )}>
       <Pressable
-        style={[styles.rowCard, { backgroundColor: colors.secondaryBackground }]}
+        style={({ pressed }) => [
+          styles.rowCard,
+          {
+            backgroundColor: pressed ? colors.disabledBackground : colors.secondaryBackground,
+          },
+        ]}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${record.itemName} の詳細`}>
-        <RecordRow record={record} isSoldMode={isSoldMode} today={today} />
+        <RecordRow record={record} isSoldMode={isSoldMode} today={today} tags={tags} />
       </Pressable>
     </ReanimatedSwipeable>
   );
@@ -506,29 +488,31 @@ const styles = StyleSheet.create({
   headerAction: {
     fontSize: 16,
   },
+  // カードをやめて**地に貼った行 ＋ 区切り線**にする（設計案 30b）── 1 行あたりの
+  // 余白が減り、同じ高さに入る件数が増える。行の切れ目はカードの角ではなく線が示す
   listContent: {
-    padding: 16,
     paddingBottom: 96,
-    gap: 10,
   },
   count: {
     fontSize: 13,
-    marginLeft: 4,
-    marginBottom: 2,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
-  swipeContainer: {
-    borderRadius: 12,
-  },
+  swipeContainer: {},
   rowCard: {
-    padding: 14,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  // 区切り線は行の左端から少し内側に入れる（先頭の商品名の頭に合わせる）
+  rowSeparator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 16,
   },
   deleteAction: {
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
   },
   deleteLabel: {
     color: '#FFFFFF',

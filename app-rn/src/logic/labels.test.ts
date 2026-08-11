@@ -6,6 +6,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CHART_UNIT_NOTE,
+  filterNoMatchNote,
+  filterTagSearchEmptyBody,
+  filterTagSearchEmptyTitle,
+  filterTagSearchResultLabel,
+  filterTagSectionLabel,
+  matchingRecordLabel,
   COMMISSION_LABEL,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   EXPENSES_LABEL,
@@ -610,5 +616,49 @@ describe('SPEC-V4 §2 タグの表示語', () => {
     expect(tagBlockedNote('name-too-long')).toBe('名前は12文字までです');
     expect(tagBlockedNote('name-has-separator')).toBe('「・」は使えません');
     expect(tagBlockedNote('name-duplicated')).toBe('同じ名前のタグがあります');
+  });
+});
+
+describe('§4.2 絞り込みページの文言（案 35c〜35f）', () => {
+  it('下部の見出しは状態で変わる（出品中では対象を言う。案 35c）', () => {
+    expect(matchingRecordLabel(true)).toBe('この条件に合う記録');
+    expect(matchingRecordLabel(false)).toBe('この条件に合う出品中の記録');
+  });
+
+  it('0 件の 2 行目は月名と条件の本数だけ（条件の名前は出さない。案 35e）', () => {
+    expect(filterNoMatchNote('2026年8月', 3)).toBe('2026年8月には、この3つが揃った記録がありません。');
+  });
+
+  it('全期間なら月名を出さない（入れる月が無い）', () => {
+    expect(filterNoMatchNote(null, 2)).toBe('この2つが揃った記録がありません。');
+  });
+
+  it('条件が 0 本なら 2 行目ごと出さない（原因は期間しかなく、この画面で言えることが無い）', () => {
+    expect(filterNoMatchNote('2026年8月', 0)).toBeNull();
+    expect(filterNoMatchNote(null, 0)).toBeNull();
+  });
+
+  it('タグの節の見出しは登録件数。0 件なら件数を書かない（案 35a / 35d）', () => {
+    expect(filterTagSectionLabel(32)).toBe('タグ（32件）');
+    expect(filterTagSectionLabel(0)).toBe('タグ');
+  });
+
+  it('検索の結果は「N件のうちM件が該当」（案 35f）', () => {
+    expect(filterTagSearchResultLabel(32, 2)).toBe('32件のうち2件が該当');
+  });
+
+  it('検索 0 件の見出しは検索語を含む', () => {
+    expect(filterTagSearchEmptyTitle('くつ')).toBe('「くつ」に合うタグがありません');
+  });
+
+  it('検索 0 件の 2 行目は、選んでいるタグがあるときだけ出る', () => {
+    expect(filterTagSearchEmptyBody([])).toBeNull();
+    expect(filterTagSearchEmptyBody(['洋服'])).toBe('選んでいるタグ（洋服）は、そのまま効いています。');
+  });
+
+  it('選んでいるタグが 2 つ以上なら「ほか N件」に畳む（解除バーと同じ作法）', () => {
+    expect(filterTagSearchEmptyBody(['洋服', '春夏物', '食器'])).toBe(
+      '選んでいるタグ（洋服ほか2件）は、そのまま効いています。',
+    );
   });
 });

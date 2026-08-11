@@ -1201,17 +1201,70 @@ export function filterTagPartLabel(name: string, extraCount: number): string {
 }
 
 /**
- * 解除バーの文（§4.3）。条件を「・」で連ねて「…で絞り込み中」で閉じる。
- * 「・」で連ねられるのは、タグ名に「・」を使えないから（§1.3 / §5.2）。
+ * 絞り込み中の青い行の文（§4.3。案 34a で改訂）。条件を「・」で連ねて
+ * 「…の N件だけ」で閉じる。「・」で連ねられるのは、タグ名に「・」を使えないから（§1.3 / §5.2）。
+ *
+ * **旧「…で絞り込み中」から末尾だけを差し替えた。** 件数の行（リスト上の「N 件」）は
+ * 絞り込み中には出さない交代制にしたので（案 34a-D）、その数をこの文が引き取る ──
+ * 同じ数を 2 か所に出さないため。条件の並べ方は変えていない（filterSummaryText のまま）。
  */
-export function filterSummaryLabel(parts: string[]): string {
-  return `${parts.join('・')}で${FILTER_LABEL}中`;
+export function filterSummaryLabel(parts: string[], count: number): string {
+  return `${parts.join('・')}の${presetCountLabel(count)}だけ`;
 }
 
-/** シート下部（§4.2-5 / §4.6）。検索語は含まない条件での件数 */
-export function matchingRecordCountLabel(count: number): string {
-  return `この条件に合う記録 ${presetCountLabel(count)}`;
+/**
+ * 下部の見出しと値（§4.2-5 / §4.6）。検索語は含まない条件での件数。
+ *
+ * **語と数を分けて持つ**のは、下部が左右に分かれた 1 行だから（設計案 30b）──
+ * 左に見出し・右に数を置き、数だけを太字にする。1 本の文にすると、条件を触るたびに
+ * 動く数字が文の途中で伸び縮みして、目で追う位置が定まらない。
+ *
+ * **見出しは状態で変わる**（案 35c）。出品中で開くと販売サイトの節ごと消えるので（§4.2）、
+ * 数えている対象も「出品中の記録」に変わる ── 節が無い理由の説明文は置かず、
+ * 下部の語が対象を言う方を採る（無い欄の理由を読ませるより、無いまま短い方が迷わない）。
+ */
+export function matchingRecordLabel(isSoldMode: boolean): string {
+  return isSoldMode ? 'この条件に合う記録' : `この条件に合う${LISTING_COUNT_LABEL}の記録`;
 }
+
+export function matchingRecordCountValue(count: number): string {
+  return presetCountLabel(count);
+}
+
+/**
+ * 該当 0 件のときに下部の帯へ足す 2 行目（§4.2.3 / 案 35e）。
+ *
+ * **数字だけだと原因（月・条件・不具合）の区別がつかない。** 0 という数字は
+ * 「月のせい」と読まれやすいので、月名を文に入れて**期間もこの結果に効いている**ことを示す。
+ * 全期間を選んでいるときは月名を出せないので、期間に触れない形に落とす。
+ *
+ * **条件の名前は出さない。** §4.8 が「条件ごとの文言を作らない」と決めたのは、
+ * 組み合わせで文言が爆発するため ── 月名と**本数**だけなら、その決定を破らずに原因を示せる。
+ * 解除の口も足さない（ヘッダの「すべて解除」1 つに限る）。
+ *
+ * **条件が 0 本なら null**（2 行目ごと出さない）── 「この0つが揃った記録がありません」は
+ * 文として壊れているうえ、条件 0 本で 0 件なら**原因は期間しかない**。この画面で言えることが
+ * 無いので、記録タブに戻って出る「この期間の記録はありません」（§4.8）に受け持たせる。
+ *
+ * `monthTitle` は月バーと同じ書式（formatMonthTitle）。全期間なら null。
+ * `conditionCount` は効いている条件の本数（activeFilterCount）。
+ */
+export function filterNoMatchNote(
+  monthTitle: string | null,
+  conditionCount: number,
+): string | null {
+  if (conditionCount === 0) return null;
+  const conditions = `この${conditionCount}つが揃った記録がありません。`;
+  return monthTitle == null ? conditions : `${monthTitle}には、${conditions}`;
+}
+
+/**
+ * タグの節の下に置く 1 行（§4.4 の OR を言葉で説明する。設計案 30b）。
+ *
+ * **「OR」とは書かない。** 2 つ選んだときに何が起きるかを結果の側から言う ──
+ * 選ぶ前に読んでも意味が分かる語にしないと、注記が「選んだ後に読む言い訳」になる。
+ */
+export const FILTER_TAG_OR_NOTE = '2つ以上選ぶと、どれかが付いた記録が出ます。';
 
 /**
  * 絞り込みで 0 件になったときの空表示（§4.8 / 決定 §9-13）。
@@ -1232,11 +1285,64 @@ export const FILTER_SITE_EMPTY_TITLE = `${FILTER_SITE_SECTION_LABEL}がありま
 export const FILTER_SITE_EMPTY_BODY = '記録に販売サイトを入れると、ここから選べます。';
 
 /**
- * タグの登録が 0 件のときの節（§4.2-4）。チップの代わりに 1 行だけ出す。
- * 一覧の空表示と同じ語（TAG_EMPTY_TITLE）を使う ── 同じ「1 件もない」を場所ごとに言い分けない。
- * 作り方まで案内しないのは、ここが**絞り込む面**でタグを作る場所ではないため。
+ * タグの登録が 0 件のとき（§4.2.3 / 案 35d）。カードの中に 2 行で出す。
+ * 見出しは一覧の空表示と同じ語（TAG_EMPTY_TITLE）── 同じ「1 件もない」を場所ごとに言い分けない。
+ *
+ * **設定への導線は置かない。** この画面に来た用は「今ある記録を絞ること」で、設定へ飛ぶと
+ * 用が中断するうえ、戻り道が記録タブではなく設定になる。記録フォーム側の選択シート（§3.2）には
+ * 「設定で編集する ▸」があるが、あちらは**タグを作る・直す場所**で用が違うので揃えない。
+ * 代わりに**どこで作れるか**だけを言う（行き先を指さずに、次に開く画面で目に入る場所を教える）。
  */
-export const FILTER_TAG_EMPTY_NOTE = TAG_EMPTY_TITLE;
+export const FILTER_TAG_EMPTY_TITLE = TAG_EMPTY_TITLE;
+export const FILTER_TAG_EMPTY_BODY =
+  'タグは記録するときに、品名の下から作れます。付けたタグはここに並びます。';
+
+/** タグの節の見出しの右（案 35a）。§4.4 の OR を、選ぶ前に読んで分かる言い方で置く */
+export const FILTER_TAG_OR_HINT = 'どれかが付いた記録が出ます';
+
+/** タグの検索欄（案 35f）。記録フォーム側と違い**作れない**ので「探す」だけ */
+export const FILTER_TAG_SEARCH_PLACEHOLDER = 'タグを探す';
+export const FILTER_TAG_SEARCH_CANCEL_LABEL = 'キャンセル';
+
+/**
+ * タグの節の見出し「タグ（32件）」（案 35a）。**登録件数**であって選択数ではない。
+ * 0 件のときは件数を書かない ── 「タグ（0件）」は、下のカードの「タグがありません」と
+ * 同じことを 2 度言うだけになる。
+ */
+export function filterTagSectionLabel(totalCount: number): string {
+  return totalCount === 0 ? FILTER_TAG_SECTION_LABEL : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel(totalCount)}）`;
+}
+
+/**
+ * 検索で絞った一覧の下（案 35f）。「32件のうち2件が該当」。
+ * **絞り込みの条件ではなく一覧の見え方の話**なので、下部の件数とは別の語にする。
+ */
+export function filterTagSearchResultLabel(totalCount: number, matchedCount: number): string {
+  return `${presetCountLabel(totalCount)}のうち${presetCountLabel(matchedCount)}が該当`;
+}
+
+/**
+ * 検索して 0 件のとき（案 35f）。カードの中に出す。
+ *
+ * 2 行目を出すのは、**検索で選択中のタグが画面から隠れる**ため ──
+ * 見えていないものが効いている状態は、言わないと「外れた」と読まれる。
+ * 選んでいるタグが無いときは 2 行目ごと出さない（言うことがない）。
+ */
+export function filterTagSearchEmptyTitle(keyword: string): string {
+  return `「${keyword}」に合うタグがありません`;
+}
+
+/**
+ * 上の 2 行目。名前は**先頭の 1 つと残りの数**に畳む（解除バーの filterTagPartLabel と同じ作法）
+ * ── 全部並べると、選び方によっては 1 行に収まらない。
+ */
+export function filterTagSearchEmptyBody(selectedNames: readonly string[]): string | null {
+  if (selectedNames.length === 0) return null;
+  const head = selectedNames[0];
+  const names =
+    selectedNames.length === 1 ? head : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
+  return `選んでいるタグ（${names}）は、そのまま効いています。`;
+}
 
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 

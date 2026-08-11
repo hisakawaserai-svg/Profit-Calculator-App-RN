@@ -235,6 +235,35 @@ export function createTagRepository(
       }
       return result;
     },
+
+    /**
+     * 一覧の行に出すタグ（§2.3 の点 ＋ 名前）。tagNamesByRecord と同じ引き方だが、
+     * **色キーまで要る**ので行そのものを返す ── 名前だけでは点が描けない。
+     *
+     * 名前と分けて 2 本持つのは、CSV（名前だけ）と画面（色つき）で必要な列が違うため。
+     * どちらも 1 本のクエリ・`tags.sortOrder` 昇順で、記録ごとに引かない（N+1 回避）。
+     *
+     * 1 件も付いていない記録はキーごと現れない（呼び出し側で空配列に倒すこと）。
+     */
+    tagsByRecord(recordIds: readonly string[]): Map<string, Tag[]> {
+      const result = new Map<string, Tag[]>();
+      if (recordIds.length === 0) return result;
+
+      const rows = db
+        .select({ recordId: recordTags.recordId, tag: tags })
+        .from(recordTags)
+        .innerJoin(tags, eq(tags.id, recordTags.tagId))
+        .where(inArray(recordTags.recordId, [...recordIds]))
+        .orderBy(asc(tags.sortOrder))
+        .all();
+
+      for (const row of rows) {
+        const list = result.get(row.recordId);
+        if (list) list.push(row.tag);
+        else result.set(row.recordId, [row.tag]);
+      }
+      return result;
+    },
   };
 }
 

@@ -2,7 +2,7 @@
 // - CRUD と sortOrder の採番（§1.5）
 // - **タグ削除で中間行が消えること・restore で中間行も戻ること**（§1.4）
 // - **記録削除で中間行が消えること**（§1.4。repository.remove の側）
-// - countsByTag（§3.3）/ siteNames（§4.2）/ tagNamesByRecord（§5.4）
+// - countsByTag（§3.3）/ countsByTagForFilter（§4.2.1）/ siteNames（§4.2）/ tagNamesByRecord（§5.4）
 //
 // presets.test.ts と同じく、アプリ本体と同じ schema / migration / repository を
 // better-sqlite3（インメモリ）で動かす。
@@ -344,4 +344,104 @@ describe('§5.4 tagNamesByRecord: CSV 用にまとめて引く', () => {
   function tagNames(ids: string[]) {
     return tagRepo.tagNamesByRecord(ids);
   }
+});
+
+describe('§4.2.1 countsByTagForFilter: 選択中のタグ以外のすべての条件で絞って数える', () => {
+  // 「押したら何件出るか」の予告なので、下部の件数（countRecords）と同じ集合の上で数える。
+  // §2.2 の「状態を問わない全記録」はここだけ例外になる。
+  function setup() {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+    return { clothes, summer };
+  }
+
+  it('状態（売れた / 出品中）で数が変わる', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, tagIds: [clothes.id] });
+    repo.create({ ...base, tagIds: [clothes.id] });
+    repo.create({ ...base, isSold: false, saleDate: null, tagIds: [clothes.id] });
+
+    expect(repo.countsByTagForFilter({ isSoldMode: true }).get(clothes.id)).toBe(2);
+    expect(repo.countsByTagForFilter({ isSoldMode: false }).get(clothes.id)).toBe(1);
+    // 設定画面・記録フォームが使う方は従来どおり全記録（§2.2）
+    expect(tagRepo.countsByTag().get(clothes.id)).toBe(3);
+  });
+
+  it('種別で数が変わる', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, kind: 'used', tagIds: [clothes.id] });
+    repo.create({ ...base, kind: 'sourced', tagIds: [clothes.id] });
+
+    expect(repo.countsByTagForFilter({ isSoldMode: true }).get(clothes.id)).toBe(2);
+    expect(repo.countsByTagForFilter({ isSoldMode: true, kind: 'sourced' }).get(clothes.id)).toBe(1);
+  });
+
+  it('販売サイトで数が変わる', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, siteName: 'メルカリ', tagIds: [clothes.id] });
+    repo.create({ ...base, siteName: 'ラクマ', tagIds: [clothes.id] });
+
+    expect(
+      repo.countsByTagForFilter({ isSoldMode: true, siteName: 'メルカリ' }).get(clothes.id),
+    ).toBe(1);
+  });
+
+  it('期間（monthKey）で数が変わる', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, tagIds: [clothes.id] }); // 2026-08
+    repo.create({
+      ...base,
+      saleStartDate: new Date(2026, 6, 1, 12, 0, 0),
+      saleDate: new Date(2026, 6, 5, 12, 0, 0),
+      tagIds: [clothes.id],
+    }); // 2026-07
+
+    expect(repo.countsByTagForFilter({ isSoldMode: true }).get(clothes.id)).toBe(2);
+    expect(
+      repo.countsByTagForFilter({ isSoldMode: true, monthKey: '2026-08' }).get(clothes.id),
+    ).toBe(1);
+  });
+
+  it('**選択中のタグでは変わらない**（洋服を選んでも春夏物の数字が動かない）', () => {
+    const { clothes, summer } = setup();
+    repo.create({ ...base, tagIds: [clothes.id] });
+    repo.create({ ...base, tagIds: [summer.id] });
+
+    const before = repo.countsByTagForFilter({ isSoldMode: true });
+    const after = repo.countsByTagForFilter({ isSoldMode: true, tagIds: [clothes.id] });
+
+    // 洋服 AND 春夏物 なら 0 になるが、押した結果は 洋服 OR 春夏物 で 2 件に**増える**。
+    // 予告として嘘にならないよう、タグの条件だけは織り込まない（§4.4）
+    expect(before.get(summer.id)).toBe(1);
+    expect(after.get(summer.id)).toBe(1);
+    expect(after.get(clothes.id)).toBe(1);
+  });
+
+  it('isSoldMode = false のときは販売サイトの条件が無視される（§4.2 / buildWhere と同じ規則）', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, isSold: false, saleDate: null, siteName: '', tagIds: [clothes.id] });
+
+    // 出品中の記録は site_name が空。条件が効いてしまうと必ず 0 件になる
+    expect(
+      repo.countsByTagForFilter({ isSoldMode: false, siteName: 'メルカリ' }).get(clothes.id),
+    ).toBe(1);
+  });
+
+  it('その条件に 1 件も無いタグはキーごと現れない（呼び出し側で ?? 0 して「0」と出す）', () => {
+    const { clothes } = setup();
+    repo.create({ ...base, tagIds: [clothes.id] });
+
+    expect(repo.countsByTagForFilter({ isSoldMode: false }).get(clothes.id)).toBeUndefined();
+  });
+
+  it('複数のタグを 1 本のクエリでまとめて数える（§3.3 と同じ）', () => {
+    const { clothes, summer } = setup();
+    repo.create({ ...base, tagIds: [clothes.id, summer.id] });
+    repo.create({ ...base, tagIds: [summer.id] });
+
+    const counts = repo.countsByTagForFilter({ isSoldMode: true });
+
+    expect(counts.get(clothes.id)).toBe(1);
+    expect(counts.get(summer.id)).toBe(2);
+  });
 });

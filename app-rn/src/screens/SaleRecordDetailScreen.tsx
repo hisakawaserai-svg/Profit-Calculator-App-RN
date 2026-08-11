@@ -338,8 +338,10 @@ function TagSection({ tags }: { tags: Tag[] }) {
       {/* チップは折り返して下に伸びる。カードの高さがタグの数で変わっても、
           上のレシートカードは動かない（この節をレシートの下に置いた理由そのもの） */}
       <View style={[styles.card, styles.tagCard, { backgroundColor: colors.secondaryBackground }]}>
+        {/* **表示のみ**（§3.4 / 決定 §9-12）。`selected` の薄い地を敷くと、
+            外せない場所なのに「押せば外せる」ように読める */}
         {tags.map((tag) => (
-          <TagChip key={tag.id} tag={tag} variant="selected" />
+          <TagChip key={tag.id} tag={tag} variant="plain" />
         ))}
       </View>
     </View>
