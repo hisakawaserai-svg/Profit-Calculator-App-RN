@@ -1150,6 +1150,94 @@ export const TAG_PICKER_EMPTY_BODY = '上の欄に名前を入れると、その
  */
 export const TAG_SECTION_LABEL = TAG_LABEL;
 
+// ---- SPEC-V4 §4 絞り込み（記録タブの合計行・シート・解除バー） ----
+//
+// 語は 1 つの動き（「絞り込む」）から派生させる。チップ・シートの見出し・空表示のリンクが
+// 別々の言い方をすると、同じ 1 つの条件を指していることが画面から読めなくなる。
+
+/** 合計行のチップ・シートの見出し（§4.1 / §4.2） */
+export const FILTER_LABEL = '絞り込み';
+
+/**
+ * 合計行のチップ（§4.1）。N は**効いている条件の本数**（決定 §9-2）。
+ * 0 のときは「絞り込み」だけ ── 「絞り込み 0」は「0 件」と読み違えられる。
+ */
+export function filterChipLabel(count: number): string {
+  return count === 0 ? FILTER_LABEL : `${FILTER_LABEL} ${count}`;
+}
+
+/** シート左上（§4.2-1）。効くのは 3 条件だけで、期間・検索・並び替えは動かない */
+export const FILTER_CLEAR_ALL_LABEL = 'すべて解除';
+
+/** 解除バー右端（§4.3）。「すべて解除」と同じことをするが、1 行に収めるので短い語にする */
+export const FILTER_CLEAR_LABEL = '解除';
+
+/**
+ * シート右上（§4.2-1）。条件は選んだ瞬間から効くので、これは確定ではなく**閉じる**ボタン
+ * （タグの選択シートの「完了」と同じ意味・同じ語）。
+ */
+export const FILTER_DONE_LABEL = TAG_PICKER_DONE_LABEL;
+
+/** シートの節の見出し（§4.2-2〜4）。販売サイト・タグは既にある語をそのまま使う */
+export const FILTER_KIND_SECTION_LABEL = '種別';
+export const FILTER_SITE_SECTION_LABEL = presetTypeLabel('site');
+export const FILTER_TAG_SECTION_LABEL = TAG_LABEL;
+
+/** 販売サイトを選んでいないときに節の右に出す語（§4.2-3）。種別の「すべて」と同じ語 */
+export const FILTER_ALL_LABEL = 'すべて';
+
+/** 解除バーの販売サイトの部分（§4.3）。名前だけでは何の名前か読めないので種類まで言う */
+export function filterSitePartLabel(name: string): string {
+  return `${FILTER_SITE_SECTION_LABEL}「${name}」`;
+}
+
+/**
+ * 解除バーのタグの部分（§4.3）。2 つ以上は「タグ「洋服」ほか1件」と畳む ──
+ * 全部並べると 1 行に収まらない。件数の表記は presetCountLabel と揃える。
+ */
+export function filterTagPartLabel(name: string, extraCount: number): string {
+  const head = `${TAG_LABEL}「${name}」`;
+  return extraCount === 0 ? head : `${head}${presetOverflowLabel(extraCount)}`;
+}
+
+/**
+ * 解除バーの文（§4.3）。条件を「・」で連ねて「…で絞り込み中」で閉じる。
+ * 「・」で連ねられるのは、タグ名に「・」を使えないから（§1.3 / §5.2）。
+ */
+export function filterSummaryLabel(parts: string[]): string {
+  return `${parts.join('・')}で${FILTER_LABEL}中`;
+}
+
+/** シート下部（§4.2-5 / §4.6）。検索語は含まない条件での件数 */
+export function matchingRecordCountLabel(count: number): string {
+  return `この条件に合う記録 ${presetCountLabel(count)}`;
+}
+
+/**
+ * 絞り込みで 0 件になったときの空表示（§4.8 / 決定 §9-13）。
+ * **条件ごとの文言を作らない** ── 効き得る条件が 6 つに増え、組み合わせで文言が爆発する。
+ */
+export const FILTER_EMPTY_TITLE = '条件に合う記録がありません';
+export const FILTER_EMPTY_ACTION_LABEL = `${FILTER_LABEL}を解除`;
+
+/** 絞り込みが 0 件で、かつ記録も 0 件のとき（§4.8）。従来どおりの追加への導線 */
+export const NO_RECORDS_EMPTY_TITLE = 'この期間の記録はありません';
+export const NO_RECORDS_EMPTY_BODY = '左下の ＋ を押すと記録できます';
+
+/**
+ * 販売サイトの候補が 0 件のとき（§4.2）。候補は**記録に実在する名前**なので、
+ * プリセットを登録しても増えない ── 行き先はプリセットではなく記録の側だと言う。
+ */
+export const FILTER_SITE_EMPTY_TITLE = `${FILTER_SITE_SECTION_LABEL}がありません`;
+export const FILTER_SITE_EMPTY_BODY = '記録に販売サイトを入れると、ここから選べます。';
+
+/**
+ * タグの登録が 0 件のときの節（§4.2-4）。チップの代わりに 1 行だけ出す。
+ * 一覧の空表示と同じ語（TAG_EMPTY_TITLE）を使う ── 同じ「1 件もない」を場所ごとに言い分けない。
+ * 作り方まで案内しないのは、ここが**絞り込む面**でタグを作る場所ではないため。
+ */
+export const FILTER_TAG_EMPTY_NOTE = TAG_EMPTY_TITLE;
+
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
 export const DATA_SECTION_TITLE = 'データ';

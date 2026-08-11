@@ -125,13 +125,19 @@ function queryList(
 }
 
 /**
- * 記録タブ（RecordListScreen）のデータ取得。UI-SPEC §1.2。
+ * 記録タブ（RecordListScreen）のデータ取得。UI-SPEC §1.2 / SPEC-V4 §4.5。
  *
- * @param filter        リスト本体の絞り込み（状態 / 検索 / 期間 / 種別）
+ * @param filter        リスト本体の絞り込み（状態 / 検索 / 期間 / 種別 / 販売サイト / タグ）
  * @param sortType      レコード 1 件ずつの並び順（8 種）
  * @param summaryFilter 合計行の絞り込み。省略時は filter と同じ。
  *                      検索は「探す操作」であって「見る対象の限定」ではないので、
- *                      呼び出し側は検索を除いたものを渡す（SPEC-V2 §4.2 と同じ考え方）
+ *                      呼び出し側は検索を除いたものを渡す（SPEC-V2 §4.2 と同じ考え方）。
+ *                      **販売サイトとタグは種別と同じ「限定」なので、こちらにも入れる**
+ *                      （SPEC-V4 §4.5 の表）── 「タグ『洋服』で絞ったときの収支合計」が
+ *                      タグ機能の目的そのものなので、合計行から外すと機能が成立しない。
+ *                      この summaryFilter の recordCount は、絞り込みシート下部の
+ *                      「この条件に合う記録 N 件」（§4.6）にもそのまま使える
+ *                      （検索を除いた同じ条件なので、一覧の件数と必ず一致する）。
  */
 export function useRecordList(
   filter: RecordListFilter,

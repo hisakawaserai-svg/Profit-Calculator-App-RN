@@ -689,3 +689,91 @@ describe('SPEC-V4 §4.6 countRecords: 絞り込みシート下部の「N 件」'
     expect(repo.countRecords({ isSoldMode: true, monthKey: '2020-01' })).toBe(0);
   });
 });
+
+describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タグ）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, { generateId: randomUUID });
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    // 売却済み 3 件（メルカリ 2 / ラクマ 1）＋ 出品中 1 件（サイト名は空）
+    sold({ saleDate: soldOn(1), siteName: 'メルカリ', tagIds: [clothes.id] });
+    sold({ saleDate: soldOn(2), siteName: 'メルカリ', tagIds: [summer.id] });
+    sold({ saleDate: soldOn(3), siteName: 'ラクマ', tagIds: [clothes.id, summer.id] });
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
+  });
+
+  describe('販売サイト（§4.2）', () => {
+    it('名前の完全一致で絞れる', () => {
+      expect(repo.countRecords({ isSoldMode: true, siteName: 'メルカリ' })).toBe(2);
+      expect(repo.countRecords({ isSoldMode: true, siteName: 'ラクマ' })).toBe(1);
+    });
+
+    it('合計行（careerSummary）にも同じ条件が効く（§4.5 の表）', () => {
+      expect(repo.careerSummary({ isSoldMode: true, siteName: 'メルカリ' }).recordCount).toBe(2);
+    });
+
+    /** 出品中の記録は site_name が空。画面で節を消すのと二重に、SQL の側でも無視する（§4.2） */
+    it('isSoldMode = false のときは条件ごと無視される', () => {
+      expect(repo.countRecords({ isSoldMode: false, siteName: 'メルカリ' })).toBe(1);
+      expect(repo.filteredRecords({ isSoldMode: false, siteName: 'メルカリ' })).toHaveLength(1);
+    });
+
+    it('null / 空文字は「すべて」（条件を組み立てない）', () => {
+      expect(repo.countRecords({ isSoldMode: true, siteName: null })).toBe(3);
+      expect(repo.countRecords({ isSoldMode: true, siteName: '' })).toBe(3);
+    });
+  });
+
+  describe('タグ（§4.4 の EXISTS）', () => {
+    it('1 つのタグで絞れる', () => {
+      expect(repo.countRecords({ isSoldMode: true, tagIds: [clothes.id] })).toBe(2);
+    });
+
+    /** 2 つ以上は OR。両方付いた記録が二重に数えられないことがこの条件の要点 */
+    it('2 つ選ぶと OR になり、両方付いた記録も 1 件のまま', () => {
+      const filter = { isSoldMode: true, tagIds: [clothes.id, summer.id] };
+
+      expect(repo.countRecords(filter)).toBe(3);
+      expect(repo.filteredRecords(filter)).toHaveLength(3);
+      expect(repo.careerSummary(filter).recordCount).toBe(3);
+      expect(repo.filteredAndGrouped(filter)[0].recordCount).toBe(3);
+    });
+
+    it('存在しない id は単に 0 件になる（SQL は壊れない。§4.7）', () => {
+      expect(repo.countRecords({ isSoldMode: true, tagIds: ['deleted'] })).toBe(0);
+    });
+
+    it('空配列は「すべて」（条件を組み立てない）', () => {
+      expect(repo.countRecords({ isSoldMode: true, tagIds: [] })).toBe(3);
+    });
+
+    it('出品中の記録にもタグの条件は効く（状態と違って落とさない）', () => {
+      expect(repo.countRecords({ isSoldMode: false, tagIds: [clothes.id] })).toBe(1);
+      expect(repo.countRecords({ isSoldMode: false, tagIds: [summer.id] })).toBe(0);
+    });
+  });
+
+  it('販売サイトとタグは AND で重なる', () => {
+    expect(
+      repo.countRecords({ isSoldMode: true, siteName: 'メルカリ', tagIds: [clothes.id] }),
+    ).toBe(1);
+  });
+
+  it('earliestMonthKey も同じ条件で動く（buildWhere の 4 経路すべてに効く。§4.4）', () => {
+    expect(repo.earliestMonthKey({ isSoldMode: true, siteName: 'ラクマ' })).toBe('2026-08');
+    expect(repo.earliestMonthKey({ isSoldMode: true, siteName: '無い名前' })).toBeNull();
+  });
+});

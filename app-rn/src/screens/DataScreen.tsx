@@ -20,7 +20,6 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { BarChart } from 'react-native-gifted-charts';
 import Svg, { Polyline } from 'react-native-svg';
 
-import { FilterChip } from '@/components/FilterChip';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
@@ -197,15 +196,16 @@ export function DataScreen() {
           onPressTitle={() => setShowPeriodSheet(true)}
         />
 
+        {/* 合計行は 2 段構成になった（SPEC-V4 §4.1）。データタブは状態を持たない
+            （isSold = true 固定。SPEC §6.2）ので 2 段目はチップだけ。
+            種別の巡回チップを「絞り込み N」＋シートに差し替えるのは Step 5（§6） */}
         <SummaryBar
           items={summaryItems}
-          trailing={
-            <FilterChip
-              label={kindFilterLabel(kindFilter)}
-              onPress={cycleKindFilter}
-              accessibilityLabel={`種別の絞り込み: ${kindFilterLabel(kindFilter)}。押すと切り替える`}
-            />
-          }
+          chip={{
+            label: kindFilterLabel(kindFilter),
+            onPress: cycleKindFilter,
+            accessibilityLabel: `種別の絞り込み: ${kindFilterLabel(kindFilter)}。押すと切り替える`,
+          }}
         />
 
         <ScrollView contentContainerStyle={styles.scrollContent}>

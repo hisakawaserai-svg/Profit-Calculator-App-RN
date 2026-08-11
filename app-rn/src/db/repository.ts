@@ -6,12 +6,12 @@
 // - db を注入する構成にして、アプリ本体 (expo-sqlite) と Node のスモークテスト
 //   (better-sqlite3) の両方から同じコードを使えるようにしている
 
-import { asc, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import type { ChartUnit } from '../logic/analytics';
 import { CHART_KEY_LENGTH, chartKeyToDate, monthKeyToDate, toDbDate } from './dates';
-import { saleRecords, type RecordKind, type SaleRecord } from './schema';
+import { recordTags, saleRecords, type RecordKind, type SaleRecord } from './schema';
 // 中間テーブル（record_tags）の書き込みは tags.ts が持つ（SPEC-V4 §1.4）。
 // ここは「記録本体と同じトランザクションで呼ぶ」責務だけを引き受ける。
 import { deleteRecordTags, writeRecordTags } from './tags';
@@ -46,6 +46,16 @@ export type RecordListFilter = {
   monthKey?: string | null;
   /** 種別フィルタ（SPEC-V2 §4.2）。null/undefined = すべて */
   kind?: RecordKind | null;
+  /**
+   * 販売サイト名の完全一致（SPEC-V4 §4.2）。null/undefined = すべて。
+   *
+   * **isSoldMode = false のときは無視する。** 出品中の記録は site_name が空なので、
+   * 条件として残すと「選ぶと必ず 0 件になる欄」になる。画面でも節ごと消すが、
+   * 見た目だけで落とすと「見えないのに効いている」状態を作り得るので SQL の側でも無視する（§4.2）。
+   */
+  siteName?: string | null;
+  /** タグの OR 条件（SPEC-V4 §4.4）。空配列・undefined = すべて */
+  tagIds?: readonly string[];
 };
 
 export type MonthGroup = {
@@ -209,7 +219,30 @@ function buildWhere(filter: RecordListFilter): SQL {
   if (filter.kind != null) {
     conditions.push(eq(saleRecords.kind, filter.kind));
   }
+  // 販売サイト（SPEC-V4 §4.2）。出品中モードでは組み立てない（型のコメントの理由）
+  if (filter.isSoldMode && filter.siteName != null && filter.siteName !== '') {
+    conditions.push(eq(saleRecords.siteName, filter.siteName));
+  }
+  // タグ（SPEC-V4 §4.4）。種別と同じ「見る対象そのものの限定」なので合計行にも同じ条件が渡る
+  if (filter.tagIds != null && filter.tagIds.length > 0) {
+    conditions.push(tagExistsSql(filter.tagIds));
+  }
   return sql.join(conditions, sql` AND `);
+}
+
+/**
+ * 複数タグの OR 条件（SPEC-V4 §4.4）。**相関サブクエリ（EXISTS）で書く。**
+ *
+ * JOIN + DISTINCT を採らないのは、集計が壊れるから ── careerSummary / analyticsSummary は
+ * sum(netProfit) を引いており、2 つのタグが付いた記録は JOIN で 2 行に増える。
+ * DISTINCT は行の重複を消すだけで集計の重複計上は消せない（§4.4 の案 B）。
+ * EXISTS は行を増やさないので DISTINCT が最初から要らず、buildWhere に 1 本足すだけで
+ * 一覧・合計・月グループ・最古の月の 4 経路すべてに同時に効く。
+ *
+ * buildAnalyticsWhere（データタブ。§6）からも同じ式を使うため、関数として 1 か所に持つ。
+ */
+function tagExistsSql(tagIds: readonly string[]): SQL {
+  return sql`EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id} AND ${inArray(recordTags.tagId, [...tagIds])})`;
 }
 
 /**
