@@ -40,6 +40,9 @@ function newDatabase(throughIdx = journal.entries.length - 1) {
 /** 0002（presets と site_name を足すマイグレーション）の idx */
 const PRESETS_MIGRATION_IDX = 2;
 
+/** 0003（まとめ買いの 2 列を足すマイグレーション。§2.6.4）の idx */
+const PACK_MIGRATION_IDX = 3;
+
 type SeedRow = { id: string; name: string; colorKey: string; initial: string; value: number; sortOrder: number };
 
 function seedRows(sqlite: ReturnType<typeof newDatabase>, type: PresetType): SeedRow[] {
@@ -146,6 +149,51 @@ describe('§1.6 / §2 マイグレーション: 初期値 17 件が入る', () =
     const older = newDatabase(PRESETS_MIGRATION_IDX - 1);
 
     expect(() => older.prepare('SELECT * FROM presets').all()).toThrow();
+  });
+});
+
+describe('§2.6.4 マイグレーション 0003: まとめ買いの 2 列', () => {
+  it('0002 で止めると pack_quantity / pack_price はまだ存在しない', () => {
+    const older = newDatabase(PACK_MIGRATION_IDX - 1);
+
+    expect(() => older.prepare('SELECT pack_quantity FROM presets').all()).toThrow();
+  });
+
+  it('既存 6 件の梱包材は「1 個ずつ」のまま（バックフィルなし。§2.6.5）', () => {
+    const sqlite = newDatabase();
+    const rows = sqlite
+      .prepare(
+        `SELECT id, value, pack_quantity AS packQuantity, pack_price AS packPrice
+         FROM presets WHERE type = 'packaging' ORDER BY sort_order`,
+      )
+      .all() as { id: string; value: number; packQuantity: number; packPrice: number }[];
+
+    expect(rows).toHaveLength(6);
+    expect(rows.every((row) => row.packQuantity === 0 && row.packPrice === 0)).toBe(true);
+    // 金額は §2.4 のまま（「100 枚 1,500 円」に書き換えたりしない）
+    expect(rows.find((row) => row.id === 'seed-packaging-box-s')?.value).toBe(60);
+  });
+
+  it('利用者が作った既存行も既定値のまま開く（0002 までで入れた行に 0003 を流す）', () => {
+    const sqlite = newDatabase(PACK_MIGRATION_IDX - 1);
+    sqlite
+      .prepare(
+        `INSERT INTO presets (id, type, name, color_key, initial, value, sort_order)
+         VALUES ('mine', 'packaging', 'エアキャップ', 'yellow', 'エ', 30, 7)`,
+      )
+      .run();
+    for (const statement of migrationSql(journal.entries[PACK_MIGRATION_IDX].tag)) {
+      sqlite.exec(statement);
+    }
+
+    expect(
+      sqlite
+        .prepare(
+          `SELECT value, pack_quantity AS packQuantity, pack_price AS packPrice
+           FROM presets WHERE id = 'mine'`,
+        )
+        .get(),
+    ).toEqual({ value: 30, packQuantity: 0, packPrice: 0 });
   });
 });
 
@@ -348,6 +396,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'yellow',
       initial: 'エ',
       value: 30,
+      packQuantity: 0,
+      packPrice: 0,
     });
 
     expect(created.sortOrder).toBe(7); // 初期値 6 件の次
@@ -362,6 +412,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'teal',
       initial: '3',
       value: 3,
+      packQuantity: 0,
+      packPrice: 0,
     });
 
     expect(created.sortOrder).toBe(5); // site は 4 件なので 5
@@ -378,6 +430,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'purple',
       initial: '4',
       value: 4,
+      packQuantity: 0,
+      packPrice: 0,
     });
 
     expect(created.sortOrder).toBe(1);
@@ -391,6 +445,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'purple',
       initial: 'ネ',
       value: 250,
+      packQuantity: 0,
+      packPrice: 0,
     });
 
     const after = presetRepo.getById('seed-shipping-a4-3cm');
@@ -400,9 +456,59 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'purple',
       initial: 'ネ',
       value: 250,
+      packQuantity: 0,
+      packPrice: 0,
     });
     expect(after?.sortOrder).toBe(before?.sortOrder);
     expect(after?.type).toBe('shipping');
+  });
+
+  it('まとめ買いは入数・購入価格と、確定した 1 個あたりを書く（§2.6.4）', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: '封筒（A4）100枚',
+      colorKey: 'blue',
+      initial: '封',
+      // value は保存時に確定した 1 個あたり（validatePreset の結果）
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+    });
+  });
+
+  it('「1 個ずつ」に戻す更新は 2 列を 0 に戻す（決定 §2.6.8-3）', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: '封筒（A4）100枚',
+      colorKey: 'blue',
+      initial: '封',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+    });
+
+    presetRepo.update(created.id, {
+      type: 'packaging',
+      name: '封筒（A4）',
+      colorKey: 'blue',
+      initial: '封',
+      value: 8,
+      packQuantity: 0,
+      packPrice: 0,
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      // 金額はそのときの 1 個あたりが残る（値は変わらない。§2.6.6）
+      value: 8,
+      packQuantity: 0,
+      packPrice: 0,
+    });
   });
 
   it('初期値は自由に編集・削除できる（「正解の一覧」ではない。§2.5）', () => {
@@ -447,6 +553,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       colorKey: 'teal',
       initial: '小',
       value: 70,
+      packQuantity: 0,
+      packPrice: 0,
     } as const;
     const created = presetRepo.create(input);
 

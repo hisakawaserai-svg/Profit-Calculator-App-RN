@@ -51,6 +51,10 @@ export const presets = sqliteTable('presets', {
   colorKey: text('color_key').notNull(), // PresetColorKey（§1.3）
   initial: text('initial').notNull().default(''), // 空 = name から導出（§1.2）
   value: real('value').notNull().default(0), // site = %, それ以外 = 円
+  // SPEC-V3 §2.6。梱包材のまとめ買い（「100 枚で 800 円」）の材料。
+  // value（1 個あたり）が唯一の真実で、この 2 列はそれを作り直すための控え。
+  packQuantity: integer('pack_quantity').notNull().default(0), // 入数。0 = 1 個ずつ（未設定）
+  packPrice: real('pack_price').notNull().default(0), // 購入価格（円）
   sortOrder: integer('sort_order').notNull().default(0),
 }, (table) => [
   // 全アクセスが「ある種類を並び順で全件」なので、この 1 本で足りる（§1.6）

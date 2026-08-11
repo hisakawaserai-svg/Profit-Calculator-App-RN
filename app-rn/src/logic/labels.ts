@@ -13,7 +13,7 @@ import type { PresetType, RecordKind } from '@/db/schema';
 
 import type { ChartUnit } from './analytics';
 import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
-import { formatElapsedDays, formatShortDate, formatYenTight } from './format';
+import { formatElapsedDays, formatShortDate, formatUnitYen, formatYenTight } from './format';
 import { daysBetween } from './listingDays';
 import {
   isRatePreset,
@@ -769,12 +769,24 @@ export function presetBlockedNote(reason: PresetInvalidReason, type: PresetType)
       return isRatePreset(type)
         ? `${COMMISSION_SHORT_LABEL}率は 0〜${PRESET_RATE_MAX} の範囲で入れてください`
         : '金額は 0 以上で入れてください';
+    // まとめ買い（§2.6.6）。入数は空・0・上限超え・小数のどれも同じ 1 行で足りる ──
+    // 直す先が 1 つの欄しかなく、どう間違えたかを言い分けても打ち直す手は変わらない
+    case 'pack-quantity-required':
+      return '入数を入れてください';
+    case 'pack-price-out-of-range':
+      return '購入価格は 0 以上で入れてください';
   }
 }
 
-/** バッジの右に出す値（§3.2 の一覧・§3.3 のプレビュー）:「210円」/「10%」 */
+/**
+ * バッジの右に出す値（§3.2 の一覧・§3.3 のプレビュー）:「210円」/「9.8円」/「10%」。
+ *
+ * 金額を roundForDisplay（整数）で丸めない ── まとめ買いの単価は小数第 1 位まで意味を持ち
+ * （§2.6.3）、記録に入るのもその値なので、一覧だけ「10円」と出ると
+ * **同じプリセットの金額が画面によって違って見える**。末尾の `.0` は出さない。
+ */
 export function presetValueText(type: PresetType, value: number): string {
-  return isRatePreset(type) ? `${value}%` : formatYenTight(value);
+  return isRatePreset(type) ? `${value}%` : formatUnitYen(value);
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -842,6 +854,31 @@ export const PRESET_NAME_FIELD_LABEL = '名前';
 /** 値の欄の見出し（§2.1）。site だけ率で、他は金額 */
 export function presetValueFieldLabel(type: PresetType): string {
   return isRatePreset(type) ? `${COMMISSION_SHORT_LABEL}率（%）` : '金額';
+}
+
+// ---- SPEC-V3 §2.6 梱包材のまとめ買い（金額の入れ方） ----
+
+/** 2 択の見出し（§2.6.2）。梱包材の金額欄の**上**に出る */
+export const PRESET_PRICE_MODE_LABEL = '金額の入れ方';
+
+/** 2 択の中身（§2.6.2）。既定は「1個ずつ」＝ 先頭 */
+export const PRESET_PRICE_MODE_OPTIONS = ['1個ずつ', 'まとめ買い'];
+
+/** 入数の欄（§2.6.2）。単位を見出しに入れるのは、行の数値が単位を持たないため（金額と同じ形） */
+export const PRESET_PACK_QUANTITY_FIELD_LABEL = '入数（個）';
+
+/** 購入価格の欄（§2.6.2）。電卓を出すのはこの欄だけ */
+export const PRESET_PACK_PRICE_FIELD_LABEL = '購入価格';
+
+/** 計算結果の行（§2.6.2）。入力欄ではないので、電卓も付かない */
+export const PRESET_UNIT_PRICE_LABEL = '1個あたり';
+
+/**
+ * 1 個あたりの表示（§2.6.3）。入数が空・0 のあいだは「—」──
+ * 行ごと消すと高さが動く（§2.6.6）。
+ */
+export function presetUnitPriceText(unitPrice: number | null): string {
+  return unitPrice == null ? '—' : formatUnitYen(unitPrice);
 }
 
 export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';

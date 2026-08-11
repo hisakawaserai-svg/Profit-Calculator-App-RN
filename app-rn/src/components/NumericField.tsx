@@ -27,6 +27,21 @@ import { useThemeColors } from '@/theme';
 /** UI-SPEC §1.1-5「行高 60px」 */
 const ROW_HEIGHT = 60;
 
+/** 電卓ボタンの幅（アイコン 22 ＋ padding 4 × 2） */
+const CALC_BUTTON_SIZE = 30;
+
+/**
+ * 数値の右端から行の右端までの幅（電卓ボタン ＋ その左の間隔）。
+ *
+ * **電卓ボタンを出さない行は、同じ幅の空きを右に置いて数値の右端を揃える**
+ * （SPEC-V3 §2.6.2 の入数の行）。金額を縦に読む画面なので、ボタンの有無で桁の位置が
+ * ずれると読み比べられない。計算タブはタグボタンをラベル側に移してこれを避けた（設計案 29b）が、
+ * 電卓ボタンは行き先が数値そのものなので左には移せない。
+ *
+ * NumericField を使わない行（1 個あたりの帯）も、この幅を右の余白に足せば揃う。
+ */
+export const CALCULATOR_GUTTER_WIDTH = CALC_BUTTON_SIZE + 12; // 12 = styles.row の gap
+
 type Props = {
   label: string;
   value: string;
@@ -141,7 +156,10 @@ export function NumericField({
             ]}>
             <Ionicons name="calculator-outline" size={22} color={colors.blue} />
           </Pressable>
-        ) : null}
+        ) : (
+          // ボタンのぶんの空き。行から抜くと数値が右に寄って、上下の行と桁が揃わない
+          <View style={styles.calcButtonSpacer} />
+        )}
       </View>
 
       {/* 開いている間だけマウントして、編集中の行を現在の入力値で初期化する（UI-SPEC §7.2） */}
@@ -179,5 +197,8 @@ const styles = StyleSheet.create({
   },
   calcButton: {
     padding: 4,
+  },
+  calcButtonSpacer: {
+    width: CALC_BUTTON_SIZE,
   },
 });

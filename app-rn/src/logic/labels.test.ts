@@ -68,6 +68,7 @@ import {
   targetProfitLabel,
   todayDateLabel,
   presetAddLabel,
+  presetBlockedNote,
   presetCountLabel,
   presetDeleteConfirmMessage,
   presetDeleteLabel,
@@ -75,6 +76,7 @@ import {
   presetFormTitle,
   presetListNote,
   presetOverflowLabel,
+  presetUnitPriceText,
   presetValueFieldLabel,
   presetValueText,
   versionLabel,
@@ -493,6 +495,34 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
     expect(presetValueText('site', 3.5)).toBe('3.5%');
     expect(presetValueText('shipping', 210)).toBe('210円');
     expect(presetValueText('packaging', 0)).toBe('0円');
+  });
+
+  it('金額は小数第 1 位まで出す（まとめ買いの単価。§2.6.3）', () => {
+    // 整数に丸めると、編集画面の「9.8円」と一覧の「10円」が食い違う
+    expect(presetValueText('packaging', 9.8)).toBe('9.8円');
+    expect(presetValueText('packaging', 26.7)).toBe('26.7円');
+    expect(presetValueText('packaging', 0.1)).toBe('0.1円');
+    // 末尾の .0 は出さない
+    expect(presetValueText('packaging', 10)).toBe('10円');
+  });
+
+  it('まとめ買いの 1 個あたりは末尾の .0 を出さない（§2.6.3）', () => {
+    expect(presetUnitPriceText(8)).toBe('8円');
+    expect(presetUnitPriceText(9.8)).toBe('9.8円');
+    expect(presetUnitPriceText(10)).toBe('10円');
+    expect(presetUnitPriceText(0.1)).toBe('0.1円');
+    expect(presetUnitPriceText(0)).toBe('0円');
+  });
+
+  it('入数が空・0 のあいだは「—」（行ごと消すと高さが動く。§2.6.6）', () => {
+    expect(presetUnitPriceText(null)).toBe('—');
+  });
+
+  it('保存できない理由はまとめ買いの 2 つも名指しする（§2.6.6）', () => {
+    expect(presetBlockedNote('pack-quantity-required', 'packaging')).toBe('入数を入れてください');
+    expect(presetBlockedNote('pack-price-out-of-range', 'packaging')).toBe(
+      '購入価格は 0 以上で入れてください',
+    );
   });
 
   it('設定タブのカードは件数と「ほかN件」で数に戻す（§3.1 / 設計案 24a）', () => {

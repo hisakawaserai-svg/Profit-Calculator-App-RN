@@ -26,6 +26,13 @@ export type PresetInput = {
   initial: string;
   /** site = 手数料率(%) / それ以外 = 金額(円)（§2.1） */
   value: number;
+  /**
+   * まとめ買いの入数（§2.6.4）。0 = 1 個ずつ（販売サイト・送料は常に 0）。
+   * value（1 個あたり）は保存時に確定済みで、この 2 つは買い足しのときの再計算用の控え。
+   */
+  packQuantity: number;
+  /** まとめ買いの購入価格（円）。同上 */
+  packPrice: number;
 };
 
 export function createPresetRepository(
@@ -94,6 +101,10 @@ export function createPresetRepository(
           colorKey: input.colorKey,
           initial: input.initial,
           value: input.value,
+          // 「1 個ずつ」に戻したときは 0 が渡ってくる（決定 §2.6.8-3）。
+          // 書かずに残すと、モードを packQuantity > 0 で判定する決定と食い違う
+          packQuantity: input.packQuantity,
+          packPrice: input.packPrice,
         })
         .where(and(eq(presets.id, id), eq(presets.type, input.type)))
         .run();

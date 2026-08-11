@@ -52,6 +52,18 @@ export const PRESET_RATE_MAX = 100;
 export const PRESET_AMOUNT_MAX = 999_999;
 
 /**
+ * 入数の上限（§2.6.6。決定 §2.6.8-6）。
+ * PRESET_AMOUNT_MAX に揃えないのは、金額と個数が別の単位で、同じ上限にする理由がないため。
+ */
+export const PRESET_PACK_QUANTITY_MAX = 9_999;
+
+/**
+ * 丸めて 0 円になったときに押し上げる下限（§2.6.3。決定 §2.6.8-4）。
+ * 0 円だと経費に計上されず、登録した意味がなくなる。
+ */
+export const PRESET_UNIT_PRICE_MIN = 0.1;
+
+/**
  * 書記素の配列。`length` で数えないのは、絵文字・サロゲートペアで
  * 2 文字判定が壊れるため（§1.2）。
  */
@@ -187,10 +199,42 @@ export function resolvePresetTag<T extends { name: string; value: number }>(
 }
 
 /**
- * 保存が無効な理由（§1.4）。文言は labels.presetBlockedNote が持つ。
+ * まとめ買いで登録された行か（§2.6.4）。**モードの列は持たない** ──
+ * `priceMode` を別に持つと「まとめ買いなのに入数が 0」のような不整合な行が作れてしまうので、
+ * 判定はこの 1 本に閉じる。
+ */
+export function isPackBuy(preset: { packQuantity: number }): boolean {
+  return preset.packQuantity > 0;
+}
+
+/**
+ * まとめ買いの単価（§2.6）。入数が 0 以下なら計算できないので null。
+ * 小数第 1 位まで四捨五入し、0 に落ちたときだけ 0.1 に上げる（購入価格が 0 のときを除く）。
+ *
+ * 割る前に 10 倍するのは、`Math.round(x * 10) / 10` が浮動小数の誤差を持ち込むため
+ * （§2.6.3）── `985 / 100 = 9.85` は二進で 9.8499… になり、10 倍してから丸めると 9.8 に落ちる。
+ * 購入価格・入数はどちらも整数（§2.6.6 の検証）なので、`packPrice * 10` は誤差なく作れる。
+ */
+export function presetUnitPrice(packPrice: number, packQuantity: number): number | null {
+  if (!(packQuantity > 0)) return null;
+
+  const rounded = Math.round((packPrice * 10) / packQuantity) / 10;
+  if (!Number.isFinite(rounded)) return null;
+  // もらい物・在庫の使い回し（購入価格 0）は 0 円のまま。押し上げるのは丸めで消えた分だけ
+  if (rounded === 0 && packPrice > 0) return PRESET_UNIT_PRICE_MIN;
+  return rounded;
+}
+
+/**
+ * 保存が無効な理由（§1.4 / §2.6.6）。文言は labels.presetBlockedNote が持つ。
  * 名前の重複は**弾かない**ので、ここに理由として現れない（§1.4）。
  */
-export type PresetInvalidReason = 'name-required' | 'name-too-long' | 'value-out-of-range';
+export type PresetInvalidReason =
+  | 'name-required'
+  | 'name-too-long'
+  | 'value-out-of-range'
+  | 'pack-quantity-required'
+  | 'pack-price-out-of-range';
 
 /** 編集シートが持つ入力そのまま（§3.3）。value は NumericField の生の文字列 */
 export type PresetDraft = {
@@ -199,6 +243,16 @@ export type PresetDraft = {
   initial: string;
   /** sanitizeNumericInput 済みの文字列（`/^\d*\.?\d*$/`） */
   value: string;
+  /**
+   * 「金額の入れ方」の 2 択（§2.6.2）。**画面の状態であって列ではない** ──
+   * 保存後の行では packQuantity > 0 が同じことを言う（isPackBuy。§2.6.4）。
+   * 入力途中は入数が空でもまとめ買いのままでいる必要があるので、下書きだけがこれを持つ。
+   */
+  packBuy?: boolean;
+  /** sanitizeNumericInput 済みの入数（まとめ買いのときだけ見る） */
+  packQuantity?: string;
+  /** sanitizeNumericInput 済みの購入価格（まとめ買いのときだけ見る） */
+  packPrice?: string;
 };
 
 export type PresetValidation =
@@ -208,7 +262,12 @@ export type PresetValidation =
       name: string;
       /** 2 文字に切り詰めた保存値。空文字なら表示時に name から導出する（§1.2） */
       initial: string;
+      /** 1 個あたり。まとめ買いなら presetUnitPrice を確定して書く（§2.6.4） */
       value: number;
+      /** 入数。1 個ずつ・送料・販売サイトでは 0（§2.6.4 / 決定 §2.6.8-3） */
+      packQuantity: number;
+      /** 購入価格。同上 */
+      packPrice: number;
     }
   | { valid: false; reason: PresetInvalidReason };
 
@@ -218,12 +277,43 @@ function decimalPlaces(value: string): number {
   return dot === -1 ? 0 : value.length - dot - 1;
 }
 
+/** 空文字・"." は 0 として扱う（SPEC §5.1 の parseNumericInput と同じ扱い） */
+function parseDraftNumber(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+/** 入数が空・0 のあいだは「1 個あたり」を出せない（§2.6.6。行は — にする） */
+function isPackQuantityBlank(draft: PresetDraft): boolean {
+  return parseDraftNumber(draft.packQuantity ?? '') <= 0;
+}
+
 /**
- * 編集シートの保存ボタンの活性を決める（§1.4）。
+ * 下書きが「まとめ買い」か（§2.6.2）。梱包材でしか 2 択を出さないので、
+ * 他の種類では packBuy が立っていても 1 個ずつとして扱う（販売サイト・送料の行は 2 列とも 0）。
+ */
+export function isPackBuyDraft(draft: PresetDraft): boolean {
+  return draft.type === 'packaging' && draft.packBuy === true;
+}
+
+/**
+ * 下書きの「1 個あたり」（§2.6.2 の青字の行）。入数が空・0 のあいだは null（行は — のまま）。
+ * 検証を通る前でも呼べる ── 表示は入力に追従させ、保存できない理由は下の 1 行が言う。
+ */
+export function presetDraftUnitPrice(draft: PresetDraft): number | null {
+  if (!isPackBuyDraft(draft)) return null;
+  return presetUnitPrice(
+    parseDraftNumber(draft.packPrice ?? ''),
+    parseDraftNumber(draft.packQuantity ?? ''),
+  );
+}
+
+/**
+ * 編集シートの保存ボタンの活性を決める（§1.4 / §2.6.6）。
  *
- * 率（site）は 0〜100 で**小数第 1 位まで**（決定 §8-12）、
- * 金額（shipping / packaging）は 0〜999,999 の**整数**。
- * 空文字・"." は 0 として扱う（SPEC §5.1 の parseNumericInput と同じ扱い）。
+ * 率（site）は 0〜100、金額は 0〜999,999。**小数第 1 位まで許すのは送料以外**
+ * （率は決定 §8-12、梱包材はまとめ買いの単価が小数になるため。§2.6.3）。
+ * まとめ買い（梱包材）のときは金額欄を見ず、入数と購入価格から単価を確定して返す。
  */
 export function validatePreset(draft: PresetDraft): PresetValidation {
   const name = draft.name.trim();
@@ -232,25 +322,55 @@ export function validatePreset(draft: PresetDraft): PresetValidation {
     return { valid: false, reason: 'name-too-long' };
   }
 
-  const rate = isRatePreset(draft.type);
-  const maxPlaces = rate ? 1 : 0;
-  const max = rate ? PRESET_RATE_MAX : PRESET_AMOUNT_MAX;
+  // 欄を離れずに保存を押した場合の安全網（§1.2）。入力中は切らないので、
+  // ここに 3 文字以上が渡ってくることがある
+  const initial = clampPresetInitial(draft.initial.trim());
+
+  if (isPackBuyDraft(draft)) {
+    const packQuantity = parseDraftNumber(draft.packQuantity ?? '');
+    // 入数が空・0 のときは保存できない（§2.6.6）。1 個ずつに倒したり 1 とみなしたりしない ──
+    // 黙って別の意味で保存されると、次に開いたときモードが戻っていて理由が分からない
+    if (
+      isPackQuantityBlank(draft) ||
+      decimalPlaces(draft.packQuantity ?? '') > 0 ||
+      packQuantity > PRESET_PACK_QUANTITY_MAX
+    ) {
+      return { valid: false, reason: 'pack-quantity-required' };
+    }
+
+    const packPrice = parseDraftNumber(draft.packPrice ?? '');
+    if (
+      decimalPlaces(draft.packPrice ?? '') > 0 ||
+      packPrice < 0 ||
+      packPrice > PRESET_AMOUNT_MAX
+    ) {
+      return { valid: false, reason: 'pack-price-out-of-range' };
+    }
+
+    // 入数が 1 以上あることは上で確かめてあるので null にはならない（保険として 0 に倒す）
+    const unitPrice = presetUnitPrice(packPrice, packQuantity) ?? 0;
+    return { valid: true, name, initial, value: unitPrice, packQuantity, packPrice };
+  }
+
+  const maxPlaces = draft.type === 'shipping' ? 0 : 1;
+  const max = isRatePreset(draft.type) ? PRESET_RATE_MAX : PRESET_AMOUNT_MAX;
   if (decimalPlaces(draft.value) > maxPlaces) {
     return { valid: false, reason: 'value-out-of-range' };
   }
 
   // 入力は sanitizeNumericInput を通っているので符号は付かないが、
   // 直接呼ばれても壊れないよう下限も見る（§4.3 の「範囲外でも正規化される」の裏返し）
-  const value = Number.parseFloat(draft.value);
-  const parsed = Number.isNaN(value) ? 0 : value;
+  const parsed = parseDraftNumber(draft.value);
   if (parsed < 0 || parsed > max) return { valid: false, reason: 'value-out-of-range' };
 
   return {
     valid: true,
     name,
-    // 欄を離れずに保存を押した場合の安全網（§1.2）。入力中は切らないので、
-    // ここに 3 文字以上が渡ってくることがある
-    initial: clampPresetInitial(draft.initial.trim()),
+    initial,
     value: parsed,
+    // 「1 個ずつ」に戻して保存すると控えは捨てる（決定 §2.6.8-3）。
+    // 残すと「1 個ずつなのに入数がある」不整合な行ができ、isPackBuy の判定と食い違う
+    packQuantity: 0,
+    packPrice: 0,
   };
 }

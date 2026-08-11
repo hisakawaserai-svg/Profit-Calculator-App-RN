@@ -18,6 +18,18 @@ export function formatCalcTotal(value: number): string {
 }
 
 /**
+ * まとめ買いの「1 個あたり」（SPEC-V3 §2.6.3）:「8円」「9.8円」。
+ *
+ * roundForDisplay を通さないのは、単価が小数第 1 位まで意味を持つため
+ * （100 枚 980 円の封筒を 9 円に丸めると 80 円ぶん消える）。
+ * **末尾の `.0` は出さない** ── 整数で割り切れる場合がふつうなので、
+ * 常に小数を出すと落ち着かない。丸め方は電卓の行（formatCalcTotal）と同じ。
+ */
+export function formatUnitYen(value: number): string {
+  return `${formatCalculatorNumber(value)}円`;
+}
+
+/**
  * 金額表示「1234円」。文中や詰めて並べる 2 値（計算タブの逆算結果）で使う。
  *
  * formatYen との違いは数字と「円」の間の空白だけ。逆算結果の説明文

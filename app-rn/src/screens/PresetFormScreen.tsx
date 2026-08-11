@@ -22,8 +22,9 @@ import {
   View,
 } from 'react-native';
 
-import { NumericField } from '@/components/NumericField';
+import { CALCULATOR_GUTTER_WIDTH, NumericField } from '@/components/NumericField';
 import { PresetRow } from '@/components/PresetRow';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
 import type { Preset, PresetType } from '@/db/schema';
 import {
@@ -40,18 +41,26 @@ import {
   PRESET_INITIAL_FIELD_LABEL,
   PRESET_INITIAL_NOTE,
   PRESET_NAME_FIELD_LABEL,
+  PRESET_PACK_PRICE_FIELD_LABEL,
+  PRESET_PACK_QUANTITY_FIELD_LABEL,
+  PRESET_PRICE_MODE_LABEL,
+  PRESET_PRICE_MODE_OPTIONS,
+  PRESET_UNIT_PRICE_LABEL,
   presetBlockedNote,
   presetDeleteConfirmMessage,
   presetDeleteLabel,
   presetEditValueNote,
   presetFormTitle,
+  presetUnitPriceText,
   presetValueFieldLabel,
   SAVE_LABEL,
 } from '@/logic/labels';
 import {
   clampPresetInitial,
+  isPackBuy,
   normalizePresetColor,
   PRESET_COLOR_KEYS,
+  presetDraftUnitPrice,
   presetInitial,
   validatePreset,
   type PresetColorKey,
@@ -77,12 +86,38 @@ export function PresetFormScreen({ type, preset }: Props) {
   // 0 を「0」と出すのは、既定値 0 のプリセットを開いたときに欄が空に見えないようにするため
   const [value, setValue] = useState(preset == null ? '' : String(preset.value));
   const [initial, setInitial] = useState(preset?.initial ?? '');
+  // 「金額の入れ方」（§2.6.2）。列は持たず、開くときは packQuantity > 0 から復元する（§2.6.4）
+  const [packBuy, setPackBuy] = useState(preset != null && isPackBuy(preset));
+  // 空 = 未入力。0 を「0」と出さないのは、入数の 0 が「1 個ずつ」の意味を兼ねているため
+  const [packQuantity, setPackQuantity] = useState(
+    preset != null && isPackBuy(preset) ? String(preset.packQuantity) : '',
+  );
+  const [packPrice, setPackPrice] = useState(
+    preset != null && isPackBuy(preset) ? String(preset.packPrice) : '',
+  );
   const [colorKey, setColorKey] = useState<PresetColorKey>(
     normalizePresetColor(preset?.colorKey ?? ''),
   );
 
-  const draft = { type, name, initial, value };
+  const draft = { type, name, initial, value, packBuy, packQuantity, packPrice };
   const validation = validatePreset(draft);
+  // 入力に追従する計算結果（§2.6.2）。入数が空・0 のあいだは null ＝「—」（§2.6.6）
+  const unitPrice = presetDraftUnitPrice(draft);
+
+  /**
+   * 2 択の切り替え（§2.6.2）。**「1 個ずつ」に戻すときだけ金額欄を書き換える** ──
+   * そのときの 1 個あたりが金額欄に残る（値は変わらない。§2.6.6）。
+   * 入数・購入価格は保存時に 0 に戻る（決定 §2.6.8-3）ので、ここでは消さない
+   * （押し間違えて戻ってきたときに打ち直しにならないようにする）。
+   */
+  const changePriceMode = useCallback(
+    (index: number) => {
+      const next = index === 1;
+      if (!next && unitPrice != null) setValue(String(unitPrice));
+      setPackBuy(next);
+    },
+    [unitPrice],
+  );
 
   // プレビュー（§3.3-2）は入力に追従する。不正な値でも「今の指定」をそのまま映す ──
   // 保存できない理由は下の 1 行が言うので、プレビューまで止めると何を直したのか分からなくなる
@@ -92,7 +127,8 @@ export function PresetFormScreen({ type, preset }: Props) {
     name,
     initial,
     colorKey,
-    value: Number.isNaN(previewValue) ? 0 : previewValue,
+    // まとめ買いのときは 1 個あたりを映す（保存されるのもこの値。§2.6.4）
+    value: packBuy ? (unitPrice ?? 0) : Number.isNaN(previewValue) ? 0 : previewValue,
   };
 
   const save = useCallback(() => {
@@ -103,12 +139,30 @@ export function PresetFormScreen({ type, preset }: Props) {
       colorKey,
       initial: validation.initial,
       value: validation.value,
+      packQuantity: validation.packQuantity,
+      packPrice: validation.packPrice,
     };
     if (preset == null) createPreset(input);
     else updatePreset(preset.id, input);
     // 一覧は useFocusEffect で引き直すので、ここでは戻るだけでよい
     router.back();
   }, [colorKey, preset, router, type, validation]);
+
+  /** まとめ買いの欄を出すか（§2.6.2。2 択を出すのは梱包材だけ） */
+  const isPackBuyMode = type === 'packaging' && packBuy;
+
+  /**
+   * 値の欄の下の 1 行。**同時に 2 行出さない**（設計案 28c への指摘）──
+   * 直すべきことがあるときは、それだけを読ませる。
+   * 保存が無効な理由（§3.3）は赤、そうでなければ編集のときの注記（§1.5 の帰結）。
+   */
+  const note = !validation.valid ? (
+    <Text style={[styles.blockedNote, { color: colors.red }]} accessibilityRole="alert">
+      {presetBlockedNote(validation.reason, type)}
+    </Text>
+  ) : !isNew ? (
+    <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetEditValueNote(type)}</Text>
+  ) : null;
 
   /** 下端の削除（設計案 25b）。確認の条件は一覧の削除（25c）と同じ */
   const requestDelete = useCallback(() => {
@@ -169,28 +223,87 @@ export function PresetFormScreen({ type, preset }: Props) {
               value={name}
               onChangeValue={setName}
             />
-            <NumericField
-              label={presetValueFieldLabel(type)}
-              value={value}
-              onChangeValue={setValue}
-              // 電卓は残す（「1000 ÷ 30」の単価計算に使う。§3.3）が、その中の
-              // 「梱包材から選ぶ」は出さない ── プリセットからプリセットを選ぶ経路は作らない（§4.2）。
-              // 梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう
-              canPickPackaging={false}
-            />
-            {/* §3.3: 無効の理由は値の欄の下に 1 行（ボタンがグレーなだけでは理由が分からない） */}
-            {!validation.valid && (
-              <Text style={[styles.blockedNote, { color: colors.red }]} accessibilityRole="alert">
-                {presetBlockedNote(validation.reason, type)}
-              </Text>
+            {/* §2.6.2: 2 択は金額欄の**上**。下に置くと、欄の形が変わる原因が欄の後ろに来る。
+                出すのは梱包材だけ ── 送料は「1 回いくら」で箱買いの概念がなく、
+                販売サイトは率（%）で個数の単位がない */}
+            {type === 'packaging' && (
+              <View style={styles.modeRow}>
+                <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
+                  {PRESET_PRICE_MODE_LABEL}
+                </Text>
+                <SegmentedControl
+                  options={PRESET_PRICE_MODE_OPTIONS}
+                  selectedIndex={packBuy ? 1 : 0}
+                  onChange={changePriceMode}
+                />
+              </View>
             )}
-            {/* 編集のときだけ（追加には「これまでの記録」がない） */}
-            {!isNew && (
-              <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-                {presetEditValueNote(type)}
-              </Text>
+            {!isPackBuyMode && (
+              <>
+                <NumericField
+                  label={presetValueFieldLabel(type)}
+                  value={value}
+                  onChangeValue={setValue}
+                  // 電卓は残す（「1000 ÷ 30」の単価計算に使う。§3.3）が、その中の
+                  // 「梱包材から選ぶ」は出さない ── プリセットからプリセットを選ぶ経路は作らない（§4.2）。
+                  // 梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう
+                  canPickPackaging={false}
+                />
+                {note}
+              </>
             )}
           </View>
+
+          {/* まとめ買いの 3 行は**別のカード**にする（設計案 28c）── 2 択で欄の形が変わったことが、
+              カードが 1 枚増えることで見て取れる。名前と同じカードに続けると、どこから先が
+              「金額の入れ方」で変わった部分なのか読めない */}
+          {isPackBuyMode && (
+            <>
+              <View style={[styles.card, styles.packCard, { backgroundColor: colors.secondaryBackground }]}>
+                <View style={styles.packRow}>
+                  <NumericField
+                    label={PRESET_PACK_QUANTITY_FIELD_LABEL}
+                    value={packQuantity}
+                    onChangeValue={setPackQuantity}
+                    // 入数は数えた個数で、式にならない（§2.6.2）
+                    showCalculator={false}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.packRow,
+                    styles.packRowDivided,
+                    { borderTopColor: colors.separator },
+                  ]}>
+                  <NumericField
+                    label={PRESET_PACK_PRICE_FIELD_LABEL}
+                    value={packPrice}
+                    onChangeValue={setPackPrice}
+                    // まとめ買いでいちばん割り算が要る欄なので、電卓はここにだけ置く（§2.6.2）
+                    canPickPackaging={false}
+                  />
+                </View>
+                {/* 計算結果の行（§2.6.2）。入力欄に見せない ── 直せる口は入数と購入価格の 2 つでよい。
+                    帯を敷くのは、上 2 行が「入れる欄」でこの行だけが「出る値」だと形で言うため */}
+                <View
+                  style={[styles.unitPriceRow, { backgroundColor: colors.highlightBackground }]}>
+                  <Text style={[styles.unitPriceLabel, { color: colors.blue }]}>
+                    {PRESET_UNIT_PRICE_LABEL}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.unitPriceValue,
+                      // 入力途中（入数が空・0）の「—」は結果ではないので青くしない ──
+                      // 青い横棒は値が入っているように見える
+                      { color: unitPrice == null ? colors.secondaryLabel : colors.blue },
+                    ]}>
+                    {presetUnitPriceText(unitPrice)}
+                  </Text>
+                </View>
+              </View>
+              {note}
+            </>
+          )}
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
@@ -300,6 +413,45 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
+  },
+  // 2 択（§2.6.2）。行の左右の余白は NumericField の行に合わせる
+  modeRow: {
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  // まとめ買いの 3 行のカード。左右の余白は行ごとに持たせる（1 個あたりの帯を端まで敷くため）
+  packCard: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    gap: 0,
+    overflow: 'hidden',
+  },
+  packRow: {
+    paddingHorizontal: 16,
+  },
+  // 行と行のあいだは髪の毛線 1 本（一覧の行と同じ区切り方）。余白では離さない
+  packRowDivided: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // 1 個あたりの行（§2.6.2）。薄い青の帯を敷いて、入れる欄ではなく出る値だと見せる
+  unitPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 16,
+    // 上 2 行の数値と右端を揃える（電卓ボタンのぶんだけ内側に寄せる）。
+    // 帯そのものはカードの端まで敷いたまま、中の値だけが揃う
+    paddingRight: 16 + CALCULATOR_GUTTER_WIDTH,
+    paddingVertical: 14,
+  },
+  unitPriceLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  unitPriceValue: {
+    fontSize: 17,
+    fontWeight: '600',
   },
   swatches: {
     flexDirection: 'row',

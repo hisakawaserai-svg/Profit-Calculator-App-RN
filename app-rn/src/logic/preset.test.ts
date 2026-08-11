@@ -8,11 +8,14 @@ import {
   DEFAULT_PRESET_COLOR_KEY,
   findPresetByName,
   findPresetByValue,
+  isPackBuy,
   isRatePreset,
   normalizePresetColor,
   PRESET_COLOR_KEYS,
   PRESET_TYPES,
+  presetDraftUnitPrice,
   presetInitial,
+  presetUnitPrice,
   resolvePresetTag,
   toPresetType,
   validatePreset,
@@ -154,7 +157,14 @@ describe('§1.4 検証: 名前', () => {
   it('前後の空白を落とせば 20 文字に収まるものは有効（落とした値が保存される）', () => {
     const result = validatePreset(draft(`  ${'あ'.repeat(20)}  `));
 
-    expect(result).toEqual({ valid: true, name: 'あ'.repeat(20), initial: '', value: 210 });
+    expect(result).toEqual({
+      valid: true,
+      name: 'あ'.repeat(20),
+      initial: '',
+      value: 210,
+      packQuantity: 0,
+      packPrice: 0,
+    });
   });
 
   it('名前の重複は検証しない（弾かないのが決定。§1.4）', () => {
@@ -189,6 +199,8 @@ describe('§1.4 検証: 手数料率（site は 0〜100・小数第 1 位まで�
       name: '手数料 10%',
       initial: '',
       value: 8.8,
+      packQuantity: 0,
+      packPrice: 0,
     });
   });
 
@@ -210,7 +222,7 @@ describe('§1.4 検証: 手数料率（site は 0〜100・小数第 1 位まで�
   });
 });
 
-describe('§1.4 検証: 金額（shipping / packaging は 0〜999,999 の整数）', () => {
+describe('§1.4 検証: 金額（shipping / packaging は 0〜999,999。小数は送料だけ不可）', () => {
   const draft = (type: 'shipping' | 'packaging', value: string): PresetDraft => ({
     type,
     name: '専用箱（小）',
@@ -231,14 +243,22 @@ describe('§1.4 検証: 金額（shipping / packaging は 0〜999,999 の整数�
     });
   });
 
-  it('小数は無効（率と違って整数のみ）', () => {
+  it('送料は整数のみ（§2.6.6 で小数を許したのは梱包材だけ）', () => {
     expect(valid('210.5')).toBe(false);
-    expect(validatePreset(draft('packaging', '15.5')).valid).toBe(false);
+    expect(valid('210')).toBe(true);
   });
 
-  it('梱包材も同じ規則', () => {
+  it('梱包材は小数第 1 位まで有効（まとめ買いの単価が入る欄。§2.6.3）', () => {
+    expect(validatePreset(draft('packaging', '9.8')).valid).toBe(true);
+    expect(validatePreset(draft('packaging', '0.1')).valid).toBe(true);
+    // 第 2 位まで入っていれば無効なのは率と同じ
+    expect(validatePreset(draft('packaging', '9.85')).valid).toBe(false);
+  });
+
+  it('梱包材も範囲は同じ', () => {
     expect(validatePreset(draft('packaging', '15')).valid).toBe(true);
     expect(validatePreset(draft('packaging', '-1')).valid).toBe(false);
+    expect(validatePreset(draft('packaging', '1000000')).valid).toBe(false);
   });
 });
 
@@ -251,7 +271,14 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: '210',
     });
 
-    expect(result).toEqual({ valid: true, name: 'A4・厚さ3cm以内', initial: 'A4', value: 210 });
+    expect(result).toEqual({
+      valid: true,
+      name: 'A4・厚さ3cm以内',
+      initial: 'A4',
+      value: 210,
+      packQuantity: 0,
+      packPrice: 0,
+    });
   });
 
   it('頭文字は空のまま保存してよい（表示時に名前から導出する）', () => {
@@ -262,7 +289,14 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: '1050',
     });
 
-    expect(result).toEqual({ valid: true, name: '宅配 100サイズ', initial: '', value: 1050 });
+    expect(result).toEqual({
+      valid: true,
+      name: '宅配 100サイズ',
+      initial: '',
+      value: 1050,
+      packQuantity: 0,
+      packPrice: 0,
+    });
   });
 
   it('欄を離れずに保存した長い頭文字も、ここで切り詰まる（§1.2 の安全網）', () => {
@@ -274,7 +308,14 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: '15',
     });
 
-    expect(result).toEqual({ valid: true, name: '封筒（A4）', initial: '封筒', value: 15 });
+    expect(result).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '封筒',
+      value: 15,
+      packQuantity: 0,
+      packPrice: 0,
+    });
   });
 
   it('長い名前は切らずに無効にする（変換中の入力を消さない。§1.4）', () => {
@@ -286,6 +327,224 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       initial: '',
       value: '15',
     })).toEqual({ valid: false, reason: 'name-too-long' });
+  });
+});
+
+// ---- SPEC-V3 §2.6 梱包材のまとめ買い ----
+
+describe('§2.6.4 まとめ買いかの判定（列を足さず packQuantity > 0 で見る）', () => {
+  it('入数が 1 以上ならまとめ買い', () => {
+    expect(isPackBuy({ packQuantity: 1 })).toBe(true);
+    expect(isPackBuy({ packQuantity: 100 })).toBe(true);
+  });
+
+  it('0 は「1 個ずつ」（既存 6 件と既存の利用者データがこれ。§2.6.5）', () => {
+    expect(isPackBuy({ packQuantity: 0 })).toBe(false);
+  });
+});
+
+describe('§2.6.3 まとめ買いの単価と端数', () => {
+  it('割り切れる場合はそのまま（100 枚 800 円 → 8 円）', () => {
+    expect(presetUnitPrice(800, 100)).toBe(8);
+    expect(presetUnitPrice(1500, 100)).toBe(15);
+  });
+
+  it('小数第 1 位まで残す（980 ÷ 100 = 9.8）', () => {
+    expect(presetUnitPrice(980, 100)).toBe(9.8);
+  });
+
+  it('四捨五入する（800 ÷ 30 = 26.66… → 26.7。決定 §2.6.8-2）', () => {
+    expect(presetUnitPrice(800, 30)).toBe(26.7);
+    // 切り捨てなら 26.6、切り上げなら 26.7 なので、切り下がる側でも確かめる
+    expect(presetUnitPrice(700, 30)).toBe(23.3);
+  });
+
+  it('小数第 2 位が 5 のちょうど半分も四捨五入で上がる（985 ÷ 100 = 9.85 → 9.9）', () => {
+    // 浮動小数のまま丸めると 9.8 に落ちる値（§2.6.3 の実装欄）
+    expect(presetUnitPrice(985, 100)).toBe(9.9);
+  });
+
+  it('丸めて 0 円になるときは 0.1 円に上げる（決定 §2.6.8-4）', () => {
+    expect(presetUnitPrice(500, 10000)).toBe(0.1); // 0.05
+    expect(presetUnitPrice(1, 1000)).toBe(0.1); // 0.001
+  });
+
+  it('購入価格が 0 のときは 0 円のまま（もらい物を 0.1 円に押し上げない）', () => {
+    expect(presetUnitPrice(0, 100)).toBe(0);
+  });
+
+  it('入数が 0 以下なら計算できないので null（0 除算はここで塞ぐ）', () => {
+    expect(presetUnitPrice(800, 0)).toBeNull();
+    expect(presetUnitPrice(800, -1)).toBeNull();
+  });
+
+  it('小数の和に誤差を持ち込まない（0.1 円が 3 件で 0.30000000000000004 にならない）', () => {
+    const unit = presetUnitPrice(1, 1000) ?? 0;
+    expect(unit * 3).toBe(0.30000000000000004); // 浮動小数の素の挙動（比較のため）
+    expect(Number((unit * 3).toFixed(1))).toBe(0.3);
+  });
+});
+
+describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
+  const draft = (
+    packQuantity: string,
+    packPrice: string,
+    overrides: Partial<PresetDraft> = {},
+  ): PresetDraft => ({
+    type: 'packaging',
+    name: '封筒（A4）',
+    initial: '',
+    value: '15',
+    packBuy: true,
+    packQuantity,
+    packPrice,
+    ...overrides,
+  });
+
+  it('入数と購入価格から 1 個あたりを確定して返す（§2.6.4。value はこの値）', () => {
+    expect(validatePreset(draft('100', '800'))).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+    });
+  });
+
+  it('金額欄の値は見ない（まとめ買いでは入数と購入価格だけが単価を決める）', () => {
+    const result = validatePreset(draft('100', '980', { value: '999999' }));
+
+    expect(result).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 9.8,
+      packQuantity: 100,
+      packPrice: 980,
+    });
+  });
+
+  it('入数が空・0 なら保存できない（1 個ずつに倒したり 1 とみなしたりしない）', () => {
+    expect(validatePreset(draft('', '800'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+    expect(validatePreset(draft('0', '800'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+  });
+
+  it('入数は 9,999 まで（決定 §2.6.8-6）', () => {
+    expect(validatePreset(draft('9999', '800')).valid).toBe(true);
+    expect(validatePreset(draft('10000', '800'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+  });
+
+  it('入数は整数（個数が小数になる余地はない）', () => {
+    expect(validatePreset(draft('10.5', '800'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+  });
+
+  it('購入価格は 0〜999,999 の整数', () => {
+    expect(validatePreset(draft('100', '0')).valid).toBe(true);
+    expect(validatePreset(draft('100', '999999')).valid).toBe(true);
+    expect(validatePreset(draft('100', '1000000'))).toEqual({
+      valid: false,
+      reason: 'pack-price-out-of-range',
+    });
+    expect(validatePreset(draft('100', '800.5'))).toEqual({
+      valid: false,
+      reason: 'pack-price-out-of-range',
+    });
+  });
+
+  it('購入価格が空なら 0 円扱いで有効（1 個あたりも 0 円。§2.6.3）', () => {
+    expect(validatePreset(draft('100', ''))).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 0,
+      packQuantity: 100,
+      packPrice: 0,
+    });
+  });
+
+  it('名前の検証が先（入数の前に名前を直させる。文言は 1 行しか出せない）', () => {
+    expect(validatePreset(draft('', '800', { name: '' }))).toEqual({
+      valid: false,
+      reason: 'name-required',
+    });
+  });
+
+  it('梱包材以外では 2 択を出さないので、packBuy が立っていても 1 個ずつとして扱う', () => {
+    expect(validatePreset(draft('100', '800', { type: 'shipping', value: '210' }))).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 210,
+      packQuantity: 0,
+      packPrice: 0,
+    });
+  });
+
+  it('「1 個ずつ」に戻すと入数・購入価格は 0 に戻る（決定 §2.6.8-3）', () => {
+    const result = validatePreset(draft('100', '800', { packBuy: false, value: '8' }));
+
+    expect(result).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      // 金額欄にはそのときの 1 個あたりが残る（値は変わらない。§2.6.6）
+      value: 8,
+      packQuantity: 0,
+      packPrice: 0,
+    });
+  });
+
+  it('packBuy を渡さない下書き（送料・販売サイトの画面）は従来どおり', () => {
+    expect(
+      validatePreset({ type: 'packaging', name: '封筒（A4）', initial: '', value: '15' }),
+    ).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 15,
+      packQuantity: 0,
+      packPrice: 0,
+    });
+  });
+});
+
+describe('§2.6.2 下書きの「1 個あたり」（青字の行）', () => {
+  const draft = (packQuantity: string, packPrice: string): PresetDraft => ({
+    type: 'packaging',
+    name: '封筒（A4）',
+    initial: '',
+    value: '',
+    packBuy: true,
+    packQuantity,
+    packPrice,
+  });
+
+  it('入数と購入価格が入っていれば計算結果を返す', () => {
+    expect(presetDraftUnitPrice(draft('100', '800'))).toBe(8);
+  });
+
+  it('入数が空・0 のあいだは null（行は「—」のまま。行ごと消すと高さが動く）', () => {
+    expect(presetDraftUnitPrice(draft('', '800'))).toBeNull();
+    expect(presetDraftUnitPrice(draft('0', '800'))).toBeNull();
+  });
+
+  it('1 個ずつのときは行そのものが出ないので null', () => {
+    expect(
+      presetDraftUnitPrice({ type: 'packaging', name: '封筒', initial: '', value: '15' }),
+    ).toBeNull();
   });
 });
 
