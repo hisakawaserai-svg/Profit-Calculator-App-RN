@@ -20,8 +20,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
+import { TagDot } from '@/components/TagChip';
 import { usePresetList } from '@/db/usePresets';
 import { useRecordCount } from '@/db/useRecords';
+import { useTagList } from '@/db/useTags';
 import {
   CSV_EXPORT_LABEL,
   DATA_SECTION_TITLE,
@@ -30,6 +32,10 @@ import {
   PRESET_SECTION_TITLE,
   presetCountLabel,
   RECORD_COUNT_LABEL,
+  TAG_CARD_EMPTY_LABEL,
+  TAG_LABEL,
+  TAG_SECTION_NOTE,
+  TAG_SECTION_TITLE,
   versionLabel,
 } from '@/logic/labels';
 import { PRESET_TYPES } from '@/logic/preset';
@@ -39,6 +45,12 @@ import { useThemeColors } from '@/theme';
 /** app.json の version。取れない経路（開発ビルドの一部）では行ごと出さない */
 const APP_VERSION = Constants.expoConfig?.version ?? null;
 
+/**
+ * 設定タブのカードに並べる色の点（SPEC-V4 §2.1）。一覧のチップの点（6px）より大きくするのは、
+ * ここでは名前が付かず、点だけで「何色ぶん登録があるか」を読ませるため。
+ */
+const TAG_DOT_PREVIEW_SIZE = 10;
+
 export default function SettingsScreen() {
   const colors = useThemeColors();
   const { defaultRecordKind, setDefaultRecordKind } = useSettings();
@@ -47,6 +59,9 @@ export default function SettingsScreen() {
   const shippingPresets = usePresetList('shipping');
   const packagingPresets = usePresetList('packaging');
   const recordCount = useRecordCount();
+  // 件数と色の点だけを使う（§2.1）。使用件数（counts）はここでは出さない ──
+  // 設定タブに出すのは「何件登録してあるか」で、どのタグがよく使われているかは一覧の役目
+  const { tags } = useTagList();
 
   const presetsByType = {
     site: sitePresets.presets,
@@ -103,6 +118,52 @@ export default function SettingsScreen() {
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
             {PRESET_SECTION_NOTE}
           </Text>
+        </View>
+
+        {/* SPEC-V4 §2.1: 「入力を減らす」とは**別の群**にする。あちらの 3 つは選ぶと欄に値が
+            入るもので、タグは記録に残って後から効くもの（§0.1）。4 枚目として並べると、
+            上の注記（「よく使う値を登録しておくと…」）がタグには当てはまらなくなる。
+            群 3 と群 5 の間なのは、設定を「入力 → 記録 → 出力」の順に読ませるため */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+            {TAG_SECTION_TITLE}
+          </Text>
+          <Link href="/settings/tags" asChild>
+            <Pressable
+              // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
+              style={StyleSheet.flatten([
+                styles.card,
+                styles.tagCard,
+                { backgroundColor: colors.secondaryBackground },
+              ])}
+              accessibilityRole="link"
+              accessibilityLabel={`${TAG_LABEL} ${presetCountLabel(tags.length)}`}>
+              <View style={styles.tagHeader}>
+                <Text style={[styles.label, styles.tagTitle, { color: colors.label }]}>
+                  {TAG_LABEL}
+                </Text>
+                <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
+                  {presetCountLabel(tags.length)}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+              </View>
+              {/* §2.1: 件数と**色の点のプレビュー**。名前まで並べないのは、プリセットのカードと
+                  違ってタグは数が増えやすく（上限なし。§1.2）、3 件だけ出すと
+                  「その 3 件が特別」と読めるため。点だけなら全部を 1 行に収められる */}
+              {tags.length === 0 ? (
+                <Text style={[styles.empty, { color: colors.mutedLabel }]}>
+                  {TAG_CARD_EMPTY_LABEL}
+                </Text>
+              ) : (
+                <View style={styles.tagDots}>
+                  {tags.map((tag) => (
+                    <TagDot key={tag.id} colorKey={tag.colorKey} size={TAG_DOT_PREVIEW_SIZE} />
+                  ))}
+                </View>
+              )}
+            </Pressable>
+          </Link>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_SECTION_NOTE}</Text>
         </View>
 
         {/* UI-SPEC §1.6-4: データ群。書き出しは Step 6 まで非活性（SPEC-V3 §6.2） */}
@@ -176,6 +237,28 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
+  },
+  // カードの中は「見出しの行」と「点の行」の 2 段。gap は card のものをそのまま使う
+  tagCard: {
+    gap: 12,
+  },
+  tagHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tagTitle: {
+    flex: 1,
+  },
+  // 登録が増えても 1 枚のカードに収まるよう折り返す（件数に上限がない。§1.2）
+  tagDots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  empty: {
+    fontSize: 14,
   },
   linkRow: {
     flexDirection: 'row',

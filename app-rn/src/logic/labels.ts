@@ -997,6 +997,87 @@ export function siteNameClearLabel(name: string): string {
   return `${name}を外す`;
 }
 
+// ---- SPEC-V4 §2 タグ（設定タブの管理画面） ----
+//
+// **プリセットの語を流用しない。** 群を分けたのと同じ理由（§2.1）で、
+// 「入力を減らす」の語（登録・選ぶと入る）はタグには当てはまらない。
+// 件数の「N件」だけは presetCountLabel をそのまま使う ── 数え方の表記まで分ける理由はない。
+
+/** タグそのものの表示名（§2.1 のカード・§2.2 の見出し）。設定タブ・一覧・シートで共通 */
+export const TAG_LABEL = 'タグ';
+
+/** 群の見出し（§2.1）。「入力を減らす」とは別の群にする */
+export const TAG_SECTION_TITLE = '記録を分類する';
+
+/** 群の下の注記 1 行（§2.1）。プリセットの注記（選ぶと欄に入る）と混ざらないようにする */
+export const TAG_SECTION_NOTE =
+  '記録にタグを付けておくと、あとから『洋服だけ』のように絞り込めます。';
+
+/**
+ * 1 件も登録がないときの設定タブのカードの 1 行（§2.1）。
+ * プリセットのカード（PRESET_CARD_EMPTY_LABEL）と同じ語 ── 同じ「まだ無い」状態を、
+ * 群ごとに違う言い方で説明しない（PRESET_PICKER_EMPTY_TITLE と同じ扱い）。
+ */
+export const TAG_CARD_EMPTY_LABEL = PRESET_CARD_EMPTY_LABEL;
+
+/**
+ * 一覧カード末尾の追加行（§2.2-3）と空表示のボタン（§2.2-4）:「＋ 追加」。
+ * プリセット（「＋ 送料を追加」）と違って種類名を冠さないのは、タグが 1 種類しかなく、
+ * 画面の見出しが既に「タグ」だから。
+ */
+export const TAG_ADD_LABEL = additionLabel('追加');
+
+/** 空表示（§2.2-4）。EmptyState の見出しと本文 */
+export const TAG_EMPTY_TITLE = 'タグがありません';
+export const TAG_EMPTY_BODY = '記録を追加するときにも作れます。';
+
+/**
+ * 一覧の下の注記（§2.2-5）。**削除で消えるのはタグだけ**だと先に言う ──
+ * 記録に紐付く（§0.1）ぶん、プリセットより「消したら記録も消えるのでは」と読まれやすい。
+ */
+export const TAG_LIST_NOTE = 'タグを消しても、記録そのものは消えません。';
+
+/** 一覧の行の削除の読み上げ語（§2.2）。スワイプで出る赤い「削除」に名前を添える */
+export function tagDeleteA11yLabel(name: string): string {
+  return `${name}を${DELETE_LABEL}`;
+}
+
+/**
+ * 削除したあとの取り消しバー（§2.2）。
+ *
+ * **使用件数が 1 件以上のときだけ「記録から外れた」ことを添える** ── 記録から剥がれたことが
+ * 取り消しの猶予の間に読めないと、バーが消えてから気付くことになる。
+ * 0 件のときに「0 件の記録から外れました」と出しても、外れた先が無いので情報にならない。
+ */
+export function tagDeletedMessage(name: string, usageCount: number): string {
+  const head = `『${name}』を削除しました`;
+  return usageCount === 0 ? head : `${head}（${presetCountLabel(usageCount)}の記録から外れました）`;
+}
+
+// ---- SPEC-V4 §2.3 追加・編集シート ----
+
+export function tagFormTitle(isNew: boolean): string {
+  return `${TAG_LABEL}を${isNew ? '追加' : '編集'}`;
+}
+
+/**
+ * 名前の欄のキャプション（§2.3-3）。**「（必須）」を付ける** ──
+ * タグは名前だけが本体で、空のまま保存できる欄が 1 つも無いことを先に言う。
+ */
+export const TAG_NAME_FIELD_LABEL = '名前（必須）';
+
+/**
+ * 名前が未入力のときにプレビューへ薄く出す語（§2.3-2）。
+ * チップの形（色の点 ＋ 名前）を先に見せるためのもので、保存される値ではない。
+ */
+export const TAG_NAME_PLACEHOLDER = '名前';
+
+/**
+ * 色の欄の見出し（§2.3-4）。プリセットの「バッジの色」と語を分けるのは、
+ * タグの色が札の地色ではなく**名前の左の点**だから（§0.1）。
+ */
+export const TAG_COLOR_FIELD_LABEL = '色';
+
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
 export const DATA_SECTION_TITLE = 'データ';

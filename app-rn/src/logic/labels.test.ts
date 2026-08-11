@@ -79,6 +79,12 @@ import {
   presetUnitPriceText,
   presetValueFieldLabel,
   presetValueText,
+  PRESET_SECTION_TITLE,
+  TAG_ADD_LABEL,
+  TAG_SECTION_TITLE,
+  tagBlockedNote,
+  tagDeletedMessage,
+  tagFormTitle,
   versionLabel,
 } from './labels';
 
@@ -572,5 +578,37 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
 
   it('バージョン表記（UI-SPEC §1.6-5）', () => {
     expect(versionLabel('1.0.0')).toBe('バージョン 1.0.0');
+  });
+});
+
+// ---- SPEC-V4 §2 タグの表示語 ----
+
+describe('SPEC-V4 §2 タグの表示語', () => {
+  it('群はプリセットと別の見出しになる（§2.1。目的が違うので同じ群に入れない）', () => {
+    expect(TAG_SECTION_TITLE).toBe('記録を分類する');
+    expect(TAG_SECTION_TITLE).not.toBe(PRESET_SECTION_TITLE);
+  });
+
+  it('追加の口の「＋」は additionLabel の字を使う（半角に振れない）', () => {
+    expect(TAG_ADD_LABEL).toBe(additionLabel('追加'));
+  });
+
+  it('シートの見出しは追加と編集で出し分ける（§2.3-1）', () => {
+    expect(tagFormTitle(true)).toBe('タグを追加');
+    expect(tagFormTitle(false)).toBe('タグを編集');
+  });
+
+  it('取り消しバーは使用件数が 1 件以上のときだけ「記録から外れた」を添える（§2.2）', () => {
+    expect(tagDeletedMessage('洋服', 0)).toBe('『洋服』を削除しました');
+    expect(tagDeletedMessage('洋服', 12)).toBe(
+      '『洋服』を削除しました（12件の記録から外れました）',
+    );
+  });
+
+  it('保存が押せない理由を 4 通り言い分ける（§1.3。重複はプリセットに無い理由）', () => {
+    expect(tagBlockedNote('name-required')).toBe('名前を入れてください');
+    expect(tagBlockedNote('name-too-long')).toBe('名前は12文字までです');
+    expect(tagBlockedNote('name-has-separator')).toBe('「・」は使えません');
+    expect(tagBlockedNote('name-duplicated')).toBe('同じ名前のタグがあります');
   });
 });
