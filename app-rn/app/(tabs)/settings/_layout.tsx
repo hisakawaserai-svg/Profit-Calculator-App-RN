@@ -11,9 +11,27 @@ import { EXPORT_PREVIEW_SCREEN_TITLE } from '@/logic/labels';
 // 全画面プレビュー（§5.9）は書き出しシートの上に **push** で積む（`presentation: 'card'`）──
 // 指定しないとモーダルの上に開いた画面がモーダル扱いになり、ヘッダに戻る導線が出ない。
 // push なら「‹ 書き出し（CSV）」が自動で付き、下端の「シートに戻る」と行き先が一致する。
+//
+// **screen を 1 つでも宣言したら、index を先頭に書く。** expo-router の
+// getSortedChildren（useScreens.ts）は「宣言した screen → 残りのファイル」の順に並べ、
+// React Navigation は**並びの先頭を初期ルートにする**。export を宣言しただけだと
+// 設定タブの起点が export に移り、設定の一覧そのものが出ない ── 一覧が出ないので
+// タグ・プリセット・使いかたへの入口ごと消える（実機で確認した症状）。
+//
+// **anchor だけでは直らない。** anchor（＝ node.initialRouteName）は
+// sortRoutesWithInitial に渡るだけで、それが効くのは push される「残りのファイル」側だけ。
+// 宣言した screen の並びには一切効かないので、先頭を取り戻すには index の宣言が要る。
+// anchor は別の役目で残す ── ディープリンクやリロードで export へ直接入ったとき、
+// 下に index を積んで戻る導線を作るのは anchor のほう（記録タブ・データタブと同じ）。
+export const unstable_settings = {
+  anchor: 'index',
+};
+
 export default function SettingsLayout() {
   return (
     <Stack>
+      {/* 起点。options は渡さない ── 見出しは index.tsx 側の Stack.Screen に任せる */}
+      <Stack.Screen name="index" />
       <Stack.Screen name="export" options={{ presentation: 'modal' }} />
       {/* 見出しもここで渡す ── レイアウト側で screen を宣言すると、画面の中の
           `<Stack.Screen options>` より先に効いてルート名（`export-preview`）が出てしまう */}
