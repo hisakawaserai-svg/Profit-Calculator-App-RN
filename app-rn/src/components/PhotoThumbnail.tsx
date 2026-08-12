@@ -34,7 +34,9 @@ export function PhotoThumbnail({ fileName }: { fileName: string | null }) {
   return (
     <Image
       source={{ uri }}
-      style={[styles.frame, { backgroundColor: colors.disabledBackground }]}
+      // 白っぽい写真がカードの地に溶けて輪郭を失わないよう、写真にも枠を回す
+      // （枠なしの写真だけが「浮いていない」ように見える）。色は空枠と同じ separator
+      style={[styles.frame, styles.outline, { backgroundColor: colors.disabledBackground, borderColor: colors.separator }]}
       // 正方形の枠に横長・縦長のどちらが来ても中身が歪まないよう、はみ出す側を切る
       contentFit="cover"
       accessibilityLabel={PHOTO_IMAGE_LABEL}
@@ -49,6 +51,9 @@ const styles = StyleSheet.create({
     width: PHOTO_THUMBNAIL_SIZE,
     height: PHOTO_THUMBNAIL_SIZE,
     borderRadius: 8,
+  },
+  outline: {
+    borderWidth: StyleSheet.hairlineWidth,
   },
   placeholder: {
     borderWidth: StyleSheet.hairlineWidth,

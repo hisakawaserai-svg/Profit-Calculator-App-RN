@@ -372,7 +372,11 @@ function RecordHeaderBlock({
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <Image
               source={{ uri }}
-              style={[styles.photo, { backgroundColor: colors.secondaryBackground }]}
+              // 白っぽい写真がカードの地に溶けないよう枠を回す（一覧・フォームと同じヘアライン）
+              style={[
+                styles.photo,
+                { backgroundColor: colors.secondaryBackground, borderColor: colors.separator },
+              ]}
               // 正方形の枠に横長・縦長のどちらが来ても歪まないよう、はみ出す側を切る。
               // 全体を確かめるのは全画面の役割（contain）
               contentFit="cover"
@@ -494,6 +498,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   tagLine: {
     flexDirection: 'row',

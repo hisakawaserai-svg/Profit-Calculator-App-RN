@@ -107,7 +107,11 @@ export function PhotoField({ fileName, onChange, children }: Props) {
             ) : (
               <Image
                 source={{ uri }}
-                style={[styles.image, { backgroundColor: colors.disabledBackground }]}
+                // 白っぽい写真がカードの地に溶けないよう枠を回す（一覧・詳細と同じヘアライン）
+                style={[
+                  styles.image,
+                  { backgroundColor: colors.disabledBackground, borderColor: colors.separator },
+                ]}
                 contentFit="cover"
                 accessibilityLabel={PHOTO_IMAGE_LABEL}
                 transition={0}
@@ -201,6 +205,7 @@ const styles = StyleSheet.create({
   image: {
     flex: 1,
     borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   busyOverlay: {
     position: 'absolute',

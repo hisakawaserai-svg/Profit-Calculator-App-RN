@@ -333,7 +333,14 @@ function RecordForm({
         <Pressable onPress={handleCancel} hitSlop={8} accessibilityRole="button">
           <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.label }]}>{title}</Text>
+        {/* 見出しは**画面の中央**に置く。行の中に並べると自然幅で挟まれ、左右のボタンの
+            幅の差の半分だけ寄る（「キャンセル」と「保存」で 22pt ずれていた）。
+            重ねてもボタンを塞がないよう、当たり判定は持たせない */}
+        <View style={styles.headerTitleSlot} pointerEvents="none">
+          <Text style={[styles.headerTitle, { color: colors.label }]} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
         <Pressable onPress={handleSave} hitSlop={8} accessibilityRole="button">
           <Text style={[styles.headerButton, styles.saveButton, { color: colors.blue }]}>
             {SAVE_LABEL}
@@ -701,6 +708,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  // 行の左右いっぱいに敷いて、その中で中央寄せ ── 端は header の padding より外側の
+  // border box なので、ここでの中央が画面の中央と一致する
+  headerTitleSlot: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 17,
