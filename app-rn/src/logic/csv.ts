@@ -20,6 +20,10 @@
 // 書式（§5.4）: ヘッダ行あり / CRLF / RFC 4180 の引用 / **桁区切りなし**の素の数値 /
 // 日付は `YYYY-MM-DD` / 空値は空文字。文字コードの BOM は `toCsvFileContent` が付ける。
 //
+// **入口は `buildCsvTable`（行の配列）で、`buildCsv`（文字列）はそれを繋ぐだけ**（§5.9）。
+// プレビューの表とファイルが同じ 1 本からデータを取るようにするための形で、
+// CSV の文字列を作ってから分割し直す経路は持たない。
+//
 // 丸め（§5.4・決定 §8-7）: **各列を先に整数へ丸め、経費合計はその和、収支は 販売価格 − 経費合計。**
 // CSV の中で足し算が合う方を採る決定なので、`day` でも同じ ──
 // **合算は丸めなしの生の値で行い、丸めるのは列ごとに 1 回だけ**（決定 §7-2 / §2.6）。
@@ -312,6 +316,44 @@ export type BuildCsvParams = {
   records: readonly SaleRecord[];
   /** 記録 ID → タグ名（`tags.sortOrder` 昇順。SPEC-V4 §5.4）。`tax` では読まない */
   tagsByRecord?: ReadonlyMap<string, readonly string[]>;
+  /**
+   * データ行の上限（プレビューの先頭 3 行。§5.9）。省略 = 全行。
+   * **ヘッダ行は数に入れない。** 打ち切るのは行の組み立てが済んだ後なので、
+   * 値そのものは全行ぶんと同じものが出る。
+   */
+  limit?: number;
+};
+
+/**
+ * CSV の中身を**行の配列**として組み立てる（§5.9）。
+ *
+ * **文字列にする前の形をここで返すのが要点。** プレビュー（画面の表）と書き出し（ファイル）が
+ * 同じ 1 本からデータを取るようにするため ── CSV の文字列を作ってから分割し直す形にすると、
+ * 引用（§5.4）を解く処理をプレビュー側が持つことになり、片方だけ直したときに食い違う。
+ * `buildCsv` はこの結果を繋ぐだけになっている。
+ */
+export function buildCsvTable(params: BuildCsvParams): CsvTable {
+  const { kind, grouping, records, tagsByRecord, limit } = params;
+
+  const rows: string[][] =
+    kind === 'tax'
+      ? grouping === 'day'
+        ? groupRecordsByDay(records).map(taxDayRow)
+        : records.map(taxRow)
+      : records.map((record) => backupRow(record, tagsByRecord?.get(record.id) ?? []));
+
+  return {
+    header: [...csvColumns(kind)],
+    rows: limit == null ? rows : rows.slice(0, limit),
+  };
+}
+
+/** 行の配列としての CSV（ヘッダ ＋ データ行）。画面もファイルもこの形から作る */
+export type CsvTable = {
+  /** 列名（§5.3 / §5.3.1） */
+  header: string[];
+  /** データ行。値は**ファイルに書かれるのと同じ文字列**（引用は付いていない生の値） */
+  rows: string[][];
 };
 
 /**
@@ -321,16 +363,8 @@ export type BuildCsvParams = {
  * `cat` で繋いだときや一部のツールで最終行が次の行と繋がる。
  */
 export function buildCsv(params: BuildCsvParams): string {
-  const { kind, grouping, records, tagsByRecord } = params;
-
-  const rows: string[][] =
-    kind === 'tax'
-      ? grouping === 'day'
-        ? groupRecordsByDay(records).map(taxDayRow)
-        : records.map(taxRow)
-      : records.map((record) => backupRow(record, tagsByRecord?.get(record.id) ?? []));
-
-  return [csvColumns(kind), ...rows].map(toCsvLine).join(CRLF) + CRLF;
+  const table = buildCsvTable(params);
+  return [table.header, ...table.rows].map(toCsvLine).join(CRLF) + CRLF;
 }
 
 /**

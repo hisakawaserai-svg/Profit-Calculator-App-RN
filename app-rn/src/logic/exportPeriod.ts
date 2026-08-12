@@ -12,7 +12,7 @@
 // 期間は 3 値（全期間 / 年 / 月。logic/period.ts）なので、名前も 3 通りになる:
 //   売上記録_2026-08.csv / 売上記録_2025.csv / 売上記録_全期間.csv
 
-import type { CsvExportKind } from './csv';
+import type { CsvExportKind, CsvGrouping } from './csv';
 import { CSV_ALL_PERIOD_FILE_LABEL, CSV_FILE_BASE_NAMES } from './labels';
 import { periodKind, type Period } from './period';
 
@@ -31,4 +31,53 @@ export function exportPeriodSlug(period: Period): string {
 /** 共有シートに出るファイル名（§5.4）。`確定申告_2026-08.csv` */
 export function exportFileName(kind: CsvExportKind, period: Period): string {
   return `${CSV_FILE_BASE_NAMES[kind]}_${exportPeriodSlug(period)}${CSV_EXTENSION}`;
+}
+
+// ---- 全画面プレビューへ渡す条件（§5.9・案 `40c`） ----
+//
+// 全画面（`ExportPreviewScreen`）は**シートの state を受け取らず、ルートの引数から
+// 自分で引き直す**。シートから props を渡す形にすると、戻る・リロード・ディープリンクで
+// 引数が欠けたときに空の表が出る ── 引数が URL に載っていれば、その画面だけで再現できる。
+// 期間は 3 値（全期間 = null）なので、全期間だけ**空文字**に倒す（クエリに null は載らない）。
+
+/** ルートの引数の形。すべて文字列（expo-router のクエリはそのまま文字列で届く） */
+export type ExportRouteParams = {
+  kind: string;
+  grouping: string;
+  /** 期間キー。空文字 = 全期間 */
+  period: string;
+  /** '1' = 出品中も含める */
+  includeListing: string;
+};
+
+export function toExportParams(
+  kind: CsvExportKind,
+  grouping: CsvGrouping,
+  period: Period,
+  includeListing: boolean,
+): ExportRouteParams {
+  return {
+    kind,
+    grouping,
+    period: period ?? '',
+    includeListing: includeListing ? '1' : '0',
+  };
+}
+
+/**
+ * 受け取り側。**知らない値は既定へ倒す**（外から壊れた引数で開かれても表が出る）──
+ * 既定はシートの初期値と同じ「データ保存用・1件ずつ・全期間・売れた記録のみ」。
+ */
+export function fromExportParams(params: Partial<ExportRouteParams>): {
+  kind: CsvExportKind;
+  grouping: CsvGrouping;
+  period: Period;
+  includeListing: boolean;
+} {
+  return {
+    kind: params.kind === 'tax' ? 'tax' : 'backup',
+    grouping: params.grouping === 'day' ? 'day' : 'record',
+    period: params.period == null || params.period === '' ? null : params.period,
+    includeListing: params.includeListing === '1',
+  };
 }

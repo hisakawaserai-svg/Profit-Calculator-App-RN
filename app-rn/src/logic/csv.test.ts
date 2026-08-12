@@ -18,6 +18,7 @@ import {
   escapeCsvField,
   groupRecordsByDay,
   toCsvFileContent,
+  buildCsvTable,
 } from './csv';
 
 const record = (over: Partial<SaleRecord> = {}): SaleRecord => ({
@@ -403,5 +404,70 @@ describe('§5.7 行数の予告', () => {
 
   it('データ保存用ではまとめ方を指定しても記録の数のまま', () => {
     expect(csvRowCount(records, 'backup', 'day')).toBe(3);
+  });
+});
+
+describe('§5.9 プレビューと書き出しが同じデータを見る（案 40a / 40c）', () => {
+  const records = [
+    record({ id: 'a', itemName: 'えんぴつ,2本', memo: '傷あり\n値下げ済み', siteName: 'メルカリ' }),
+    record({ id: 'b', itemName: 'ノート', saleDate: '2026-08-10T09:00:00.000' }),
+    record({ id: 'c', itemName: '定規', saleDate: '2026-08-11T09:00:00.000' }),
+    record({ id: 'd', itemName: '消しゴム', saleDate: '2026-08-12T09:00:00.000' }),
+  ];
+  const tagsByRecord = new Map([['a', ['洋服', '春夏物']]]);
+
+  it('buildCsv は buildCsvTable を繋いだものになっている（組み立ての経路が 1 本）', () => {
+    const params = { kind: 'backup' as const, grouping: 'record' as const, records, tagsByRecord };
+    const table = buildCsvTable(params);
+    const csv = buildCsv(params);
+
+    // ヘッダ行 ＋ データ行 ＋ 終端の空文字
+    expect(csv.split('\r\n')).toHaveLength(table.rows.length + 2);
+    expect(csv.split('\r\n')[0]).toBe(table.header.join(','));
+    // 引用の要らない行は、表のセルを繋いだものとそのまま一致する
+    expect(csv.split('\r\n')[2]).toBe(table.rows[1].join(','));
+  });
+
+  it('引用が要る値も、表のセルは引用前の生の値（画面にはそのまま出す）', () => {
+    const params = { kind: 'backup' as const, grouping: 'record' as const, records, tagsByRecord };
+    const table = buildCsvTable(params);
+
+    expect(table.rows[0][1]).toBe('えんぴつ,2本');
+    expect(table.rows[0][16]).toBe('傷あり\n値下げ済み');
+    // ファイル側は同じ値を引用して書く
+    expect(buildCsv(params)).toContain('"えんぴつ,2本"');
+  });
+
+  it('limit はデータ行だけを打ち切る（ヘッダは数に入らない）', () => {
+    const table = buildCsvTable({ kind: 'tax', grouping: 'record', records, limit: 3 });
+    expect(table.header).toEqual([...csvColumns('tax')]);
+    expect(table.rows).toHaveLength(3);
+  });
+
+  it('打ち切った 3 行は、全行の先頭 3 行と同じ値（プレビュー = 書き出しの先頭）', () => {
+    const params = { kind: 'backup' as const, grouping: 'record' as const, records, tagsByRecord };
+    const full = buildCsvTable(params);
+    const limited = buildCsvTable({ ...params, limit: 3 });
+
+    expect(limited.rows).toEqual(full.rows.slice(0, 3));
+  });
+
+  it('日ごとにまとめたときも、打ち切りは**まとめた後**の行に効く', () => {
+    const sameDay = [
+      record({ id: 'a', salesPrice: 1000, saleDate: '2026-08-09T09:00:00.000' }),
+      record({ id: 'b', salesPrice: 2000, saleDate: '2026-08-09T18:00:00.000' }),
+      record({ id: 'c', salesPrice: 3000, saleDate: '2026-08-10T09:00:00.000' }),
+    ];
+    const table = buildCsvTable({ kind: 'tax', grouping: 'day', records: sameDay, limit: 1 });
+
+    // 1 行目は 8/9 の 2 件を合算したもの（先頭 1 件で切ったものではない）
+    expect(table.rows).toHaveLength(1);
+    expect(table.rows[0][0]).toBe('2026-08-09');
+    expect(table.rows[0][4]).toBe('3000');
+  });
+
+  it('limit を渡さなければ全行', () => {
+    const table = buildCsvTable({ kind: 'tax', grouping: 'record', records });
+    expect(table.rows).toHaveLength(records.length);
   });
 });

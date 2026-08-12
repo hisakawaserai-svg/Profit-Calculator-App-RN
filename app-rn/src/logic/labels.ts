@@ -1661,6 +1661,45 @@ export function exportEmptyNote(listingCount: number): string {
 export const EXPORT_TAX_NOTICE =
   '不用品でも、課税対象になる場合があります。書き出したあとで仕分けてください。';
 
+// ---- SPEC-V3 §5.9 プレビュー（案 `40a` ＋ `40c`） ----
+
+/** シートの中のカードの見出し（案 `40a`）。「プレビュー」ではなく**何の表かを言う** */
+export const EXPORT_PREVIEW_CARD_TITLE = '書き出す表';
+
+/** 全画面（案 `40c`）のヘッダ */
+export const EXPORT_PREVIEW_SCREEN_TITLE = 'プレビュー';
+
+/**
+ * カード見出しの右（案 `40a`）:「先頭3行・全18列」。
+ * **行数が先、列数が後。** 見えているもの（3 行）を先に言い、見えていないもの（列）を後に置く。
+ * 出す行が 3 行に満たないときは実際の数を出す（「先頭3行」と出て 2 行しか無いと数が食い違う）。
+ */
+export function exportPreviewMetaLabel(shownRows: number, columnCount: number): string {
+  return `先頭${shownRows}行・全${columnCount}列`;
+}
+
+/** 表の下の 1 行（案 `40a`）。横スクロールできることは形からは読めないので語で言う */
+export const EXPORT_PREVIEW_SCROLL_HINT = '横に動かすと残りの列が見えます';
+
+/** カードを押すと全画面が開くことの読み上げ語（見た目は右端の `›`） */
+export const EXPORT_PREVIEW_OPEN_LABEL = '全部見る';
+
+/** 全画面の下端のボタン（案 `40c`）。行き先を名指しする（「閉じる」とは言わない） */
+export const EXPORT_PREVIEW_BACK_LABEL = 'シートに戻る';
+
+/**
+ * 全画面の上の行の右（案 `40c`）:「全11列・8件（4行）」。
+ * 左は `exportSummaryLabel`（期間と対象）で、シートの下端と同じ語を使う ──
+ * 同じ書き出しを指しているので、画面が変わっても読む値が変わらないようにする。
+ */
+export function exportPreviewScreenMetaLabel(
+  columnCount: number,
+  recordCount: number,
+  rowCount: number,
+): string {
+  return `全${columnCount}列・${exportCountLabel(recordCount, rowCount)}`;
+}
+
 /** 共有シートが使えない端末（§5.6）。書き出しの経路が共有シートしかないので、押した後に出る */
 export const EXPORT_SHARING_UNAVAILABLE = 'この端末では共有シートを開けませんでした。';
 

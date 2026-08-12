@@ -27,18 +27,20 @@
 // 失敗時に消し忘れる方が厄介。キャッシュ領域なのでバックアップ対象にも入らない（決定 §8-14）。
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CsvDataRow, CsvHeaderRow } from '@/components/CsvTable';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { toMonthKey } from '@/db/dates';
 import { loadExportCsv, useExportPreview } from '@/db/useExport';
 import { useMonthsWithRecords } from '@/db/useRecords';
-import { toCsvFileContent, type CsvExportKind, type CsvGrouping } from '@/logic/csv';
-import { exportFileName } from '@/logic/exportPeriod';
+import { toCsvFileContent, type CsvExportKind, type CsvGrouping, type CsvTable } from '@/logic/csv';
+import { exportFileName, toExportParams } from '@/logic/exportPeriod';
 import {
   EXPORT_CANCEL_LABEL,
   EXPORT_FAILED_MESSAGE,
@@ -49,6 +51,9 @@ import {
   EXPORT_KIND_OPTIONS,
   EXPORT_KIND_SECTION_LABEL,
   EXPORT_PERIOD_SECTION_LABEL,
+  EXPORT_PREVIEW_CARD_TITLE,
+  EXPORT_PREVIEW_OPEN_LABEL,
+  EXPORT_PREVIEW_SCROLL_HINT,
   EXPORT_SHARE_DIALOG_TITLE,
   EXPORT_SHARING_UNAVAILABLE,
   EXPORT_SHEET_TITLE,
@@ -58,6 +63,7 @@ import {
   EXPORT_TAX_NOTICE,
   exportCountLabel,
   exportEmptyNote,
+  exportPreviewMetaLabel,
   exportSummaryLabel,
 } from '@/logic/labels';
 import type { Period } from '@/logic/period';
@@ -196,6 +202,20 @@ export function ExportSheet() {
               onChange={(index) => setIncludeListing(EXPORT_TARGET_OPTIONS[index].value)}
             />
           </Section>
+
+          {/* §5.9 / 案 40a: 実際に書き出される表の先頭 3 行。**0 件のときは出さない**
+              （出す表がない）。押すと全画面（案 40c）が開く */}
+          {!empty && (
+            <PreviewCard
+              table={preview.table}
+              onPress={() =>
+                router.push({
+                  pathname: '/settings/export-preview',
+                  params: toExportParams(kind, effectiveGrouping, period, includeListing),
+                })
+              }
+            />
+          )}
         </ScrollView>
 
         {/* §5.7: 下端。4 つのどれを触ってもその場で変わる */}
@@ -243,6 +263,78 @@ export function ExportSheet() {
         </View>
       </View>
     </>
+  );
+}
+
+/**
+ * 書き出す表のカード（§5.9・案 `40a`）。**シートの中に本物の値を 3 行出す。**
+ *
+ * 列名だけを並べる形にしなかったのは、押す前の不安が「何が入るか」ではなく
+ * **「合っているか」**だから ── 列名は 1 行の並びを想像に任せるが、値が 3 行見えれば
+ * 日付の形も、空欄になる列も、合算された行も、そのまま目で確かめられる。
+ *
+ * カード全体が押せる（案 `40c` の全画面への入口）。表は横スクロールするが、
+ * **横に動かす操作は始まりで責任を取らない**ので、タップはカードの Pressable に届く。
+ */
+function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void }) {
+  const colors = useThemeColors();
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.previewHead}>
+        <Text style={[styles.sectionLabel, styles.previewTitle, { color: colors.label }]}>
+          {EXPORT_PREVIEW_CARD_TITLE}
+        </Text>
+        <Text style={[styles.previewMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+          {exportPreviewMetaLabel(table.rows.length, table.header.length)}
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
+      </View>
+
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${EXPORT_PREVIEW_CARD_TITLE}・${EXPORT_PREVIEW_OPEN_LABEL}`}
+        style={({ pressed }) => [
+          styles.previewCard,
+          { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
+        ]}>
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            // 端の列が枠に貼り付かないよう、中身の側に余白を持たせる
+            contentContainerStyle={styles.previewTable}>
+            <View>
+              <CsvHeaderRow header={table.header} />
+              {table.rows.map((cells, index) => (
+                <CsvDataRow
+                  // 行の中身は条件を変えると総入れ替わりになるので、位置を鍵にしてよい
+                  key={index}
+                  header={table.header}
+                  cells={cells}
+                  showSeparator={index > 0}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* 右端のぼかし。**続きがあることを見た目で言う**（横スクロールできることは
+              形からは読めない）。触れないようにして、下の表のスクロールを妨げない */}
+          <LinearGradient
+            colors={['transparent', colors.secondaryBackground]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.previewFade}
+            pointerEvents="none"
+          />
+        </View>
+
+        <Text style={[styles.previewHint, { color: colors.secondaryLabel }]}>
+          {EXPORT_PREVIEW_SCROLL_HINT}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -294,6 +386,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginLeft: 4,
+  },
+  // 見出しの行（表題 ＋ 右に「先頭3行・全18列」＋ `›`）。節の見出しと同じ高さに揃える
+  previewHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 4,
+  },
+  previewTitle: {
+    flex: 1,
+    marginLeft: 0,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  previewMeta: {
+    fontSize: 12,
+  },
+  previewCard: {
+    borderRadius: 12,
+    paddingVertical: 8,
+    // 表は端まで届かせる（横スクロールの中身が枠で切れて見えるようにする）
+    overflow: 'hidden',
+  },
+  previewTable: {
+    paddingHorizontal: 8,
+  },
+  // 右端 32pt。表の高さぶんだけ掛ける（下の注記には掛けない）
+  previewFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 32,
+  },
+  previewHint: {
+    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   notice: {
     flexDirection: 'row',

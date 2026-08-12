@@ -684,6 +684,11 @@ TabView（4 タブ）
 | `src/components/MonthNavBar.tsx` | `◀ YYYY年M月 ▾ ▶`。記録タブ・データタブで共用。**SPEC-V4 案 `34a` で右端に ▽（絞り込みの入口）を持つ**（`▶` とはヘアライン ＋ 12pt で分ける）。Step 5 でデータタブでも出す（案 `36b`） |
 | `src/screens/RecordFilterScreen.tsx` | 絞り込みページ（種別 / 販売サイト / タグ）。**SPEC-V4 案 `33c` でシートから push するページに変えた**。中身は案 `35a`〜`35f`（SPEC-V4 §4.2.1〜§4.2.3）。**記録タブ・データタブで共用**し、違いは Stack の state（`isSoldMode` / `scope`）から読む（Step 5） |
 | `src/screens/RecordFilterState.tsx` | 絞り込みの state をタブの Stack で持つ器。一覧／グラフとページの両方が読むため。**各タブに 1 つずつ置く**ことで「両タブで共有しない」を構造として守る（SPEC-V4 決定 §9-9 / §6） |
+| `app/(tabs)/settings/export.tsx` | 書き出しシートのルート（SPEC-V3 §5.7）。設定タブの Stack に**モーダル**で積む |
+| `app/(tabs)/settings/export-preview.tsx` | 全画面プレビューのルート（SPEC-V3 §5.9.2 / 案 `40c`）。書き出しシートの上に **push**（`presentation: 'card'`）で積む。条件はクエリで受け取る |
+| `src/screens/ExportSheet.tsx` | 書き出しシート本体（種類・期間・まとめ方・対象 ＋ プレビューのカード）。SPEC-V3 §5.7 / §5.9.1 |
+| `src/screens/ExportPreviewScreen.tsx` | 全画面プレビュー（SPEC-V3 §5.9.2）。`FlatList` で全行を仮想化し、ヘッダ行を固定する |
+| `src/components/CsvTable.tsx` | CSV の表のセル・行・列幅（SPEC-V3 §5.9）。**シートの中の 3 行と全画面で共用**する ── 別々に持つと列幅が割れる |
 | `src/components/PeriodPicker.tsx` | 期間の**盤面**（クイック選択 ＋ **カード 1 枚**（`‹ 2026年 ›` ＋ 月グリッド ＋ 注記）＋ 凡例）。**シートの器を持たない。** **年の文字を押す = その年 1 年分**（案 `39b` / SPEC-V3 §5.5 の改訂）。記録タブ・データタブ（下の `PeriodSheet` 経由）と書き出しシート（SPEC-V3 §5.7）が共用する |
 | `src/components/PeriodSheet.tsx` | 上の盤面をシートの器（見出し「表示する期間」＋ **選んだ瞬間に閉じる**）に載せたもの。`MonthNavBar` と対で記録タブ・データタブが共用する（§1.2）。スクロールしないので高さは中身ぴったり（§3.5）。**書き出しシートは器ごとは共用しない** ── あちらは選んでも閉じない（「書き出す」を押すまで何も起きない）ため |
 | `src/logic/periodGrid.ts` | 月グリッドの組み立て（**出せる年の範囲・指定した年の 12 マス・見出しの `‹ ›` を押せるか**）。純粋関数＋単体テスト |
@@ -707,6 +712,7 @@ TabView（4 タブ）
 | ファイル | 内容 |
 |---|---|
 | `app/(tabs)/_layout.tsx` | 5 タブ → 4 タブ（計算・記録・データ・設定） |
+| `app/(tabs)/settings/_layout.tsx` | 書き出し（`export`）を `presentation: 'modal'`、全画面プレビュー（`export-preview`）を `presentation: 'card'` ＋ 見出しで宣言する（SPEC-V3 §5.7 / §5.9.2）。**見出しはここで渡す** ── レイアウト側で screen を宣言すると、画面の中の `<Stack.Screen options>` より先に効いてルート名が出る |
 | `app/(tabs)/records/_layout.tsx` | `unstable_settings.anchor = 'index'`。[id] ルートへ外から直接入ったとき（ディープリンク・リロード）に一覧を下に積み、戻る導線を残す |
 | `app/(tabs)/index.tsx` | 結果を上部へ・固定バー・逆算を対等な 2 択に・折りたたみ・下端に記録ボタン・歯車の削除 |
 | `src/screens/SaleRecordDetailScreen.tsx` | カードをレシート型に（案 `3d`）。下部 1 件サマリーを削除。状態切替の配線（§8） |
