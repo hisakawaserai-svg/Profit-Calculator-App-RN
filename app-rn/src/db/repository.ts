@@ -10,6 +10,7 @@ import { asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import type { ChartUnit } from '../logic/analytics';
+import { periodKeyLength, type Period } from '../logic/period';
 import { CHART_KEY_LENGTH, chartKeyToDate, monthKeyToDate, toDbDate } from './dates';
 import { recordTags, saleRecords, type RecordKind, type SaleRecord } from './schema';
 // 中間テーブル（record_tags）の書き込みは tags.ts が持つ（SPEC-V4 §1.4）。
@@ -42,8 +43,11 @@ export type RecordListFilter = {
   isSoldMode: boolean;
   /** 商品名の部分一致検索。空文字・undefined は無条件 */
   searchText?: string;
-  /** 月フィルタ "YYYY-MM"。null/undefined = 全期間（SPEC §6.1: 年月の完全一致） */
-  monthKey?: string | null;
+  /**
+   * 期間フィルタ（SPEC.md §6.1 / logic/period.ts）。null/undefined = 全期間。
+   * "YYYY-MM" = その月 / "YYYY" = その年。**どちらも基準日の先頭一致**で効く（periodKeySql）。
+   */
+  period?: Period;
   /** 種別フィルタ（SPEC-V2 §4.2）。null/undefined = すべて */
   kind?: RecordKind | null;
   /**
@@ -85,14 +89,15 @@ export type CareerSummary = {
 /**
  * データタブの集計条件（UI-SPEC §1.5 / SPEC-V2 §4.2）。
  *
- * 期間は開始日・終了日の自由指定（旧 AnalyticsRange）をやめ、記録タブと同じ月キーにした（§5-5）。
- * 月バーと期間シートが選べるのは「全期間か 1 か月」のいずれかだけなので、
- * 境界の正規化（旧・決定 §7-10）は不要になり、月の絞り込みは一覧と同じ substr の等値比較で済む。
+ * 期間は開始日・終了日の自由指定（旧 AnalyticsRange）をやめ、記録タブと同じ期間キーにした（§5-5）。
+ * 月バーと期間シートが選べるのは「全期間 / 1 年 / 1 か月」のいずれかだけなので、
+ * 境界の正規化（旧・決定 §7-10）は不要になり、期間の絞り込みは一覧と同じ substr の等値比較で済む
+ * （年は 4 文字・月は 7 文字。長さが変わるだけで条件の形は同じ。SPEC-V3 §5.5 の改訂）。
  * 種別で絞っても集計の形は変わらず、対象レコードが減るだけ（§4.4）。
  */
 export type AnalyticsFilter = {
-  /** 月フィルタ "YYYY-MM"。null = 全期間 */
-  monthKey: string | null;
+  /** 期間フィルタ。null = 全期間 / "YYYY-MM" = その月 / "YYYY" = その年（logic/period.ts） */
+  period: Period;
   /** 種別フィルタ。null/undefined = すべて */
   kind?: RecordKind | null;
   /**
@@ -117,7 +122,7 @@ export type AnalyticsFilter = {
  */
 export function toAnalyticsFilter(filter: RecordListFilter): AnalyticsFilter {
   return {
-    monthKey: filter.monthKey ?? null,
+    period: filter.period ?? null,
     kind: filter.kind ?? null,
     siteName: filter.siteName ?? null,
     tagIds: filter.tagIds,
@@ -210,6 +215,17 @@ function monthKeySql(isSoldMode: boolean): SQL<string> {
 }
 
 /**
+ * 期間の絞り込み条件（SPEC.md §6.2 / logic/period.ts）。
+ *
+ * 保存形式が "YYYY-MM-DDTHH:mm:ss.SSS" で先頭から年・月・日と並ぶので、**期間キーは
+ * そのまま日付の先頭一致**になる ── 年（4 文字）でも月（7 文字）でも条件は同じ形で、
+ * 切り出す長さが変わるだけ（periodKeyLength）。年を足しても SQL の作りは変わらない。
+ */
+function periodMatchSql(dateSql: SQL<string>, period: string): SQL {
+  return sql`substr(${dateSql}, 1, ${periodKeyLength(period)}) = ${period}`;
+}
+
+/**
  * 状態を問わない基準日（期間シートの「記録あり」判定。UI-SPEC §1.2）。
  *
  * basisDateSql は「いま見ている状態」で基準日を選ぶが、こちらは**状態チップを無視する**ので
@@ -230,8 +246,8 @@ function likePattern(searchText: string): string {
 
 function buildWhere(filter: RecordListFilter): SQL {
   const conditions: SQL[] = [eq(saleRecords.isSold, filter.isSoldMode)];
-  if (filter.monthKey != null) {
-    conditions.push(sql`${monthKeySql(filter.isSoldMode)} = ${filter.monthKey}`);
+  if (filter.period != null) {
+    conditions.push(periodMatchSql(basisDateSql(filter.isSoldMode), filter.period));
   }
   const search = filter.searchText?.trim();
   if (search) {
@@ -275,7 +291,7 @@ function tagExistsSql(tagIds: readonly string[]): SQL {
 /**
  * データタブの対象条件（SPEC §6.2 / UI-SPEC §1.5）。
  * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
- * - 期間は販売日の月キー（"YYYY-MM"）の完全一致。null なら期間条件なし（全期間。§5-5）
+ * - 期間は販売日の先頭一致（月 "YYYY-MM" / 年 "YYYY"）。null なら期間条件なし（全期間。§5-5）
  * - 種別（SPEC-V2 §4.2）は指定があればそのまま等値条件にする。
  * - 販売サイト・タグ（SPEC-V4 §6）は buildWhere と**同じ式**を足す。
  *
@@ -288,8 +304,8 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
     eq(saleRecords.isSold, true),
     sql`${saleRecords.saleDate} IS NOT NULL`,
   ];
-  if (filter.monthKey != null) {
-    conditions.push(sql`substr(${saleRecords.saleDate}, 1, 7) = ${filter.monthKey}`);
+  if (filter.period != null) {
+    conditions.push(periodMatchSql(sql<string>`${saleRecords.saleDate}`, filter.period));
   }
   if (filter.kind != null) {
     conditions.push(eq(saleRecords.kind, filter.kind));
@@ -587,7 +603,7 @@ export function createRepository(
 
     /**
      * 条件に合う最古の月キー（UI-SPEC §5-14「◀ はデータのある最古の月で無効」）。
-     * 対象は月バーが動かす範囲そのものなので、呼び出し側は monthKey を含まない filter を渡す。
+     * 対象は月バーが動かす範囲そのものなので、呼び出し側は period を含まない filter を渡す。
      * 0 件なら null。
      */
     earliestMonthKey(filter: RecordListFilter): string | null {
@@ -662,13 +678,13 @@ export function createRepository(
      *
      * 記録タブの earliestMonthKey と役割は同じだが、対象がデータタブの集合
      * （売却済み・saleDate 非 null）なので条件を共有できない。月バーが動かす範囲そのものを
-     * 返すため、呼び出し側は monthKey を外した filter を渡す。0 件なら null。
+     * 返すため、呼び出し側は period を外した filter を渡す。0 件なら null。
      */
     analyticsEarliestMonthKey(filter: AnalyticsFilter): string | null {
       const row = db
         .select({ earliest: sql<string | null>`min(substr(${saleRecords.saleDate}, 1, 7))` })
         .from(saleRecords)
-        .where(buildAnalyticsWhere({ ...filter, monthKey: null }))
+        .where(buildAnalyticsWhere({ ...filter, period: null }))
         .get();
       return row?.earliest ?? null;
     },

@@ -398,7 +398,7 @@ describe('§4.2.1 countsByTagForFilter: 選択中のタグ以外のすべての�
 
     expect(repo.countsByTagForFilter({ isSoldMode: true }).get(clothes.id)).toBe(2);
     expect(
-      repo.countsByTagForFilter({ isSoldMode: true, monthKey: '2026-08' }).get(clothes.id),
+      repo.countsByTagForFilter({ isSoldMode: true, period: '2026-08' }).get(clothes.id),
     ).toBe(1);
   });
 

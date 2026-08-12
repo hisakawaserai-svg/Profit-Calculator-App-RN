@@ -20,6 +20,7 @@
 // 片方だけが使う state は各画面に残す（上げると、どちらが持つ値か読めなくなる）。
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import type { Period } from '@/logic/period';
 import {
   EMPTY_RECORD_FILTER,
   type FilterScope,
@@ -40,9 +41,9 @@ type RecordFilterState = {
   isSoldMode: boolean;
   /** 販売サイトの退避・復元まで面倒を見る（§4.2）。素の setter は出さない */
   changeSoldMode: (nextIsSold: boolean) => void;
-  /** 表示中の月キー "YYYY-MM"。null = 全期間 */
-  monthKey: string | null;
-  setMonthKey: (next: string | null) => void;
+  /** 表示中の期間（全期間 / "YYYY" / "YYYY-MM"。logic/period.ts） */
+  period: Period;
+  setPeriod: (next: Period) => void;
   /** 3 条件だけを初期値へ戻す（期間・検索・並び替えは動かさない。§4.2 / §4.3 / §4.8） */
   clearFilter: () => void;
 };
@@ -62,7 +63,7 @@ export function RecordFilterProvider({
 }) {
   const [filter, setFilter] = useState<RecordFilterDraft>(EMPTY_RECORD_FILTER);
   const [isSoldMode, setIsSoldMode] = useState(true);
-  const [monthKey, setMonthKey] = useState<string | null>(currentMonthKey);
+  const [period, setPeriod] = useState<Period>(currentMonthKey);
   /**
    * 出品中に切り替える直前の販売サイトの指定（§4.2）。売れた記録に戻したときに復元する。
    * **この Stack が生きている間だけ**保つ（決定 §9-9）。
@@ -107,11 +108,11 @@ export function RecordFilterProvider({
       // データタブに状態の切替はないので、ここで固定して下流に分岐を持ち込ませない（§6）
       isSoldMode: scope === 'data' ? true : isSoldMode,
       changeSoldMode,
-      monthKey,
-      setMonthKey,
+      period,
+      setPeriod,
       clearFilter,
     }),
-    [scope, filter, isSoldMode, changeSoldMode, monthKey, clearFilter],
+    [scope, filter, isSoldMode, changeSoldMode, period, clearFilter],
   );
 
   return <RecordFilterContext.Provider value={value}>{children}</RecordFilterContext.Provider>;

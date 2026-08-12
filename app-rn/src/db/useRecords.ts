@@ -117,7 +117,7 @@ function queryList(
     // 月バーが動かせる範囲は「期間を外した集合」で決まるので、月・検索を落として引く
     earliestMonthKey: repository.earliestMonthKey({
       ...summaryFilter,
-      monthKey: null,
+      period: null,
       searchText: '',
     }),
     // 月グリッドの濃淡は絞り込みを一切見ない（UI-SPEC §1.2 の派生決定）。
@@ -305,7 +305,7 @@ function queryAnalytics(
   void refreshToken;
   // 刻みは最古の月に依存するので、集計点より先に引く（AnalyticsData.unit のコメント参照）
   const earliestMonthKey = repository.analyticsEarliestMonthKey(filter);
-  const unit = chartUnitFor({ monthKey: filter.monthKey, earliestMonthKey, today });
+  const unit = chartUnitFor({ period: filter.period, earliestMonthKey, today });
 
   return {
     summary: repository.analyticsSummary(filter),
@@ -337,7 +337,7 @@ function queryAnalyticsDetails(
  * 刻み（日ごと / 月ごと / 年ごと）は期間から自動で決まる（§5-5）。決めるのに最古の月が要るので
  * 引数では受け取らず、ここで決めて `unit` として返す（AnalyticsData.unit のコメント参照）。
  *
- * @param filter      集計対象（月キー + 種別）。monthKey = null で全期間、kind = null で全種別
+ * @param filter      集計対象（期間キー + 種別）。period = null で全期間、kind = null で全種別
  * @param selectedKey タップされた点のキー。null なら内訳は引かない
  * @param today       「今日」。全期間の範囲の右端で、刻みの判定にも使う
  */

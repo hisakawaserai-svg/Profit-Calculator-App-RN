@@ -116,8 +116,8 @@ export function RecordListScreen() {
     setFilter: setRecordFilter,
     isSoldMode,
     changeSoldMode,
-    monthKey,
-    setMonthKey,
+    period,
+    setPeriod,
     clearFilter: clearRecordFilter,
   } = useRecordFilterState();
   const [sortType, setSortType] = useState<RecordSortType>(DEFAULT_SORT);
@@ -136,15 +136,15 @@ export function RecordListScreen() {
     [recordFilter, isSoldMode],
   );
   const filter = useMemo(
-    () => ({ isSoldMode, monthKey, kind, siteName, tagIds, searchText }),
-    [isSoldMode, monthKey, kind, siteName, tagIds, searchText],
+    () => ({ isSoldMode, period, kind, siteName, tagIds, searchText }),
+    [isSoldMode, period, kind, siteName, tagIds, searchText],
   );
   // 合計行は検索を含めない。検索は「探す操作」で、見る対象そのものの限定ではないため
   // （旧月別詳細の summaryFilter と同じ考え方。SPEC-V2 §4.2）。
   // 販売サイトとタグは種別と同じ「限定」なので、こちらには入る（§4.5 の表）
   const summaryFilter = useMemo(
-    () => ({ isSoldMode, monthKey, kind, siteName, tagIds }),
-    [isSoldMode, monthKey, kind, siteName, tagIds],
+    () => ({ isSoldMode, period, kind, siteName, tagIds }),
+    [isSoldMode, period, kind, siteName, tagIds],
   );
   const { records, summary, earliestMonthKey, monthsWithRecords, refresh } = useRecordList(
     filter,
@@ -209,7 +209,7 @@ export function RecordListScreen() {
   const summaryItems: SummaryItem[] = isSoldMode
     ? [
         {
-          label: periodProfitLabel(monthKey),
+          label: periodProfitLabel(period),
           value: formatYenSymbol(summary.totalNetProfit),
           // 収支は赤字になり得るので、符号で色を変える（行の純利益と同じ規則）
           color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
@@ -280,10 +280,10 @@ export function RecordListScreen() {
         {/* 2 段目。**右端に絞り込みの入口（▽）**を持つ（案 34a-A / 34a-B）。
             数は出さない ── 効いている条件は下の青い行に文で並ぶ */}
         <MonthNavBar
-          monthKey={monthKey}
+          period={period}
           earliestMonthKey={earliestMonthKey}
           currentMonthKey={currentMonthKey}
-          onChangeMonth={setMonthKey}
+          onChangePeriod={setPeriod}
           onPressTitle={() => setShowPeriodSheet(true)}
           filter={{
             active: filterCount > 0,
@@ -360,10 +360,10 @@ export function RecordListScreen() {
           データタブと同じ部品を共用する（UI-SPEC §1.2） */}
       <PeriodSheet
         visible={showPeriodSheet}
-        monthKey={monthKey}
+        period={period}
         monthsWithRecords={monthsWithRecords}
         currentMonthKey={currentMonthKey}
-        onSelect={setMonthKey}
+        onSelect={setPeriod}
         onClose={() => setShowPeriodSheet(false)}
       />
       {/* 並び替えシート（⇅）。**先頭の「絞り込みをすべて解除」は外した**（SPEC-V4 §8-6）──

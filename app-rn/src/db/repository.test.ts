@@ -254,7 +254,7 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
 
     it('月フィルタ・検索との AND になる', () => {
       expect(
-        itemNames(repo.filteredAndGrouped({ isSoldMode: true, monthKey: '2026-07', kind: 'used' })),
+        itemNames(repo.filteredAndGrouped({ isSoldMode: true, period: '2026-07', kind: 'used' })),
       ).toEqual(['不要な本']);
       // 「カメラ」に一致するのは仕入品だけなので、不用品で絞ると 0 件
       expect(
@@ -306,13 +306,13 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
 
   describe('分析（AnalyticsFilter）', () => {
     it('kind を省略すると全種別（出品中は従来どおり対象外）', () => {
-      const summary = repo.analyticsSummary({ monthKey: null });
+      const summary = repo.analyticsSummary({ period: null });
 
       expect(summary.recordCount).toBe(3);
     });
 
     it('サマリーが種別で絞られる', () => {
-      const summary = repo.analyticsSummary({ monthKey: null, kind: 'used' });
+      const summary = repo.analyticsSummary({ period: null, kind: 'used' });
 
       expect(summary.recordCount).toBe(2);
       expect(summary.totalSales).toBeCloseTo(
@@ -324,12 +324,12 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
 
     it('種別を絞っても出品中は入ってこない（isSold 条件との AND）', () => {
       // 出品中の仕入品（カメラのケース）は含まれず、売却済みの仕入品 1 件だけになる
-      expect(repo.analyticsSummary({ monthKey: null, kind: 'sourced' }).recordCount).toBe(1);
+      expect(repo.analyticsSummary({ period: null, kind: 'sourced' }).recordCount).toBe(1);
     });
 
     it('チャートの集計点は形が変わらず件数だけ減る（§4.4）', () => {
-      const all = repo.analyticsSeries({ monthKey: null }, 'month');
-      const used = repo.analyticsSeries({ monthKey: null, kind: 'used' }, 'month');
+      const all = repo.analyticsSeries({ period: null }, 'month');
+      const used = repo.analyticsSeries({ period: null, kind: 'used' }, 'month');
 
       expect(all.map((point) => point.key)).toEqual(['2026-07', '2026-08']);
       expect(all[0].recordCount).toBe(2);
@@ -339,16 +339,16 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
     });
 
     it('期間（月キー）と種別の AND で絞られる', () => {
-      expect(repo.analyticsSummary({ monthKey: '2026-07', kind: 'sourced' }).recordCount).toBe(1);
+      expect(repo.analyticsSummary({ period: '2026-07', kind: 'sourced' }).recordCount).toBe(1);
       expect(
-        repo.analyticsSummary({ monthKey: '2026-07', kind: 'used' }).totalNetProfit,
+        repo.analyticsSummary({ period: '2026-07', kind: 'used' }).totalNetProfit,
       ).toBeCloseTo(sumProfit(['usedJuly']), 9);
     });
 
     it('内訳リストも種別で絞られる', () => {
       const names = (kind: 'used' | 'sourced' | undefined) =>
         repo
-          .analyticsDetails({ monthKey: null, kind }, 'month', '2026-07')
+          .analyticsDetails({ period: null, kind }, 'month', '2026-07')
           .map((record) => record.itemName);
 
       // 並びは収支の降順で固定（UI-SPEC §6-10 で指標切替を廃止）
@@ -358,9 +358,9 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
     });
 
     it('月バーの下端（analyticsEarliestMonthKey）も種別で絞られる', () => {
-      expect(repo.analyticsEarliestMonthKey({ monthKey: null })).toBe('2026-07');
-      expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'used' })).toBe('2026-07');
-      expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'sourced' })).toBe('2026-07');
+      expect(repo.analyticsEarliestMonthKey({ period: null })).toBe('2026-07');
+      expect(repo.analyticsEarliestMonthKey({ period: null, kind: 'used' })).toBe('2026-07');
+      expect(repo.analyticsEarliestMonthKey({ period: null, kind: 'sourced' })).toBe('2026-07');
     });
   });
 });
@@ -442,7 +442,7 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
 
   describe('filteredRecords: 月グループを作らずフラットに返す', () => {
     it('月を指定するとその月のレコードだけが 1 本のリストで返る', () => {
-      expect(names(repo.filteredRecords({ isSoldMode: true, monthKey: '2026-08' }))).toEqual([
+      expect(names(repo.filteredRecords({ isSoldMode: true, period: '2026-08' }))).toEqual([
         '8月のカメラ',
         '8月の椅子',
       ]);
@@ -516,7 +516,7 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
     });
 
     it('0 件なら null', () => {
-      expect(repo.earliestMonthKey({ isSoldMode: true, kind: 'sourced', monthKey: '2026-06' })).toBe(
+      expect(repo.earliestMonthKey({ isSoldMode: true, kind: 'sourced', period: '2026-06' })).toBe(
         null,
       );
     });
@@ -542,7 +542,7 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
     });
 
     it('月で絞ればその月ぶんだけになる', () => {
-      const summary = repo.careerSummary({ isSoldMode: false, monthKey: '2026-08' });
+      const summary = repo.careerSummary({ isSoldMode: false, period: '2026-08' });
 
       expect(summary.totalSales).toBe(800);
       expect(summary.recordCount).toBe(1);
@@ -650,7 +650,7 @@ describe('SPEC-V4 §4.4 タグが付いても集計が二重にならない', ()
 
     expect(repo.filteredRecords({ isSoldMode: true })).toHaveLength(1);
     expect(repo.filteredAndGrouped({ isSoldMode: true })[0].recordCount).toBe(1);
-    expect(repo.analyticsSummary({ monthKey: null }).recordCount).toBe(1);
+    expect(repo.analyticsSummary({ period: null }).recordCount).toBe(1);
   });
 });
 
@@ -673,7 +673,7 @@ describe('SPEC-V4 §4.6 countRecords: 絞り込みシート下部の「N 件」'
   });
 
   it('件数だけを返す（条件は buildWhere と同じなので一覧の件数と必ず一致する）', () => {
-    const filter = { isSoldMode: true, monthKey: '2026-08' };
+    const filter = { isSoldMode: true, period: '2026-08' };
 
     expect(repo.countRecords(filter)).toBe(2);
     expect(repo.countRecords(filter)).toBe(repo.filteredRecords(filter).length);
@@ -683,11 +683,11 @@ describe('SPEC-V4 §4.6 countRecords: 絞り込みシート下部の「N 件」'
     expect(repo.countRecords({ isSoldMode: true })).toBe(3);
     expect(repo.countRecords({ isSoldMode: false })).toBe(1);
     expect(repo.countRecords({ isSoldMode: true, kind: 'sourced' })).toBe(1);
-    expect(repo.countRecords({ isSoldMode: true, monthKey: '2026-07' })).toBe(1);
+    expect(repo.countRecords({ isSoldMode: true, period: '2026-07' })).toBe(1);
   });
 
   it('0 件でも落ちずに 0 を返す', () => {
-    expect(repo.countRecords({ isSoldMode: true, monthKey: '2020-01' })).toBe(0);
+    expect(repo.countRecords({ isSoldMode: true, period: '2020-01' })).toBe(0);
   });
 });
 
@@ -813,7 +813,7 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
    */
   it('タグ 2 つの記録が analyticsSummary で二重に計上されない', () => {
     // 8/3 の 1 件だけを見る（この記録にタグが 2 つ付いている）
-    const one = { monthKey: null, siteName: 'ラクマ' };
+    const one = { period: null, siteName: 'ラクマ' };
     const withoutTags = repo.analyticsSummary(one);
     const withBothTags = repo.analyticsSummary({ ...one, tagIds: [clothes.id, summer.id] });
 
@@ -824,7 +824,7 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
   });
 
   it('タグの OR がグラフの集計点（analyticsSeries）にも効く', () => {
-    const both = repo.analyticsSeries({ monthKey: null, tagIds: [clothes.id, summer.id] }, 'day');
+    const both = repo.analyticsSeries({ period: null, tagIds: [clothes.id, summer.id] }, 'day');
 
     // 3 件が 3 日に分かれているので点も 3 つ。両方付いた 8/3 の点も 1 件のまま
     expect(both.map((point) => point.key)).toEqual(['2026-08-01', '2026-08-02', '2026-08-03']);
@@ -832,15 +832,15 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
 
     // 1 つだけなら、そのタグが付いた 2 日ぶんに減る
     expect(
-      repo.analyticsSeries({ monthKey: null, tagIds: [clothes.id] }, 'day').map((p) => p.key),
+      repo.analyticsSeries({ period: null, tagIds: [clothes.id] }, 'day').map((p) => p.key),
     ).toEqual(['2026-08-01', '2026-08-03']);
   });
 
   it('販売サイトで絞れる（合計・集計点・最古の月のすべてに効く）', () => {
-    expect(repo.analyticsSummary({ monthKey: null, siteName: 'メルカリ' }).recordCount).toBe(2);
-    expect(repo.analyticsSeries({ monthKey: null, siteName: 'ラクマ' }, 'day')).toHaveLength(1);
-    expect(repo.analyticsEarliestMonthKey({ monthKey: null, siteName: 'ラクマ' })).toBe('2026-08');
-    expect(repo.analyticsEarliestMonthKey({ monthKey: null, siteName: '無い名前' })).toBeNull();
+    expect(repo.analyticsSummary({ period: null, siteName: 'メルカリ' }).recordCount).toBe(2);
+    expect(repo.analyticsSeries({ period: null, siteName: 'ラクマ' }, 'day')).toHaveLength(1);
+    expect(repo.analyticsEarliestMonthKey({ period: null, siteName: 'ラクマ' })).toBe('2026-08');
+    expect(repo.analyticsEarliestMonthKey({ period: null, siteName: '無い名前' })).toBeNull();
   });
 
   /**
@@ -849,13 +849,13 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
    */
   it('内訳（analyticsDetails）にも同じ条件が効く', () => {
     const details = repo.analyticsDetails(
-      { monthKey: null, tagIds: [clothes.id] },
+      { period: null, tagIds: [clothes.id] },
       'day',
       '2026-08-01',
     );
     expect(details).toHaveLength(1);
     expect(
-      repo.analyticsDetails({ monthKey: null, tagIds: [summer.id] }, 'day', '2026-08-01'),
+      repo.analyticsDetails({ period: null, tagIds: [summer.id] }, 'day', '2026-08-01'),
     ).toHaveLength(0);
   });
 
@@ -863,8 +863,8 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
     it('出品中の記録は数に入らない（記録タブの countsByTagForFilter との違い）', () => {
       // 「洋服」は売却済み 2 件＋出品中 1 件に付いている
       expect(repo.countsByTagForFilter({ isSoldMode: false }).get(clothes.id)).toBe(1);
-      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(2);
-      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(summer.id)).toBe(2);
+      expect(repo.analyticsCountsByTagForFilter({ period: null }).get(clothes.id)).toBe(2);
+      expect(repo.analyticsCountsByTagForFilter({ period: null }).get(summer.id)).toBe(2);
     });
 
     /**
@@ -882,20 +882,20 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
         saleDate: soldOn(4),
         tagIds: [clothes.id],
       });
-      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(3);
+      expect(repo.analyticsCountsByTagForFilter({ period: null }).get(clothes.id)).toBe(3);
 
       // 販売日だけを落とす（保存経路では作れない状態を直接作る）
       db.run(sql`UPDATE sale_records SET sale_date = NULL WHERE id = ${orphan.id}`);
 
-      expect(repo.analyticsCountsByTagForFilter({ monthKey: null }).get(clothes.id)).toBe(2);
+      expect(repo.analyticsCountsByTagForFilter({ period: null }).get(clothes.id)).toBe(2);
       // 下部の件数と必ず同じ集合で数えていること
-      expect(repo.analyticsSummary({ monthKey: null, tagIds: [clothes.id] }).recordCount).toBe(2);
+      expect(repo.analyticsSummary({ period: null, tagIds: [clothes.id] }).recordCount).toBe(2);
     });
 
     /** 選択中のタグだけを外して数える（OR なので、織り込むと逆向きの嘘になる。§4.2.1） */
     it('選択中のタグは条件から外れ、ほかの条件は効いたまま', () => {
       const counts = repo.analyticsCountsByTagForFilter({
-        monthKey: null,
+        period: null,
         siteName: 'メルカリ',
         tagIds: [clothes.id],
       });
@@ -903,6 +903,121 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
       // メルカリの 2 件は「洋服」1 件・「春夏物」1 件。tagIds は数えるときに外れる
       expect(counts.get(clothes.id)).toBe(1);
       expect(counts.get(summer.id)).toBe(1);
+    });
+  });
+});
+
+/**
+ * 期間に「年」が加わった（SPEC-V3 §5.5 の改訂 / UI-SPEC §1.2）。
+ *
+ * 期間キーは日付の**先頭一致**で効く（logic/period.periodKeyLength → SQL の substr）ので、
+ * 年（4 文字）でも月（7 文字）でも条件の形は同じ ── ここで見るのは
+ * 「その形が年でも実際に効くか」と、**年をまたいだ記録が混ざらないこと**。
+ */
+describe('期間フィルタに年（"YYYY"）を渡す（SPEC.md §6.2 / SPEC-V3 §5.5 の改訂）', () => {
+  let repo: Repository;
+
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
+
+  beforeAll(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    // 2024 年・2025 年（1 月と 12 月の両端）・2026 年に売れた記録を置く
+    const sold = (itemName: string, saleDate: Date, salesPrice: number) =>
+      repo.create({
+        ...base,
+        kind: 'used',
+        purchasePrice: 0,
+        itemName,
+        salesPrice,
+        postage: 0,
+        commission: 0,
+        isSold: true,
+        saleStartDate: new Date(saleDate.getFullYear(), saleDate.getMonth(), 1, 12, 0, 0),
+        saleDate,
+      });
+    sold('2024年の本', d(2024, 12, 31), 1000);
+    sold('2025年1月の椅子', d(2025, 1, 1), 2000);
+    sold('2025年8月の鍋', d(2025, 8, 15), 3000);
+    sold('2025年12月のカメラ', d(2025, 12, 31), 4000);
+    sold('2026年の傘', d(2026, 1, 1), 5000);
+    // 出品中（基準日は出品日）。年で絞ったとき状態ごとに基準日が変わることの確認に使う
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      itemName: '2025年に出したバッグ',
+      salesPrice: 800,
+      postage: 0,
+      commission: 0,
+      isSold: false,
+      saleStartDate: d(2025, 5, 5),
+      saleDate: null,
+    });
+  });
+
+  const names = (records: ReturnType<Repository['filteredRecords']>) =>
+    records.map((record) => record.itemName);
+
+  describe('記録タブ（buildWhere）', () => {
+    it('年を渡すとその年の 1〜12 月がすべて入り、隣の年は入らない', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: true, period: '2025' }, 'saleDateAsc'))).toEqual(
+        ['2025年1月の椅子', '2025年8月の鍋', '2025年12月のカメラ'],
+      );
+    });
+
+    it('年の境（12/31 と 1/1）で混ざらない', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: true, period: '2024' }))).toEqual([
+        '2024年の本',
+      ]);
+      expect(names(repo.filteredRecords({ isSoldMode: true, period: '2026' }))).toEqual([
+        '2026年の傘',
+      ]);
+    });
+
+    it('月キーは従来どおり効く（年を足しても壊れない）', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: true, period: '2025-08' }))).toEqual([
+        '2025年8月の鍋',
+      ]);
+    });
+
+    it('出品中では基準日が出品日になる（状態ごとの基準日は年でも同じ規則）', () => {
+      expect(names(repo.filteredRecords({ isSoldMode: false, period: '2025' }))).toEqual([
+        '2025年に出したバッグ',
+      ]);
+      expect(repo.filteredRecords({ isSoldMode: false, period: '2026' })).toEqual([]);
+    });
+
+    it('合計行も同じ集合で集計される（年 = 12 か月ぶんの合計）', () => {
+      const summary = repo.careerSummary({ isSoldMode: true, period: '2025' });
+
+      expect(summary.recordCount).toBe(3);
+      expect(summary.totalSales).toBeCloseTo(2000 + 3000 + 4000, 9);
+    });
+  });
+
+  describe('データタブ（buildAnalyticsWhere）', () => {
+    it('年で絞ると販売日がその年の記録だけになる', () => {
+      expect(repo.analyticsSummary({ period: '2025' }).recordCount).toBe(3);
+      expect(repo.analyticsSummary({ period: '2025' }).totalSales).toBeCloseTo(9000, 9);
+      expect(repo.analyticsSummary({ period: '2024' }).recordCount).toBe(1);
+      // 出品中は年で絞っても入らない（isSold = true 固定。SPEC §6.2）
+      expect(repo.analyticsSummary({ period: null }).recordCount).toBe(5);
+    });
+
+    it('年を選んだときの集計点は月ごとの 3 点（記録のある月だけ返る）', () => {
+      // 刻みは chartUnitFor が 'month' を返す（12 か月なので閾値に触れない）。
+      // 記録のない月を 0 で埋めるのは画面側（densifySeries）
+      const series = repo.analyticsSeries({ period: '2025' }, 'month');
+
+      expect(series.map((point) => point.key)).toEqual(['2025-01', '2025-08', '2025-12']);
+    });
+
+    it('内訳（棒タップ）も年の条件と AND になる', () => {
+      const details = repo.analyticsDetails({ period: '2025' }, 'month', '2025-08');
+
+      expect(details.map((record) => record.itemName)).toEqual(['2025年8月の鍋']);
+      // 年が違えばキーが一致しても 0 件（期間条件が効いていること）
+      expect(repo.analyticsDetails({ period: '2024' }, 'month', '2025-08')).toEqual([]);
     });
   });
 });

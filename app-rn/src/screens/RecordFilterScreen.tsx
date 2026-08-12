@@ -29,8 +29,6 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { TagDot } from '@/components/TagChip';
 import { useFilteredRecordCount } from '@/db/useRecords';
 import { useSiteNames, useTagCountsForFilter, useTagList } from '@/db/useTags';
-import { formatMonthTitle } from '@/logic/format';
-import { monthKeyToDate } from '@/db/dates';
 import { KIND_FILTER_OPTIONS } from '@/logic/kindFilter';
 import {
   FILTER_ALL_LABEL,
@@ -52,7 +50,9 @@ import {
   filterTagSectionLabel,
   matchingRecordCountValue,
   matchingRecordLabel,
+  periodTitle,
 } from '@/logic/labels';
+import { isAllPeriod } from '@/logic/period';
 import { activeFilterCount, hasActiveFilter, toFilterConditions } from '@/logic/recordFilter';
 import { searchTags, selectedTags } from '@/logic/tag';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
@@ -60,7 +60,7 @@ import { useThemeColors } from '@/theme';
 
 export function RecordFilterScreen() {
   const colors = useThemeColors();
-  const { scope, filter, setFilter, isSoldMode, monthKey, clearFilter } = useRecordFilterState();
+  const { scope, filter, setFilter, isSoldMode, period, clearFilter } = useRecordFilterState();
 
   const { tags } = useTagList();
   const siteNames = useSiteNames();
@@ -75,8 +75,8 @@ export function RecordFilterScreen() {
     [filter, isSoldMode],
   );
   const countFilter = useMemo(
-    () => ({ isSoldMode, monthKey, kind, siteName, tagIds }),
-    [isSoldMode, monthKey, kind, siteName, tagIds],
+    () => ({ isSoldMode, period, kind, siteName, tagIds }),
+    [isSoldMode, period, kind, siteName, tagIds],
   );
   const matchCount = useFilteredRecordCount(countFilter, scope);
   /**
@@ -105,13 +105,14 @@ export function RecordFilterScreen() {
     });
   };
 
-  // §4.2.3 / 案 35e: 0 件のときだけ下部を 2 行にする。月名は月バーと同じ書式で、
-  // 全期間なら出さない（入れる月が無いので）。**条件が 0 本なら 2 行目ごと出ない**
-  // （filterNoMatchNote が null を返す）── 原因が期間しかなく、ここで言えることが無い
+  // §4.2.3 / 案 35e: 0 件のときだけ下部を 2 行にする。期間名は月バーと同じ書式で
+  // （年を選んでいれば「2025年」）、全期間なら出さない（入れる語が無いので）。
+  // **条件が 0 本なら 2 行目ごと出ない**（filterNoMatchNote が null を返す）──
+  // 原因が期間しかなく、ここで言えることが無い
   const noMatchNote =
     matchCount === 0
       ? filterNoMatchNote(
-          monthKey == null ? null : formatMonthTitle(monthKeyToDate(monthKey)),
+          isAllPeriod(period) ? null : periodTitle(period),
           activeFilterCount(filter),
         )
       : null;

@@ -29,35 +29,44 @@ import {
 const d = (y: number, m: number, day: number, h = 12, min = 0) =>
   new Date(y, m - 1, day, h, min, 0, 0);
 
-describe('§5-5 刻みは期間から自動で決まる（月 = 日ごと / 全期間 = 月ごと・36 か月超で年ごと）', () => {
+describe('§5-5 刻みは期間から自動で決まる（月 = 日ごと / 年・全期間 = 月ごと・36 か月超で年ごと）', () => {
   const today = d(2026, 8, 10);
 
   it('月を選んでいれば日ごと（記録がどれだけ古くても変わらない）', () => {
-    expect(chartUnitFor({ monthKey: '2026-08', earliestMonthKey: '2026-01', today })).toBe('day');
-    expect(chartUnitFor({ monthKey: '2025-01', earliestMonthKey: '2015-01', today })).toBe('day');
+    expect(chartUnitFor({ period: '2026-08', earliestMonthKey: '2026-01', today })).toBe('day');
+    expect(chartUnitFor({ period: '2025-01', earliestMonthKey: '2015-01', today })).toBe('day');
   });
 
   it('全期間で 36 か月以内なら月ごと', () => {
     // 2026-08 から見て 2024-09 は 24 か月ぶん
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2024-09', today })).toBe('month');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2024-09', today })).toBe('month');
     // 同じ月に 1 件だけ = 1 か月
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2026-08', today })).toBe('month');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2026-08', today })).toBe('month');
   });
 
   it('境界: ちょうど 36 か月は月ごと、37 か月から年ごと', () => {
     // 2023-09 〜 2026-08 は両端を含めて 36 か月
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2023-09', today })).toBe('month');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2023-09', today })).toBe('month');
     // 1 か月古いだけで 37 か月になり、切り替わる
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2023-08', today })).toBe('year');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2023-08', today })).toBe('year');
   });
 
   it('全期間で 37 か月以上なら年ごと（5 年ぶんの棒 60 本を作らない）', () => {
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2021-09', today })).toBe('year');
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: '2015-01', today })).toBe('year');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2021-09', today })).toBe('year');
+    expect(chartUnitFor({ period: null, earliestMonthKey: '2015-01', today })).toBe('year');
+  });
+
+  it('**年を選ぶと月ごと**（12 か月は閾値のはるか下なので、閾値に触れず落ちる）', () => {
+    // 過去の年 = 1 月〜12 月の 12 スロット
+    expect(chartUnitFor({ period: '2025', earliestMonthKey: '2015-01', today })).toBe('month');
+    // 今年（今日まで）でも同じ。記録が何年ぶんあっても年の刻みには落ちない
+    expect(chartUnitFor({ period: '2026', earliestMonthKey: '2015-01', today })).toBe('month');
+    // 記録が 0 件でも変わらない（軸は年の枠で引ける）
+    expect(chartUnitFor({ period: '2025', earliestMonthKey: null, today })).toBe('month');
   });
 
   it('全期間で記録が 1 件もなければ月ごと（軸そのものが引けない）', () => {
-    expect(chartUnitFor({ monthKey: null, earliestMonthKey: null, today })).toBe('month');
+    expect(chartUnitFor({ period: null, earliestMonthKey: null, today })).toBe('month');
   });
 
   it('閾値は 36 か月（画面ではなくここに閉じている）', () => {
@@ -235,7 +244,7 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
   describe('chartSpan: 軸が覆う範囲', () => {
     it('過去の月は 1 日から末日まで', () => {
       const span = chartSpan({
-        monthKey: '2026-07',
+        period: '2026-07',
         earliestMonthKey: '2026-01',
         today: d(2026, 8, 10),
       });
@@ -244,28 +253,57 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
 
     it('今月は今日まで（来ていない日まで軸を伸ばさない）', () => {
       const today = new Date(2026, 7, 10, 9, 30);
-      const span = chartSpan({ monthKey: '2026-08', earliestMonthKey: '2026-01', today });
+      const span = chartSpan({ period: '2026-08', earliestMonthKey: '2026-01', today });
       expect(span).toEqual({ from: d(2026, 8, 1), to: today });
     });
 
     it('うるう年の 2 月は 29 日まで', () => {
       const span = chartSpan({
-        monthKey: '2024-02',
+        period: '2024-02',
         earliestMonthKey: '2024-01',
         today: d(2026, 8, 10),
       });
       expect(span?.to).toEqual(d(2024, 2, 29));
     });
 
+    it('過去の年は 1/1 から 12/31 まで（X 軸は 12 スロット）', () => {
+      const span = chartSpan({
+        period: '2025',
+        earliestMonthKey: '2024-01',
+        today: d(2026, 8, 10),
+      });
+      expect(span).toEqual({ from: new Date(2025, 0, 1), to: new Date(2025, 11, 31) });
+      expect(chartSlots('month', span!.from, span!.to).map((slot) => slot.key)).toEqual([
+        '2025-01',
+        '2025-02',
+        '2025-03',
+        '2025-04',
+        '2025-05',
+        '2025-06',
+        '2025-07',
+        '2025-08',
+        '2025-09',
+        '2025-10',
+        '2025-11',
+        '2025-12',
+      ]);
+    });
+
+    it('今年は今日まで（月のときと同じで、来ていない月まで軸を伸ばさない）', () => {
+      const today = new Date(2026, 7, 10, 9, 30);
+      const span = chartSpan({ period: '2026', earliestMonthKey: '2024-01', today });
+      expect(span).toEqual({ from: new Date(2026, 0, 1), to: today });
+    });
+
     it('全期間は最も古い記録の月から今月まで', () => {
       const today = d(2026, 8, 10);
-      const span = chartSpan({ monthKey: null, earliestMonthKey: '2025-03', today });
+      const span = chartSpan({ period: null, earliestMonthKey: '2025-03', today });
       expect(span).toEqual({ from: d(2025, 3, 1), to: today });
     });
 
     it('全期間で記録が 1 件もなければ軸を引けない', () => {
       expect(
-        chartSpan({ monthKey: null, earliestMonthKey: null, today: d(2026, 8, 10) }),
+        chartSpan({ period: null, earliestMonthKey: null, today: d(2026, 8, 10) }),
       ).toBeNull();
     });
   });

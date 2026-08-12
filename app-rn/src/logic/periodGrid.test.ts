@@ -1,48 +1,81 @@
-// UI-SPEC §1.2「期間シート」の月グリッドの規則を検証する。
-// 期待値は UI-SPEC の記述から導出している（実装からの逆算ではない）。
+// UI-SPEC §1.2「期間シート」（案 39b: カード 1 枚 ＋ 見出しの矢印で年を送る）の
+// 月グリッドの規則を検証する。期待値は UI-SPEC の記述から導出している（実装からの逆算ではない）。
 
 import { describe, expect, it } from 'vitest';
 
-import { periodGrid } from './periodGrid';
+import { gridYearRange, periodGrid } from './periodGrid';
 
-const grid = (currentMonthKey: string, monthsWithRecords: string[] = []) =>
-  periodGrid({ currentMonthKey, monthsWithRecords });
+const grid = (year: number, currentMonthKey: string, monthsWithRecords: string[] = []) =>
+  periodGrid({ year, currentMonthKey, monthsWithRecords });
 
-describe('出す年の範囲: 今年から「記録の最も古い月を含む年」まで（降順）', () => {
-  it('最古の記録の年まで、今年から降順に並ぶ', () => {
-    const blocks = grid('2026-08', ['2024-11', '2025-03', '2026-08']);
-    expect(blocks.map((block) => block.year)).toEqual([2026, 2025, 2024]);
+describe('出せる年の範囲: 今年から「記録の最も古い月を含む年」まで', () => {
+  it('最古の記録の年が下端になる', () => {
+    expect(gridYearRange({ currentMonthKey: '2026-08', monthsWithRecords: ['2024-11', '2025-03'] }))
+      .toEqual({ oldest: 2024, newest: 2026 });
   });
 
   it('記録が 1 件もないときは今年だけ（グリッドを空にしない）', () => {
-    expect(grid('2026-08').map((block) => block.year)).toEqual([2026]);
-  });
-
-  it('記録が今年だけなら今年だけ', () => {
-    expect(grid('2026-08', ['2026-01']).map((block) => block.year)).toEqual([2026]);
+    expect(gridYearRange({ currentMonthKey: '2026-08', monthsWithRecords: [] })).toEqual({
+      oldest: 2026,
+      newest: 2026,
+    });
   });
 });
 
-describe('各年は 1〜12 月を必ず全部出す', () => {
-  it('最古の記録より前の月も未来の月も枠としては出る', () => {
-    const blocks = grid('2026-08', ['2026-08']);
-    expect(blocks[0].months.map((cell) => cell.month)).toEqual([
+describe('カードは常に 1 枚（案 39b）', () => {
+  it('指定した年の 1〜12 月を返す', () => {
+    const block = grid(2025, '2026-08', ['2024-11', '2025-03']);
+
+    expect(block.year).toBe(2025);
+    expect(block.months.map((cell) => cell.month)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ]);
-    expect(blocks[0].months.map((cell) => cell.monthKey)).toContain('2026-12');
+    // 最古の記録より前の月も未来の月も枠としては出る
+    expect(block.months.map((cell) => cell.monthKey)).toContain('2025-01');
+    expect(grid(2026, '2026-08').months.map((cell) => cell.monthKey)).toContain('2026-12');
   });
 
-  it('どの年も 12 マス', () => {
-    for (const block of grid('2026-08', ['2024-01'])) {
-      expect(block.months).toHaveLength(12);
-    }
+  it('範囲の外の年は端に丸める（記録が消えて範囲が縮んでも空にならない）', () => {
+    expect(grid(2020, '2026-08', ['2024-11']).year).toBe(2024);
+    expect(grid(2030, '2026-08', ['2024-11']).year).toBe(2026);
+  });
+});
+
+describe('見出しの ‹ › の無効化（§5-14 と同じ考え方）', () => {
+  const records = ['2024-11', '2026-08'];
+
+  it('今年では › が無効（未来の年は出さない）', () => {
+    expect(grid(2026, '2026-08', records)).toMatchObject({
+      canGoBack: true,
+      canGoForward: false,
+    });
+  });
+
+  it('データのある最古の年では ‹ が無効', () => {
+    expect(grid(2024, '2026-08', records)).toMatchObject({
+      canGoBack: false,
+      canGoForward: true,
+    });
+  });
+
+  it('間の年では両方とも押せる', () => {
+    expect(grid(2025, '2026-08', records)).toMatchObject({
+      canGoBack: true,
+      canGoForward: true,
+    });
+  });
+
+  it('記録が今年だけなら両方とも無効（動かす先がない）', () => {
+    expect(grid(2026, '2026-08', ['2026-01'])).toMatchObject({
+      canGoBack: false,
+      canGoForward: false,
+    });
   });
 });
 
 describe('マスの状態: 記録の有無と未来かどうか', () => {
-  const blocks = grid('2026-08', ['2026-03', '2026-08']);
-  const cell = (monthKey: string) =>
-    blocks.flatMap((block) => block.months).find((c) => c.monthKey === monthKey)!;
+  const block = grid(2026, '2026-08', ['2026-03', '2026-08']);
+  const cell = (monthKey: string) => block.months.find((c) => c.monthKey === monthKey)!;
 
   it('記録のある月は hasRecord', () => {
     expect(cell('2026-03').hasRecord).toBe(true);
@@ -63,9 +96,13 @@ describe('マスの状態: 記録の有無と未来かどうか', () => {
   });
 
   it('年をまたいでも月キーの比較で未来が決まる', () => {
-    const december = grid('2025-12', ['2025-01']);
-    const cells = december.flatMap((block) => block.months);
-    expect(cells.find((c) => c.monthKey === '2025-12')!.isFuture).toBe(false);
-    expect(cells.find((c) => c.monthKey === '2025-11')!.isFuture).toBe(false);
+    const december = grid(2025, '2025-12', ['2025-01']);
+    expect(december.months.find((c) => c.monthKey === '2025-12')!.isFuture).toBe(false);
+    expect(december.months.find((c) => c.monthKey === '2025-11')!.isFuture).toBe(false);
+  });
+
+  it('過去の年はすべて未来ではない（12 月まで押せる）', () => {
+    const past = grid(2025, '2026-08', ['2025-01']);
+    expect(past.months.every((c) => !c.isFuture)).toBe(true);
   });
 });

@@ -1,10 +1,15 @@
 // 月バー `◀　2026年8月 ▾　▶`（UI-SPEC §1.2）。記録タブ・データタブで共用する。
 //
-// 無効化の規則（§5-14）:
-//   - ▶ は今月で無効（未来の月は選べない）
-//   - ◀ はデータのある最古の月で無効（それより前は必ず 0 件なので）
-//   - 全期間を選んでいる間は両方とも無効（動かす基準の月がないため）
-// 中央タップで期間シート（全期間 / 各月）を開く。選べるのは全期間か 1 か月のいずれかだけ（§5-5）。
+// **期間は 3 値**（全期間 / 年 / 月。logic/period.ts）。年を選んでいる間は `◀　2025年 ▾　▶` と出て、
+// **◀▶ は前年・翌年へ動く** ── 矢印の意味は期間の種類で変わるが、
+// 「表示されているものを 1 つ前後に動かす」と読めば一貫している（UI-SPEC §1.2 / SPEC-V3 §5.5 の改訂）。
+//
+// 無効化の規則（§5-14）も同じ読みで揃う:
+//   - ▶ は今月／今年で無効（未来は選べない）
+//   - ◀ はデータのある最古の月／最古の年で無効（それより前は必ず 0 件なので）
+//   - 全期間を選んでいる間は両方とも無効（動かす基準がないため）
+// 判定そのものは canShiftPeriod（純粋関数）が持ち、ここでは期間の種類で分岐しない。
+// 中央タップで期間シート（全期間 / 年 / 各月）を開く（§5-5）。
 //
 // **右端に絞り込みの入口（▽）を持つ**（案 34a-A / 34a-B）。旧「絞り込み N」チップを廃して
 // ここへ移したので、上部の固定段が 1 段減る。数（N）は出さない ── 効いている条件は
@@ -15,19 +20,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { shiftMonthKey, monthKeyToDate } from '@/db/dates';
-import { formatMonthTitle } from '@/logic/format';
-import { ALL_PERIOD_LABEL } from '@/logic/labels';
+import { nextPeriodLabel, periodTitle, previousPeriodLabel } from '@/logic/labels';
+import { canShiftPeriod, shiftPeriod, type Period } from '@/logic/period';
 import { useThemeColors } from '@/theme';
 
 type Props = {
-  /** 表示中の月キー "YYYY-MM"。null = 全期間 */
-  monthKey: string | null;
+  /** 表示中の期間（全期間 / "YYYY" / "YYYY-MM"） */
+  period: Period;
   /** データのある最古の月キー。null = 0 件 */
   earliestMonthKey: string | null;
   /** 今月の月キー。「今日」を画面から渡して、日付をまたいでも表示が固まらないようにする */
   currentMonthKey: string;
-  onChangeMonth: (monthKey: string) => void;
+  /** ◀ ▶ で動かした先の期間。**期間の種類は変わらない**（月なら月・年なら年） */
+  onChangePeriod: (period: string) => void;
   /** 中央タップ（期間シートを開く） */
   onPressTitle: () => void;
   /**
@@ -43,22 +48,28 @@ type Props = {
 };
 
 export function MonthNavBar({
-  monthKey,
+  period,
   earliestMonthKey,
   currentMonthKey,
-  onChangeMonth,
+  onChangePeriod,
   onPressTitle,
   filter,
 }: Props) {
   const colors = useThemeColors();
 
-  // 月キーは固定長なので、大小比較はそのまま文字列比較でよい
-  const canGoBack =
-    monthKey != null && earliestMonthKey != null && monthKey > earliestMonthKey;
-  const canGoForward = monthKey != null && monthKey < currentMonthKey;
+  const bounds = { earliestMonthKey, currentMonthKey };
+  const canGoBack = canShiftPeriod(period, -1, bounds);
+  const canGoForward = canShiftPeriod(period, 1, bounds);
+  /** 1 つ前後に動かす。全期間では矢印そのものが無効なので、shiftPeriod の null は届かない */
+  const shift = (delta: number) => {
+    const next = shiftPeriod(period, delta);
+    if (next != null) onChangePeriod(next);
+  };
 
-  const title =
-    monthKey == null ? ALL_PERIOD_LABEL : formatMonthTitle(monthKeyToDate(monthKey));
+  const title = periodTitle(period);
+  // 読み上げの語も期間の種類に合わせる（「前の月」/「前の年」）。表示語は画面で組み立てない
+  const backLabel = previousPeriodLabel(period);
+  const forwardLabel = nextPeriodLabel(period);
 
   return (
     <View style={styles.bar}>
@@ -69,8 +80,8 @@ export function MonthNavBar({
         <ArrowButton
           name="chevron-back"
           enabled={canGoBack}
-          onPress={() => monthKey != null && onChangeMonth(shiftMonthKey(monthKey, -1))}
-          accessibilityLabel="前の月"
+          onPress={() => shift(-1)}
+          accessibilityLabel={backLabel}
         />
 
         <Pressable
@@ -85,8 +96,8 @@ export function MonthNavBar({
         <ArrowButton
           name="chevron-forward"
           enabled={canGoForward}
-          onPress={() => monthKey != null && onChangeMonth(shiftMonthKey(monthKey, 1))}
-          accessibilityLabel="次の月"
+          onPress={() => shift(1)}
+          accessibilityLabel={forwardLabel}
         />
       </View>
 

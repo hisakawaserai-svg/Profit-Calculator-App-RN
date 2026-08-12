@@ -27,9 +27,10 @@ import * as schema from './schema';
  * 変わったので、種別を見ない既存のケースはこれで包む（kind 省略 = すべて）。
  * 種別で絞るケースは repository.test.ts 側に置く。
  *
- * 期間は開始・終了日の自由指定から月キーに変わった（UI-SPEC §5-5）。null = 全期間。
+ * 期間は開始・終了日の自由指定から期間キーに変わった（UI-SPEC §5-5）。
+ * null = 全期間 / "YYYY-MM" = 月 / "YYYY" = 年。
  */
-const period = (monthKey: string | null): AnalyticsFilter => ({ monthKey });
+const period = (key: string | null): AnalyticsFilter => ({ period: key });
 
 const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'saleDate'> = {
   // 仕入価格を持つフィクスチャなので仕入品。不用品にすると §2.4 の正規化で 0 になる
@@ -282,16 +283,16 @@ describe('UI-SPEC §1.2 期間シートの月グリッド（monthsWithRecords）
 
 describe('UI-SPEC §5-14 月バーの ◀ の下端（analyticsEarliestMonthKey）', () => {
   it('売却済みレコードの最古の月を返す（選択中の月には左右されない）', () => {
-    expect(repo.analyticsEarliestMonthKey({ monthKey: null })).toBe('2025-03');
-    expect(repo.analyticsEarliestMonthKey({ monthKey: AUGUST })).toBe('2025-03');
+    expect(repo.analyticsEarliestMonthKey({ period: null })).toBe('2025-03');
+    expect(repo.analyticsEarliestMonthKey({ period: AUGUST })).toBe('2025-03');
   });
 
   it('出品中は含まれない（種別で絞ればその集合の最古になる）', () => {
     // 出品中の商品（2026-08-04 出品）は saleDate が null なので最古の判定に効かない
-    expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'sourced' })).toBe('2025-03');
+    expect(repo.analyticsEarliestMonthKey({ period: null, kind: 'sourced' })).toBe('2025-03');
   });
 
   it('対象 0 件なら null', () => {
-    expect(repo.analyticsEarliestMonthKey({ monthKey: null, kind: 'used' })).toBeNull();
+    expect(repo.analyticsEarliestMonthKey({ period: null, kind: 'used' })).toBeNull();
   });
 });

@@ -153,7 +153,7 @@ assert.notEqual(july.totalNetProfit, Math.round(july.totalNetProfit), '小数を
 assert.equal(july.recordCount, 2);
 
 // 月フィルタ（年月の完全一致）
-const julyOnly = repo.filteredAndGrouped({ isSoldMode: true, monthKey: '2026-07' });
+const julyOnly = repo.filteredAndGrouped({ isSoldMode: true, period: '2026-07' });
 assert.equal(julyOnly.length, 1);
 assert.equal(julyOnly[0].recordCount, 2);
 

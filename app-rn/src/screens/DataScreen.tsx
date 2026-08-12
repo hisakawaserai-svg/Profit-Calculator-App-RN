@@ -52,6 +52,7 @@ import {
   type DualAxisBounds,
 } from '@/logic/analytics';
 import { formatCompactYen, formatSignedYenSymbol, formatYenSymbol } from '@/logic/format';
+import type { Period } from '@/logic/period';
 import {
   CHART_UNIT_NOTE,
   CLEAR_SELECTION_LABEL,
@@ -205,15 +206,15 @@ export function DataScreen() {
   const {
     filter: recordFilter,
     setFilter: setRecordFilter,
-    monthKey,
-    setMonthKey,
+    period,
+    setPeriod,
     clearFilter,
   } = useRecordFilterState();
   /**
    * タップされた棒。**どの絞り込みの下で選んだか**まで持つ（null = 未選択）。
    *
    * 絞り込みを変えると集計対象が変わり、選んでいた棒はもう同じ集合を指していないので外す ──
-   * 期間を変えたとき（changeMonth）と同じ扱い。条件は絞り込みページで選んだ瞬間から効く（§4.2）ので、
+   * 期間を変えたとき（changePeriod）と同じ扱い。条件は絞り込みページで選んだ瞬間から効く（§4.2）ので、
    * **選んだときの下書きと今の下書きが同じものかを描画時に見て決める**
    * （効果の中で setState すると描画が 2 周する）。
    */
@@ -233,8 +234,8 @@ export function DataScreen() {
     [recordFilter],
   );
   const filter = useMemo(
-    () => ({ monthKey, kind, siteName, tagIds }),
-    [monthKey, kind, siteName, tagIds],
+    () => ({ period, kind, siteName, tagIds }),
+    [period, kind, siteName, tagIds],
   );
   // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ。
   // 全期間の刻みは対象の月数で決まり（36 か月超なら年ごと）、判定に最古の月が要るので
@@ -248,9 +249,9 @@ export function DataScreen() {
   // X 軸は日付の軸にする（§1.5-4）。repository が返すのは記録のある点だけなので、
   // 期間の全スロットを作って空きを 0 で埋める ── 7/1 と 7/31 が隣り合わないように
   const densePoints = useMemo(() => {
-    const span = chartSpan({ monthKey, earliestMonthKey, today });
+    const span = chartSpan({ period, earliestMonthKey, today });
     return span == null ? [] : densifySeries(series, unit, span);
-  }, [series, unit, monthKey, earliestMonthKey, today]);
+  }, [series, unit, period, earliestMonthKey, today]);
 
   /**
    * 期間の初めからの累計（折れ線）。**画面で 1 回だけ出してグラフと値の行が同じ配列を見る** ──
@@ -265,12 +266,12 @@ export function DataScreen() {
   const selectedIndex = densePoints.findIndex((point) => point.key === selectedKey);
 
   /** 期間を変えると刻みも集計対象も変わるので、選択中の棒は外す */
-  const changeMonth = useCallback(
-    (next: string | null) => {
-      setMonthKey(next);
+  const changePeriod = useCallback(
+    (next: Period) => {
+      setPeriod(next);
       setSelection(null);
     },
-    [setMonthKey],
+    [setPeriod],
   );
 
   /**
@@ -320,7 +321,7 @@ export function DataScreen() {
   // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel(monthKey),
+    label: periodProfitLabel(period),
     value: formatYenSymbol(summary.totalNetProfit),
     // 収支は赤字になり得るので、符号で色を変える（一覧の行・計算タブと同じ規則）
     color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
@@ -339,10 +340,10 @@ export function DataScreen() {
         {/* 2 段目。**右端に絞り込みの入口（▽）**（案 34a-B / 36b）。記録タブと同じ扱いで、
             効いている間は青ベタ。数は出さない ── 条件は下の青い行に文で並ぶ */}
         <MonthNavBar
-          monthKey={monthKey}
+          period={period}
           earliestMonthKey={earliestMonthKey}
           currentMonthKey={currentMonthKey}
-          onChangeMonth={changeMonth}
+          onChangePeriod={changePeriod}
           onPressTitle={() => setShowPeriodSheet(true)}
           filter={{
             active: filterCount > 0,
@@ -413,10 +414,10 @@ export function DataScreen() {
       {/* 期間シート（月バー中央タップ）。記録タブと同じ部品（UI-SPEC §1.2） */}
       <PeriodSheet
         visible={showPeriodSheet}
-        monthKey={monthKey}
+        period={period}
         monthsWithRecords={monthsWithRecords}
         currentMonthKey={currentMonthKey}
-        onSelect={changeMonth}
+        onSelect={changePeriod}
         onClose={() => setShowPeriodSheet(false)}
       />
     </>

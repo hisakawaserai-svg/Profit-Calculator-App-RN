@@ -11,6 +11,7 @@
 // 自動で選ばれる刻みとして（36 か月超。YEAR_UNIT_MONTH_THRESHOLD）。
 
 import { formatMonthDay, formatMonthTitle, formatYearTitle } from './format';
+import { isMonthPeriod, isYearPeriod, periodYear, type Period } from './period';
 
 /**
  * グラフの刻み（UI-SPEC §5-5）。期間から自動で決まる 3 値。
@@ -41,22 +42,28 @@ function monthCount(span: { from: Date; to: Date }): number {
 }
 
 /**
- * 期間 → 刻み（UI-SPEC §5-5）。**月を選択 = 日ごと / 全期間 = 月ごと（36 か月超なら年ごと）。**
+ * 期間 → 刻み（UI-SPEC §5-5）。**月を選択 = 日ごと / それ以外は覆う月数で決まる**
+ * （36 か月以下 = 月ごと / 超えたら年ごと）。
  *
  * 画面に切替を出さないので、ここが刻みを決める唯一の場所になる（画面側では分岐しない）。
  * 月数は chartSpan が出す範囲から数える ── 軸が覆う範囲と刻みの判定が同じ範囲を見ることで、
  * 「軸は 5 年ぶんなのに刻みは月ごと」のような食い違いが起こらない。
  *
+ * **年を選んだときは 12 か月なので、閾値に触れずそのまま「月ごと」に落ちる**
+ * （X 軸は 2025/01 〜 2025/12 の 12 スロット）。年を足すために変えたのは
+ * 「日ごと」の入口を `monthKey != null` から `isMonthPeriod` にした 1 か所だけで、
+ * 36 か月の規則そのものは動かしていない。
+ *
  * 記録が 1 件もない全期間（span = null）は月ごと。軸そのものが引けないので
  * どちらでも表示は変わらないが、記録が増えたときに近いほうを既定にしておく。
  */
 export function chartUnitFor(params: {
-  /** 表示中の月キー "YYYY-MM"。null = 全期間 */
-  monthKey: string | null;
+  /** 表示中の期間（全期間 / 年 / 月。logic/period.ts） */
+  period: Period;
   earliestMonthKey: string | null;
   today: Date;
 }): ChartUnit {
-  if (params.monthKey != null) return 'day';
+  if (isMonthPeriod(params.period)) return 'day';
 
   const span = chartSpan(params);
   if (span == null) return 'month';
@@ -129,20 +136,28 @@ function yearKeyOf(date: Date): string {
  * |---|---|
  * | 過去の月 | その月の 1 日 〜 末日 |
  * | 今月 | 1 日 〜 **今日**（まだ来ていない日まで軸を伸ばすと、右半分が常に空になる） |
+ * | 過去の年 | その年の 1/1 〜 12/31 |
+ * | 今年 | 1/1 〜 **今日**（月と同じ理由。今年の途中までしか軸を引かない） |
  * | 全期間 | 最も古い記録の月 〜 今月 |
  *
  * 記録が 1 件もない全期間では軸の引きようがないので null（呼び出し側は空表示にする）。
  */
 export function chartSpan(params: {
-  monthKey: string | null;
+  period: Period;
   earliestMonthKey: string | null;
   today: Date;
 }): { from: Date; to: Date } | null {
-  const { monthKey, earliestMonthKey, today } = params;
+  const { period, earliestMonthKey, today } = params;
 
-  if (monthKey != null) {
-    const isCurrentMonth = monthKey === monthKeyOf(today);
-    return { from: monthKeyStart(monthKey), to: isCurrentMonth ? today : monthKeyEnd(monthKey) };
+  if (isMonthPeriod(period) && period != null) {
+    const isCurrentMonth = period === monthKeyOf(today);
+    return { from: monthKeyStart(period), to: isCurrentMonth ? today : monthKeyEnd(period) };
+  }
+  if (isYearPeriod(period)) {
+    const year = periodYear(period) as number;
+    // 今年は「今日」で止める。月のときと同じで、まだ来ていない月まで軸を伸ばすと右が常に空になる
+    const isCurrentYear = year === today.getFullYear();
+    return { from: new Date(year, 0, 1), to: isCurrentYear ? today : new Date(year, 11, 31) };
   }
   if (earliestMonthKey == null) return null;
   return { from: monthKeyStart(earliestMonthKey), to: today };

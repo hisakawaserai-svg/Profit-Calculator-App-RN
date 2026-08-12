@@ -12,6 +12,10 @@ import {
   filterTagSearchResultLabel,
   filterTagSectionLabel,
   matchingRecordLabel,
+  nextPeriodLabel,
+  periodProfitLabel,
+  periodTitle,
+  previousPeriodLabel,
   COMMISSION_LABEL,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   EXPENSES_LABEL,
@@ -292,11 +296,36 @@ describe('UI-SPEC §1.5 データタブの語', () => {
     expect(selectedPointTitle('8月9日', 3)).toBe('8月9日の記録　3件');
   });
 
-  it('注記は全期間で何が変わるかを名指しする（年ごとへの切替も含めて。§1.5-6）', () => {
+  it('注記は年・全期間で何が変わるかを名指しする（年ごとへの切替も含めて。§1.5-6）', () => {
     expect(CHART_UNIT_NOTE).toBe(
-      '全期間を選ぶと刻みが「月ごと」（記録が3年ぶんを超えると「年ごと」）に変わり、' +
-        '見出しも「全期間の収支」になります。',
+      '年や全期間を選ぶと刻みが「月ごと」（全期間で記録が3年ぶんを超えると「年ごと」）に変わり、' +
+        '見出しも選んだ期間の語（「〇〇年の収支」「全期間の収支」）になります。',
     );
+  });
+
+  /**
+   * 期間が 3 値になった（SPEC-V3 §5.5 の改訂）。見出しの語も 3 通りになる。
+   * **年だけ「この年」ではなく年そのものを出す** ── 月バーの表示と同じ語にするため。
+   */
+  it('合計行の見出しは期間の種類で変わる（§1.2 / §1.5-4）', () => {
+    expect(periodProfitLabel('2026-08')).toBe('この月の収支');
+    expect(periodProfitLabel('2025')).toBe('2025年の収支');
+    expect(periodProfitLabel(null)).toBe('全期間の収支');
+  });
+
+  it('月バーの中央に出る期間の語（§1.2）', () => {
+    expect(periodTitle('2026-08')).toBe('2026年8月');
+    expect(periodTitle('2025')).toBe('2025年');
+    expect(periodTitle(null)).toBe('全期間');
+  });
+
+  /** 矢印の動く単位が期間の種類で変わるので、読み上げの語も変える（§5-14 / §8.10.3） */
+  it('◀ ▶ の読み上げ語は月と年で変わる', () => {
+    expect([previousPeriodLabel('2026-08'), nextPeriodLabel('2026-08')]).toEqual([
+      '前の月',
+      '次の月',
+    ]);
+    expect([previousPeriodLabel('2025'), nextPeriodLabel('2025')]).toEqual(['前の年', '次の年']);
   });
 });
 

@@ -6,6 +6,7 @@
 //   月次グループ化 (SPEC §6.1) を SQL 側で完結できる
 
 import type { ChartUnit } from '../logic/analytics';
+import { shiftMonthKey } from '../logic/period';
 
 const pad = (n: number, len = 2) => String(n).padStart(len, '0');
 
@@ -34,14 +35,9 @@ export function monthKeyToDate(monthKey: string): Date {
   return new Date(year, month - 1, 1);
 }
 
-/**
- * 月キーを delta か月ずらす（月バーの ◀ ▶。UI-SPEC §1.2）。
- * Date の月加算に任せるので年の繰り上がり・繰り下がりも自動で効く。
- */
-export function shiftMonthKey(monthKey: string, delta: number): string {
-  const date = monthKeyToDate(monthKey);
-  return toMonthKey(new Date(date.getFullYear(), date.getMonth() + delta, 1));
-}
+// 月キーの前後移動（shiftMonthKey）は logic/period.ts へ移した ──
+// 期間が 3 値（全期間 / 年 / 月）になり、月バーの ◀ ▶ が動かすのは「期間」であって
+// 月とは限らなくなったため、期間の型と同じ場所に置く。ここからは import して使う。
 
 /**
  * from から to まで（両端含む）の月キーを新しい順に並べる（期間シートの選択肢。UI-SPEC §1.2）。

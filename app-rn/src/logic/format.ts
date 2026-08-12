@@ -184,6 +184,15 @@ export function formatMonthTitle(date: Date): string {
   return `${date.getFullYear()}年${date.getMonth() + 1}月`;
 }
 
+/**
+ * 月キー "YYYY-MM" → 「2026年8月」（月バー・絞り込みの注記）。
+ * Date を経由しないのは、期間の表示語（labels.periodTitle）が db/dates を参照しないため。
+ */
+export function formatMonthKeyTitle(monthKey: string): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  return `${year}年${month}月`;
+}
+
 /** 行に出す日付「2026/08/09」（Swift 版 .year().month(.twoDigits).day() の ja 表記相当） */
 export function formatRecordDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');

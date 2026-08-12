@@ -13,8 +13,16 @@ import type { PresetType, RecordKind } from '@/db/schema';
 
 import { YEAR_UNIT_MONTH_THRESHOLD, type ChartUnit } from './analytics';
 import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
-import { formatElapsedDays, formatShortDate, formatUnitYen, formatYenTight } from './format';
+import {
+  formatElapsedDays,
+  formatMonthKeyTitle,
+  formatShortDate,
+  formatUnitYen,
+  formatYearTitle,
+  formatYenTight,
+} from './format';
 import { daysBetween } from './listingDays';
+import { periodKind, periodYear, type Period } from './period';
 import {
   isRatePreset,
   PRESET_INITIAL_MAX_LENGTH,
@@ -90,6 +98,21 @@ export const PERIOD_SHEET_TITLE = '表示する期間';
  */
 export const THIS_MONTH_LABEL = '今月';
 export const LAST_MONTH_LABEL = '先月';
+
+/**
+ * 期間シートのカードの注記（UI-SPEC §1.2「期間シート」・案 39b。SPEC-V3 §5.5 の改訂）。
+ *
+ * カードの下の 1 行は**「いま押せるもう一方」を言う**:
+ *   - 未選択 → 「年を押すと1年分」（年見出しが押せることは形からは読めない）
+ *   - 年を選択中 → 「月を押すとその月だけ」（年の押し方はもう説明が要らない）
+ * 選択中は見出しの下に「1年分を選択中」も出る（状態は見出しの側で言う）。
+ *
+ * **「今年」「昨年」のクイック選択は足さない** ── 年見出しが 1 タップで同じ場所に届くので、
+ * どの画面でもクイック選択は「今月 / 先月 / 全期間」の 3 つに揃う。
+ */
+export const YEAR_TAP_HINT_LABEL = '年を押すと1年分';
+export const MONTH_TAP_HINT_LABEL = '月を押すとその月だけ';
+export const YEAR_SELECTED_HINT_LABEL = '1年分を選択中';
 
 /**
  * 月グリッドの凡例（UI-SPEC §1.2-4）。
@@ -303,11 +326,54 @@ export function lowerPriceWarning(example: { price: number; profit: number }): s
 }
 
 /**
- * 合計行の収支の見出し（UI-SPEC §1.2）:「この月の収支」/「全期間の収支」。
+ * 合計行の収支の見出し（UI-SPEC §1.2）:「この月の収支」/「**2025年の収支**」/「全期間の収支」。
  * 合計なので種別語ではなく中立語（§5.3）。
+ *
+ * 年だけ「この年」ではなく年そのものを出すのは、月バーの表示（「‹ 2025年 ⌄ ›」）と
+ * 同じ語にするため ── 年を選ぶのは「去年 1 年でいくら儲かったか」を見る操作なので、
+ * どの年の話かが見出しの側にも要る。月は月バーがすぐ上にあり、「この月」で迷わない。
  */
-export function periodProfitLabel(monthKey: string | null): string {
-  return `${monthKey == null ? ALL_PERIOD_LABEL : 'この月'}の${TOTAL_PROFIT_LABEL}`;
+export function periodProfitLabel(period: Period): string {
+  const kind = periodKind(period);
+  const subject =
+    kind === 'all'
+      ? ALL_PERIOD_LABEL
+      : kind === 'year'
+        ? formatYearTitle(periodYear(period) as number)
+        : 'この月';
+  return `${subject}の${TOTAL_PROFIT_LABEL}`;
+}
+
+/**
+ * 月バーの ◀ ▶ の読み上げ語（UI-SPEC §8.10.3 と同じ考え方）。
+ * 矢印の形は同じでも動く単位が期間の種類で変わるので、語のほうで何が動くかを言う。
+ * 全期間では矢印が無効なので、月の語のままでよい。
+ */
+export function previousPeriodLabel(period: Period): string {
+  return periodKind(period) === 'year' ? PREVIOUS_YEAR_LABEL : '前の月';
+}
+
+export function nextPeriodLabel(period: Period): string {
+  return periodKind(period) === 'year' ? NEXT_YEAR_LABEL : '次の月';
+}
+
+/**
+ * 年を送る矢印の読み上げ語。月バーの ◀ ▶（年を選んでいるとき）と、
+ * 期間シートのカード見出しの ‹ ›（案 39b）が**同じ語**を使う ──
+ * どちらも「表示している年を 1 つ前後に動かす」で、操作の意味が同じ。
+ */
+export const PREVIOUS_YEAR_LABEL = '前の年';
+export const NEXT_YEAR_LABEL = '次の年';
+
+/**
+ * 期間そのものの表示語（月バーの中央・絞り込みの注記）:
+ * 「全期間」/「2025年」/「2026年8月」。
+ */
+export function periodTitle(period: Period): string {
+  const kind = periodKind(period);
+  if (kind === 'all') return ALL_PERIOD_LABEL;
+  if (kind === 'year') return formatYearTitle(periodYear(period) as number);
+  return formatMonthKeyTitle(period as string);
 }
 
 /**
@@ -410,11 +476,16 @@ export function selectedPointTitle(dateText: string, count: number): string {
  *
  * 「年ごと」も名指しする ── 記録がたまるとある日いきなり棒の意味が変わるので、
  * 起きてから驚くより先に書いておくほうがよい。年数は閾値（36 か月）から導いて二重管理を避ける。
+ *
+ * **期間に年が加わったので（SPEC-V3 §5.5 の改訂）、「年を選んでも月ごとになる」ことを言う。**
+ * 年（12 か月）は閾値のはるか下なので必ず「月ごと」で、「年を選んだのだから年ごとだろう」と
+ * 読まれるのを先に外す。「年ごと」になるのは全期間が 3 年ぶんを超えたときだけ、と
+ * 括弧の中で場所を限定しているのはそのため。
  */
 export const CHART_UNIT_NOTE =
-  `${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
-  `（記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
-  `見出しも「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」になります。`;
+  `年や${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
+  `（${ALL_PERIOD_LABEL}で記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
+  `見出しも選んだ期間の語（「〇〇年の${TOTAL_PROFIT_LABEL}」「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」）になります。`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 記録フォーム（UI-SPEC §1.3 / 採用案 3c）とレコード詳細（§1.4 / 採用案 3d）の表示語。
