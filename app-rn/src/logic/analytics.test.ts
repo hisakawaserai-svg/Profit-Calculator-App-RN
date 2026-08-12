@@ -6,6 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { roundForDisplay } from './profit';
+
 import {
   chartSlots,
   chartSpan,
@@ -107,6 +109,29 @@ describe('UI-SPEC §1.5-4 累計収支（折れ線）', () => {
     );
   });
 
+  /**
+   * **折れ線の終点と集計段の「この月の収支」が必ず同じ値になること**（UI-SPEC §1.5-4）。
+   *
+   * 決定 §7-2 / §2.6 のとおり「Double で合算 → 表示の瞬間に丸め」なので、
+   * 一致すべきなのは**丸める前**の値と、**同じ丸めを 1 回だけ通した後**の表示。
+   * 手数料は率で掛かるので刻みごとの収支に小数が出得る（1055 円の 10% = 105.5 円）──
+   * ここで**点ごとに丸めてから足す**と合計が数円ずれる。それが起きないことを固定する。
+   */
+  it('小数を含む点でも、終点は「合算してから丸めた」値と一致する（点ごとに丸めない。§7-2）', () => {
+    // 手数料 10% で端数が出る額を並べる（1055 円の 10% = 105.5 円 → 収支 949.5 円 …）
+    const values = [1055.5, 2000.5, 980.5];
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const cumulative = cumulativeProfits(values);
+
+    // 丸める前の値どうしが一致する（グラフの終点＝期間の合計）
+    expect(cumulative[cumulative.length - 1]).toBeCloseTo(total, 10);
+    // 表示（roundForDisplay を 1 回だけ通した後）も一致する
+    expect(roundForDisplay(cumulative[cumulative.length - 1])).toBe(roundForDisplay(total));
+    // 点ごとに丸めてから足すと合計がずれる（この経路を採らないことの確認）
+    const roundedFirst = values.reduce((sum, value) => sum + roundForDisplay(value), 0);
+    expect(roundedFirst).not.toBe(roundForDisplay(total));
+  });
+
   it('点が 1 つもなければ空', () => {
     expect(cumulativeProfits([])).toEqual([]);
   });
@@ -170,6 +195,30 @@ describe('UI-SPEC §1.5-4 2 軸の範囲: キリのいい目盛りと 0 の高�
     );
     // 累計の下限は実データを覆えていること（軸から食み出さない）
     expect(bounds.cumulativeMin).toBeLessThanOrEqual(-8000);
+  });
+
+  /**
+   * **段数が青天井にならないこと。** 1 段の幅を「0 より上の範囲」だけから決めていた頃は、
+   * 赤字の 1 日が黒字の何十倍にもなると、細かい幅で下を刻むことになって段数が爆発した
+   * （+7,475 円の月に −999,910 円の日で合計 387 段。罫線と目盛りが画面を埋めた。実機で確認）。
+   * 幅を上下合わせた範囲から決めれば、外れ値がどれだけ大きくても段数は目安の前後に収まる。
+   */
+  it('赤字が黒字の何十倍でも段数は増えすぎない（罫線が画面を埋めない）', () => {
+    const bounds = dualAxisBounds([7475, -999910], [7475, -999910]);
+
+    expect(bounds.sections + bounds.sectionsBelow).toBeLessThanOrEqual(8);
+    // 外れ値は軸の中に収まったまま（段を間引いて棒を飛び出させたりしない）
+    expect(bounds.barMin).toBeLessThanOrEqual(-999910);
+    expect(bounds.barMax).toBeGreaterThanOrEqual(7475);
+  });
+
+  it('桁違いの赤字でも 0 の高さは両軸で揃う', () => {
+    const bounds = dualAxisBounds([7475, -999910], [12685, -500000]);
+
+    expect(negativeRatio(bounds.barMax, bounds.barMin)).toBeCloseTo(
+      negativeRatio(bounds.cumulativeMax, bounds.cumulativeMin),
+      10,
+    );
   });
 
   it('負側の目盛りもキリのいい数（下は上と同じ幅で刻む）', () => {
@@ -363,6 +412,28 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
       // 11 スロットは間隔 3 → 0,3,6,9 の 9 が末尾 10 の隣になるので落とす
       expect(labels(11)).toEqual([0, 3, 6, 10]);
       expect(labels(8)).toEqual([0, 2, 4, 7]);
+    });
+
+    /**
+     * 末尾の判定を**文字の幅**で行う（minEndGap）。スロット数の半分だけで見ていた頃は、
+     * 12 スロットの月で末尾の 2 つが 2 スロットしか離れず、実機で文字が地続きに見えた。
+     * 呼び出し側は「必要な pt ÷ スロットの幅」を渡す。
+     */
+    it('幅が足りなければ直前のラベルを落とす（minEndGap）', () => {
+      // 12 スロットで幅を見ないと 9 と 11 が隣り合う（2 スロット）
+      expect(labelSlotIndices(12, 5)).toEqual([0, 3, 6, 9, 11]);
+      // 「最低 2.3 スロットぶん空ける」を要求すると 9 が落ちる
+      expect(labelSlotIndices(12, 5, 2.3)).toEqual([0, 3, 6, 11]);
+    });
+
+    it('minEndGap が大きくても先頭と末尾は必ず残る', () => {
+      expect(labelSlotIndices(12, 5, 99)).toEqual([0, 11]);
+      expect(labelSlotIndices(31, 5, 99)).toEqual([0, 30]);
+    });
+
+    it('minEndGap を渡さなければ従来どおり（既定は幅を見ない）', () => {
+      expect(labelSlotIndices(31, 5, 0)).toEqual(labelSlotIndices(31, 5));
+      expect(labelSlotIndices(11, 5, 0)).toEqual([0, 3, 6, 10]);
     });
 
     it('目安の数を超えない', () => {

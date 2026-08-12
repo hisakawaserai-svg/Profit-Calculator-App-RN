@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatApproxYenSymbol,
+  formatCompactYen,
   formatSignedYenSymbol,
   formatYen,
   formatYenSymbol,
@@ -42,6 +43,70 @@ describe('groupDigits — 整数部の 3 桁区切り', () => {
   it('非有限値でも壊れない', () => {
     expect(groupDigits(Number.NaN)).toBe('NaN');
     expect(groupDigits(Number.POSITIVE_INFINITY)).toBe('Infinity');
+  });
+});
+
+describe('formatCompactYen — 軸の目盛り（単位をラベルごとに書き切る。案 37b）', () => {
+  it('1000 未満はそのまま「円」', () => {
+    expect(formatCompactYen(300)).toBe('300円');
+    expect(formatCompactYen(600)).toBe('600円');
+    expect(formatCompactYen(999)).toBe('999円');
+  });
+
+  it('1000 から「千円」', () => {
+    expect(formatCompactYen(1000)).toBe('1千円');
+    expect(formatCompactYen(3000)).toBe('3千円');
+    expect(formatCompactYen(9000)).toBe('9千円');
+  });
+
+  it('10000 から「万円」', () => {
+    expect(formatCompactYen(10000)).toBe('1万円');
+    expect(formatCompactYen(100000)).toBe('10万円');
+    expect(formatCompactYen(300000)).toBe('30万円');
+    expect(formatCompactYen(1000000)).toBe('100万円');
+  });
+
+  it('キリのいい目盛り（1 / 1.5 / 2 / 3 / 5 × 10^n の整数倍）は小数第 1 位までで収まる', () => {
+    // 幅 1500 の段（1.5 × 10^3）
+    expect([1500, 3000, 4500, 6000].map(formatCompactYen)).toEqual([
+      '1.5千円',
+      '3千円',
+      '4.5千円',
+      '6千円',
+    ]);
+    // 幅 15000 の段（1.5 × 10^4）
+    expect([15000, 30000, 45000].map(formatCompactYen)).toEqual(['1.5万円', '3万円', '4.5万円']);
+    // 幅 3000 の段は 4 段目で万に乗る（単位が混ざるが、ラベルごとに書いてあるので読み違えない）
+    expect([3000, 6000, 9000, 12000].map(formatCompactYen)).toEqual([
+      '3千円',
+      '6千円',
+      '9千円',
+      '1.2万円',
+    ]);
+  });
+
+  it('0 には単位を付けない', () => {
+    expect(formatCompactYen(0)).toBe('0');
+    expect(formatCompactYen(-0)).toBe('0');
+  });
+
+  it('負の値でも壊れない（符号を付けたまま同じ規則）', () => {
+    expect(formatCompactYen(-600)).toBe('-600円');
+    expect(formatCompactYen(-3000)).toBe('-3千円');
+    expect(formatCompactYen(-45000)).toBe('-4.5万円');
+  });
+
+  it('境界（999 / 1000 / 9999 / 10000）', () => {
+    expect(formatCompactYen(999)).toBe('999円');
+    expect(formatCompactYen(1000)).toBe('1千円');
+    // 9999 は「千円」側。小数第 1 位に丸めるので「10千円」になるが、
+    // キリのいい目盛りにこの値は現れない（現れるのは 9000 → 10000 の跳び方）
+    expect(formatCompactYen(9999)).toBe('10千円');
+    expect(formatCompactYen(10000)).toBe('1万円');
+  });
+
+  it('非有限値でも壊れない', () => {
+    expect(formatCompactYen(Number.NaN)).toBe('NaN');
   });
 });
 

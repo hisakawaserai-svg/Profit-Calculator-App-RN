@@ -210,14 +210,25 @@ export function densifySeries(
  * ラベルのない 2 日ぶんが軸の右端に残るので、最後の棒が軸の手前で浮いて見える
  * （30 日の月はさらに悪く、5 日ぶんが残る）。
  *
- * そこで間隔は保ったまま**末尾を必ず打つ**。末尾が直前のラベルと近すぎる（間隔の半分以下）
- * ときは直前のほうを落とす ── 端で 2 つのラベルが重なるのを避けるため。
+ * そこで間隔は保ったまま**末尾を必ず打つ**。末尾が直前のラベルと近すぎるときは直前のほうを
+ * 落とす ── 端で 2 つのラベルが重なるのを避けるため。
  * 期間の日数（28 / 29 / 30 / 31 日）に関わらず、軸の右端は必ずその月の最終日になる。
+ *
+ * **「近すぎる」は文字の幅で決める**（`minEndGap`）。スロット数の半分だけで見ていた頃は、
+ * 12 スロットの月で末尾の 2 つが 2 スロット（52pt）しか離れず、ラベルの幅（36pt）と
+ * 負の棒でのラベルの置き方が重なって**文字が地続きに見えた**（実機で確認）。
+ * スロットの数ではなく**実際に何 pt 空くか**で判定すれば、月の日数にも端末の幅にも左右されない。
  *
  * @param slotCount スロット数（日ごとならその期間の日数）
  * @param maxLabels ラベルの目安の数。実際はこれ以下になる
+ * @param minEndGap 末尾と直前のラベルの間に最低限空けるスロット数（呼び出し側が
+ *                  「必要な pt ÷ スロットの幅」で出す）。0 なら幅を見ない
  */
-export function labelSlotIndices(slotCount: number, maxLabels: number): number[] {
+export function labelSlotIndices(
+  slotCount: number,
+  maxLabels: number,
+  minEndGap = 0,
+): number[] {
   if (slotCount <= 0) return [];
   const last = slotCount - 1;
   if (last === 0) return [0];
@@ -226,8 +237,10 @@ export function labelSlotIndices(slotCount: number, maxLabels: number): number[]
   const indices: number[] = [];
   for (let index = 0; index < last; index += step) indices.push(index);
 
-  // 末尾は必ず打つ。直前のラベルと近すぎるならそちらを落として場所を空ける
-  if (last - indices[indices.length - 1] <= step / 2) indices.pop();
+  // 末尾は必ず打つ。直前のラベルと近すぎるならそちらを落として場所を空ける。
+  // **先頭は必ず残す**（両端を打つのがこの関数の約束なので、詰めきって 1 つにしない）
+  const endGap = Math.max(step / 2, minEndGap);
+  while (indices.length > 1 && last - indices[indices.length - 1] <= endGap) indices.pop();
   indices.push(last);
 
   return indices;
@@ -301,6 +314,11 @@ function niceStep(rawStep: number): number {
   return (NICE_STEPS.find((step) => normalized <= step) ?? 10) * magnitude;
 }
 
+/** 軸が覆う縦の範囲（上限 − 下限）。負値がなければ上限そのもの */
+function axisSpan(values: number[]): number {
+  return yAxisUpperBound(values) - yAxisLowerBound(values);
+}
+
 /**
  * 2 軸の範囲を決める（UI-SPEC §1.5-4）。満たすことが 2 つある。
  *
@@ -313,13 +331,22 @@ function niceStep(rawStep: number): number {
  * 2 を満たす仕掛けが**段数を両軸で共有**すること ── 幅は軸ごとに丸めるが、上下の段数を
  * 揃えれば負側が占める割合（下の段数 ÷ 上の段数）も自動的に一致し、0 は同じ高さに来る。
  * 罫線も 1 組で済む（段数が違うと、左右のラベルが別の高さに並ぶ）。
+ *
+ * 3. **段数が青天井にならない**こと。1 段の幅は上下を合わせた範囲から決めるので、
+ *    外れ値がどれだけ大きくても段数は TARGET_SECTIONS の前後に収まる（下記）。
  */
 export function dualAxisBounds(
   barValues: number[],
   cumulativeValues: number[],
 ): DualAxisBounds {
-  const barStep = niceStep(yAxisUpperBound(barValues) / TARGET_SECTIONS);
-  const cumulativeStep = niceStep(yAxisUpperBound(cumulativeValues) / TARGET_SECTIONS);
+  // 1 段の幅は**上下を合わせた範囲**（上限 − 下限）から決める。
+  // **上限だけから決めてはいけない** ── 赤字の 1 日が黒字の何十倍にもなると、
+  // 上限から出した細かい幅で下を刻むことになり、段数が際限なく増える
+  // （+7,475 円の月に −999,910 円の日が入ると幅 3,000 円 × 下 384 段 = 合計 387 段になり、
+  // その数だけ罫線と目盛りが描かれて画面が埋まった。実機で確認）。
+  // 範囲全体で割れば、段数は常に TARGET_SECTIONS の前後に収まる。
+  const barStep = niceStep(axisSpan(barValues) / TARGET_SECTIONS);
+  const cumulativeStep = niceStep(axisSpan(cumulativeValues) / TARGET_SECTIONS);
 
   // 段数は「どちらの軸も収まる」ように大きい方を採る
   const sections = Math.max(

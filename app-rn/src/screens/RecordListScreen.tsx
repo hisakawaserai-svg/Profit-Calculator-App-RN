@@ -211,7 +211,8 @@ export function RecordListScreen() {
         {
           label: periodProfitLabel(monthKey),
           value: formatYenSymbol(summary.totalNetProfit),
-          color: colors.green,
+          // 収支は赤字になり得るので、符号で色を変える（行の純利益と同じ規則）
+          color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
         },
         { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
       ]

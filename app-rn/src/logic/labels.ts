@@ -383,6 +383,19 @@ export function chartBarLegendLabel(unit: ChartUnit): string {
  */
 export const CUMULATIVE_PROFIT_LABEL = `累計${TOTAL_PROFIT_LABEL}`;
 
+/**
+ * 選択中の点の累計（UI-SPEC §1.5-4。案 38b）:「累計 ¥8,720」。
+ *
+ * 凡例の行が選択中に化ける「値の行」の、藍の見本の隣に出る語。
+ * 金額は**常に全桁**（軸の目盛りは千円・万円に丸めているが、こちらは実額）。
+ *
+ * **未選択のときに最終の累計は出さない** ── 同じ値が集計段の「この月の収支」に出ているため
+ * （折れ線の終点＝期間の合計）。同じ数字を 1 画面に 2 回出さない。
+ */
+export function cumulativeValueLabel(amountText: string): string {
+  return `累計 ${amountText}`;
+}
+
 /** 選択中の点を外すリンク（UI-SPEC §1.5-5）。点をもう一度押す経路は持たないので語で出す */
 export const CLEAR_SELECTION_LABEL = '選択を解除';
 
