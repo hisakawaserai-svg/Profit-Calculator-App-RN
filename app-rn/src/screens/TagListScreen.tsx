@@ -130,8 +130,13 @@ export function TagListScreen() {
           </View>
         )}
 
-        {/* §2.2-5: 注記 1 行。タグは記録に紐付く（§0.1）ぶん、消したときに何が起きるかを名指しする */}
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_LIST_NOTE}</Text>
+        {/* §2.2-5: 注記 1 行。タグは記録に紐付く（§0.1）ぶん、消したときに何が起きるかを名指しする。
+            **1 件も無いときは出さない** ── 言っているのは「消したときに何が起きるか」で、
+            消せるものが 1 つも無い画面では読む用がない。見た目の上でも、中央寄せの空表示に
+            左寄せ・左余白 4pt の 1 行が 8pt 下へ貼り付いて、揃っていない塊になる */}
+        {tags.length > 0 && (
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_LIST_NOTE}</Text>
+        )}
       </ScrollView>
 
       {deleted != null && (

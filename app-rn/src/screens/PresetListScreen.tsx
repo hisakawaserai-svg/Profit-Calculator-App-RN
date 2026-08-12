@@ -175,8 +175,14 @@ export function PresetListScreen({ type }: Props) {
           </View>
         )}
 
-        {/* §3.5: 種類ごとの注記 1 行 */}
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetListNote(type)}</Text>
+        {/* §3.5: 種類ごとの注記 1 行。**1 件も無いときは出さない** ── 3 種とも
+            「選ぶと〜」「電卓の中から複数選べます」と、登録が既にある前提の案内なので、
+            0 件では選ぶ対象そのものが無い。そのときの問い（「どう作るのか」）には空表示が答える。
+            17 件 seed する（§2）ので実際には空にならないが、タグの一覧（SPEC-V4 §2.2）と
+            **同じ形のものを別の規則で動かさない**ために条件を揃える */}
+        {presets.length > 0 && (
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetListNote(type)}</Text>
+        )}
       </ScrollView>
 
       {deleted != null && (
