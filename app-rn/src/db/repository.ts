@@ -320,6 +320,45 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   return sql.join(conditions, sql` AND `);
 }
 
+/**
+ * CSV 書き出しの対象（SPEC-V3 §5.5）。**条件は期間と対象の 2 つだけ。**
+ * 記録タブ・データタブの絞り込みは持ち込まない（§5.5 / SPEC-V4 §5.4 / 決定 §9-9）──
+ * CSV は設定タブから開くもので、別タブの画面ローカルな状態が効くと
+ * 「なぜ一部しか出ないのか」が分からないまま一部だけ書き出す事故になる。
+ */
+export type ExportFilter = {
+  /** 期間キー。null = 全期間 / "YYYY" = 年 / "YYYY-MM" = 月 */
+  period: Period;
+  /** true = 出品中も含める / false = 売れた記録のみ（既定。決定 §8-9） */
+  includeListing: boolean;
+};
+
+/**
+ * 書き出しの基準日（§5.5 / 決定 §8-8）。**販売日基準で、出品中の行だけ出品日で判定する。**
+ * 期間の判定・並び順・日ごとのまとめのすべてがこの 1 本を通る
+ * （logic/csv.ts の basisDate と同じ規則。片方だけ直すと期間と中身がずれる）。
+ *
+ * recordMonthKeySql と式は同じだが、あちらは月キー（7 文字）に切ったものなので共有できない。
+ */
+const exportBasisDateSql = sql<string>`case when ${saleRecords.isSold}
+    then coalesce(${saleRecords.saleDate}, ${saleRecords.saleStartDate})
+    else ${saleRecords.saleStartDate}
+  end`;
+
+/** 書き出しの対象条件（§5.5）。期間と対象だけを組む */
+function buildExportWhere(filter: ExportFilter): SQL {
+  const conditions: SQL[] = [];
+  // 「出品中も含める」は状態の条件そのものを置かない（= 全件）
+  if (!filter.includeListing) conditions.push(eq(saleRecords.isSold, true));
+  if (filter.period != null) {
+    conditions.push(periodMatchSql(exportBasisDateSql, filter.period));
+  }
+  // 条件が 1 本も無い（全期間・出品中も含める）ときは常に真を置く。sql.join が空になると
+  // where(undefined 相当) になり、意図が読めない形で全件になるため明示する
+  if (conditions.length === 0) return sql`1 = 1`;
+  return sql.join(conditions, sql` AND `);
+}
+
 /** 集計キー = 販売日の先頭 n 文字（SPEC §6.2 の「刻みごとの日付キーに丸める」） */
 function chartKeySql(unit: ChartUnit): SQL<string> {
   return sql<string>`substr(${saleRecords.saleDate}, 1, ${CHART_KEY_LENGTH[unit]})`;
@@ -630,6 +669,44 @@ export function createRepository(
         .orderBy(recordMonthKeySql)
         .all()
         .map((row) => row.monthKey);
+    },
+
+    // ---- CSV 書き出し（SPEC-V3 §5.5 / §5.6） ----
+    //
+    // 記録タブの buildWhere は使わない。書き出しが持つ条件は**期間と対象の 2 つだけ**で、
+    // 状態（isSoldMode）を「どちらか一方」としてしか表せない buildWhere では
+    // 「売れた記録＋出品中」の集合が作れない（§5.5-3 の「出品中も含める」がそれ）。
+    // 絞り込み（種別・販売サイト・タグ）を受け取る口も**わざと作らない**（§5.5 / SPEC-V4 §5.4）──
+    // CSV の主用途はバックアップなので、一部だけが入ったファイルを作る事故の方が大きい。
+
+    /**
+     * 書き出す記録（§5.5）。**並びは基準日の昇順、同日は id**（§5.4）──
+     * 申告も表計算も時系列で読むので、画面の並び（降順）とは逆にする。
+     * 並べ替えを SQL 側でやり切ることで、csv.ts は受け取った順に書くだけで済む。
+     */
+    listForExport(filter: ExportFilter): SaleRecord[] {
+      return db
+        .select()
+        .from(saleRecords)
+        .where(buildExportWhere(filter))
+        .orderBy(asc(exportBasisDateSql), asc(saleRecords.id))
+        .all();
+    },
+
+    /**
+     * 書き出しシート下部の予告の件数（§5.7）。**listForExport と同じ条件で数える**ので、
+     * 「12件と出たのに中身が違う」が起き得ない。
+     *
+     * 0 件のときに出す「出品中の記録は N 件あります」も、対象だけを差し替えて
+     * この 1 本から取る（数え方を 2 か所に書かない）。
+     */
+    countForExport(filter: ExportFilter): number {
+      const row = db
+        .select({ count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(buildExportWhere(filter))
+        .get();
+      return row?.count ?? 0;
     },
 
     /** 画面下部の累計（SPEC §6.1 CareerSummarySection）。丸めなしで返す */

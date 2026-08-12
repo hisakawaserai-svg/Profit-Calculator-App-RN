@@ -188,6 +188,28 @@ export function useFilteredRecordCount(filter: RecordListFilter, scope: FilterSc
   return useMemo(() => queryCount(filter, scope, refreshToken), [filter, scope, refreshToken]);
 }
 
+/** refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryMonthsWithRecords(refreshToken: object): string[] {
+  void refreshToken;
+  return repository.monthsWithRecords();
+}
+
+/**
+ * 記録が 1 件以上ある月キー（古い順）だけを引く（期間シートの月グリッドの濃淡。UI-SPEC §1.2）。
+ *
+ * 一覧やグラフを持たない画面（書き出しシート。SPEC-V3 §5.7）が期間の盤面を出すために使う。
+ * 記録タブ・データタブは自分のデータ取得（useRecordList / useAnalyticsData）に含めて引くので、
+ * こちらは呼ばない ── 同じ画面で 2 回引かないため。
+ */
+export function useMonthsWithRecords(): string[] {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  return useMemo(() => queryMonthsWithRecords(refreshToken), [refreshToken]);
+}
+
 export type RecordData = {
   /** 対象のレコード。削除済み・不正な id のときは undefined */
   record: SaleRecord | undefined;

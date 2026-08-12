@@ -1437,7 +1437,10 @@ export function filterTagSearchEmptyBody(selectedNames: readonly string[]): stri
 
 export const DATA_SECTION_TITLE = 'データ';
 
-/** CSV 書き出し（SPEC-V3 §5.6）。Step 6 で活性化するまでは「準備中」を付けたまま置く */
+/**
+ * CSV 書き出し（SPEC-V3 §5.6）。**Step 6 で活性化した**ので「準備中」は付かない。
+ * 定数そのものは残す ── 他に「準備中」で置いてある行が出たときに語が割れないようにする。
+ */
 export const CSV_EXPORT_LABEL = '書き出し（CSV）';
 export const PREPARING_LABEL = '準備中';
 
@@ -1448,6 +1451,224 @@ export const RECORD_COUNT_LABEL = '記録の件数';
 export function versionLabel(version: string): string {
   return `バージョン ${version}`;
 }
+
+// ---- SPEC-V3 §5 CSV 書き出し ----
+//
+// **列名は画面の語をそのまま使う**（§5.3）── 会計ソフトの語（「利用日」「利用内容」）に
+// 改めることはしない。取込側は列を選ぶだけなので一致している必要がなく、
+// 画面と食い違うと書き出した CSV とアプリの対応が読めなくなる。
+// だから下の 2 つの配列は**リテラルを並べず、上で定義済みの表示語を並べる**。
+
+/** 経費合計の列（§5.3-9）。単独の「経費」と区別が要るのは CSV だけなのでここに置く */
+export const TOTAL_EXPENSES_COLUMN = `${EXPENSES_LABEL}合計`;
+
+/** 手数料率の列（§5.3-11）。額の列（販売手数料）と紛れないよう単位を付ける */
+export const COMMISSION_RATE_COLUMN = `${COMMISSION_SHORT_LABEL}率(%)`;
+
+/** 種別の列（§5.3-13）。値は recordKindLabel */
+export const RECORD_KIND_COLUMN = '種別';
+
+/** 状態の列（§5.3-15）と、その 2 値 */
+export const RECORD_STATUS_COLUMN = '状態';
+export const CSV_SOLD_STATUS_VALUE = SOLD_BADGE_LABEL;
+export const CSV_LISTING_STATUS_VALUE = LISTING_STATUS_LABEL;
+
+/** 記録 ID の列（§5.3-18）。再書き出し時の突き合わせ用 */
+export const RECORD_ID_COLUMN = '記録ID';
+
+/**
+ * タグの列の区切り（SPEC-V4 §5.2）。**タグ名で使えない 1 文字**を予約してある（§1.3）ので、
+ * エスケープを設計せずに 1 セルへ並べられる。
+ */
+export const CSV_TAG_SEPARATOR = TAG_NAME_SEPARATOR;
+
+/**
+ * データ保存用の 18 列（§5.3 ＋ SPEC-V4 §5.3）。
+ * 並びは **先頭 3 列（販売日 / 商品名 / 販売価格）→ 内訳 → 計算値 → 属性 → メモ → 記録ID**（§5.2）。
+ * 先頭 3 列が固定なのは、会計ソフトの取込ウィザードで先頭数列だけ選べば済むようにするため。
+ */
+export const CSV_BACKUP_COLUMNS: readonly string[] = [
+  SOLD_DATE_FIELD_LABEL,
+  ITEM_NAME_LABEL,
+  SALES_PRICE_LABEL,
+  PURCHASE_PRICE_LABEL,
+  POSTAGE_LABEL,
+  COMMISSION_LABEL,
+  ENVELOPE_COST_LABEL,
+  OTHERS_COST_LABEL,
+  TOTAL_EXPENSES_COLUMN,
+  TOTAL_PROFIT_LABEL,
+  COMMISSION_RATE_COLUMN,
+  presetTypeLabel('site'),
+  RECORD_KIND_COLUMN,
+  TAG_LABEL,
+  RECORD_STATUS_COLUMN,
+  LISTED_DATE_FIELD_LABEL,
+  MEMO_LABEL,
+  RECORD_ID_COLUMN,
+];
+
+/**
+ * 確定申告用の 11 列（§5.3.1）。**帳簿の並び**にする ──
+ * 国税庁が求める「取引の年月日・相手方の名称・内容・金額」の順で、
+ * 購入者が匿名なので「相手方」は販売サイト名で代用する。
+ *
+ * **経費は合算せず項目ごとに分ける**（送料 / 梱包材 / その他 / 販売手数料）── 帳簿は
+ * 経費を「項目に区分して」記載することを求めており、合算した 1 列では材料にならない。
+ * 経費合計の列は置かない（項目の和なので表計算で作れる）。
+ * 収支は検算用に残す。**メモとタグは出さない**（帳簿に関係がなく、個人的な記述が混ざる）。
+ */
+export const CSV_TAX_COLUMNS: readonly string[] = [
+  SOLD_DATE_FIELD_LABEL,
+  presetTypeLabel('site'),
+  ITEM_NAME_LABEL,
+  RECORD_KIND_COLUMN,
+  SALES_PRICE_LABEL,
+  PURCHASE_PRICE_LABEL,
+  POSTAGE_LABEL,
+  ENVELOPE_COST_LABEL,
+  OTHERS_COST_LABEL,
+  COMMISSION_LABEL,
+  TOTAL_PROFIT_LABEL,
+];
+
+/** 日ごとにまとめた行の種別（§5.2.2）。同じ種別だけなら種別名が入る */
+export const CSV_KIND_MIXED_LABEL = '混在';
+
+/**
+ * 日ごとにまとめた行の販売サイト（§5.2.2）:「メルカリ ほか1件」。
+ * **数えるのは名前の種類**（同じサイトが 3 件でも「ほか」は付かない）。
+ * 名前が 1 つも無ければ空文字 ── 未設定の記録だけの日に語を足さない（§5.4「空値は空文字」）。
+ */
+export function csvDaySiteNames(siteNames: readonly string[]): string {
+  const unique = [...new Set(siteNames.filter((name) => name !== ''))];
+  if (unique.length === 0) return '';
+  if (unique.length === 1) return unique[0];
+  return `${unique[0]} ${presetOverflowLabel(unique.length - 1)}`;
+}
+
+/**
+ * 日ごとにまとめた行の商品名（§5.2.2）:「えんぴつ ほか2件」。
+ * **こちらは記録の件数**で数える（同じ商品名が 3 件なら「ほか2件」）── 何件ぶんの
+ * 金額が 1 行に入っているかが読めるようにするため。空の商品名は一覧と同じ「無題」。
+ */
+export function csvDayItemNames(itemNames: readonly string[]): string {
+  if (itemNames.length === 0) return '';
+  const head = itemNames[0] === '' ? UNTITLED_LABEL : itemNames[0];
+  if (itemNames.length === 1) return head;
+  return `${head} ${presetOverflowLabel(itemNames.length - 1)}`;
+}
+
+/** ファイル名の先頭（§5.4）。種類で変える ── 後から見て何の書き出しか読めるように */
+export const CSV_FILE_BASE_NAMES: Record<'backup' | 'tax', string> = {
+  backup: '売上記録',
+  tax: '確定申告',
+};
+
+/** ファイル名の期間の部分（全期間のときだけ期間キーが無い） */
+export const CSV_ALL_PERIOD_FILE_LABEL = ALL_PERIOD_LABEL;
+
+// ---- SPEC-V3 §5.7 書き出しシート（ExportSheet） ----
+
+/** シートの見出し。設定タブの行と同じ語（押した先が同じものだと読める） */
+export const EXPORT_SHEET_TITLE = CSV_EXPORT_LABEL;
+
+/** ヘッダ左。書き出さずに閉じる（§5.7） */
+export const EXPORT_CANCEL_LABEL = 'キャンセル';
+
+/** 節の見出し（§5.7 の並び: 種類 → 期間 → まとめ方 → 対象） */
+export const EXPORT_KIND_SECTION_LABEL = '種類';
+export const EXPORT_PERIOD_SECTION_LABEL = '期間';
+export const EXPORT_GROUPING_SECTION_LABEL = 'まとめ方';
+export const EXPORT_TARGET_SECTION_LABEL = '対象';
+
+/** 種類の 2 択（§5.2 の改訂）。既定は先頭（データ保存用） */
+export const EXPORT_KIND_OPTIONS: readonly { value: 'backup' | 'tax'; label: string }[] = [
+  { value: 'backup', label: 'データ保存用' },
+  { value: 'tax', label: '確定申告用' },
+];
+
+/** 種類の節の下の 1 行。選んでいる方が何のためのものかを言う（列の一覧までは出さない） */
+export const EXPORT_KIND_NOTES: Record<'backup' | 'tax', string> = {
+  backup: 'メモやタグも含めて、記録した内容をすべて書き出します。バックアップにも使えます。',
+  tax: '帳簿に要る列だけを書き出します。メモとタグは出しません。',
+};
+
+/** まとめ方の 2 択（§5.2.2）。**確定申告用のときだけ出す** */
+export const EXPORT_GROUPING_OPTIONS: readonly { value: 'record' | 'day'; label: string }[] = [
+  { value: 'record', label: '1件ずつ' },
+  { value: 'day', label: '日ごとにまとめる' },
+];
+
+/** まとめ方の節の下の 1 行 */
+export const EXPORT_GROUPING_NOTES: Record<'record' | 'day', string> = {
+  record: '1行に1件ずつ書き出します。',
+  day: '同じ日の記録を1行に合算します。商品名は「えんぴつ ほか2件」の形になります。',
+};
+
+/**
+ * 対象の 2 択（§5.5-3）。既定は「売れた記録のみ」（決定 §8-9）──
+ * 申告も集計も確定した金額しか扱わないため。
+ */
+export const EXPORT_TARGET_OPTIONS: readonly { value: boolean; label: string }[] = [
+  { value: false, label: `${SOLD_RECORDS_LABEL}のみ` },
+  { value: true, label: `${LISTING_STATUS_LABEL}も含める` },
+];
+
+/** 実行ボタン（§5.7）。**期間シートと違い確定ボタンを置く**（取り消せない操作なので） */
+export const EXPORT_SUBMIT_LABEL = '書き出す';
+
+/**
+ * 下端の左（§5.7）:「2026年8月・売れた記録」。期間名は月バーと同じ書式（periodTitle）。
+ * **押す前に何が出るかを読ませる行**なので、効いている条件をそのまま並べる。
+ */
+export function exportSummaryLabel(period: Period, includeListing: boolean): string {
+  const target = includeListing
+    ? `${SOLD_RECORDS_LABEL}と${LISTING_STATUS_LABEL}`
+    : SOLD_RECORDS_LABEL;
+  return `${periodTitle(period)}・${target}`;
+}
+
+/**
+ * 下端の右（§5.7）:「12件」/ 日ごとにまとめたときは「12件（5行）」。
+ * **件数は記録の数**で、行数はファイルの行の数 ── まとめると行の方が少なくなるので、
+ * 変わったことがその場で読めるように両方出す。同じ数のときは括弧を出さない。
+ */
+export function exportCountLabel(recordCount: number, rowCount: number): string {
+  const count = presetCountLabel(recordCount);
+  return rowCount === recordCount ? count : `${count}（${rowCount}行）`;
+}
+
+/**
+ * 対象が 0 件のとき、ボタンの上に出す 1 行（§5.7）。
+ *
+ * **切り替えれば書き出せることを示す。** 「0件」とだけ出すと、期間の選び直しか
+ * 対象の切り替えか、どちらで直るのかが読めない。出品中の記録が 1 件も無いときは
+ * 2 文目を足さない（言うことがない）。
+ */
+export function exportEmptyNote(listingCount: number): string {
+  const head = 'この期間に対象の記録がありません。';
+  if (listingCount === 0) return head;
+  return `${head}${LISTING_STATUS_LABEL}の記録は${presetCountLabel(listingCount)}あります。`;
+}
+
+/**
+ * 確定申告用を選んだときにシートの中へ出す注意書き（§5.8）。**固定表示で、消す動きは持たない。**
+ *
+ * 「不用品なら非課税」と読み切られると、課税対象のものを申告から落とす事故になる。
+ * 詳しい説明はヘルプ（UI-SPEC Step 6・未実装）に置く予定で、繋がるまでは**押せない**注意書き。
+ */
+export const EXPORT_TAX_NOTICE =
+  '不用品でも、課税対象になる場合があります。書き出したあとで仕分けてください。';
+
+/** 共有シートが使えない端末（§5.6）。書き出しの経路が共有シートしかないので、押した後に出る */
+export const EXPORT_SHARING_UNAVAILABLE = 'この端末では共有シートを開けませんでした。';
+
+/** 書き出しに失敗したとき（§5.6）。原因は端末側なので、言えるのは「できなかった」まで */
+export const EXPORT_FAILED_MESSAGE = '書き出せませんでした。もう一度お試しください。';
+
+/** 共有シートの見出し（Android / Web のみ表示される。expo-sharing の dialogTitle） */
+export const EXPORT_SHARE_DIALOG_TITLE = CSV_EXPORT_LABEL;
 
 // 状態カードの補足行（旧 statusCardTimelineText。UI-SPEC §8.9）は**置かない**。
 // §8.9 が実装時送りにしていた重複の整理を、実機で見て「補足行を落とす」と決めたため ──

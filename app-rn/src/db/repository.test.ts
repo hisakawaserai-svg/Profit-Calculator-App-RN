@@ -1021,3 +1021,95 @@ describe('期間フィルタに年（"YYYY"）を渡す（SPEC.md §6.2 / SPEC-V
     });
   });
 });
+
+describe('SPEC-V3 §5.5 CSV 書き出しの対象（listForExport / countForExport）', () => {
+  let repo: Repository;
+
+  const d = (y: number, m: number, day: number, hour = 12) => new Date(y, m - 1, day, hour, 0, 0, 0);
+
+  beforeAll(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+
+    const sold = (itemName: string, saleDate: Date) =>
+      repo.create({
+        ...base,
+        kind: 'used',
+        purchasePrice: 0,
+        itemName,
+        isSold: true,
+        saleStartDate: new Date(saleDate.getFullYear(), saleDate.getMonth(), 1, 12, 0, 0),
+        saleDate,
+      });
+    const listing = (itemName: string, saleStartDate: Date) =>
+      repo.create({
+        ...base,
+        kind: 'used',
+        purchasePrice: 0,
+        itemName,
+        isSold: false,
+        saleStartDate,
+        saleDate: null,
+      });
+
+    sold('7月に売れた本', d(2026, 7, 20));
+    sold('8月に売れた鍋', d(2026, 8, 9, 9));
+    sold('8月に売れた椅子', d(2026, 8, 9, 18));
+    sold('8月末に売れた傘', d(2026, 8, 31));
+    listing('8月に出したバッグ', d(2026, 8, 5));
+    listing('9月に出したカメラ', d(2026, 9, 1));
+  });
+
+  const names = (records: ReturnType<Repository['listForExport']>) =>
+    records.map((record) => record.itemName);
+
+  it('既定（売れた記録のみ）は出品中を含まない', () => {
+    expect(names(repo.listForExport({ period: '2026-08', includeListing: false }))).toEqual([
+      '8月に売れた鍋',
+      '8月に売れた椅子',
+      '8月末に売れた傘',
+    ]);
+  });
+
+  it('出品中も含めると、その行は出品日で期間を判定する（決定 §8-8）', () => {
+    // 8 月に出したバッグは入り、9 月に出したカメラは入らない
+    expect(names(repo.listForExport({ period: '2026-08', includeListing: true }))).toEqual([
+      '8月に出したバッグ',
+      '8月に売れた鍋',
+      '8月に売れた椅子',
+      '8月末に売れた傘',
+    ]);
+  });
+
+  it('並びは基準日の昇順（画面の並びとは逆。§5.4）', () => {
+    const all = repo.listForExport({ period: null, includeListing: true });
+    expect(names(all)).toEqual([
+      '7月に売れた本',
+      '8月に出したバッグ',
+      '8月に売れた鍋',
+      '8月に売れた椅子',
+      '8月末に売れた傘',
+      '9月に出したカメラ',
+    ]);
+  });
+
+  it('年でも全期間でも同じ形で絞れる（期間キーは日付の先頭一致）', () => {
+    expect(repo.countForExport({ period: '2026', includeListing: true })).toBe(6);
+    expect(repo.countForExport({ period: '2026', includeListing: false })).toBe(4);
+    expect(repo.countForExport({ period: null, includeListing: true })).toBe(6);
+    expect(repo.countForExport({ period: '2025', includeListing: true })).toBe(0);
+  });
+
+  it('件数は listForExport と同じ条件で数える（予告と中身が食い違わない）', () => {
+    for (const period of ['2026-07', '2026-08', '2026-09', '2026', null]) {
+      for (const includeListing of [true, false]) {
+        const filter = { period, includeListing };
+        expect(repo.countForExport(filter)).toBe(repo.listForExport(filter).length);
+      }
+    }
+  });
+
+  it('0 件の期間でも落ちない', () => {
+    expect(repo.listForExport({ period: '2025-01', includeListing: true })).toEqual([]);
+    expect(repo.countForExport({ period: '2025-01', includeListing: true })).toBe(0);
+  });
+});

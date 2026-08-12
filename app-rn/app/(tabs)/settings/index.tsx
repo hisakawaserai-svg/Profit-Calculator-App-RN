@@ -9,7 +9,8 @@
 //   使いかた / 記録の既定値 / 入力を減らす / データ / バージョン表記。
 // 「入力を減らす」（旧「（今後）」・非活性）を SPEC-V3 Step 2 で活性化し、
 // 3 行を**カード**にした（設計案 24a。理由は PresetSummaryCard の冒頭）。
-// 「データ」群の書き出し（CSV）は Step 6 まで「準備中」のまま置く（SPEC-V3 §6.2）。
+// 「データ」群の書き出し（CSV）は Step 6（SPEC-V3 §5.7）で活性化した。押すとモーダルで
+// 書き出しシートが開く（presentation は同じ階層の _layout.tsx が持つ）。
 //
 // 手数料の既定値（defaultCommission。UI-SPEC §1.6-2）はまだ無いので、
 // 「記録の既定値」群は種別だけ。
@@ -27,7 +28,6 @@ import { useTagList } from '@/db/useTags';
 import {
   CSV_EXPORT_LABEL,
   DATA_SECTION_TITLE,
-  PREPARING_LABEL,
   PRESET_SECTION_NOTE,
   PRESET_SECTION_TITLE,
   presetCountLabel,
@@ -166,20 +166,23 @@ export default function SettingsScreen() {
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_SECTION_NOTE}</Text>
         </View>
 
-        {/* UI-SPEC §1.6-4: データ群。書き出しは Step 6 まで非活性（SPEC-V3 §6.2） */}
+        {/* UI-SPEC §1.6-4: データ群。書き出しは SPEC-V3 §5.7 で実装済み（活性） */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
             {DATA_SECTION_TITLE}
           </Text>
           <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
-            <View style={styles.row} accessibilityRole="text">
-              <Text style={[styles.label, { color: colors.disabledContent }]}>
-                {CSV_EXPORT_LABEL}
-              </Text>
-              <Text style={[styles.rowValue, { color: colors.disabledContent }]}>
-                {PREPARING_LABEL}
-              </Text>
-            </View>
+            {/* SPEC-V3 §5.7 で活性化した（「準備中」が外れた）。押すとモーダルの
+                書き出しシートが開く（presentation は設定タブの _layout.tsx が持つ） */}
+            <Link href="/settings/export" asChild>
+              <Pressable
+                // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
+                style={StyleSheet.flatten([styles.row])}
+                accessibilityRole="link">
+                <Text style={[styles.label, { color: colors.label }]}>{CSV_EXPORT_LABEL}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+              </Pressable>
+            </Link>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.label }]}>{RECORD_COUNT_LABEL}</Text>
