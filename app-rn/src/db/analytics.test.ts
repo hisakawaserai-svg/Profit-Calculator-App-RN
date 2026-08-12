@@ -23,6 +23,16 @@ import {
 import * as schema from './schema';
 
 /**
+ * repository の依存（SPEC-V5 §1.5 で写真ファイルを消す口が増えた）。
+ * ここでは実体のファイルを持たないので、既定は何もしない関数を渡す。
+ * 消されたかどうかを見たいテストだけが自前の関数を渡す。
+ */
+function recordDeps(deletePhotoFile: (fileName: string) => void = () => {}) {
+  return { generateId: randomUUID, deletePhotoFile };
+}
+
+
+/**
  * 期間だけの集計条件。種別フィルタ（SPEC-V2 §4.2）が入って引数が AnalyticsFilter に
  * 変わったので、種別を見ない既存のケースはこれで包む（kind 省略 = すべて）。
  * 種別で絞るケースは repository.test.ts 側に置く。
@@ -44,6 +54,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
+  photoFileName: null,
   // タグ（SPEC-V4 §1.4）。集計テストではタグを付けないので空配列
   tagIds: [],
 };
@@ -65,7 +77,7 @@ beforeAll(() => {
     }
   }
 
-  repo = createRepository(drizzle(sqlite, { schema }), { generateId: randomUUID });
+  repo = createRepository(drizzle(sqlite, { schema }), recordDeps());
 
   created = {
     // 2026-07-05 12:00 / 手数料 99.9 円 → 丸めなしの合算を確かめるための小数

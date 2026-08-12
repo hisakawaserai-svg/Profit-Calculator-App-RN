@@ -21,6 +21,16 @@ import { createRepository, type Repository, type SaveRecordInput } from './repos
 import * as schema from './schema';
 import type { PresetType } from './schema';
 
+/**
+ * repository の依存（SPEC-V5 §1.5 で写真ファイルを消す口が増えた）。
+ * ここでは実体のファイルを持たないので、既定は何もしない関数を渡す。
+ * 消されたかどうかを見たいテストだけが自前の関数を渡す。
+ */
+function recordDeps(deletePhotoFile: (fileName: string) => void = () => {}) {
+  return { generateId: randomUUID, deletePhotoFile };
+}
+
+
 const drizzleDir = fileURLToPath(new URL('../../drizzle/', import.meta.url));
 
 function migrationSql(tag: string): string[] {
@@ -261,11 +271,12 @@ describe('§1.5.1 repository: site_name の保存と取得', () => {
     saleDate: null,
     memo: '',
     siteName: '',
+    photoFileName: null,
     tagIds: [],
   };
 
   beforeEach(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
   });
 
   it('保存した名前がそのまま読み出せる', () => {
@@ -325,11 +336,12 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
     saleDate: new Date(2026, 7, 5, 12, 0, 0),
     memo: '',
     siteName: '',
+    photoFileName: null,
     tagIds: [],
   };
 
   beforeEach(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
   });
 
   it('totalCount は出品中も含めた全件（設定タブ「記録の件数」。UI-SPEC §1.6-4）', () => {
@@ -356,7 +368,7 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
   it('プリセットを消しても記録の site_name は残る（§1.5。確認文の「記録は残る」の裏付け）', () => {
     // 同じ DB の上に 2 つの repository を載せる（アプリ本体と同じ構成。client.ts）
     const db = drizzle(newDatabase(), { schema });
-    const records = createRepository(db, { generateId: randomUUID });
+    const records = createRepository(db, recordDeps());
     const presetRepo = createPresetRepository(db, { generateId: randomUUID });
 
     const record = records.create({ ...base, siteName: '手数料 10%' });

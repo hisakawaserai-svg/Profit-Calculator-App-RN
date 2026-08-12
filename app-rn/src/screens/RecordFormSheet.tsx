@@ -10,6 +10,9 @@
 //   切り替えると日付カードの中で売れた日の行がその場で開く／閉じ、開いた行には数秒だけ
 //   薄い青の下地が付く（§8.7）。**確認ダイアログと undo バーは出さない**（§8.6 派生決定）──
 //   フォームは「保存」を押すまで何も書き込まないので、取り消す対象がまだない。
+// - 写真の欄は商品名の**上**（SPEC-V5 §3.1）。金額の積み上げの中には入れない。
+//   **選んだ瞬間にファイルが増え、DB の列に載るのは「保存」を押した瞬間**（SPEC-V5 §1.5）。
+//   その間にできる「どこからも指されないファイル」は、このフォームが閉じるときに自分で片づける。
 // - 種別セレクタは商品名の直下・金額の積み上げの直前（§6-6）。仕入価格行と同じカードなので、
 //   切替で行が消えるのがその場で見える（SPEC-V2 §1.5 の目視要件）。
 // - 日付とメモは折りたたむ。畳んだままでも中身が分かるよう、見出しに日付・入力有無を出す。
@@ -24,7 +27,7 @@
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -40,6 +43,7 @@ import {
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
+import { PhotoField } from '@/components/PhotoField';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SiteNameRow } from '@/components/SiteNameRow';
@@ -85,6 +89,7 @@ import {
   todayDateLabel,
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
+import { orphanPhotoFiles } from '@/logic/photo';
 import { commissionCost, netProfit } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
@@ -101,6 +106,7 @@ import {
   type InitialAmounts,
   type RecordFormValues,
 } from '@/logic/recordForm';
+import { photoStore } from '@/media/expoPhotoFiles';
 import { getDefaultRecordKind } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -166,6 +172,17 @@ function RecordForm({
       ? newFormValues(getDefaultRecordKind(), initialAmounts)
       : recordToFormValues(record, undefined, savedTagIds),
   );
+  /**
+   * このフォームを開いている間に**新しく書かれた写真ファイル**（SPEC-V5 §1.5）。
+   *
+   * 実体はカメラロールから選んだ瞬間に置かれるが、DB の列に載るのは保存の瞬間なので、
+   * 選び直し・取り消しのたびにどこからも指されないファイルが残る。閉じるときに
+   * 「最後まで残った 1 枚」以外をここから消す（判定は logic/photo.orphanPhotoFiles）。
+   *
+   * state ではなく ref にしてあるのは、片づけが描画に関係しないため
+   * （増えても減っても画面に出るものは変わらない）。
+   */
+  const createdPhotos = useRef<string[]>([]);
   /** タグ選択シート（§3.2）。開いている間だけマウントする */
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
@@ -178,6 +195,23 @@ function RecordForm({
   const [memoOpen, setMemoOpen] = useState(false);
   /** 状態を切り替えた直後だけ売れた日の行に薄い青の下地を敷く（UI-SPEC §8.3 / §8.7） */
   const [highlightSoldDate, setHighlightSoldDate] = useState(false);
+
+  /**
+   * 閉じ方を問わない片づけ（SPEC-V5 §1.5）。シートを下へ払って閉じたときは
+   * 「キャンセル」を通らないので、**アンマウントを最後の関所**にしておく。
+   *
+   * 保存・キャンセルの経路は自分で片づけて `createdPhotos` を空にしてから閉じるので、
+   * ここが実際に消すのはその 2 つを通らなかったときだけ。
+   */
+  useEffect(
+    () => () => {
+      for (const fileName of orphanPhotoFiles(createdPhotos.current, null)) {
+        photoStore.remove(fileName);
+      }
+      createdPhotos.current = [];
+    },
+    [],
+  );
 
   // 表示時間は詳細画面の undo バーと同じ 1 つの定数（§8.3）
   useEffect(() => {
@@ -225,12 +259,44 @@ function RecordForm({
     setHighlightSoldDate(toSold);
   };
 
+  /**
+   * 写真が決まったとき（SPEC-V5 §3.1）。**選んだ時点で実体は既に置かれている**ので、
+   * 名前を控えて片づけの対象に加える。削除（null）ではファイルを消さない ──
+   * 保存を押すまでは元の写真に戻せなければならない。
+   */
+  const changePhoto = (fileName: string | null) => {
+    if (fileName != null) createdPhotos.current.push(fileName);
+    update('photoFileName', fileName);
+  };
+
+  /**
+   * 使われなかった写真を消す（SPEC-V5 §1.5）。**保存でも取り消しでも通る。**
+   *
+   * 保存なら「列に載った 1 枚」以外、取り消しなら「開いている間に作った全部」が対象。
+   * 保存済みの写真（この一覧に無い）は触らない ── そちらを消すのは repository の責務で、
+   * 記録の列が実際に書き換わったときだけ消える。
+   */
+  const cleanUpPhotos = (keep: string | null) => {
+    for (const fileName of orphanPhotoFiles(createdPhotos.current, keep)) {
+      photoStore.remove(fileName);
+    }
+    createdPhotos.current = [];
+  };
+
+  /** キャンセル（SPEC §5.3）。DB には何も書いていないので、片づけるのは写真だけ */
+  const handleCancel = () => {
+    cleanUpPhotos(null);
+    onClose();
+  };
+
   const handleSave = () => {
     setIsPushedSave(true);
-    // 商品名が空なら早期 return。シートは閉じず、DB にも書き込まない（SPEC §5.2）
+    // 商品名が空なら早期 return。シートは閉じず、DB にも書き込まない（SPEC §5.2）。
+    // ここで片づけないのは、まだ編集の途中だから（選んだ写真は残す）
     if (!canSave(values)) return;
 
     saveRecord(record?.id ?? null, toSaveInput(values));
+    cleanUpPhotos(values.photoFileName);
     onSaved?.();
     onClose();
   };
@@ -264,7 +330,7 @@ function RecordForm({
 
       {/* 2. シートヘッダ（UI-SPEC §1.3-2） */}
       <View style={[styles.header, { borderBottomColor: colors.separator }]}>
-        <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button">
+        <Pressable onPress={handleCancel} hitSlop={8} accessibilityRole="button">
           <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.label }]}>{title}</Text>
@@ -283,8 +349,10 @@ function RecordForm({
         <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
           <StatusHeaderRow isSold={values.isSold} colors={colors} onToggle={toggleStatus} />
 
-          {/* 4. 商品名（22px のインライン入力）。必須なのはこの欄だけ（SPEC §5.2） */}
-          <View style={styles.itemNameBlock}>
+          {/* 4. 商品名（22px のインライン入力）。必須なのはこの欄だけ（SPEC §5.2）。
+              **左に写真の正方形**（SPEC-V5 §3.1）── 写真は任意で付けない記録の方が多いので、
+              専用の 1 段を取らず商品名の横に畳む。並びは一覧の行・詳細と同じ「写真が左」 */}
+          <PhotoField fileName={values.photoFileName} onChange={changePhoto}>
             <TextInput
               style={[
                 styles.itemNameInput,
@@ -305,7 +373,7 @@ function RecordForm({
               accessibilityRole={hasError ? 'alert' : undefined}>
               {hasError ? ITEM_NAME_REQUIRED_MESSAGE : ITEM_NAME_CAPTION}
             </Text>
-          </View>
+          </PhotoField>
 
           {/* 4a. タグ行（SPEC-V4 §3.1）。商品名の直下・種別セレクタの上（決定 §9-3）──
               番号を 4a にしてあるのは、他の番号が UI-SPEC §1.3-N を指しているため
@@ -681,9 +749,6 @@ const styles = StyleSheet.create({
   },
   statusSwitch: {
     fontSize: 14,
-  },
-  itemNameBlock: {
-    gap: 4,
   },
   itemNameInput: {
     fontSize: 22,

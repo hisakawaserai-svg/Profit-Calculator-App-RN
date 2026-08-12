@@ -1,6 +1,6 @@
 // 一覧の 1 行（UI-SPEC §1.2「行の出し分け」）。記録タブとデータタブの内訳リストで共用する（§6-11）。
 //
-// 2 段構成:
+// 左に写真の枠（56pt・常設）、右に 2 段:
 //   1 段目 = 商品名（左）＋ 主金額（右）
 //   2 段目 = メタ行。左に「{種別}　M/D 販売 / 出品」、右に補足
 //
@@ -15,8 +15,13 @@
 // - 「N 日経過」は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
 // - 純利益は符号つき（「+¥1,240」）。正負を緑／赤だけに預けない（§0.1。設計案 30b）。
 // - タグはメタ行の左端、日付の後ろに**点 ＋ 名前**で続ける（§2.3。設計案 30b）。
+// - 写真の枠は**有無にかかわらず常に置く**（SPEC-V5 §2.3 / 採用案 `41a`）。
+//   写真のある行だけサムネを出すと、商品名の左端が行ごとに揺れる ── 写真の無い記録の方が
+//   多い前提なので、揺れる側が多数派になる。行の高さは 56 + 上下 13 = 82pt
+//   （タグの付いた行だけ 3 段目ぶん伸びるのは従来どおり）。
 import { StyleSheet, Text, View } from 'react-native';
 
+import { PhotoThumbnail, PHOTO_THUMBNAIL_SIZE } from '@/components/PhotoThumbnail';
 import { TagDot } from '@/components/TagChip';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord, Tag } from '@/db/schema';
@@ -65,54 +70,60 @@ export function RecordRow({ record, isSoldMode, today, tags = [] }: Props) {
 
   return (
     <View style={styles.row}>
-      <View style={styles.mainLine}>
-        <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
-          {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
-        </Text>
-        <Text
-          style={[
-            styles.amount,
-            // 売れた記録は正負で色を変える。出品中の主金額（出品価格）は損益ではないので黒
-            {
-              color: isSoldMode ? (profit >= 0 ? colors.green : colors.red) : colors.label,
-            },
-          ]}
-          numberOfLines={1}>
-          {/* 売れた記録は損益なので符号つき。出品中の主金額（出品価格）は損益ではないので素のまま */}
-          {isSoldMode ? formatSignedYenSymbol(profit) : formatYenSymbol(record.salesPrice)}
-        </Text>
-      </View>
+      {/* 写真の枠は常設（SPEC-V5 §2.3）。無い記録では薄い枠だけが出る */}
+      <PhotoThumbnail fileName={record.photoFileName} />
 
-      <View style={styles.metaLine}>
-        <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {/* 金額ラベルを廃止したぶん、種別はここで常時読めるようにする（§6-1） */}
-          {recordKindLabel(record.kind)}
-          {dateText === '' ? '' : `　${dateText}`}
-        </Text>
-        <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {isSoldMode
-            ? `${EXPENSES_LABEL} ${formatYenSymbol(totalExpenses(record))}`
-            : listingMetaText(record, profit, today ?? new Date())}
-        </Text>
-      </View>
-
-      {/* タグは**メタ行と同じ列の下に独立して置く**（§2.3）。設計案 30b は日付の後ろに
-          続けていたが、実際の行にはメタ行の右（「経費 ¥…」「売れたら 約¥…・N 日経過」）が
-          あり、同じ行に入れると日付もタグ名も両方省略されて読めなくなる。
-          **チップにはしない** ── 点 ＋ 名前だけの方がメタ行の他の語と同じ重さで読める
-          （チップにすると行の中で最も目立つ要素になる）。 */}
-      {tags.length > 0 && (
-        <View style={styles.tagLine}>
-          {tags.map((tag) => (
-            <View key={tag.id} style={styles.tagItem}>
-              <TagDot colorKey={tag.colorKey} />
-              <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-                {tag.name}
-              </Text>
-            </View>
-          ))}
+      {/* 写真の右側。1 段目・メタ行・タグ行はここに積む */}
+      <View style={styles.body}>
+        <View style={styles.mainLine}>
+          <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
+            {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+          </Text>
+          <Text
+            style={[
+              styles.amount,
+              // 売れた記録は正負で色を変える。出品中の主金額（出品価格）は損益ではないので黒
+              {
+                color: isSoldMode ? (profit >= 0 ? colors.green : colors.red) : colors.label,
+              },
+            ]}
+            numberOfLines={1}>
+            {/* 売れた記録は損益なので符号つき。出品中の主金額（出品価格）は損益ではないので素のまま */}
+            {isSoldMode ? formatSignedYenSymbol(profit) : formatYenSymbol(record.salesPrice)}
+          </Text>
         </View>
-      )}
+
+        <View style={styles.metaLine}>
+          <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+            {/* 金額ラベルを廃止したぶん、種別はここで常時読めるようにする（§6-1） */}
+            {recordKindLabel(record.kind)}
+            {dateText === '' ? '' : `　${dateText}`}
+          </Text>
+          <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+            {isSoldMode
+              ? `${EXPENSES_LABEL} ${formatYenSymbol(totalExpenses(record))}`
+              : listingMetaText(record, profit, today ?? new Date())}
+          </Text>
+        </View>
+
+        {/* タグは**メタ行と同じ列の下に独立して置く**（§2.3）。設計案 30b は日付の後ろに
+            続けていたが、実際の行にはメタ行の右（「経費 ¥…」「売れたら 約¥…・N 日経過」）が
+            あり、同じ行に入れると日付もタグ名も両方省略されて読めなくなる。
+            **チップにはしない** ── 点 ＋ 名前だけの方がメタ行の他の語と同じ重さで読める
+            （チップにすると行の中で最も目立つ要素になる）。 */}
+        {tags.length > 0 && (
+          <View style={styles.tagLine}>
+            {tags.map((tag) => (
+              <View key={tag.id} style={styles.tagItem}>
+                <TagDot colorKey={tag.colorKey} />
+                <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
+                  {tag.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -132,7 +143,18 @@ function listingMetaText(record: SaleRecord, profit: number, today: Date): strin
 
 const styles = StyleSheet.create({
   row: {
+    flexDirection: 'row',
+    // 文字は上から積むので、写真の枠も上端に揃える（タグで 3 段目が生えても頭が動かない）
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  // 写真の右側。1 段目・メタ行・タグ行はここに積む
+  body: {
+    flex: 1,
     gap: 4,
+    // 枠（56pt）より中身が短いときも行の高さを揃える
+    minHeight: PHOTO_THUMBNAIL_SIZE,
+    justifyContent: 'center',
   },
   mainLine: {
     flexDirection: 'row',

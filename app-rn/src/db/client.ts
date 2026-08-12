@@ -4,6 +4,7 @@ import { randomUUID } from 'expo-crypto';
 import { openDatabaseSync } from 'expo-sqlite';
 
 import migrations from '../../drizzle/migrations';
+import { photoStore } from '../media/expoPhotoFiles';
 import { createPresetRepository } from './presets';
 import { createRepository } from './repository';
 import * as schema from './schema';
@@ -13,8 +14,17 @@ const expoDb = openDatabaseSync('profit-calculator.db');
 
 export const db = drizzle(expoDb, { schema });
 
-/** UI が使うデータアクセスの唯一の入口。直接 db でクエリを書かないこと */
-export const repository = createRepository(db, { generateId: randomUUID });
+/**
+ * UI が使うデータアクセスの唯一の入口。直接 db でクエリを書かないこと。
+ *
+ * 写真の実体を消す口（`deletePhotoFile`）をここで渡す（SPEC-V5 §1.5）──
+ * 「記録を消したら写真も消える」を repository の中で完結させるため。画面から
+ * 消し忘れる余地を作らないのが目的で、repository 自身は expo-file-system を知らない。
+ */
+export const repository = createRepository(db, {
+  generateId: randomUUID,
+  deletePhotoFile: photoStore.remove,
+});
 
 /**
  * プリセット（SPEC-V3 §1）の入口。レコードと同じ DB に同居する（§1.6）ので、

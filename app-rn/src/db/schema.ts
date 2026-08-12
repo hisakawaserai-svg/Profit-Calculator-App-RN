@@ -29,6 +29,16 @@ export const saleRecords = sqliteTable('sale_records', {
   // 参照ではなく「そのとき何と書いてあったか」なので、プリセットを直しても過去の記録は動かない。
   // 空文字 = 未設定（NULL は使わない。既存列と同じ方針）。計算式にも buildWhere にも入らない。
   siteName: text('site_name').notNull().default(''),
+  // 商品写真（SPEC-V5 §1）。**画像そのものは入れず、ファイル名だけを持つ**（§1.2）──
+  // BLOB で持つと DB が肥大し、一覧のクエリまで重くなる。実体はドキュメントディレクトリ配下の
+  // photos/ に置き、この列はその中のファイル名（"<uuid>.jpg"）。パスを持たないのは、
+  // アプリのサンドボックスの絶対パスが再インストールや OS 更新で変わり得るため（§1.3）。
+  //
+  // **この列だけ NULL 許容**（他の列は空文字・0 で「未設定」を表す）。写真は
+  // 「無い」と「空の写真」の区別が意味を持たないので、値が無いことを NULL で表す方が素直で、
+  // 既存行を書き換えないマイグレーション（0005 の ADD COLUMN のみ・バックフィルなし）に
+  // そのまま乗る（§2.1）。CSV には出さない（§5）。
+  photoFileName: text('photo_file_name'),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),

@@ -21,6 +21,16 @@ import { createRepository, type Repository, type SaveRecordInput } from './repos
 import * as schema from './schema';
 import { createTagRepository, type TagRepository } from './tags';
 
+/**
+ * repository の依存（SPEC-V5 §1.5 で写真ファイルを消す口が増えた）。
+ * ここでは実体のファイルを持たないので、既定は何もしない関数を渡す。
+ * 消されたかどうかを見たいテストだけが自前の関数を渡す。
+ */
+function recordDeps(deletePhotoFile: (fileName: string) => void = () => {}) {
+  return { generateId: randomUUID, deletePhotoFile };
+}
+
+
 const drizzleDir = fileURLToPath(new URL('../../drizzle/', import.meta.url));
 
 function migrationSql(tag: string): string[] {
@@ -50,6 +60,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
+  photoFileName: null,
   // タグ（SPEC-V4 §1.4）。タグを使う describe 群は自前で上書きする
   tagIds: [],
 };
@@ -58,7 +70,7 @@ describe('§2.4 保存時の正規化: 不用品の仕入価格は 0 に強制�
   let repo: Repository;
 
   beforeEach(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
   });
 
   it('不用品は仕入価格が入力されていても 0 で保存される', () => {
@@ -157,7 +169,7 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
 
   beforeAll(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
     created = {
       // 2026-07: 同じ月に両種別が混在する（§0 の前提）
       usedJuly: repo.create({
@@ -372,7 +384,7 @@ describe('記録タブ（UI-SPEC §1.2）: filteredRecords / earliestMonthKey / 
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
 
   beforeAll(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
     // 売れた記録: 2026-06 / 2026-08 に 2 件（同月に複数件あること）
     repo.create({
       ...base,
@@ -554,7 +566,7 @@ describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () 
   let repo: Repository;
 
   beforeEach(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
   });
 
   /** 出品中のレコードを 1 件作る（出品日は引数で動かす） */
@@ -606,7 +618,7 @@ describe('SPEC-V4 §4.4 タグが付いても集計が二重にならない', ()
 
   beforeEach(() => {
     const db = drizzle(newDatabase(), { schema });
-    repo = createRepository(db, { generateId: randomUUID });
+    repo = createRepository(db, recordDeps());
     tagRepo = createTagRepository(db, { generateId: randomUUID });
   });
 
@@ -658,7 +670,7 @@ describe('SPEC-V4 §4.6 countRecords: 絞り込みシート下部の「N 件」'
   let repo: Repository;
 
   beforeEach(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
   });
 
   const create = (over: Partial<SaveRecordInput>) =>
@@ -701,7 +713,7 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
 
   beforeEach(() => {
     const db = drizzle(newDatabase(), { schema });
-    repo = createRepository(db, { generateId: randomUUID });
+    repo = createRepository(db, recordDeps());
     tagRepo = createTagRepository(db, { generateId: randomUUID });
     clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
     summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
@@ -790,7 +802,7 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
 
   beforeEach(() => {
     db = drizzle(newDatabase(), { schema });
-    repo = createRepository(db, { generateId: randomUUID });
+    repo = createRepository(db, recordDeps());
     tagRepo = createTagRepository(db, { generateId: randomUUID });
     clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
     summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
@@ -920,7 +932,7 @@ describe('期間フィルタに年（"YYYY"）を渡す（SPEC.md §6.2 / SPEC-V
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
 
   beforeAll(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
     // 2024 年・2025 年（1 月と 12 月の両端）・2026 年に売れた記録を置く
     const sold = (itemName: string, saleDate: Date, salesPrice: number) =>
       repo.create({
@@ -1028,7 +1040,7 @@ describe('SPEC-V3 §5.5 CSV 書き出しの対象（listForExport / countForExpo
   const d = (y: number, m: number, day: number, hour = 12) => new Date(y, m - 1, day, hour, 0, 0, 0);
 
   beforeAll(() => {
-    repo = createRepository(drizzle(newDatabase(), { schema }), { generateId: randomUUID });
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
 
     const sold = (itemName: string, saleDate: Date) =>
       repo.create({
@@ -1111,5 +1123,164 @@ describe('SPEC-V3 §5.5 CSV 書き出しの対象（listForExport / countForExpo
   it('0 件の期間でも落ちない', () => {
     expect(repo.listForExport({ period: '2025-01', includeListing: true })).toEqual([]);
     expect(repo.countForExport({ period: '2025-01', includeListing: true })).toBe(0);
+  });
+});
+
+// ---- SPEC-V5 商品写真 ----
+//
+// 見るのは 3 つ（§1.5 / §2.1）:
+//   1. マイグレーション（0005）で既存の記録が壊れないこと
+//   2. 記録を削除したら写真の実体も消えること
+//   3. 写真を差し替えたら**古い**実体が消えること（新しい方は残ること）
+//
+// 実体の削除は repository の deps（deletePhotoFile）越しに起きるので、
+// ここでは呼ばれた名前を控えるだけの偽物を渡して確かめる。
+// ファイルの出し入れそのものは media/photoFiles.test.ts が見る。
+
+describe('SPEC-V5 §2.1 マイグレーション: photo_file_name 列の追加', () => {
+  /** 0004 までを流した「写真の列がない状態」に行を入れてから 0005 を流す */
+  function migrateWithRows() {
+    const sqlite = newDatabase(4);
+    sqlite
+      .prepare(
+        `INSERT INTO sale_records
+           (id, item_name, sales_price, purchase_price, postage, envelope_cost, others_cost,
+            commission, is_sold, sale_start_date, sale_date, memo, kind, site_name)
+         VALUES (?, ?, 1000, 300, 175, 20, 5, 10, 1,
+                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'メルカリ')`,
+      )
+      .run('id-0', '既存の記録');
+    for (const statement of migrationSql(journal.entries[5].tag)) sqlite.exec(statement);
+    return sqlite;
+  }
+
+  it('既存の行は 1 列増えるだけで、他の値は変わらない', () => {
+    const rows = migrateWithRows()
+      .prepare('SELECT * FROM sale_records')
+      .all() as Record<string, unknown>[];
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'id-0',
+      item_name: '既存の記録',
+      sales_price: 1000,
+      purchase_price: 300,
+      postage: 175,
+      envelope_cost: 20,
+      others_cost: 5,
+      commission: 10,
+      is_sold: 1,
+      sale_start_date: '2026-08-01T12:00:00.000',
+      sale_date: '2026-08-09T12:00:00.000',
+      memo: 'メモ',
+      kind: 'sourced',
+      site_name: 'メルカリ',
+    });
+  });
+
+  it('既存の行の写真は NULL（バックフィルをしない。§2.1）', () => {
+    const row = migrateWithRows()
+      .prepare('SELECT photo_file_name AS photoFileName FROM sale_records')
+      .get() as { photoFileName: string | null };
+
+    expect(row.photoFileName).toBeNull();
+  });
+
+  it('列を足したあとも、既存の行を repository から読めて計算も変わらない', () => {
+    const repo = createRepository(drizzle(migrateWithRows(), { schema }), recordDeps());
+    const record = repo.getById('id-0');
+
+    expect(record?.photoFileName).toBeNull();
+    // 1000 − (300 + 175 + 20 + 5 + 100) = 400
+    expect(netProfit(record!)).toBeCloseTo(400);
+  });
+});
+
+describe('SPEC-V5 §1.5 写真の実体の後始末', () => {
+  let repo: Repository;
+  /** deletePhotoFile に渡ってきたファイル名（呼ばれた順） */
+  let deleted: string[];
+
+  beforeEach(() => {
+    deleted = [];
+    repo = createRepository(
+      drizzle(newDatabase(), { schema }),
+      recordDeps((fileName) => deleted.push(fileName)),
+    );
+  });
+
+  const withPhoto = (photoFileName: string | null) => ({
+    ...base,
+    kind: 'used' as const,
+    purchasePrice: 0,
+    photoFileName,
+  });
+
+  it('写真つきの記録を削除すると、実体も消される', () => {
+    const created = repo.create(withPhoto('a.jpg'));
+
+    repo.remove(created.id);
+
+    expect(deleted).toEqual(['a.jpg']);
+    expect(repo.getById(created.id)).toBeUndefined();
+  });
+
+  it('写真のない記録を削除しても、消す口は呼ばれない', () => {
+    const created = repo.create(withPhoto(null));
+
+    repo.remove(created.id);
+
+    expect(deleted).toEqual([]);
+  });
+
+  it('既に消えている記録を削除しても落ちない（二度押し）', () => {
+    const created = repo.create(withPhoto('a.jpg'));
+    repo.remove(created.id);
+    deleted = [];
+
+    expect(() => repo.remove(created.id)).not.toThrow();
+    expect(deleted).toEqual([]);
+  });
+
+  it('写真を差し替えると、古い方だけが消される', () => {
+    const created = repo.create(withPhoto('old.jpg'));
+
+    repo.update(created.id, withPhoto('new.jpg'));
+
+    expect(deleted).toEqual(['old.jpg']);
+    expect(repo.getById(created.id)?.photoFileName).toBe('new.jpg');
+  });
+
+  it('写真を外すと、外された実体が消される', () => {
+    const created = repo.create(withPhoto('old.jpg'));
+
+    repo.update(created.id, withPhoto(null));
+
+    expect(deleted).toEqual(['old.jpg']);
+    expect(repo.getById(created.id)?.photoFileName).toBeNull();
+  });
+
+  it('写真を触らずに保存し直しても、実体は消されない', () => {
+    const created = repo.create(withPhoto('a.jpg'));
+
+    repo.update(created.id, { ...withPhoto('a.jpg'), itemName: '名前だけ変えた' });
+
+    expect(deleted).toEqual([]);
+    expect(repo.getById(created.id)?.photoFileName).toBe('a.jpg');
+  });
+
+  it('写真の無い記録に写真を足しても、消される実体はない', () => {
+    const created = repo.create(withPhoto(null));
+
+    repo.update(created.id, withPhoto('new.jpg'));
+
+    expect(deleted).toEqual([]);
+    expect(repo.getById(created.id)?.photoFileName).toBe('new.jpg');
+  });
+
+  it('空文字は「写真なし」として入る（壊れた URI を作らない。§1.3）', () => {
+    const created = repo.create({ ...withPhoto(null), photoFileName: '' });
+
+    expect(repo.getById(created.id)?.photoFileName).toBeNull();
   });
 });

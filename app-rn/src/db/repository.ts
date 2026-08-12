@@ -177,6 +177,15 @@ export type SaveRecordInput = {
    */
   siteName: string;
   /**
+   * 商品写真のファイル名（SPEC-V5 §1.3）。**null = 写真なし。**
+   *
+   * 実体は既に写真置き場へ書かれている前提で、ここが受け取るのは名前だけ
+   * （media/photoFiles.ts が保存し、DB へ載せるのは記録の保存の瞬間）。
+   * siteName / tagIds と同じ理由で**省略可にしない** ── 省略できると
+   * 「渡し忘れて静かに写真が外れる（＝ファイルが消える）」経路が作れてしまう。
+   */
+  photoFileName: string | null;
+  /**
    * 付けるタグの id（SPEC-V4 §1.4）。空配列 = タグなし。
    *
    * **省略可にしない。** siteName と同じ理由で、保存経路が「渡し忘れて静かに全部外れる」
@@ -379,11 +388,30 @@ function normalizePurchasePrice(input: SaveRecordInput): number {
   return input.kind === 'used' ? 0 : input.purchasePrice;
 }
 
+/**
+ * 記録の削除・写真の差し替えで**どこからも指されなくなった画像ファイルを消す**（SPEC-V5 §1.5）。
+ *
+ * repository が持つのは「いつ消すか」だけで、消し方（expo-file-system）は知らない ──
+ * この層は Node のテストからも動かすので、端末に触る処理を直接持てない。
+ * アプリ本体は db/client.ts が photoStore.remove を渡す。
+ */
+export type DeletePhotoFile = (fileName: string) => void;
+
 export function createRepository(
   db: Database,
-  deps: { generateId: () => string },
+  deps: { generateId: () => string; deletePhotoFile: DeletePhotoFile },
 ) {
-  const { generateId } = deps;
+  const { generateId, deletePhotoFile } = deps;
+
+  /**
+   * 実体の削除は**トランザクションを抜けてから**（SPEC-V5 §1.5）。
+   * 中で消すと、後続の SQL が失敗して巻き戻ったときに「行は残っているのに
+   * ファイルだけ無い」状態になる ── 逆（ファイルだけ残る）と違い、画面から直せない。
+   */
+  function deletePhotoIfPresent(fileName: string | null | undefined): void {
+    if (fileName == null || fileName === '') return;
+    deletePhotoFile(fileName);
+  }
 
   function toRow(input: SaveRecordInput) {
     const saleDate = normalizeSaleDate(input);
@@ -402,6 +430,9 @@ export function createRepository(
       memo: input.memo,
       // 写しなので正規化しない（SPEC-V3 §1.5.1）。率を手で変えても名前は消さない
       siteName: input.siteName,
+      // 写真はファイル名だけ（SPEC-V5 §1.3）。空文字は来ない想定だが、来ても
+      // 「無い」に倒す ── 空文字のまま入ると uri() が壊れた URI を組み立てる
+      photoFileName: input.photoFileName === '' ? null : input.photoFileName,
     };
   }
 
@@ -426,12 +457,30 @@ export function createRepository(
       });
     },
 
-    /** 同上。タグは差分を取らず全消し → 入れ直し（SPEC-V4 §1.4） */
+    /**
+     * 同上。タグは差分を取らず全消し → 入れ直し（SPEC-V4 §1.4）。
+     *
+     * **写真を差し替えた／外したときは、古いファイルをここで消す**（SPEC-V5 §1.5）──
+     * 消さないと、どの記録からも指されない画像がドキュメントディレクトリに残り続ける。
+     * 判断できるのは「更新の前後で列がどう変わったか」を知っているここだけなので、
+     * フォームや画面には持たせない。
+     */
     update(id: string, input: SaveRecordInput): void {
-      db.transaction((tx) => {
+      const previousPhoto = db.transaction((tx) => {
+        const before = tx
+          .select({ photoFileName: saleRecords.photoFileName })
+          .from(saleRecords)
+          .where(eq(saleRecords.id, id))
+          .get();
         tx.update(saleRecords).set(toRow(input)).where(eq(saleRecords.id, id)).run();
         writeRecordTags(tx, id, input.tagIds);
+        return before?.photoFileName ?? null;
       });
+
+      // 同じファイル名のまま保存し直した（写真は触っていない）ときは消さない
+      if (previousPhoto != null && previousPhoto !== input.photoFileName) {
+        deletePhotoIfPresent(previousPhoto);
+      }
     },
 
     /**
@@ -466,10 +515,20 @@ export function createRepository(
      * 「有効になっているつもり」の孤児行は絞り込みの件数を静かに狂わせる）。
      */
     remove(id: string): void {
-      db.transaction((tx) => {
+      const photoFileName = db.transaction((tx) => {
+        // 消す前に写真の名前を控える（消した後では行ごと引けない）。SPEC-V5 §1.5
+        const row = tx
+          .select({ photoFileName: saleRecords.photoFileName })
+          .from(saleRecords)
+          .where(eq(saleRecords.id, id))
+          .get();
         deleteRecordTags(tx, id);
         tx.delete(saleRecords).where(eq(saleRecords.id, id)).run();
+        return row?.photoFileName ?? null;
       });
+
+      // 記録が消えれば写真を指すものは他に無い（1 件 1 枚・共有しない。SPEC-V5 §0.1）
+      deletePhotoIfPresent(photoFileName);
     },
 
     // ---- 件数（絞り込みを持たない 2 本。集計は analyticsSummary 側の責務） ----

@@ -8,7 +8,8 @@
     "scheme": "apprn",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.anonymous.app-rn"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +35,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "商品の写真を記録に添えるために、写真へのアクセスを許可します。",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

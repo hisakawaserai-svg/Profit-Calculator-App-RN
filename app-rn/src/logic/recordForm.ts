@@ -51,6 +51,14 @@ export type RecordFormValues = {
    */
   siteName: string;
   /**
+   * 商品写真のファイル名（SPEC-V5 §3.1）。null = 写真なし（任意項目）。
+   *
+   * **ファイルの実体は「選んだ瞬間」に書かれ、この列に載るのは「保存を押した瞬間」**
+   * （§1.5）。ずれている間にできる指されないファイルは、フォームが自分で片づける
+   * （logic/photo.orphanPhotoFiles）。
+   */
+  photoFileName: string | null;
+  /**
    * 付けるタグの id（SPEC-V4 §3.1）。**空配列でも保存できる**（§0：必須にしない）。
    *
    * 並びは `tags.sortOrder` 昇順（§1.5）── 選択シートは一覧の並びのままチェックを付けるので、
@@ -110,6 +118,9 @@ export function newFormValues(
     isSold: false,
     memo: '',
     siteName: amounts?.siteName ?? '',
+    // 写真は常に「無し」から始まる（SPEC-V5 §3.4）。計算タブに写真の欄は無いので、
+    // siteName のように引き継ぐ元も無い（InitialAmounts が持たないのはそのため）
+    photoFileName: null,
     // タグは常に 0 件から始まる（SPEC-V4 §3.4 / 決定 §9-4）。計算タブにはタグ行が無いので、
     // siteName のように引き継ぐ元も無い ── InitialAmounts が tagIds を持たないのはそのため
     tagIds: [],
@@ -155,6 +166,8 @@ export function recordToFormValues(
     isSold: record.isSold,
     memo: record.memo,
     siteName: record.siteName,
+    // 編集は保存済みの写真から始まる（SPEC-V5 §3.1）
+    photoFileName: record.photoFileName,
     tagIds: [...tagIds],
   };
 }
@@ -224,6 +237,9 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     memo: values.memo,
     // 販売サイト名（SPEC-V3 §1.5.1）。計算にも buildWhere にも入らない、表示と CSV だけの列
     siteName: values.siteName,
+    // 写真（SPEC-V5 §1.3）。**古いファイルを消すのは repository の責務**（§1.5）──
+    // ここは「保存後に何が正か」を渡すだけで、差し替えの前後の比較はしない
+    photoFileName: values.photoFileName,
     // タグ（SPEC-V4 §1.4 / §3.1）。**中間テーブルは全消し → 入れ直し**なので、
     // ここが空配列ならその記録からタグが全部外れる。SaveRecordInput 側を省略可に
     // しないのは「渡し忘れて静かに全部外れる」を防ぐため

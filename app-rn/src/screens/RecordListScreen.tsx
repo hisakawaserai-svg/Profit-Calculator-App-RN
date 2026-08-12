@@ -503,7 +503,8 @@ const styles = StyleSheet.create({
   swipeContainer: {},
   rowCard: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    // 写真の枠（56pt）と合わせて行の高さを 82pt にする（SPEC-V5 §2.3 / 採用案 41a）
+    paddingVertical: 13,
   },
   // 区切り線は行の左端から少し内側に入れる（先頭の商品名の頭に合わせる）
   rowSeparator: {

@@ -7,6 +7,10 @@
 // 「編集する」「削除」に置き換えた（何をする操作なのかを語で読めるようにする）。
 //
 // - 状態はメタ行のバッジ（表示）と状態カード（変更）の両方を置く（§5-13。役割が違う）。
+// - 写真は商品名の直後・**レシートカードの外側**（SPEC-V5 §2.1）。カードは金額の面なので、
+//   金額でないものを中に入れない（タグと同じ理由。SPEC-V4 §3.4）。
+//   写真が無いときは節ごと出さず、**商品名の行の右端の写真アイコン**が足す口になる
+//   （§2.2 / 決定 §6-4）。押すと編集フォームが開く。
 // - 画面下部の 1 件サマリー（Swift 版 CareerSummarySection）は置かない（§5-12）。
 //   レシートの結果行（種別語＋額）が同じ役割を果たす。
 // - 経過日数は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
@@ -28,6 +32,8 @@
 // 決定 §7-6 のとおり、Swift 版の careerProfit / careerExpenses と、
 // それらのためだけにあった allRecords の @FetchRequest は移植していない（計算のみで未使用）。
 // 同じく未使用だった targetMonth も引き継がない。
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -40,6 +46,7 @@ import {
   View,
 } from 'react-native';
 
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
 import { TagChip } from '@/components/TagChip';
 import { UndoBar } from '@/components/UndoBar';
@@ -56,9 +63,11 @@ import {
   MARKED_AS_SOLD_MESSAGE,
   MEMO_EMPTY_LABEL,
   MEMO_LABEL,
+  PHOTO_ADD_FROM_DETAIL_LABEL,
+  PHOTO_IMAGE_LABEL,
+  PHOTO_TAP_HINT,
   REVERT_TO_LISTING_CONFIRM_LABEL,
   SOLD_BADGE_LABEL,
-  TAG_SECTION_LABEL,
   UNDO_LABEL,
   UNTITLED_LABEL,
   CANCEL_LABEL,
@@ -66,6 +75,7 @@ import {
   revertToListingConfirmTitle,
 } from '@/logic/labels';
 import { listingDays } from '@/logic/listingDays';
+import { photoStore } from '@/media/expoPhotoFiles';
 import { initialSaleDate } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
@@ -202,10 +212,15 @@ export function SaleRecordDetailScreen() {
             </Text>
           </View>
 
-          {/* 3. 商品名 */}
-          <Text style={[styles.itemName, { color: colors.label }]}>
-            {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
-          </Text>
+          {/* 3. 見出しの塊（SPEC-V5 §2.1）。**左に写真・右に商品名とタグ。**
+              レシートカードの外側に置くのは、カードが金額の面だから（UI-SPEC §1.4）。
+              写真が無いときは正方形ごと出さず、商品名の行の右端の小さなアイコンが
+              足す口になる（§2.2 / 決定 §6-4） */}
+          <RecordHeaderBlock
+            record={record}
+            tags={recordTags}
+            onAddPhoto={() => setShowForm(true)}
+          />
 
           {/* 4. レシートカード */}
           <ReceiptCard record={record} />
@@ -221,13 +236,6 @@ export function SaleRecordDetailScreen() {
             // 直す場所へ自分でたどり着いたなら、指し示す下地はもう要らない（§8.3）
             onPressSoldDate={() => setHighlightSoldDate(false)}
           />
-
-          {/* 5a. タグ（SPEC-V4 §3.4 / 設計案 32b）。**表示のみ**で、付け替えはフォーム経由
-              （SiteNameRow と同じ扱い）。メモと同じ「補足」の並びに置くのは、レシートカードの
-              位置と大きさをタグの数で動かさないため ── 決定 §9-12 は「メタ行の下・商品名の直後」
-              としていたが、そこに置くとタグが増えるたびに金額の面が下へ押し出される。
-              **0 件のときはカードごと出さない**（メモと違い、空欄を埋める操作がこの画面に無い） */}
-          {recordTags.length > 0 && <TagSection tags={recordTags} />}
 
           {/* 6. メモ */}
           <View style={styles.memoSection}>
@@ -316,34 +324,102 @@ function timelineText(record: SaleRecord, today: Date): string {
 }
 
 /**
- * タグの節（SPEC-V4 §3.4 / 設計案 32b）。メモと同じ「見出し ＋ カード」の形。
+ * 見出しの塊（SPEC-V5 §2.1 / 採用案 `41a`）。**左に写真・右に商品名とタグ。**
  *
- * チップは**表示のみ**（「✕」を出さない）── この画面に保存の口が無いため。
+ * レシートカードの外側に置くのは、カードが「販売価格 − 内訳 = 結果」の金額の面
+ * （UI-SPEC §1.4）で、写真もタグも金額ではないため（SPEC-V4 §3.4 と同じ理由）。
+ *
+ * **全幅 196pt の帯（初期の実装）から、商品名の左の正方形へ改めた**（決定 §6-9）:
+ * - 写真は**この画面の主役ではない**。開く目的はふつう金額の確認で、帯にすると
+ *   レシートカードが毎回 1 画面ぶん下へ落ちる
+ * - 帯は**写真のある記録とない記録で画面の形が大きく変わる**。正方形なら
+ *   「無いときは出さない」でも段が減るだけで、商品名の位置は動かない
+ * - **一覧の行（左に 56pt の枠）と同じ並び**になる。同じ記録を一覧・詳細・フォームの
+ *   3 つで見るので、写真と名前の位置関係が画面ごとに入れ替わらない
+ * - 大きく見たいときは押して全画面（§2.1）。**その口があるので、常時大きく出す必要がない**
+ *
+ * **タグはこの塊の中・商品名の下**（SPEC-V4 §3.4 の再改訂）。写真がタグの左に
+ * 固定の高さ（88pt）を作るので、チップ 1 段ぶんは**縦を増やさずに収まる**ようになった
+ * ── レシートカードの下へ逃がしていた理由（可変長で金額の面を押し下げる）が、
+ * ここでは薄くなる。0 件なら行ごと出さない。
+ *
+ * チップは**表示のみ**（「✕」を出さない）── この画面に保存の口が無い。
  * 外すのは編集フォームのタグ行（§3.1）で、そこには「保存」がある。
- *
- * 地色は敷く（§2.3 の表は記録詳細を `plain` としていたが、案 32b の絵は薄い地のチップ）──
- * カードの中に複数のチップが折り返して並ぶので、地が無いと点と名前の連なりが
- * 1 つの文に見えてしまい、どこまでが 1 つのタグなのか読めない。
- * 「✕」は `onRemove` を渡さなければ出ないので、押せる印は付かない。
- * 並びは tags.sortOrder 昇順（§1.5）。呼び出し側が selectedTags で解決して渡す。
+ * 薄い地は敷く ── 見出しもカードも持たない裸の並びなので、地が無いと
+ * 点と名前の連なりがどこで切れるのか読めない。
  */
-function TagSection({ tags }: { tags: Tag[] }) {
+function RecordHeaderBlock({
+  record,
+  tags,
+  onAddPhoto,
+}: {
+  record: SaleRecord;
+  tags: Tag[];
+  onAddPhoto: () => void;
+}) {
   const colors = useThemeColors();
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const uri = photoStore.uri(record.photoFileName);
 
   return (
-    <View style={styles.tagSection}>
-      <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-        {TAG_SECTION_LABEL}
-      </Text>
-      {/* チップは折り返して下に伸びる。カードの高さがタグの数で変わっても、
-          上のレシートカードは動かない（この節をレシートの下に置いた理由そのもの） */}
-      <View style={[styles.card, styles.tagCard, { backgroundColor: colors.secondaryBackground }]}>
-        {/* **表示のみ**（§3.4 / 決定 §9-12）。`selected` の薄い地を敷くと、
-            外せない場所なのに「押せば外せる」ように読める */}
-        {tags.map((tag) => (
-          <TagChip key={tag.id} tag={tag} variant="plain" />
-        ))}
+    <View style={styles.headerBlock}>
+      <View style={styles.headerRow}>
+        {uri != null && (
+          <Pressable
+            onPress={() => setViewerOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={PHOTO_IMAGE_LABEL}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <Image
+              source={{ uri }}
+              style={[styles.photo, { backgroundColor: colors.secondaryBackground }]}
+              // 正方形の枠に横長・縦長のどちらが来ても歪まないよう、はみ出す側を切る。
+              // 全体を確かめるのは全画面の役割（contain）
+              contentFit="cover"
+              transition={0}
+            />
+          </Pressable>
+        )}
+
+        <View style={styles.headerText}>
+          <View style={styles.itemNameRow}>
+            <Text style={[styles.itemName, { color: colors.label }]}>
+              {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+            </Text>
+            {/* 写真が無いときだけ、行の右端に足す口（§2.2 / 決定 §6-4）。
+                縦を 1pt も使わず、押せることだけが分かる大きさに落としてある。
+                語が出ないぶんは読み上げ語で補う */}
+            {uri == null && (
+              <Pressable
+                onPress={onAddPhoto}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={PHOTO_ADD_FROM_DETAIL_LABEL}
+                style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                <Ionicons name="image-outline" size={24} color={colors.blue} />
+              </Pressable>
+            )}
+          </View>
+
+          {tags.length > 0 && (
+            <View style={styles.tagLine}>
+              {tags.map((tag) => (
+                <TagChip key={tag.id} tag={tag} variant="selected" />
+              ))}
+            </View>
+          )}
+        </View>
       </View>
+
+      {/* 画像には押せる印が付かないので、押せることは語で言う（§2.1）。
+          写真が無いときは押す対象そのものが無いので出さない */}
+      {uri != null && (
+        <Text style={[styles.photoHint, { color: colors.secondaryLabel }]}>{PHOTO_TAP_HINT}</Text>
+      )}
+
+      {viewerOpen && uri != null && (
+        <PhotoViewer uri={uri} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
+      )}
     </View>
   );
 }
@@ -389,9 +465,44 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 13,
   },
+  itemNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   itemName: {
+    flexShrink: 1,
     fontSize: 26,
     fontWeight: '700',
+  },
+  headerBlock: {
+    gap: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  headerText: {
+    flex: 1,
+    gap: 8,
+  },
+  photo: {
+    // 一覧の枠（56pt）より大きく、フォームの枠（72pt）よりも大きい ──
+    // この画面がいちばん 1 件を見る面なので、3 つの中では最大にする
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+  },
+  tagLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoHint: {
+    fontSize: 12,
+    marginLeft: 4,
   },
   card: {
     padding: 16,
@@ -399,16 +510,6 @@ const styles = StyleSheet.create({
   },
   memoSection: {
     gap: 6,
-  },
-  tagSection: {
-    gap: 6,
-  },
-  tagCard: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    // チップが自前で左右の余白を持つので、カードの内側は少し詰めて名前の左端を揃える
-    padding: 12,
   },
   sectionTitle: {
     fontSize: 13,

@@ -26,6 +26,16 @@ import { createRepository, type Repository, type SaveRecordInput } from './repos
 import * as schema from './schema';
 import { createTagRepository, type TagRepository } from './tags';
 
+/**
+ * repository の依存（SPEC-V5 §1.5 で写真ファイルを消す口が増えた）。
+ * ここでは実体のファイルを持たないので、既定は何もしない関数を渡す。
+ * 消されたかどうかを見たいテストだけが自前の関数を渡す。
+ */
+function recordDeps(deletePhotoFile: (fileName: string) => void = () => {}) {
+  return { generateId: randomUUID, deletePhotoFile };
+}
+
+
 const drizzleDir = fileURLToPath(new URL('../../drizzle/', import.meta.url));
 
 function migrationSql(tag: string): string[] {
@@ -55,6 +65,8 @@ const base: SaveRecordInput = {
   saleDate: new Date(2026, 7, 5, 12, 0, 0),
   memo: '',
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
+  photoFileName: null,
   tagIds: [],
 };
 
@@ -68,7 +80,7 @@ beforeEach(() => {
   sqlite = newDatabase();
   const instance = drizzle(sqlite, { schema });
   db = () => instance;
-  repo = createRepository(instance, { generateId: randomUUID });
+  repo = createRepository(instance, recordDeps());
   tagRepo = createTagRepository(instance, { generateId: randomUUID });
 });
 

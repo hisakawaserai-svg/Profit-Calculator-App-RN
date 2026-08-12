@@ -1,0 +1,1 @@
+ALTER TABLE `sale_records` ADD `photo_file_name` text;

@@ -32,7 +32,9 @@ for (const entry of journal.entries) {
 }
 
 const db = drizzle(sqlite, { schema });
-const repo = createRepository(db, { generateId: randomUUID });
+// 写真ファイルを消す口（SPEC-V5 §1.5）。このスクリプトは端末のファイルを持たないので
+// 何もしない関数を渡す（消す判断が repository 側にあることは repository.test.ts が見る）
+const repo = createRepository(db, { generateId: randomUUID, deletePhotoFile: () => {} });
 
 // ---- ダミーデータ投入 ----
 
@@ -48,6 +50,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。プリセット未実装の時点では常に空文字
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。null = 写真なし
+  photoFileName: null,
   // タグ（SPEC-V4 §1.4）。この経路ではタグを付けないので空配列
   tagIds: [],
 };

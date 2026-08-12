@@ -36,6 +36,8 @@ const record = (over: Partial<SaleRecord> = {}): SaleRecord => ({
   memo: '',
   kind: 'used',
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。CSV には出さないので、csv.ts の期待値は変わらない
+  photoFileName: null,
   ...over,
 });
 

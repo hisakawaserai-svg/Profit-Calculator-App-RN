@@ -35,6 +35,8 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   memo: '',
   // 販売サイト名（SPEC-V3 §1.5.1）。既存レコードはバックフィルしないので空文字が既定
   siteName: '',
+  // 商品写真（SPEC-V5 §1.3）。CSV には出さないので、csv.ts の期待値は変わらない
+  photoFileName: null,
   ...partial,
 });
 

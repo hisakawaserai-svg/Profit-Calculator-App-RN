@@ -1059,7 +1059,9 @@ const styles = StyleSheet.create({
   },
   // 記録タブのリストの行と同じ形（UI-SPEC §6-11）
   rowCard: {
-    padding: 14,
+    paddingHorizontal: 14,
+    // 記録タブと同じ行の高さにする（写真の枠 56pt ＋ 上下 13pt。SPEC-V5 §2.3）
+    paddingVertical: 13,
     borderRadius: 12,
   },
   note: {
