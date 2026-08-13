@@ -1966,3 +1966,116 @@ export const PHOTO_OPEN_SETTINGS_LABEL = '設定を開く';
 
 /** 縮小・保存に失敗したとき（§3.3）。原因は端末側なので言えるのはここまで */
 export const PHOTO_SAVE_FAILED_MESSAGE = '写真を保存できませんでした。';
+
+// ---- 使いかたの図の中の語（HelpPartFigure / HelpDiagram。案 `19c` / `20a`） ----
+//
+// 図が出す文もここに集める。**図の中の「画面に出ている語」は定数を共有する**（部品を
+// 実物にしてあるのと同じ理由。HelpPartFigure の冒頭参照）── 画面の語を直したときに、
+// 図だけ古い語のまま残るのを構造で防ぐ。ここに置くのは図にしか無い文だけ。
+//
+// 金額・商品名・タグ名などの**作り物のデータ**（「洋服」「クッション」「800」）は
+// 図の中に残す ── あれは語ではなく題材で、図ごとに読みやすい値を選ぶものだから。
+
+/** 部品の下に 1 行付ける説明（HelpPartFigure の PartFrame の note） */
+export const HELP_FIGURE_MODE_PROFIT_NOTE = 'この 2 つで切り替えます';
+export const HELP_FIGURE_MODE_TARGET_NOTE =
+  'こちらに切り替えると、ほしい利益から販売価格を出します';
+export const HELP_FIGURE_CALCULATOR_NOTE = '青いボタンを押すと電卓が開きます';
+export const HELP_FIGURE_BREAKDOWN_NOTE = '「内訳」を押すと、この帯と項目ごとの金額が出ます';
+export const HELP_FIGURE_PRESET_TAG_NOTE = 'タグの印を押すと、登録した値から選べます';
+export const HELP_FIGURE_ADD_RECORD_NOTE = '記録タブの左下・タブバーの上にあります';
+export const HELP_FIGURE_KIND_SELECTOR_NOTE = '記録の画面のここで選びます';
+export const HELP_FIGURE_STATUS_TOGGLE_NOTE = '左が今の状態、右を押すともう一方に変わります';
+export const HELP_FIGURE_PHOTO_NOTE =
+  '空の枠を押すと写真を選べます。付いた写真は右上の「✕」で外せます';
+export const HELP_FIGURE_TAG_ROW_NOTE = '「＋」を押すと選べます。まだ無いタグはその場で作れます';
+export const HELP_FIGURE_MONTH_BAR_NOTE = '「◀」「▶」で前後の月へ。月の名前を押すと期間を選べます';
+export const HELP_FIGURE_FILTER_ENTRY_NOTE = '右端の「▽」から開きます。効いている間は青くなります';
+export const HELP_FIGURE_SEARCH_SORT_NOTE = '左が商品名でさがす、右が並び替え';
+export const HELP_FIGURE_SOLD_LISTING_NOTE = '上の合計も、選んだほうの記録で計算されます';
+export const HELP_FIGURE_PRESET_LIST_NOTE = '設定タブの「入力を減らす」に、この形で並びます';
+export const HELP_FIGURE_EXPORT_TARGET_NOTE = `既定は「${SOLD_RECORDS_LABEL}のみ」です`;
+export const HELP_FIGURE_EXPORT_PREVIEW_NOTE = '押すと全部の行を見られます';
+
+/** 図の中で 2 つを並べて見せるときの見出し（絞り込みの入口・⌕ と ⇅） */
+export const HELP_FIGURE_FILTER_OFF_CAPTION = '絞り込みなし';
+export const HELP_FIGURE_FILTER_ON_CAPTION = '絞り込み中';
+export const HELP_FIGURE_SEARCH_CAPTION = 'さがす';
+
+/** 抽象的な図（HelpDiagram）の見出し。図が何の場面を描いているかを言う */
+export const HELP_FIGURE_KIND_SUBTITLE_SUFFIX = 'で売れたとき';
+export const HELP_FIGURE_SITE_AMOUNT_SUBTITLE = '同じ 1 件を、どこまで引いた金額で見ているか';
+export const HELP_FIGURE_TARGET_SUBTITLE = 'ほしい利益が先に決まっているとき';
+export const HELP_FIGURE_BACKUP_SUBTITLE = '減るのはメモとタグだけ';
+export const HELP_FIGURE_COST_PARTS_SUBTITLE = 'このアプリが販売価格から引くのは、この 5 つ';
+export const HELP_FIGURE_DAY_GROUP_SUBTITLE = '同じ日に 3 件売れたとき';
+
+/** 帯・行の中の語（図にしか無いもの。画面に出る語は定数を共有する） */
+export const HELP_FIGURE_KEPT_LABEL = '残る分';
+export const HELP_FIGURE_TARGET_PROFIT_LABEL = 'ほしい利益';
+export const HELP_FIGURE_SALE_DATE_RANGE_LABEL = '販売日に選べる範囲';
+export const HELP_FIGURE_TARGET_ROW_TITLE = 'ほしい利益から逆に足す';
+export const HELP_FIGURE_HIT_LABEL = '出る';
+export const HELP_FIGURE_MISS_LABEL = '出ない';
+export const HELP_FIGURE_INCLUDED_LABEL = '入る';
+export const HELP_FIGURE_EXCLUDED_LABEL = '入らない';
+export const HELP_FIGURE_NONE_MARK = '－';
+export const HELP_FIGURE_FILE_LABEL = 'ファイル';
+export const HELP_FIGURE_SCREEN_LABEL = '画面';
+
+/** CSV に何が入るかの表（§5.2 の列を 5 つの束にまとめたもの） */
+export const HELP_FIGURE_CSV_BASIC_LABEL = '日付・商品名・金額';
+export const HELP_FIGURE_CSV_SITE_LABEL = '販売サイト・種別';
+export const HELP_FIGURE_CSV_BREAKDOWN_LABEL = '経費の内わけ';
+
+/** 5 つの経費それぞれの説明（名前の側は画面と同じ定数を使う） */
+export const HELP_FIGURE_PURCHASE_NOTE = `売るために買ったお金（${RECORD_KIND_LABELS.used}では出ません）`;
+export const HELP_FIGURE_POSTAGE_NOTE = '発送にかかったお金';
+export const HELP_FIGURE_COMMISSION_NOTE = '販売サイトに引かれるお金';
+export const HELP_FIGURE_ENVELOPE_NOTE = '箱・封筒・テープなど';
+export const HELP_FIGURE_OTHERS_NOTE = '交通費など、上に当てはまらないもの';
+
+/** 図の見出しのうち、題材の金額や語をそのまま含むもの（値は図が持つ） */
+export function helpFigureBothSoldSubtitle(price: string): string {
+  return `どちらも${SALES_PRICE_LABEL} ${price}で売れたとき`;
+}
+export function helpFigureSourcedRowTitle(purchasePrice: string): string {
+  return `${RECORD_KIND_LABELS.sourced}（${PURCHASE_PRICE_LABEL} ${purchasePrice}）`;
+}
+export function helpFigureSingleRecordLabel(kind: RecordKind): string {
+  return `${RECORD_KIND_LABELS[kind]} 1 件`;
+}
+export function helpFigureSiteAmountMeasure(amount: string): string {
+  return `サイトの表示 ${amount}（${COMMISSION_SHORT_LABEL}と${POSTAGE_LABEL}まで）`;
+}
+export function helpFigureAppAmountMeasure(amount: string): string {
+  return `このアプリ ${amount}（${ENVELOPE_COST_LABEL}ほかも引く）`;
+}
+export function helpFigureTotalPriceMeasure(price: string): string {
+  return `これが${SALES_PRICE_LABEL} ${price}`;
+}
+export function helpFigureTagOrSubtitle(first: string, second: string): string {
+  return `「${first}」と「${second}」を選ぶと`;
+}
+
+/** 図の中だけで使う短縮形・補助の語 */
+export const HELP_FIGURE_TOTAL_CAPTION = '2 件以上をまとめた金額';
+export const HELP_FIGURE_PURCHASE_SHORT_LABEL = '仕入';
+export const HELP_FIGURE_PACK_QUANTITY_LABEL = '入数';
+export const HELP_FIGURE_PACK_SUBTITLE = '100 枚で 800 円の封筒を登録すると';
+export const HELP_FIGURE_ONE_BY_ONE_LABEL = '1 件ずつ';
+export const HELP_FIGURE_GROUPED_LABEL = '日ごとにまとめる';
+export const HELP_FIGURE_NO_ITEM_NAME_LABEL = '（商品名は入りません）';
+export const HELP_FIGURE_ROUNDING_SUBTITLE = '10.4 円と 10.4 円の 2 件なら';
+export const HELP_FIGURE_ROUND_FIRST_LABEL = '10 ＋ 10（先に丸める）';
+export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
+
+/**
+ * 図 8（書き出しの 2 種類）の見出し（案 `20a`）。**列数は実際の列の並びから数える** ──
+ * 図に「18 列」と書いておくと、列を 1 つ足したときに図だけが古くなる。
+ */
+export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
+  const columns = kind === 'backup' ? CSV_BACKUP_COLUMNS : CSV_TAX_COLUMNS;
+  const label = EXPORT_KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '';
+  return `${label}\n${columns.length} 列`;
+}

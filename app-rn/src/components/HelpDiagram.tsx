@@ -21,6 +21,66 @@ import Svg, { Polyline } from 'react-native-svg';
 
 import { TagChip } from '@/components/TagChip';
 import { groupDigits } from '@/logic/format';
+import {
+  COMMISSION_LABEL,
+  COMMISSION_SHORT_LABEL,
+  CUMULATIVE_PROFIT_LABEL,
+  ENVELOPE_COST_LABEL,
+  EXPENSES_LABEL,
+  HELP_FIGURE_BACKUP_SUBTITLE,
+  HELP_FIGURE_COST_PARTS_SUBTITLE,
+  HELP_FIGURE_CSV_BASIC_LABEL,
+  HELP_FIGURE_CSV_BREAKDOWN_LABEL,
+  HELP_FIGURE_CSV_SITE_LABEL,
+  HELP_FIGURE_DAY_GROUP_SUBTITLE,
+  HELP_FIGURE_EXCLUDED_LABEL,
+  HELP_FIGURE_FILE_LABEL,
+  HELP_FIGURE_GROUPED_LABEL,
+  HELP_FIGURE_HIT_LABEL,
+  HELP_FIGURE_INCLUDED_LABEL,
+  HELP_FIGURE_KEPT_LABEL,
+  HELP_FIGURE_MISS_LABEL,
+  HELP_FIGURE_NONE_MARK,
+  HELP_FIGURE_NO_ITEM_NAME_LABEL,
+  HELP_FIGURE_ONE_BY_ONE_LABEL,
+  HELP_FIGURE_PACK_QUANTITY_LABEL,
+  HELP_FIGURE_PACK_SUBTITLE,
+  HELP_FIGURE_PURCHASE_NOTE,
+  HELP_FIGURE_PURCHASE_SHORT_LABEL,
+  HELP_FIGURE_POSTAGE_NOTE,
+  HELP_FIGURE_COMMISSION_NOTE,
+  HELP_FIGURE_ENVELOPE_NOTE,
+  HELP_FIGURE_OTHERS_NOTE,
+  HELP_FIGURE_ROUNDING_SUBTITLE,
+  HELP_FIGURE_ROUND_FIRST_LABEL,
+  HELP_FIGURE_ROUND_LAST_LABEL,
+  HELP_FIGURE_SALE_DATE_RANGE_LABEL,
+  HELP_FIGURE_SCREEN_LABEL,
+  HELP_FIGURE_SITE_AMOUNT_SUBTITLE,
+  HELP_FIGURE_TARGET_PROFIT_LABEL,
+  HELP_FIGURE_TARGET_ROW_TITLE,
+  HELP_FIGURE_TARGET_SUBTITLE,
+  HELP_FIGURE_TOTAL_CAPTION,
+  MEMO_LABEL,
+  OTHERS_COST_LABEL,
+  POSTAGE_LABEL,
+  PRESET_PACK_PRICE_FIELD_LABEL,
+  PRESET_UNIT_PRICE_LABEL,
+  PURCHASE_PRICE_LABEL,
+  TAG_LABEL,
+  TOTAL_PROFIT_LABEL,
+  chartBarLegendLabel,
+  helpFigureAppAmountMeasure,
+  helpFigureBothSoldSubtitle,
+  helpFigureCsvKindLabel,
+  helpFigureSingleRecordLabel,
+  helpFigureSiteAmountMeasure,
+  helpFigureSourcedRowTitle,
+  helpFigureTagOrSubtitle,
+  helpFigureTotalPriceMeasure,
+  profitLabel,
+  recordKindLabel,
+} from '@/logic/labels';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 題材にする 1 件（説明用の固定値）。4 つの図で共通 */
@@ -155,8 +215,8 @@ export function KindComparisonFigure() {
   ];
 
   return (
-    <FigureFrame subtitle={`どちらも販売価格 ${yen(SALES_PRICE)}で売れたとき`}>
-      <Text style={[styles.rowTitle, { color: colors.label }]}>不用品</Text>
+    <FigureFrame subtitle={helpFigureBothSoldSubtitle(yen(SALES_PRICE))}>
+      <Text style={[styles.rowTitle, { color: colors.label }]}>{recordKindLabel('used')}</Text>
       <HelpBar
         segments={[
           ...deductions,
@@ -164,30 +224,35 @@ export function KindComparisonFigure() {
             key: 'kept',
             amount: APP_AMOUNT,
             tone: 'kept',
-            label: `純利益 ${yen(APP_AMOUNT)}`,
+            label: `${profitLabel('used')} ${yen(APP_AMOUNT)}`,
           },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `手数料 ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `送料 ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `経費 ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `${EXPENSES_LABEL} ${OTHERS}` },
         ]}
       />
 
       <Text style={[styles.rowTitle, styles.rowTitleSpaced, { color: colors.label }]}>
-        {`仕入品（仕入価格 ${yen(PURCHASE)}）`}
+        {helpFigureSourcedRowTitle(yen(PURCHASE))}
       </Text>
       <HelpBar
         segments={[
           ...deductions,
-          { key: 'purchase', amount: PURCHASE, tone: 'dark', label: `仕入 ${PURCHASE}` },
+          {
+            key: 'purchase',
+            amount: PURCHASE,
+            tone: 'dark',
+            label: `${HELP_FIGURE_PURCHASE_SHORT_LABEL} ${PURCHASE}`,
+          },
           {
             key: 'kept',
             amount: PURCHASED_AMOUNT,
             tone: 'kept',
-            label: `利益 ${yen(PURCHASED_AMOUNT)}`,
+            label: `${profitLabel('sourced')} ${yen(PURCHASED_AMOUNT)}`,
           },
         ]}
       />
@@ -209,8 +274,16 @@ export function TermsFigure() {
     <FigureFrame>
       <View style={styles.termsRow}>
         <View style={styles.termsSingles}>
-          <TermBox label="不用品 1 件" value="純利益" valueColor={colors.green} />
-          <TermBox label="仕入品 1 件" value="利益" valueColor={colors.green} />
+          <TermBox
+            label={helpFigureSingleRecordLabel('used')}
+            value={profitLabel('used')}
+            valueColor={colors.green}
+          />
+          <TermBox
+            label={helpFigureSingleRecordLabel('sourced')}
+            value={profitLabel('sourced')}
+            valueColor={colors.green}
+          />
         </View>
         <Text style={[styles.termsArrow, { color: colors.secondaryLabel }]}>→</Text>
         <View
@@ -219,9 +292,11 @@ export function TermsFigure() {
             { borderColor: colors.blue, backgroundColor: colors.highlightBackground },
           ]}>
           <Text style={[styles.termsTotalCaption, { color: colors.secondaryLabel }]}>
-            2 件以上をまとめた金額
+            {HELP_FIGURE_TOTAL_CAPTION}
           </Text>
-          <Text style={[styles.termsTotalValue, { color: colors.blue }]}>収支</Text>
+          <Text style={[styles.termsTotalValue, { color: colors.blue }]}>
+            {TOTAL_PROFIT_LABEL}
+          </Text>
         </View>
       </View>
     </FigureFrame>
@@ -258,31 +333,31 @@ export function SiteAmountFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="同じ 1 件を、どこまで引いた金額で見ているか">
+    <FigureFrame subtitle={HELP_FIGURE_SITE_AMOUNT_SUBTITLE}>
       <HelpBar
         segments={[
           { key: 'commission', amount: COMMISSION, tone: 'commission' },
           { key: 'postage', amount: POSTAGE, tone: 'light' },
           { key: 'others', amount: OTHERS, tone: 'mid' },
-          { key: 'kept', amount: APP_AMOUNT, tone: 'kept', label: '残る分' },
+          { key: 'kept', amount: APP_AMOUNT, tone: 'kept', label: HELP_FIGURE_KEPT_LABEL },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `手数料 ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `送料 ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `梱包材ほか ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `${ENVELOPE_COST_LABEL}ほか ${OTHERS}` },
         ]}
       />
 
       <View style={styles.measures}>
         <Measure
           color={colors.secondaryLabel}
-          text={`サイトの表示 ${yen(SITE_AMOUNT)}（手数料と送料まで）`}
+          text={helpFigureSiteAmountMeasure(yen(SITE_AMOUNT))}
         />
         <Measure
           color={colors.blue}
-          text={`このアプリ ${yen(APP_AMOUNT)}（梱包材ほかも引く）`}
+          text={helpFigureAppAmountMeasure(yen(APP_AMOUNT))}
         />
       </View>
     </FigureFrame>
@@ -320,7 +395,9 @@ export function SaleDateRangeFigure() {
           </Text>
         </View>
         <View style={[styles.rangeAllowed, { backgroundColor: colors.highlightBackground }]}>
-          <Text style={[styles.rangeAllowedText, { color: colors.blue }]}>販売日に選べる範囲</Text>
+          <Text style={[styles.rangeAllowedText, { color: colors.blue }]}>
+            {HELP_FIGURE_SALE_DATE_RANGE_LABEL}
+          </Text>
         </View>
       </View>
       <View style={styles.rangeCaptions}>
@@ -345,8 +422,10 @@ export function ReversePriceFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="ほしい利益が先に決まっているとき">
-      <Text style={[styles.rowTitle, { color: colors.label }]}>ほしい利益から逆に足す</Text>
+    <FigureFrame subtitle={HELP_FIGURE_TARGET_SUBTITLE}>
+      <Text style={[styles.rowTitle, { color: colors.label }]}>
+        {HELP_FIGURE_TARGET_ROW_TITLE}
+      </Text>
       <HelpBar
         segments={[
           { key: 'commission', amount: COMMISSION, tone: 'commission' },
@@ -356,22 +435,22 @@ export function ReversePriceFigure() {
             key: 'kept',
             amount: APP_AMOUNT,
             tone: 'kept',
-            label: `ほしい利益 ${yen(APP_AMOUNT)}`,
+            label: `${HELP_FIGURE_TARGET_PROFIT_LABEL} ${yen(APP_AMOUNT)}`,
           },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `手数料 ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `送料 ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `経費 ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `${EXPENSES_LABEL} ${OTHERS}` },
         ]}
       />
       {/* 帯の全体が販売価格であることを、幅いっぱいの線で名指しする */}
       <View style={styles.totalMeasure}>
         <View style={[styles.totalLine, { backgroundColor: colors.blue }]} />
         <Text style={[styles.totalText, { color: colors.label }]}>
-          {`これが販売価格 ${yen(SALES_PRICE)}`}
+          {helpFigureTotalPriceMeasure(yen(SALES_PRICE))}
         </Text>
       </View>
     </FigureFrame>
@@ -388,24 +467,25 @@ export function ReversePriceFigure() {
  * チップは実物（`TagChip`）を使う ── 図の中だけの見た目を作ると、
  * 画面で探すときに手がかりにならない。
  */
+/** 図 6 の題材（作り物のタグ）。見出しが「「洋服」と「食器」を選ぶと」と名指すので、
+    名前は 1 か所に置いて図と見出しで食い違わないようにする */
+const OR_TAGS = {
+  first: { name: '洋服', colorKey: 'red' },
+  second: { name: '食器', colorKey: 'blue' },
+  other: { name: '本', colorKey: 'green' },
+};
+
 export function TagFilterOrFigure() {
   const colors = useThemeColors();
   const rows: { key: string; tags: { name: string; colorKey: string }[]; hit: boolean }[] = [
-    { key: 'a', tags: [{ name: '洋服', colorKey: 'red' }], hit: true },
-    { key: 'b', tags: [{ name: '食器', colorKey: 'blue' }], hit: true },
-    {
-      key: 'ab',
-      tags: [
-        { name: '洋服', colorKey: 'red' },
-        { name: '食器', colorKey: 'blue' },
-      ],
-      hit: true,
-    },
-    { key: 'none', tags: [{ name: '本', colorKey: 'green' }], hit: false },
+    { key: 'a', tags: [OR_TAGS.first], hit: true },
+    { key: 'b', tags: [OR_TAGS.second], hit: true },
+    { key: 'ab', tags: [OR_TAGS.first, OR_TAGS.second], hit: true },
+    { key: 'none', tags: [OR_TAGS.other], hit: false },
   ];
 
   return (
-    <FigureFrame subtitle="「洋服」と「食器」を選ぶと">
+    <FigureFrame subtitle={helpFigureTagOrSubtitle(OR_TAGS.first.name, OR_TAGS.second.name)}>
       {rows.map((row) => (
         <View key={row.key} style={[styles.orRow, { borderColor: colors.separator }]}>
           <View style={styles.orTags}>
@@ -415,7 +495,7 @@ export function TagFilterOrFigure() {
           </View>
           <Text
             style={[styles.orMark, { color: row.hit ? colors.green : colors.disabledContent }]}>
-            {row.hit ? '出る' : '出ない'}
+            {row.hit ? HELP_FIGURE_HIT_LABEL : HELP_FIGURE_MISS_LABEL}
           </Text>
         </View>
       ))}
@@ -479,11 +559,15 @@ export function ChartReadingFigure() {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
-          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>日ごとの収支</Text>
+          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>
+            {chartBarLegendLabel('day')}
+          </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: colors.indigo }]} />
-          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>累計の収支</Text>
+          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>
+            {CUMULATIVE_PROFIT_LABEL}
+          </Text>
         </View>
       </View>
     </FigureFrame>
@@ -492,11 +576,11 @@ export function ChartReadingFigure() {
 
 /** 図 8 の比較（実際の列数。SPEC-V3 §5.3） */
 const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] = [
-  { key: 'basic', label: '日付・商品名・金額', backup: true, tax: true },
-  { key: 'site', label: '販売サイト・種別', backup: true, tax: true },
-  { key: 'breakdown', label: '経費の内わけ', backup: true, tax: true },
-  { key: 'memo', label: 'メモ', backup: true, tax: false },
-  { key: 'tag', label: 'タグ', backup: true, tax: false },
+  { key: 'basic', label: HELP_FIGURE_CSV_BASIC_LABEL, backup: true, tax: true },
+  { key: 'site', label: HELP_FIGURE_CSV_SITE_LABEL, backup: true, tax: true },
+  { key: 'breakdown', label: HELP_FIGURE_CSV_BREAKDOWN_LABEL, backup: true, tax: true },
+  { key: 'memo', label: MEMO_LABEL, backup: true, tax: false },
+  { key: 'tag', label: TAG_LABEL, backup: true, tax: false },
 ];
 
 /**
@@ -510,11 +594,15 @@ export function CsvKindsFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="減るのはメモとタグだけ">
+    <FigureFrame subtitle={HELP_FIGURE_BACKUP_SUBTITLE}>
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
-        <Text style={[styles.csvKind, { color: colors.label }]}>データ保存用{'\n'}18 列</Text>
-        <Text style={[styles.csvKind, { color: colors.label }]}>確定申告用{'\n'}11 列</Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>
+          {helpFigureCsvKindLabel('backup')}
+        </Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>
+          {helpFigureCsvKindLabel('tax')}
+        </Text>
       </View>
       {CSV_ROWS.map((row) => (
         <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
@@ -522,10 +610,10 @@ export function CsvKindsFigure() {
             {row.label}
           </Text>
           <Text style={[styles.csvMark, { color: row.backup ? colors.green : colors.disabledContent }]}>
-            {row.backup ? '入る' : '－'}
+            {row.backup ? HELP_FIGURE_INCLUDED_LABEL : HELP_FIGURE_NONE_MARK}
           </Text>
           <Text style={[styles.csvMark, { color: row.tax ? colors.green : colors.disabledContent }]}>
-            {row.tax ? '入る' : '入らない'}
+            {row.tax ? HELP_FIGURE_INCLUDED_LABEL : HELP_FIGURE_EXCLUDED_LABEL}
           </Text>
         </View>
       ))}
@@ -535,11 +623,21 @@ export function CsvKindsFigure() {
 
 /** 図 9 の 5 項目。色は帯の語彙のまま（オレンジは手数料だけ・他はグレー） */
 const EXPENSE_ITEMS: { key: string; tone: ToneKey; name: string; note: string }[] = [
-  { key: 'purchase', tone: 'dark', name: '仕入価格', note: '売るために買ったお金（不用品では出ません）' },
-  { key: 'postage', tone: 'light', name: '送料', note: '発送にかかったお金' },
-  { key: 'commission', tone: 'commission', name: '販売手数料', note: '販売サイトに引かれるお金' },
-  { key: 'envelope', tone: 'mid', name: '梱包材', note: '箱・封筒・テープなど' },
-  { key: 'others', tone: 'mid', name: 'その他', note: '交通費など、上に当てはまらないもの' },
+  {
+    key: 'purchase',
+    tone: 'dark',
+    name: PURCHASE_PRICE_LABEL,
+    note: HELP_FIGURE_PURCHASE_NOTE,
+  },
+  { key: 'postage', tone: 'light', name: POSTAGE_LABEL, note: HELP_FIGURE_POSTAGE_NOTE },
+  {
+    key: 'commission',
+    tone: 'commission',
+    name: COMMISSION_LABEL,
+    note: HELP_FIGURE_COMMISSION_NOTE,
+  },
+  { key: 'envelope', tone: 'mid', name: ENVELOPE_COST_LABEL, note: HELP_FIGURE_ENVELOPE_NOTE },
+  { key: 'others', tone: 'mid', name: OTHERS_COST_LABEL, note: HELP_FIGURE_OTHERS_NOTE },
 ];
 
 /**
@@ -554,7 +652,7 @@ export function ExpenseItemsFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="このアプリが販売価格から引くのは、この 5 つ">
+    <FigureFrame subtitle={HELP_FIGURE_COST_PARTS_SUBTITLE}>
       {EXPENSE_ITEMS.map((item) => (
         <View key={item.key} style={styles.expenseRow}>
           <View style={[styles.expenseDot, { backgroundColor: toneColor(item.tone, colors) }]} />
@@ -579,13 +677,13 @@ export function PackBuyFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="100 枚で 800 円の封筒を登録すると">
+    <FigureFrame subtitle={HELP_FIGURE_PACK_SUBTITLE}>
       <View style={styles.formulaRow}>
-        <FormulaBox label="購入価格" value="800" colors={colors} />
+        <FormulaBox label={PRESET_PACK_PRICE_FIELD_LABEL} value="800" colors={colors} />
         <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>÷</Text>
-        <FormulaBox label="入数" value="100" colors={colors} />
+        <FormulaBox label={HELP_FIGURE_PACK_QUANTITY_LABEL} value="100" colors={colors} />
         <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
-        <FormulaBox label="1 個あたり" value="8" colors={colors} highlight />
+        <FormulaBox label={PRESET_UNIT_PRICE_LABEL} value="8" colors={colors} highlight />
       </View>
     </FigureFrame>
   );
@@ -634,8 +732,10 @@ export function GroupingFigure() {
   ];
 
   return (
-    <FigureFrame subtitle="同じ日に 3 件売れたとき">
-      <Text style={[styles.rowTitle, { color: colors.label }]}>1 件ずつ</Text>
+    <FigureFrame subtitle={HELP_FIGURE_DAY_GROUP_SUBTITLE}>
+      <Text style={[styles.rowTitle, { color: colors.label }]}>
+        {HELP_FIGURE_ONE_BY_ONE_LABEL}
+      </Text>
       {before.map((row) => (
         <View key={row.key} style={[styles.groupRow, { borderColor: colors.separator }]}>
           <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
@@ -645,11 +745,13 @@ export function GroupingFigure() {
       ))}
 
       <Text style={[styles.rowTitle, styles.rowTitleSpaced, { color: colors.label }]}>
-        日ごとにまとめる
+        {HELP_FIGURE_GROUPED_LABEL}
       </Text>
       <View style={[styles.groupRow, { borderColor: colors.blue }]}>
         <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
-        <Text style={[styles.groupName, { color: colors.mutedLabel }]}>（商品名は入りません）</Text>
+        <Text style={[styles.groupName, { color: colors.mutedLabel }]}>
+          {HELP_FIGURE_NO_ITEM_NAME_LABEL}
+        </Text>
         <Text style={[styles.groupAmount, { color: colors.blue }]}>950</Text>
       </View>
     </FigureFrame>
@@ -667,18 +769,22 @@ export function RoundingFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle="10.4 円と 10.4 円の 2 件なら">
+    <FigureFrame subtitle={HELP_FIGURE_ROUNDING_SUBTITLE}>
       <View style={[styles.roundRow, { borderColor: colors.separator }]}>
-        <Text style={[styles.roundWho, { color: colors.label }]}>ファイル</Text>
+        <Text style={[styles.roundWho, { color: colors.label }]}>
+          {HELP_FIGURE_FILE_LABEL}
+        </Text>
         <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
-          10 ＋ 10（先に丸める）
+          {HELP_FIGURE_ROUND_FIRST_LABEL}
         </Text>
         <Text style={[styles.roundValue, { color: colors.label }]}>20</Text>
       </View>
       <View style={[styles.roundRow, { borderColor: colors.separator }]}>
-        <Text style={[styles.roundWho, { color: colors.label }]}>画面</Text>
+        <Text style={[styles.roundWho, { color: colors.label }]}>
+          {HELP_FIGURE_SCREEN_LABEL}
+        </Text>
         <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
-          20.8（後で丸める）
+          {HELP_FIGURE_ROUND_LAST_LABEL}
         </Text>
         <Text style={[styles.roundValue, { color: colors.label }]}>21</Text>
       </View>

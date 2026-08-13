@@ -27,6 +27,47 @@ import { PresetRow } from '@/components/PresetRow';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TagChip } from '@/components/TagChip';
+import { formatMonthKeyTitle } from '@/logic/format';
+import {
+  COMMISSION_LABEL,
+  ENVELOPE_COST_LABEL,
+  EXPORT_PREVIEW_CARD_TITLE,
+  EXPORT_TARGET_OPTIONS,
+  HELP_FIGURE_ADD_RECORD_NOTE,
+  HELP_FIGURE_BREAKDOWN_NOTE,
+  HELP_FIGURE_CALCULATOR_NOTE,
+  HELP_FIGURE_EXPORT_PREVIEW_NOTE,
+  HELP_FIGURE_EXPORT_TARGET_NOTE,
+  HELP_FIGURE_FILTER_ENTRY_NOTE,
+  HELP_FIGURE_FILTER_OFF_CAPTION,
+  HELP_FIGURE_FILTER_ON_CAPTION,
+  HELP_FIGURE_KIND_SELECTOR_NOTE,
+  HELP_FIGURE_MODE_PROFIT_NOTE,
+  HELP_FIGURE_MODE_TARGET_NOTE,
+  HELP_FIGURE_MONTH_BAR_NOTE,
+  HELP_FIGURE_PHOTO_NOTE,
+  HELP_FIGURE_PRESET_LIST_NOTE,
+  HELP_FIGURE_PRESET_TAG_NOTE,
+  HELP_FIGURE_SEARCH_CAPTION,
+  HELP_FIGURE_SEARCH_SORT_NOTE,
+  HELP_FIGURE_SOLD_LISTING_NOTE,
+  HELP_FIGURE_STATUS_TOGGLE_NOTE,
+  HELP_FIGURE_TAG_ROW_NOTE,
+  ITEM_NAME_CAPTION,
+  ITEM_NAME_PLACEHOLDER,
+  KEPT_SHORT_LABEL,
+  LISTING_COUNT_LABEL,
+  LISTING_STATUS_LABEL,
+  POSTAGE_LABEL,
+  RECORDS_TAB_LABEL,
+  SOLD_RECORDS_LABEL,
+  SORT_SHEET_TITLE,
+  TAG_LABEL,
+  TARGET_TAB_LABEL,
+  exportPreviewMetaLabel,
+  profitTabLabel,
+  switchStatusLabel,
+} from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 /** 図の中の部品は触れない。押せると「ここで設定できる」と読まれる */
@@ -51,16 +92,24 @@ function PartFrame({ children, note }: { children: React.ReactNode; note?: strin
 /** 結果カード先頭の 2 択（実物の SegmentedControl） */
 export function ModeProfitFigure() {
   return (
-    <PartFrame note="この 2 つで切り替えます">
-      <SegmentedControl options={['純利益を出す', '目標から逆算']} selectedIndex={0} onChange={noop} />
+    <PartFrame note={HELP_FIGURE_MODE_PROFIT_NOTE}>
+      <SegmentedControl
+        options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+        selectedIndex={0}
+        onChange={noop}
+      />
     </PartFrame>
   );
 }
 
 export function ModeTargetFigure() {
   return (
-    <PartFrame note="こちらに切り替えると、ほしい利益から販売価格を出します">
-      <SegmentedControl options={['純利益を出す', '目標から逆算']} selectedIndex={1} onChange={noop} />
+    <PartFrame note={HELP_FIGURE_MODE_TARGET_NOTE}>
+      <SegmentedControl
+        options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+        selectedIndex={1}
+        onChange={noop}
+      />
     </PartFrame>
   );
 }
@@ -70,9 +119,9 @@ export function CalculatorButtonFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="青いボタンを押すと電卓が開きます">
+    <PartFrame note={HELP_FIGURE_CALCULATOR_NOTE}>
       <View style={styles.fieldRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>送料</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{POSTAGE_LABEL}</Text>
         <Text style={[styles.fieldValue, { color: colors.label }]}>215</Text>
         <Ionicons name="calculator" size={22} color={colors.blue} />
       </View>
@@ -83,13 +132,13 @@ export function CalculatorButtonFigure() {
 /** 内訳の帯（実物の CostProportionBar）。図の題材と同じ 1,500 円の 1 件 */
 export function BreakdownFigure() {
   return (
-    <PartFrame note="「内訳」を押すと、この帯と項目ごとの金額が出ます">
+    <PartFrame note={HELP_FIGURE_BREAKDOWN_NOTE}>
       <CostProportionBar
         parts={[
-          { key: 'commission', label: '販売手数料', amount: 150 },
-          { key: 'postage', label: '送料', amount: 215 },
-          { key: 'envelopeCost', label: '梱包材', amount: 50 },
-          { key: 'kept', label: '手元', amount: 1085 },
+          { key: 'commission', label: COMMISSION_LABEL, amount: 150 },
+          { key: 'postage', label: POSTAGE_LABEL, amount: 215 },
+          { key: 'envelopeCost', label: ENVELOPE_COST_LABEL, amount: 50 },
+          { key: 'kept', label: KEPT_SHORT_LABEL, amount: 1085 },
         ]}
         kept={1085}
         deducted={415}
@@ -103,9 +152,9 @@ export function PresetTagFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="タグの印を押すと、登録した値から選べます">
+    <PartFrame note={HELP_FIGURE_PRESET_TAG_NOTE}>
       <View style={styles.fieldRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>送料</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{POSTAGE_LABEL}</Text>
         <Ionicons name="pricetag-outline" size={18} color={colors.blue} />
         <Ionicons name="chevron-down" size={14} color={colors.blue} />
         <View style={styles.grow} />
@@ -120,10 +169,10 @@ export function AddRecordFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="記録タブの左下・タブバーの上にあります">
+    <PartFrame note={HELP_FIGURE_ADD_RECORD_NOTE}>
       <View style={[styles.fab, { backgroundColor: colors.blue }]}>
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabLabel}>記録</Text>
+        <Text style={styles.fabLabel}>{RECORDS_TAB_LABEL}</Text>
       </View>
     </PartFrame>
   );
@@ -132,7 +181,7 @@ export function AddRecordFigure() {
 /** 種別の 2 択（実物の RecordKindSelector） */
 export function KindSelectorFigure() {
   return (
-    <PartFrame note="記録の画面のここで選びます">
+    <PartFrame note={HELP_FIGURE_KIND_SELECTOR_NOTE}>
       <RecordKindSelector kind="sourced" onChange={noop} />
     </PartFrame>
   );
@@ -143,13 +192,15 @@ export function StatusToggleFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="左が今の状態、右を押すともう一方に変わります">
+    <PartFrame note={HELP_FIGURE_STATUS_TOGGLE_NOTE}>
       <View style={styles.statusRow}>
         <View style={styles.statusLeft}>
           <View style={[styles.statusDot, { backgroundColor: colors.orange }]} />
-          <Text style={[styles.statusLabel, { color: colors.orange }]}>出品中</Text>
+          <Text style={[styles.statusLabel, { color: colors.orange }]}>
+            {LISTING_STATUS_LABEL}
+          </Text>
         </View>
-        <Text style={[styles.statusLink, { color: colors.blue }]}>売れた記録にする</Text>
+        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel(true)}</Text>
       </View>
     </PartFrame>
   );
@@ -160,13 +211,17 @@ export function PhotoFieldFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="空の枠を押すと写真を選べます。付いた写真は右上の「✕」で外せます">
+    <PartFrame note={HELP_FIGURE_PHOTO_NOTE}>
       <View style={styles.photoRow}>
         <PhotoThumbnail fileName={null} />
         <View style={styles.grow}>
-          <Text style={[styles.fieldLabel, { color: colors.mutedLabel }]}>例：えんぴつ</Text>
+          <Text style={[styles.fieldLabel, { color: colors.mutedLabel }]}>
+            {ITEM_NAME_PLACEHOLDER}
+          </Text>
           <View style={[styles.underline, { backgroundColor: colors.blue }]} />
-          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>商品名（必須）</Text>
+          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+            {ITEM_NAME_CAPTION}
+          </Text>
         </View>
       </View>
     </PartFrame>
@@ -178,9 +233,9 @@ export function TagRowFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="「＋」を押すと選べます。まだ無いタグはその場で作れます">
+    <PartFrame note={HELP_FIGURE_TAG_ROW_NOTE}>
       <View style={styles.tagRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>タグ</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
         <TagChip tag={{ name: '洋服', colorKey: 'red' }} variant="selected" />
         <View style={[styles.plusBox, { borderColor: colors.separator }]}>
           <Ionicons name="add" size={16} color={colors.blue} />
@@ -195,11 +250,13 @@ export function MonthBarFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="「◀」「▶」で前後の月へ。月の名前を押すと期間を選べます">
+    <PartFrame note={HELP_FIGURE_MONTH_BAR_NOTE}>
       <View style={[styles.monthBar, { backgroundColor: colors.background }]}>
         <Ionicons name="chevron-back" size={20} color={colors.disabledContent} />
         <View style={styles.monthTitle}>
-          <Text style={[styles.monthText, { color: colors.label }]}>2026年8月</Text>
+          <Text style={[styles.monthText, { color: colors.label }]}>
+            {formatMonthKeyTitle('2026-08')}
+          </Text>
           <Ionicons name="chevron-down" size={14} color={colors.secondaryLabel} />
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.disabledContent} />
@@ -213,17 +270,21 @@ export function FilterEntryFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="右端の「▽」から開きます。効いている間は青くなります">
+    <PartFrame note={HELP_FIGURE_FILTER_ENTRY_NOTE}>
       <View style={styles.filterPair}>
         <View style={[styles.filterCell, { borderColor: colors.separator }]}>
           <Ionicons name="funnel-outline" size={20} color={colors.blue} />
-          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>絞り込みなし</Text>
+          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+            {HELP_FIGURE_FILTER_OFF_CAPTION}
+          </Text>
         </View>
         <View style={[styles.filterCell, { borderColor: colors.separator }]}>
           <View style={[styles.filterActive, { backgroundColor: colors.blue }]}>
             <Ionicons name="funnel" size={16} color="#FFFFFF" />
           </View>
-          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>絞り込み中</Text>
+          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+            {HELP_FIGURE_FILTER_ON_CAPTION}
+          </Text>
         </View>
       </View>
     </PartFrame>
@@ -235,15 +296,19 @@ export function SearchSortFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="左が商品名でさがす、右が並び替え">
+    <PartFrame note={HELP_FIGURE_SEARCH_SORT_NOTE}>
       <View style={styles.iconPair}>
         <View style={styles.iconCell}>
           <Ionicons name="search" size={24} color={colors.blue} />
-          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>さがす</Text>
+          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+            {HELP_FIGURE_SEARCH_CAPTION}
+          </Text>
         </View>
         <View style={styles.iconCell}>
           <Ionicons name="swap-vertical" size={24} color={colors.blue} />
-          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>並び替え</Text>
+          <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+            {SORT_SHEET_TITLE}
+          </Text>
         </View>
       </View>
     </PartFrame>
@@ -253,8 +318,12 @@ export function SearchSortFigure() {
 /** 集計段の右の 2 択（実物の SegmentedControl） */
 export function SoldListingFigure() {
   return (
-    <PartFrame note="上の合計も、選んだほうの記録で計算されます">
-      <SegmentedControl options={['売れた記録', '出品中']} selectedIndex={0} onChange={noop} />
+    <PartFrame note={HELP_FIGURE_SOLD_LISTING_NOTE}>
+      <SegmentedControl
+        options={[SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL]}
+        selectedIndex={0}
+        onChange={noop}
+      />
     </PartFrame>
   );
 }
@@ -264,7 +333,7 @@ export function PresetListFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="設定タブの「入力を減らす」に、この形で並びます">
+    <PartFrame note={HELP_FIGURE_PRESET_LIST_NOTE}>
       <View style={[styles.card, { backgroundColor: colors.background }]}>
         <PresetRow
           preset={{ type: 'shipping', name: 'A4・厚さ3cm以内', initial: 'A4', colorKey: 'blue', value: 210 }}
@@ -281,8 +350,12 @@ export function PresetListFigure() {
 /** 書き出しの「対象」の 2 択 */
 export function ExportTargetFigure() {
   return (
-    <PartFrame note="既定は「売れた記録のみ」です">
-      <SegmentedControl options={['売れた記録のみ', '出品中も含める']} selectedIndex={0} onChange={noop} />
+    <PartFrame note={HELP_FIGURE_EXPORT_TARGET_NOTE}>
+      <SegmentedControl
+        options={EXPORT_TARGET_OPTIONS.map((option) => option.label)}
+        selectedIndex={0}
+        onChange={noop}
+      />
     </PartFrame>
   );
 }
@@ -292,11 +365,15 @@ export function ExportPreviewFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="押すと全部の行を見られます">
+    <PartFrame note={HELP_FIGURE_EXPORT_PREVIEW_NOTE}>
       <View style={styles.previewHead}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>書き出す表</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>
+          {EXPORT_PREVIEW_CARD_TITLE}
+        </Text>
         <View style={styles.grow} />
-        <Text style={[styles.caption, { color: colors.secondaryLabel }]}>先頭3行・全18列</Text>
+        <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+          {exportPreviewMetaLabel(3, 18)}
+        </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
       </View>
     </PartFrame>
