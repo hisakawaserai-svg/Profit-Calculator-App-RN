@@ -17,6 +17,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
+import { useCallback, type ComponentType } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
@@ -46,6 +47,22 @@ import { useThemeColors } from '@/theme';
 const APP_VERSION = Constants.expoConfig?.version ?? null;
 
 /**
+ * 開発用のテストデータ投入（src/dev/）。**import 文ではなく require で読む。**
+ *
+ * import にすると `__DEV__` が false でもモジュールがバンドルに入る（import は条件を持てない）。
+ * require なら production ビルドで丸ごと落ちる ── Metro は本番の変換で
+ * `__DEV__` を false に畳んでから（inlinePlugin）定数畳み込み（constantFoldingPlugin）を掛け、
+ * **そのあとで**依存を収集する（collectDependencies）。この三項演算子は依存収集の前に
+ * `null` になるので、src/dev/ 配下（画面・生成・削除）はどれもバンドルに含まれない。
+ *
+ * 型は `typeof import(...)` で付ける（型の位置なので実行時の読み込みは起きない）。
+ */
+const DevSeedCard: ComponentType<{ onChanged: () => void }> | null = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import では本番ビルドから落とせない（上記）
+    (require('@/dev/DevSeedCard') as typeof import('@/dev/DevSeedCard')).DevSeedCard
+  : null;
+
+/**
  * 設定タブのカードに並べる色の点（SPEC-V4 §2.1）。一覧のチップの点（6px）より大きくするのは、
  * ここでは名前が付かず、点だけで「何色ぶん登録があるか」を読ませるため。
  */
@@ -61,13 +78,29 @@ export default function SettingsScreen() {
   const recordCount = useRecordCount();
   // 件数と色の点だけを使う（§2.1）。使用件数（counts）はここでは出さない ──
   // 設定タブに出すのは「何件登録してあるか」で、どのタグがよく使われているかは一覧の役目
-  const { tags } = useTagList();
+  const tagList = useTagList();
+  const tags = tagList.tags;
 
   const presetsByType = {
     site: sitePresets.presets,
     shipping: shippingPresets.presets,
     packaging: packagingPresets.presets,
   };
+
+  /**
+   * 開発用のテストデータを投入・削除したあとに、この画面の数字を引き直す。
+   *
+   * 各フックは**画面復帰（useFocusEffect）でしか引き直さない** ── 設定タブは記録も
+   * タグも書き換えない、という前提で組まれているため（useRecordCount のコメント）。
+   * その前提を破るのは開発用のカードだけなので、そこからだけ明示的に呼ぶ。
+   */
+  const refreshData = useCallback(() => {
+    sitePresets.refresh();
+    shippingPresets.refresh();
+    packagingPresets.refresh();
+    tagList.refresh();
+    recordCount.refresh();
+  }, [sitePresets, shippingPresets, packagingPresets, tagList, recordCount]);
 
   return (
     <>
@@ -187,11 +220,15 @@ export default function SettingsScreen() {
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.label }]}>{RECORD_COUNT_LABEL}</Text>
               <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
-                {presetCountLabel(recordCount)}
+                {presetCountLabel(recordCount.count)}
               </Text>
             </View>
           </View>
         </View>
+
+        {/* 開発ビルドだけに出る。production では DevSeedCard が null になり、
+            require ごとバンドルから落ちる（宣言のコメント参照） */}
+        {DevSeedCard != null && <DevSeedCard onChanged={refreshData} />}
 
         {/* UI-SPEC §1.6-5: フッタ。中央・上に余白 */}
         {APP_VERSION != null && (

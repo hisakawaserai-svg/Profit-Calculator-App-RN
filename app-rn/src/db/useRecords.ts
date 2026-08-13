@@ -250,14 +250,19 @@ function queryTotalCount(refreshToken: object): number {
 /**
  * 設定タブ「データ」群の「記録の件数」（UI-SPEC §1.6-4）。
  * 設定画面は記録を書き換えないので、拾うのは画面復帰（useFocusEffect）だけでよい。
+ *
+ * **`refresh` も返す**のは usePresets / useTags と同じ形に揃えるため ── 画面に居たまま
+ * 記録が増減する経路（開発用のテストデータ投入）から明示的に引き直せるようにしてある。
  */
-export function useRecordCount(): number {
+export function useRecordCount(): { count: number; refresh: () => void } {
   const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
   const refresh = useCallback(() => setRefreshToken({}), []);
 
   useFocusEffect(refresh);
 
-  return useMemo(() => queryTotalCount(refreshToken), [refreshToken]);
+  const count = useMemo(() => queryTotalCount(refreshToken), [refreshToken]);
+
+  return { count, refresh };
 }
 
 /**
