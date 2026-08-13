@@ -16,8 +16,9 @@
 //   永続化せず、データタブとも共有しない（決定 §9-9）。
 // - 期間は月バー。選べるのは全期間か 1 か月のいずれかだけ（§5-5）。初期表示は今月（§5-14）。
 // - 検索は ⌕ を押した間だけヘッダ行に出す。常時表示の検索バーは置かない（§5-10）。
-// - 並び替えは ⇅ のシート。絞り込みの解除は絞り込みシートに一本化したので、
-//   並び替えシートの先頭にあった「絞り込みをすべて解除」は外した（SPEC-V4 §8-6）。
+// - 並び替えは ⇅ のシート（採用案 22b）。「項目の行 ＋ 方向の 2 択」で 8 通りを一度に見せる。
+//   出品中では販売日の行が消えて 3 行になる（logic/recordSort.ts）。絞り込みの解除は
+//   絞り込みシートに一本化したので、シート先頭にあった「絞り込みをすべて解除」は外した（SPEC-V4 §8-6）。
 // - スワイプ削除は確認なしで即削除（SPEC §5.4。旧 SaleRecordScreen から移植）。
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
@@ -29,10 +30,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
-import { OptionSheet, type SheetOption } from '@/components/OptionSheet';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
 import { SearchBar } from '@/components/SearchBar';
+import { SortSheet } from '@/components/SortSheet';
 import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
 import { toMonthKey } from '@/db/dates';
 import type { RecordSortType } from '@/db/repository';
@@ -50,7 +51,6 @@ import {
   NO_RECORDS_EMPTY_TITLE,
   SOLD_RECORDS_LABEL,
   TOTAL_LISTING_PRICE_LABEL,
-  TOTAL_PROFIT_LABEL,
   periodProfitLabel,
 } from '@/logic/labels';
 import {
@@ -60,36 +60,13 @@ import {
   pruneMissingTags,
   toFilterConditions,
 } from '@/logic/recordFilter';
+import { fallbackSortType, sortRows } from '@/logic/recordSort';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors } from '@/theme';
 
 /** リセット時に戻すソート（旧一覧の resetFilter と同じく販売日降順） */
 const DEFAULT_SORT: RecordSortType = 'saleDateDesc';
-
-/**
- * SPEC §4.1 の 8 種（旧 SortTypeMonthly）をレコード 1 件ずつに適用する。
- * グループの区切りは旧一覧のメニューと同じ。並べ替えの対象は種別が混ざり得るので
- * 収支・経費は中立語（SPEC-V2 §1.3）。値は内部の識別子なので改名しない（§5.3）。
- */
-const SORT_OPTIONS: SheetOption<RecordSortType>[][] = [
-  [
-    { label: '販売日 ↓', value: 'saleDateDesc' },
-    { label: '販売日 ↑', value: 'saleDateAsc' },
-  ],
-  [
-    { label: '出品日 ↓', value: 'saleStartDateDesc' },
-    { label: '出品日 ↑', value: 'saleStartDateAsc' },
-  ],
-  [
-    { label: `${TOTAL_PROFIT_LABEL} ↓`, value: 'profitDesc' },
-    { label: `${TOTAL_PROFIT_LABEL} ↑`, value: 'profitAsc' },
-  ],
-  [
-    { label: `${EXPENSES_LABEL} ↓`, value: 'expensesDesc' },
-    { label: `${EXPENSES_LABEL} ↑`, value: 'expensesAsc' },
-  ],
-];
 
 /** 合計行 2 段目のセグメント（§4.1）。並びは「売れた記録 / 出品中」で固定 */
 const STATUS_SEGMENTS = [SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL];
@@ -205,6 +182,24 @@ export function RecordListScreen() {
 
   const openNewRecordForm = useCallback(() => setShowForm(true), []);
 
+  /**
+   * 状態（売れた記録 / 出品中）の切り替え（採用案 22b）。
+   *
+   * **isSoldMode が動くのはここだけ**（絞り込みページは読むだけ）なので、
+   * 販売日 → 出品日のフォールバックもここで一緒に確定させる。出品中では販売日の行が
+   * シートから消えるため、そのままだと「選択中がどこにも無いシート」になる。
+   */
+  const changeStatus = useCallback(
+    (nextIsSold: boolean) => {
+      changeSoldMode(nextIsSold);
+      setSortType((current) => fallbackSortType(current, nextIsSold));
+    },
+    [changeSoldMode],
+  );
+
+  /** 出品中では販売日の行が消えて 3 行になる（logic/recordSort.ts） */
+  const visibleSortRows = useMemo(() => sortRows(isSoldMode), [isSoldMode]);
+
   /** 絞り込みは push する 1 枚のページ（案 33c）。戻れば結果が見えるので「完了」は要らない */
   const openFilterPage = useCallback(() => router.push(RECORD_FILTER_PATHNAME), [router]);
 
@@ -304,7 +299,7 @@ export function RecordListScreen() {
           segment={{
             options: STATUS_SEGMENTS,
             selectedIndex: isSoldMode ? 0 : 1,
-            onChange: (index) => changeSoldMode(index === 0),
+            onChange: (index) => changeStatus(index === 0),
           }}
           filterRow={{
             text: summaryText,
@@ -371,12 +366,13 @@ export function RecordListScreen() {
         onSelect={setPeriod}
         onClose={() => setShowPeriodSheet(false)}
       />
-      {/* 並び替えシート（⇅）。**先頭の「絞り込みをすべて解除」は外した**（SPEC-V4 §8-6）──
-          絞り込みの解除は絞り込みシート（と解除バー）に一本化し、同じことをする経路を 2 つ作らない */}
-      <OptionSheet
+      {/* 並び替えシート（⇅。採用案 22b）。項目の行に方向の 2 択を常時出し、8 通りを一度に見せる。
+          **先頭の「絞り込みをすべて解除」は外した**（SPEC-V4 §8-6）── 絞り込みの解除は
+          絞り込みシート（と解除バー）に一本化し、同じことをする経路を 2 つ作らない */}
+      <SortSheet
         visible={showSortSheet}
         title="並び替え"
-        groups={SORT_OPTIONS}
+        rows={visibleSortRows}
         selectedValue={sortType}
         onSelect={setSortType}
         onClose={() => setShowSortSheet(false)}

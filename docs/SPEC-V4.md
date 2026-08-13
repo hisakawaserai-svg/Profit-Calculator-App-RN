@@ -1062,7 +1062,7 @@ function tagExistsSql(tagIds: string[]): SQL;
 | `src/components/SummaryBar.tsx` | **1 段にする**（左に集計・右に状態セグメント。§4.1 / 決定 §9-1 改訂）。絞り込み中の青い行もこの中に生やす（§4.3） | 4 |
 | `src/screens/RecordListScreen.tsx` | 上部の作り替え（§4.1）／`cycleKindFilter` を廃止／青い行／件数の交代制（案 `34a-D`）／`useFocusEffect` で消えたタグを落とす（§4.7） | 4 |
 | `src/screens/RecordListScreen.tsx` の `ListEmpty` | **空表示を 2 通りに統合**（絞り込みあり / 記録なし。§4.8 / 決定 §9-13）。条件ごとの出し分けを削る | 4 |
-| `src/components/OptionSheet.tsx` の呼び出し（並び替えシート） | 先頭の「絞り込みをすべて解除」を**外す**（§8-6） | 4 |
+| `src/components/OptionSheet.tsx` の呼び出し（並び替えシート） | 先頭の「絞り込みをすべて解除」を**外す**（§8-6）。**その後、採用案 `22b` でシートごと `src/components/SortSheet.tsx`（項目 × 方向の行）に置き換えた**ので、`OptionSheet` の呼び出しは残っていない（UI-SPEC §1.2「並び替えシート」） | 4 |
 | `src/screens/DataScreen.tsx` | 種別の巡回チップを廃止。**Step 4 の時点では集計段右のセグメント**（`FilterChip` を消したため）、Step 5 で**上部を案 `36b` に作り替え**（月バーの ▽ ＋ 青い行 ＋ 収支が主役の集計段。種別セグメントは廃止。§6） | 5 |
 | `app/(tabs)/data/filter.tsx`（新規） | 絞り込みページのデータタブ側のルート。画面の実体は `RecordFilterScreen`（§6） | 5 |
 | `app/(tabs)/data/_layout.tsx` | `RecordFilterProvider` を置く（記録タブとは**別の 1 つ**。決定 §9-9 を構造で守る。§6） | 5 |

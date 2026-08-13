@@ -85,6 +85,22 @@ export const LISTING_COUNT_LABEL = LISTING_STATUS_LABEL;
 export const SOLD_DATE_LABEL = '販売';
 export const LISTED_DATE_LABEL = '出品';
 
+/**
+ * 並び替えの**方向**（採用案 22b）。日付と金額で語を分ける ──
+ * 同じ降順でも、日付なら「新しい」、金額なら「多い」でないと読み違える。
+ * 旧メニューの「販売日 ↓」のような矢印は使わない（↓ がどちら向きの意味かを覚えさせない）。
+ */
+export const SORT_NEWEST_LABEL = '新しい順';
+export const SORT_OLDEST_LABEL = '古い順';
+export const SORT_LARGEST_LABEL = '多い順';
+export const SORT_SMALLEST_LABEL = '少ない順';
+
+/**
+ * 出品中を見ているときの並び替え項目名（採用案 22b）。まだ売れていない記録の収支は
+ * 行の「売れたら 約◯円」と同じ**見込みの値**なので、確定した収支と同じ語で並べない。
+ */
+export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
+
 /** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
 export const ALL_PERIOD_LABEL = '全期間';
 
