@@ -139,10 +139,14 @@ const EDGE_SPACING = 12;
 const MAX_BAR_WIDTH = 12;
 const BAR_WIDTH_RATIO = 0.6;
 /**
- * X 軸ラベルの枠幅。日付 1 つぶん（"08/01"）が入る幅。
- * 枠の中央を棒の中央に合わせて置く（XAxisLabels）。
+ * X 軸ラベルの枠幅。**刻みで変える**（枠の中央を棒の中央に合わせて置く。XAxisLabels）。
+ *
+ * 日ごと（"08/01"）と年ごと（"2025"）は 36pt に収まるが、**月ごと（"2025/09"）は入らず、
+ * 「2025…」と切り詰められていた**（実機で確認。年・全期間はどちらも月ごとの刻みなので、
+ * この 2 つの表示だけが壊れて見えていた）。文字を削らずに枠を広げる ──
+ * 月ごとのラベルは打つ数がもともと少なく（LABEL_COUNT）、広げても隣と当たらない。
  */
-const X_LABEL_WIDTH = 36;
+const X_LABEL_WIDTH: Record<ChartUnit, number> = { day: 36, month: 50, year: 36 };
 /**
  * 末尾のラベルと直前のラベルの間に最低限空ける距離（中心どうし）。
  * 枠（36pt）に余白を足した 60pt を要求し、足りなければ直前のラベルを落として場所を空ける
@@ -845,9 +849,10 @@ function XAxisLabels({
   barWidth: number;
 }) {
   const colors = useThemeColors();
-  /** 枠の左端。枠の中央（= 文字の中央）が棒の中央に来るように置く */
+  /** 枠の左端。枠の中央（= 文字の中央）が棒の中央に来るように置く（枠の幅は刻みで違う） */
+  const labelWidth = X_LABEL_WIDTH[unit];
   const leftOf = (index: number) =>
-    EDGE_SPACING + index * pitch + barWidth / 2 - X_LABEL_WIDTH / 2;
+    EDGE_SPACING + index * pitch + barWidth / 2 - labelWidth / 2;
 
   return (
     <View style={styles.tickOverlay} pointerEvents="none">
@@ -860,6 +865,7 @@ function XAxisLabels({
               styles.xAxisLabel,
               {
                 color: colors.secondaryLabel,
+                width: labelWidth,
                 left: leftOf(index),
                 top: heights.top + heights.above + X_LABEL_TOP_GAP,
               },
@@ -1140,7 +1146,6 @@ const styles = StyleSheet.create({
   // X 軸の日付。枠の中央を棒の中央に合わせて置く（XAxisLabels）
   xAxisLabel: {
     position: 'absolute',
-    width: X_LABEL_WIDTH,
     fontSize: 10,
     textAlign: 'center',
   },
