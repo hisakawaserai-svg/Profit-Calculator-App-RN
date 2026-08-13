@@ -210,6 +210,17 @@ export const OPTIONAL_COSTS_LABEL = '梱包材・その他を入力';
 /** 結果カード右上のリセット（UI-SPEC §1.1-3a）。入力が空のときは無効（§5-8） */
 export const CLEAR_LABEL = 'クリア';
 
+/**
+ * クリアの確認（UI-SPEC §1.1-3a）。**押した時点で全部消える**操作なのに、
+ * 押した直後の「元に戻す」を置いていない（§5-8 は未実装）ので、確認を 1 枚挟む。
+ *
+ * 本文で「金額」と「種別」の両方を言うのは、種別まで既定値に戻ることが
+ * ボタンの語（「クリア」）からは読めないため ── 消えるものを先に全部言う。
+ * レコードの削除（DELETE_CONFIRM_TITLE）と違って本文があるのはそのため。
+ */
+export const CLEAR_CONFIRM_TITLE = '入力をクリアしますか？';
+export const CLEAR_CONFIRM_MESSAGE = 'すべての金額が空欄になり、種別も既定値に戻ります。';
+
 /** 画面下端の固定ボタン（UI-SPEC §1.1-7）。押すと記録フォームを開く */
 export const SAVE_AS_RECORD_LABEL = 'この内容で記録する';
 

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Animated,
   Pressable,
   ScrollView,
@@ -19,7 +20,6 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -57,6 +57,9 @@ import { sanitizeNumericInput } from '@/logic/input';
 import {
   BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
+  CANCEL_LABEL,
+  CLEAR_CONFIRM_MESSAGE,
+  CLEAR_CONFIRM_TITLE,
   CLEAR_LABEL,
   DEDUCTED_LABEL,
   ENVELOPE_COST_LABEL,
@@ -141,23 +144,18 @@ export default function CalcScreen() {
   );
 
   // 金額をクリアし、種別も設定の既定値に戻す（SPEC-V2 §1.3）。
-  // 押した直後の「元に戻す」表示は今回は実装しない（UI-SPEC §5-8）
+  // 押した直後の「元に戻す」表示は実装していない（UI-SPEC §5-8）ので、
+  // 消える前に確認を 1 枚挟む（レコード詳細の削除と同じ作法。SPEC §5.4）
   const clearAll = useCallback(() => {
-    Alert.alert(
-      '入力をクリアしますか？',
-      'すべての金額が空欄になり、種別も既定値に戻ります。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: CLEAR_LABEL,
-          style: 'destructive',
-          onPress: () => setValues(newCalcValues(defaultRecordKind)),
-        },
-      ],
-    )
-  },
-    [defaultRecordKind],
-  );
+    Alert.alert(CLEAR_CONFIRM_TITLE, CLEAR_CONFIRM_MESSAGE, [
+      { text: CANCEL_LABEL, style: 'cancel' },
+      {
+        text: CLEAR_LABEL,
+        style: 'destructive',
+        onPress: () => setValues(newCalcValues(defaultRecordKind)),
+      },
+    ]);
+  }, [defaultRecordKind]);
 
   /**
    * 販売サイトのプリセットを選んだとき（SPEC-V3 §4.3 / §1.5.1）。
