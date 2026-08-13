@@ -1,42 +1,67 @@
 // 使いかた（UI-SPEC §3.2 / §5-9 / 採用案 `19c` `20b` `20c`）。
 //
-// **上部のチップで 4 ページを切り替える**（計算 / 記録 / データ / ことば）。
-// アコーディオンだった旧実装（Swift 版 HelpView の移植）は全面的に置き換えた ──
-// 中身が 4 タブ化前の文言（出品中タブ・実績タブ・分析タブ・売却済みスイッチ）のままで、
-// 実物と食い違っていた。
+// **上部のチップで 4 ページを切り替え、ページの中は 1 項目 1 段のアコーディオン。**
+// ほとんどの項目に図が付いて縦に長くなったので、畳めるようにした ──
+// 開いたままだと 1 ページが十数画面ぶんになり、目当ての項目まで指で送ることになる。
+// 畳んだ見出しが並べば、ページ全体が**目次として読める**。
+//
+// **各段は独立して開閉する**（`Accordion` の既定の作り）。同時に 1 つだけに絞る形も考えたが、
+// 読み比べたい組み合わせ（種別と、ことばの説明など）があるので閉じさせない。
 //
 // **この画面は 2 通りの出しかたで使い回す**（§5-9）:
-//   - 設定タブの「使いかた」から push（全ページ・チップは既定の「計算」から）
-//   - 各画面の「？」からシート（案 `20c`。困りそうな項目を先頭に持ち上げ、下端に
-//     「使いかたを最初から読む ›」を置く）
+//   - 設定タブの「使いかた」から push（全ページ・**全部畳んだ状態**から）
+//   - 各画面の「？」からシート（案 `20c`。その画面の項目を**開いた状態**で出し、
+//     下端に「使いかたを最初から読む ›」を置く）
 //
-// 本文と並びは `logic/helpContent.ts`、図は `components/HelpDiagram.tsx`。
-// この画面が持つのは**並べ方だけ**で、文字列を組み立てない（SPEC-V2 §5.3）。
+// 本文と並びは `logic/helpContent.ts`、図は `components/HelpDiagram.tsx`（概念）と
+// `components/HelpPartFigure.tsx`（実物の部品）。この画面が持つのは並べ方だけ。
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Accordion } from '@/components/Accordion';
 import {
   ChartReadingFigure,
   CsvKindsFigure,
   ExpenseItemsFigure,
+  GroupingFigure,
   KindComparisonFigure,
+  PackBuyFigure,
   ReversePriceFigure,
+  RoundingFigure,
   SaleDateRangeFigure,
   SiteAmountFigure,
   TagFilterOrFigure,
   TermsFigure,
 } from '@/components/HelpDiagram';
 import {
+  AddRecordFigure,
+  BreakdownFigure,
+  CalculatorButtonFigure,
+  ExportPreviewFigure,
+  ExportTargetFigure,
+  FilterEntryFigure,
+  KindSelectorFigure,
+  ModeProfitFigure,
+  MonthBarFigure,
+  PhotoFieldFigure,
+  PresetListFigure,
+  PresetTagFigure,
+  SearchSortFigure,
+  SoldListingFigure,
+  StatusToggleFigure,
+  TagRowFigure,
+} from '@/components/HelpPartFigure';
+import {
   HELP_PAGES,
   HELP_READ_ALL_LABEL,
-  orderedBlocks,
-  type HelpBlock,
   type HelpFigureId,
+  type HelpItem,
   type HelpPageId,
 } from '@/logic/helpContent';
 import { useThemeColors } from '@/theme';
 
 const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
+  // 概念の図（部品を描いても伝わらないもの）
   kind: KindComparisonFigure,
   terms: TermsFigure,
   siteAmount: SiteAmountFigure,
@@ -46,13 +71,33 @@ const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
   chart: ChartReadingFigure,
   csvKinds: CsvKindsFigure,
   expenseItems: ExpenseItemsFigure,
+  packBuy: PackBuyFigure,
+  grouping: GroupingFigure,
+  rounding: RoundingFigure,
+  // 実物の部品を使う図（UI を直すと図も一緒に変わる）
+  modeProfit: ModeProfitFigure,
+  calculatorButton: CalculatorButtonFigure,
+  breakdown: BreakdownFigure,
+  presetTag: PresetTagFigure,
+  addRecord: AddRecordFigure,
+  kindSelector: KindSelectorFigure,
+  statusToggle: StatusToggleFigure,
+  photoField: PhotoFieldFigure,
+  tagRow: TagRowFigure,
+  monthBar: MonthBarFigure,
+  soldListing: SoldListingFigure,
+  filterEntry: FilterEntryFigure,
+  searchSort: SearchSortFigure,
+  presetList: PresetListFigure,
+  exportTarget: ExportTargetFigure,
+  exportPreview: ExportPreviewFigure,
 };
 
 type Props = {
   /** 最初に開くページ。省略時は先頭（計算） */
   initialPage?: HelpPageId;
-  /** このブロックをページの先頭へ持ち上げる（各画面の「？」から。案 `20c`） */
-  leadBlockId?: string;
+  /** この項目を開いた状態で出す（各画面の「？」から。案 `20c`） */
+  leadItemId?: string;
   /** シートから開いたときだけ渡す。下端の「最初から読む」を押したとき */
   onReadAll?: () => void;
   /**
@@ -60,15 +105,14 @@ type Props = {
    *
    * **シートでは出さない**（案 `20c`）── シートは見出し行にその場の語（「記録の書きかた」）を
    * 持っているので、中にページ名を重ねると 1 つの面に別名が 2 つ並ぶ。
-   * どのページかはチップの選択で読める。設定タブから push したときは見出し行が
-   * 「使いかた」なので、ページ名はこちらが出す（案 `20b`）。
+   * どのページかはチップの選択で読める。
    */
   showPageTitle?: boolean;
 };
 
 export function HelpScreen({
   initialPage,
-  leadBlockId,
+  leadItemId,
   onReadAll,
   showPageTitle = true,
 }: Props) {
@@ -76,9 +120,14 @@ export function HelpScreen({
   const [pageId, setPageId] = useState<HelpPageId>(initialPage ?? HELP_PAGES[0].id);
   const page = HELP_PAGES.find((candidate) => candidate.id === pageId) ?? HELP_PAGES[0];
 
-  // 持ち上げが効くのは「？」で開いた最初のページだけ。チップで移ったら素の並びに戻す
-  // ── 移った先は自分で選んだページなので、並べ替える理由がない
-  const blocks = orderedBlocks(page, pageId === initialPage ? leadBlockId : undefined);
+  /**
+   * 開いた状態で出す項目は、「？」で開いた**最初のページだけ**（案 `20c`）。
+   *
+   * **設定タブから push したときは全部畳んだまま出す**（案 `20b` の姿）── そこは
+   * 「最初から読む」面なので、どれか 1 つだけ開いて出す理由がない。目次が先に見えるほうが、
+   * 探している項目に手が届く。チップで移った先も同じ理由で畳んだまま。
+   */
+  const leadId = pageId === initialPage ? leadItemId : undefined;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -112,12 +161,14 @@ export function HelpScreen({
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* ページを変えたら中身ごと作り直す（開いていた段を持ち越さない） */}
+      <ScrollView key={pageId} contentContainerStyle={styles.content}>
         {showPageTitle && (
           <Text style={[styles.pageTitle, { color: colors.label }]}>{page.title}</Text>
         )}
-        {blocks.map((block) => (
-          <Block key={block.id} block={block} onOpenPage={setPageId} />
+
+        {page.items.map((item) => (
+          <Item key={item.id} item={item} expanded={item.id === leadId} onOpenPage={setPageId} />
         ))}
 
         {/* 案 `20c`: シートから開いたときだけ、全体へ行ける口を下端に置く */}
@@ -134,37 +185,37 @@ export function HelpScreen({
   );
 }
 
-function Block({
-  block,
+function Item({
+  item,
+  expanded,
   onOpenPage,
 }: {
-  block: HelpBlock;
+  item: HelpItem;
+  expanded: boolean;
   onOpenPage: (page: HelpPageId) => void;
 }) {
   const colors = useThemeColors();
-
-  if (block.kind === 'figure') {
-    const Figure = FIGURES[block.figure];
-    return <Figure />;
-  }
+  const Figure = item.figure == null ? null : FIGURES[item.figure];
 
   return (
-    <View style={styles.textBlock}>
-      {/* 図の直後の補足だけは見出しを持たない（図の見出しが兼ねる） */}
-      {block.title !== '' && (
-        <Text style={[styles.blockTitle, { color: colors.label }]}>{block.title}</Text>
-      )}
-      <Text style={[styles.blockBody, { color: colors.secondaryLabel }]}>{block.body}</Text>
-      {block.link != null && (
-        <Pressable
-          onPress={() => onOpenPage(block.link!.to)}
-          hitSlop={8}
-          accessibilityRole="link"
-          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-          <Text style={[styles.blockLink, { color: colors.blue }]}>{block.link.label}</Text>
-        </Pressable>
-      )}
-    </View>
+    <Accordion
+      initiallyExpanded={expanded}
+      accessibilityLabel={item.title}
+      label={<Text style={[styles.itemTitle, { color: colors.label }]}>{item.title}</Text>}>
+      <View style={styles.itemBody}>
+        <Text style={[styles.body, { color: colors.secondaryLabel }]}>{item.body}</Text>
+        {Figure != null && <Figure />}
+        {item.link != null && (
+          <Pressable
+            onPress={() => onOpenPage(item.link!.to)}
+            hitSlop={8}
+            accessibilityRole="link"
+            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+            <Text style={[styles.link, { color: colors.blue }]}>{item.link.label}</Text>
+          </Pressable>
+        )}
+      </View>
+    </Accordion>
   );
 }
 
@@ -195,31 +246,33 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 40,
-    gap: 20,
+    gap: 8,
   },
   pageTitle: {
     fontSize: 24,
     fontWeight: '700',
+    paddingBottom: 4,
   },
-  textBlock: {
-    gap: 6,
-  },
-  blockTitle: {
-    fontSize: 17,
+  itemTitle: {
+    fontSize: 16,
     fontWeight: '600',
+    flexShrink: 1,
   },
-  blockBody: {
+  itemBody: {
+    gap: 12,
+    paddingTop: 2,
+  },
+  body: {
     fontSize: 15,
     lineHeight: 23,
   },
-  blockLink: {
+  link: {
     fontSize: 15,
     fontWeight: '600',
-    paddingTop: 2,
   },
   readAll: {
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 20,
   },
   readAllLabel: {
     fontSize: 16,

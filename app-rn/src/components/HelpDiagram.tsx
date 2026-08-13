@@ -116,28 +116,26 @@ function HelpLegend({ items }: { items: { key: string; tone: ToneKey; text: stri
   );
 }
 
-/** 図 1 枚の器。見出し ＋（副題）＋ 図 ＋ 本文 */
-function Figure({
-  title,
+/**
+ * 図 1 枚の器。**見出しと本文は持たない** ── アコーディオンの見出しが題を、
+ * 開いた中の地の文が説明を担うので、図の中に重ねると同じ語が 2 回出る。
+ * ここが持つのは、絵と（要るときだけ）その場の副題まで。
+ */
+function FigureFrame({
   subtitle,
   children,
-  caption,
 }: {
-  title: string;
   subtitle?: string;
   children: React.ReactNode;
-  caption: string;
 }) {
   const colors = useThemeColors();
 
   return (
     <View style={[styles.figure, { backgroundColor: colors.secondaryBackground }]}>
-      <Text style={[styles.figureTitle, { color: colors.label }]}>{title}</Text>
       {subtitle != null && (
         <Text style={[styles.figureSubtitle, { color: colors.secondaryLabel }]}>{subtitle}</Text>
       )}
       <View style={styles.figureBody}>{children}</View>
-      <Text style={[styles.caption, { color: colors.label }]}>{caption}</Text>
     </View>
   );
 }
@@ -157,10 +155,7 @@ export function KindComparisonFigure() {
   ];
 
   return (
-    <Figure
-      title="不用品と仕入品のちがい"
-      subtitle={`どちらも販売価格 ${yen(SALES_PRICE)}で売れたとき`}
-      caption="引くものが 1 つ増えるだけで、計算のしかたは同じです。仕入品を選ぶと仕入価格の欄が出ます。">
+    <FigureFrame subtitle={`どちらも販売価格 ${yen(SALES_PRICE)}で売れたとき`}>
       <Text style={[styles.rowTitle, { color: colors.label }]}>不用品</Text>
       <HelpBar
         segments={[
@@ -196,7 +191,7 @@ export function KindComparisonFigure() {
           },
         ]}
       />
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -211,9 +206,7 @@ export function TermsFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="純利益・利益・収支の使い分け"
-      caption="記録タブの合計行とデータタブの数字は、すべて収支です。">
+    <FigureFrame>
       <View style={styles.termsRow}>
         <View style={styles.termsSingles}>
           <TermBox label="不用品 1 件" value="純利益" valueColor={colors.green} />
@@ -231,7 +224,7 @@ export function TermsFigure() {
           <Text style={[styles.termsTotalValue, { color: colors.blue }]}>収支</Text>
         </View>
       </View>
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -265,10 +258,7 @@ export function SiteAmountFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="販売サイトの表示額との違い"
-      subtitle="同じ 1 件を、どこまで引いた金額で見ているか"
-      caption="経費を入れているぶん、このアプリの数字のほうが少なくなります。差はそのまま、実際に出ていったお金です。">
+    <FigureFrame subtitle="同じ 1 件を、どこまで引いた金額で見ているか">
       <HelpBar
         segments={[
           { key: 'commission', amount: COMMISSION, tone: 'commission' },
@@ -295,7 +285,7 @@ export function SiteAmountFigure() {
           text={`このアプリ ${yen(APP_AMOUNT)}（梱包材ほかも引く）`}
         />
       </View>
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -321,9 +311,7 @@ export function SaleDateRangeFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="日付のきまり"
-      caption="出品する前に売れることはないため、販売日は出品日より前にできません。前の日付にしたいときは、先に出品日を直してください。">
+    <FigureFrame>
       <View style={styles.rangeBar}>
         <View style={[styles.rangeBlocked, { backgroundColor: colors.disabledBackground }]}>
           <Hatching color={colors.separator} />
@@ -341,7 +329,7 @@ export function SaleDateRangeFigure() {
           出品日 8/1 から今日まで →
         </Text>
       </View>
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -357,10 +345,7 @@ export function ReversePriceFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="「いくらで売ればいいか」の出し方"
-      subtitle="ほしい利益が先に決まっているとき"
-      caption="同じ 1 本の帯を、どちら側から見るかの違いです。ほしい利益（緑）を決めると、かかるお金を足した全体が販売価格になります。">
+    <FigureFrame subtitle="ほしい利益が先に決まっているとき">
       <Text style={[styles.rowTitle, { color: colors.label }]}>ほしい利益から逆に足す</Text>
       <HelpBar
         segments={[
@@ -389,7 +374,7 @@ export function ReversePriceFigure() {
           {`これが販売価格 ${yen(SALES_PRICE)}`}
         </Text>
       </View>
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -420,10 +405,7 @@ export function TagFilterOrFigure() {
   ];
 
   return (
-    <Figure
-      title="タグを 2 つ選んだとき"
-      subtitle="「洋服」と「食器」を選ぶと"
-      caption="どちらかが付いていれば出ます。両方が付いている必要はありません。タグを増やすほど、出る記録は多くなります。">
+    <FigureFrame subtitle="「洋服」と「食器」を選ぶと">
       {rows.map((row) => (
         <View key={row.key} style={[styles.orRow, { borderColor: colors.separator }]}>
           <View style={styles.orTags}>
@@ -437,7 +419,7 @@ export function TagFilterOrFigure() {
           </Text>
         </View>
       ))}
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -469,9 +451,7 @@ export function ChartReadingFigure() {
     .join(' ');
 
   return (
-    <Figure
-      title="グラフの読みかた"
-      caption="棒 1 本がその日の収支、線はその日までの合計です。売れた日がない日は棒が立ちません。棒を押すと、その日に売れた記録が下に出ます。">
+    <FigureFrame>
       <View style={styles.chart}>
         {/* 折れ線は棒の上に重ねる。棒と同じ枠を使うので、頂点の位置が棒とずれない */}
         <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -506,7 +486,7 @@ export function ChartReadingFigure() {
           <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>累計の収支</Text>
         </View>
       </View>
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -530,10 +510,7 @@ export function CsvKindsFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="書き出しの 2 種類"
-      subtitle="減るのはメモとタグだけ"
-      caption="確定申告用でも、金額の列は減りません。帳簿に関係のない記述を申告の書類へ持ち込まないための形です。">
+    <FigureFrame subtitle="減るのはメモとタグだけ">
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
         <Text style={[styles.csvKind, { color: colors.label }]}>データ保存用{'\n'}18 列</Text>
@@ -552,7 +529,7 @@ export function CsvKindsFigure() {
           </Text>
         </View>
       ))}
-    </Figure>
+    </FigureFrame>
   );
 }
 
@@ -577,10 +554,7 @@ export function ExpenseItemsFigure() {
   const colors = useThemeColors();
 
   return (
-    <Figure
-      title="経費にふくまれるもの"
-      subtitle="このアプリが販売価格から引くのは、この 5 つ"
-      caption="この 5 つを足したものが「引かれる分」で、販売価格から引いた残りが手元に残る金額です。入れた欄だけで計算するので、使わない欄は空のままでかまいません。">
+    <FigureFrame subtitle="このアプリが販売価格から引くのは、この 5 つ">
       {EXPENSE_ITEMS.map((item) => (
         <View key={item.key} style={styles.expenseRow}>
           <View style={[styles.expenseDot, { backgroundColor: toneColor(item.tone, colors) }]} />
@@ -590,7 +564,125 @@ export function ExpenseItemsFigure() {
           </View>
         </View>
       ))}
-    </Figure>
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図 10: まとめ買いの 1 個あたり（記録ページ）。
+ *
+ * **割り算そのものを見せる。** 「入数と購入価格を入れると 1 個あたりが計算されます」は、
+ * 何がどこに入るのかが文だけでは掴みにくい ── 3 つの箱と ÷ と = で並べれば、
+ * 打つのは左の 2 つで、右は自動で出るものだと読める。
+ */
+export function PackBuyFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <FigureFrame subtitle="100 枚で 800 円の封筒を登録すると">
+      <View style={styles.formulaRow}>
+        <FormulaBox label="購入価格" value="800" colors={colors} />
+        <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>÷</Text>
+        <FormulaBox label="入数" value="100" colors={colors} />
+        <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
+        <FormulaBox label="1 個あたり" value="8" colors={colors} highlight />
+      </View>
+    </FigureFrame>
+  );
+}
+
+function FormulaBox({
+  label,
+  value,
+  colors,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  colors: ThemeColors;
+  highlight?: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.formulaBox,
+        {
+          borderColor: highlight ? colors.blue : colors.separator,
+          backgroundColor: highlight ? colors.highlightBackground : 'transparent',
+        },
+      ]}>
+      <Text style={[styles.formulaValue, { color: highlight ? colors.blue : colors.label }]}>
+        {value}
+      </Text>
+      <Text style={[styles.formulaLabel, { color: colors.secondaryLabel }]}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * 図 11: 日ごとにまとめる（データページ）。
+ *
+ * **何が残って何が消えるかを、行の形で見せる。** 「まとめられるのは金額だけ」は
+ * 文だと読み飛ばされるが、まとめた後の行から商品名が消えているのを見れば分かる。
+ */
+export function GroupingFigure() {
+  const colors = useThemeColors();
+  const before = [
+    { key: 'a', name: 'クッション', amount: 450 },
+    { key: 'b', name: 'マグカップ', amount: 320 },
+    { key: 'c', name: '絵本', amount: 180 },
+  ];
+
+  return (
+    <FigureFrame subtitle="同じ日に 3 件売れたとき">
+      <Text style={[styles.rowTitle, { color: colors.label }]}>1 件ずつ</Text>
+      {before.map((row) => (
+        <View key={row.key} style={[styles.groupRow, { borderColor: colors.separator }]}>
+          <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
+          <Text style={[styles.groupName, { color: colors.label }]}>{row.name}</Text>
+          <Text style={[styles.groupAmount, { color: colors.label }]}>{row.amount}</Text>
+        </View>
+      ))}
+
+      <Text style={[styles.rowTitle, styles.rowTitleSpaced, { color: colors.label }]}>
+        日ごとにまとめる
+      </Text>
+      <View style={[styles.groupRow, { borderColor: colors.blue }]}>
+        <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
+        <Text style={[styles.groupName, { color: colors.mutedLabel }]}>（商品名は入りません）</Text>
+        <Text style={[styles.groupAmount, { color: colors.blue }]}>950</Text>
+      </View>
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図 12: 1 円のずれ（データページ）。
+ *
+ * **順番が違うだけだと見せる。** どちらかが間違っているのではなく、
+ * 「丸めてから足す」と「足してから丸める」の差でしかないことは、
+ * 2 本の道を並べたときにいちばん短く伝わる。
+ */
+export function RoundingFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <FigureFrame subtitle="10.4 円と 10.4 円の 2 件なら">
+      <View style={[styles.roundRow, { borderColor: colors.separator }]}>
+        <Text style={[styles.roundWho, { color: colors.label }]}>ファイル</Text>
+        <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
+          10 ＋ 10（先に丸める）
+        </Text>
+        <Text style={[styles.roundValue, { color: colors.label }]}>20</Text>
+      </View>
+      <View style={[styles.roundRow, { borderColor: colors.separator }]}>
+        <Text style={[styles.roundWho, { color: colors.label }]}>画面</Text>
+        <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
+          20.8（後で丸める）
+        </Text>
+        <Text style={[styles.roundValue, { color: colors.label }]}>21</Text>
+      </View>
+    </FigureFrame>
   );
 }
 
@@ -886,6 +978,73 @@ const styles = StyleSheet.create({
   expenseNote: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  formulaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  formulaOp: {
+    fontSize: 16,
+  },
+  formulaBox: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  formulaValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  formulaLabel: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  groupDate: {
+    fontSize: 13,
+  },
+  groupName: {
+    flex: 1,
+    fontSize: 14,
+  },
+  groupAmount: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  roundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  roundWho: {
+    fontSize: 14,
+    fontWeight: '600',
+    width: 72,
+  },
+  roundHow: {
+    flex: 1,
+    fontSize: 13,
+  },
+  roundValue: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   rangeCaptions: {
     flexDirection: 'row',

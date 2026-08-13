@@ -15,11 +15,11 @@ import { Stack } from 'expo-router';
 //
 // **ルートグループ（丸括弧）にしてあるので URL は変わらない** ── 計算タブは
 // これまでどおり `/` のまま。`index.tsx` を素のディレクトリへ移すと URL が変わってしまう。
+// **screen は 1 つも宣言しない。** ここは束ねるルートが index 1 本きりなので、
+// 宣言しても並びは変わらない。むしろ `(calc)` はルートグループで、expo-router が
+// 親の階層へ畳むため、`<Stack.Screen name="index">` は (tabs) 側の子
+// （`(calc)/index` / `data` / `records` / `settings`）と突き合わされて
+// 「No route named "index"」の警告とともに捨てられていた（実機のログで見つけた）。
 export default function CalcLayout() {
-  return (
-    <Stack>
-      {/* 起点。screen を 1 つでも宣言したら index を先頭に置く（設定タブの事故と同じ理由） */}
-      <Stack.Screen name="index" />
-    </Stack>
-  );
+  return <Stack />;
 }

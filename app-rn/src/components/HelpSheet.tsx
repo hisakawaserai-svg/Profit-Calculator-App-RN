@@ -27,7 +27,7 @@ type Props = {
 
 export function HelpSheet({ entry, onClose, onReadAll }: Props) {
   const colors = useThemeColors();
-  const { page, leadBlockId, sheetTitle } = HELP_ENTRIES[entry];
+  const { page, leadItemId, sheetTitle } = HELP_ENTRIES[entry];
 
   return (
     <SheetModal onClose={onClose}>
@@ -50,7 +50,7 @@ export function HelpSheet({ entry, onClose, onReadAll }: Props) {
 
           <HelpScreen
             initialPage={page}
-            leadBlockId={leadBlockId}
+            leadItemId={leadItemId}
             showPageTitle={false}
             onReadAll={
               onReadAll == null
