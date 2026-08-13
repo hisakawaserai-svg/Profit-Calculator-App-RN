@@ -115,12 +115,12 @@ export function PresetTagFigure() {
   );
 }
 
-/** 記録タブの右下のボタン */
+/** 記録タブの左下のボタン（UI-SPEC §1.2-7） */
 export function AddRecordFigure() {
   const colors = useThemeColors();
 
   return (
-    <PartFrame note="記録タブの右下にあります">
+    <PartFrame note="記録タブの左下・タブバーの上にあります">
       <View style={[styles.fab, { backgroundColor: colors.blue }]}>
         <Ionicons name="add" size={20} color="#FFFFFF" />
         <Text style={styles.fabLabel}>記録</Text>
