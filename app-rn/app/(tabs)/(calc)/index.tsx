@@ -19,6 +19,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -141,8 +142,20 @@ export default function CalcScreen() {
 
   // 金額をクリアし、種別も設定の既定値に戻す（SPEC-V2 §1.3）。
   // 押した直後の「元に戻す」表示は今回は実装しない（UI-SPEC §5-8）
-  const clearAll = useCallback(
-    () => setValues(newCalcValues(defaultRecordKind)),
+  const clearAll = useCallback(() => {
+    Alert.alert(
+      '入力をクリアしますか？',
+      'すべての金額が空欄になり、種別も既定値に戻ります。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: CLEAR_LABEL,
+          style: 'destructive',
+          onPress: () => setValues(newCalcValues(defaultRecordKind)),
+        },
+      ],
+    )
+  },
     [defaultRecordKind],
   );
 
