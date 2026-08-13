@@ -85,6 +85,15 @@ export type ThemeColors = {
    */
   barBackground: string;
   /**
+   * 2 択（SegmentedControl）の**選択中の側の地色**。
+   *
+   * カードの地色（secondaryBackground）を流用していたが、**ダークでは両者が同じ色**
+   * （#1C1C1E）で、持ち上がった側がカードに溶けて「どちらが選ばれているか」が読めなかった。
+   * 明色では白のまま（iOS 標準の見た目）、暗色では**器（disabledBackground）より明るい灰**にして、
+   * 器・選択中・カードの 3 つが別の明度で並ぶようにする。
+   */
+  selectedSegmentBackground: string;
+  /**
    * プリセットのバッジの色（SPEC-V3 §1.3）。キーは logic/preset.ts の PresetColorKey。
    *
    * **既存のセマンティック色（green = 収支プラス / red = 経費 / orange = 販売手数料）とは
@@ -124,6 +133,7 @@ const light: ThemeColors = {
   disabledBackground: 'rgba(120, 120, 128, 0.12)',
   highlightBackground: 'rgba(0, 122, 255, 0.12)',
   barBackground: '#F2F2F7',
+  selectedSegmentBackground: '#FFFFFF',
   expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
   helpDiagramTones: ['#D1D1D6', '#AEAEB2', '#8E8E93'],
   presetTones: {
@@ -137,6 +147,9 @@ const light: ThemeColors = {
     purple: { background: '#9A3FCB', foreground: '#FFFFFF' },
     pink: { background: '#FF2D55', foreground: '#FFFFFF' },
     brown: { background: '#8E6B4A', foreground: '#FFFFFF' },
+    // 11 色目（SPEC-V7 §2.1）。色相を持たない 1 色 ── 残っている色相はどれも
+    // 既存の 10 色と隣り合うので、色味でではなく「無彩色」で見分けさせる
+    gray: { background: '#6E6E73', foreground: '#FFFFFF' },
   },
 };
 
@@ -161,6 +174,8 @@ const dark: ThemeColors = {
   // 暗い地色の上では 12% だと下地に沈むので、明度差が同じくらいに見えるまで上げる
   highlightBackground: 'rgba(10, 132, 255, 0.24)',
   barBackground: '#000000',
+  // 器（rgba(120,120,128,0.24) ≒ #3A3A3C 相当）より明るい灰。白文字が乗る明度に留める
+  selectedSegmentBackground: '#636366',
   expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
   // 暗い地の上では明度の向きを反転させる（薄い順は保つ）。白文字が載る側を最も明るくしない
   helpDiagramTones: ['#48484A', '#5E5E63', '#7C7C80'],
@@ -175,6 +190,8 @@ const dark: ThemeColors = {
     purple: { background: '#BF5AF2', foreground: '#FFFFFF' },
     pink: { background: '#FF375F', foreground: '#FFFFFF' },
     brown: { background: '#AC8E68', foreground: '#000000' },
+    // 暗い地の上では明るい側へ振る（他の色と同じ作法）。黒文字が読める明度
+    gray: { background: '#A1A1A6', foreground: '#000000' },
   },
 };
 

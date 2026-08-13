@@ -75,7 +75,9 @@ export function SegmentedControl({
               styles.segment,
               accent && styles.accentSegment,
               selected && {
-                backgroundColor: accent ? colors.blue : colors.secondaryBackground,
+                // 明色は白で持ち上げ、暗色は器より明るい灰（theme.selectedSegmentBackground）。
+                // カードの地色を流用すると、ダークで選択中がカードに溶ける
+                backgroundColor: accent ? colors.blue : colors.selectedSegmentBackground,
               },
             ]}>
             <Text
