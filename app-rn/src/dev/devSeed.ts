@@ -17,7 +17,7 @@ import { createRepository } from '@/db/repository';
 import type { PresetType } from '@/db/schema';
 import { createTagRepository } from '@/db/tags';
 import { photoStore } from '@/media/expoPhotoFiles';
-import { PRESET_COLOR_KEYS, PRESET_TYPES } from '@/logic/preset';
+import { PRESET_COLOR_HEXES, PRESET_COLOR_KEYS, PRESET_TYPES } from '@/logic/preset';
 import { nextTagColor } from '@/logic/tag';
 
 import {
@@ -104,7 +104,9 @@ function ensurePresets(type: PresetType, created: { count: number }) {
       seedPresetRepository.create({
         type,
         name: preset.name,
-        colorKey: PRESET_COLOR_KEYS[(usable.length + index) % PRESET_COLOR_KEYS.length],
+        // プリセットの色は hex で保存する（SPEC-V7 §2.1）。タグは今もキーのまま
+        colorKey:
+          PRESET_COLOR_HEXES[PRESET_COLOR_KEYS[(usable.length + index) % PRESET_COLOR_KEYS.length]],
         initial: '', // 空 = 名前の先頭 1 文字から導出（SPEC-V3 §1.2）
         value: preset.value,
         packQuantity: 0,

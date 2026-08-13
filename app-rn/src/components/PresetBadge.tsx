@@ -3,11 +3,13 @@
 // 出るのは**設定画面と選択シート、電卓の品名列だけ**（§1.3）。金額の行（伝票カード・
 // レシートカード）には出さないので、販売手数料のオレンジ等と隣り合わない。
 //
-// 色と文字はここでは決めない ── 色キーの正規化（normalizePresetColor）も
-// 頭文字の導出（presetInitial）も logic/preset.ts の純粋関数で、この部品は結果を描くだけ。
+// 色と文字はここでは決めない ── 色の解決（resolvePresetTone。固定色はテーマの表、
+// 自由色は輝度から文字色を出す。SPEC-V7 §2）も頭文字の導出（presetInitial）も
+// logic の純粋関数で、この部品は結果を描くだけ。
 import { StyleSheet, Text, View } from 'react-native';
 
-import { normalizePresetColor, presetInitial } from '@/logic/preset';
+import { isIndistinguishable } from '@/logic/color';
+import { presetInitial, resolvePresetTone } from '@/logic/preset';
 import { useThemeColors } from '@/theme';
 
 /** §6.1 の「28px 角」。編集画面のプレビューだけ大きくするので size で受ける */
@@ -18,6 +20,12 @@ type Props = {
   preset: { name: string; initial: string; colorKey: string };
   size?: number;
   /**
+   * このバッジが乗っている面の色（SPEC-V7 §4）。**自由色が下地に埋もれるときだけ**
+   * 細い輪郭を出すための比較対象で、省略するとカードの地色（secondaryBackground）を見る。
+   * 固定色は下地といちばん近い黄でも比が 1.51 あるので、ここで輪郭が付くことはない。
+   */
+  surface?: string;
+  /**
    * 薄く出す（SPEC-V3 §1.5.1 の「名前は残っているが率は手で変えた」状態）。
    *
    * 色を別に持たせず不透明度で落とすのは、10 色ぶんの薄い版を明暗 2 テーマで
@@ -27,10 +35,12 @@ type Props = {
   muted?: boolean;
 };
 
-export function PresetBadge({ preset, size = BADGE_SIZE, muted = false }: Props) {
+export function PresetBadge({ preset, size = BADGE_SIZE, muted = false, surface }: Props) {
   const colors = useThemeColors();
-  const tone = colors.presetTones[normalizePresetColor(preset.colorKey)];
+  const tone = resolvePresetTone(preset.colorKey, colors.presetTones);
   const text = presetInitial(preset);
+  // 輪郭は**埋もれるときだけ**（§4）。常時出すと固定色の見た目が変わる
+  const needsOutline = isIndistinguishable(tone.background, surface ?? colors.secondaryBackground);
 
   return (
     <View
@@ -43,6 +53,7 @@ export function PresetBadge({ preset, size = BADGE_SIZE, muted = false }: Props)
           borderRadius: size * (8 / BADGE_SIZE),
           backgroundColor: tone.background,
         },
+        needsOutline && { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.separator },
         muted && styles.muted,
       ]}
       // 読み上げは名前が担う（PresetRow が名前を読む）。2 文字の略号を読ませても意味が伝わらない

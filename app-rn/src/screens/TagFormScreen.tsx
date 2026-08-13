@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 
+import { ColorSwatchGrid } from '@/components/ColorSwatchGrid';
 import { TagChip } from '@/components/TagChip';
 import { TextField } from '@/components/TextField';
 import type { Tag } from '@/db/schema';
@@ -40,12 +41,9 @@ import {
   tagDeleteConfirmMessage,
   tagFormTitle,
 } from '@/logic/labels';
-import { normalizePresetColor, PRESET_COLOR_KEYS, type PresetColorKey } from '@/logic/preset';
+import { presetColorValue } from '@/logic/preset';
 import { nextTagColor, validateTag } from '@/logic/tag';
 import { useThemeColors } from '@/theme';
-
-/** 色の丸（§2.3-4）。PresetFormScreen と同じ大きさ ── 押し所の大きさを画面ごとに変えない */
-const SWATCH_SIZE = 36;
 
 type Props = {
   /** 編集する行。追加のときは null */
@@ -67,8 +65,9 @@ export function TagFormScreen({ tag }: Props) {
   const [name, setName] = useState(tag?.name ?? '');
   // 追加は使用済みを避けた自動割り当て（§1.2）、編集は保存値。どちらも以降は
   // 色の丸で変えられる ── 自動で決まった色を直せないと、色分けの意図を持てない
-  const [colorKey, setColorKey] = useState<PresetColorKey>(() =>
-    tag == null ? nextTagColor(tags) : normalizePresetColor(tag.colorKey),
+  /** バッジの色（SPEC-V7 §2.1）。**保存値は hex**（固定色も自由色も同じ形） */
+  const [colorKey, setColorKey] = useState<string>(() =>
+    tag == null ? nextTagColor(tags) : presetColorValue(tag.colorKey),
   );
 
   // 自分自身は重複の相手にしない（名前を変えずに色だけ変える編集が止まらないように。§1.3）
@@ -173,39 +172,14 @@ export function TagFormScreen({ tag }: Props) {
             />
           </View>
 
-          {/* §2.3-4: 色の丸を横並び。選択中は外周にリング（PresetFormScreen と同じ形）。
-              §2.3 は「8 色を 1 行」と書いていたが、パレットは 10 色ある（logic/preset.ts の
-              PRESET_COLOR_KEYS）ので、丸の大きさを変えずに折り返す */}
+          {/* §2.3-4 / SPEC-V7 §3: 固定 11 色 ＋ 自由色を 6 × 2 で。プリセットの編集画面と
+              **同じ部品**（ColorSwatchGrid）── 同じパレットを共有しているので、
+              片方だけ自由色が選べる状態を作らない */}
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
               {TAG_COLOR_FIELD_LABEL}
             </Text>
-            <View style={styles.swatches}>
-              {PRESET_COLOR_KEYS.map((key) => {
-                const selected = key === colorKey;
-                return (
-                  <Pressable
-                    key={key}
-                    onPress={() => setColorKey(key)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={key}
-                    style={({ pressed }) => [
-                      styles.swatchSlot,
-                      {
-                        // 丸の外側に間を空けて二重丸にするので、枠は丸そのものではなく
-                        // この器が持つ（丸の中に線が食い込まない）
-                        borderColor: selected ? colors.label : 'transparent',
-                        opacity: pressed ? 0.5 : 1,
-                      },
-                    ]}>
-                    <View
-                      style={[styles.swatch, { backgroundColor: colors.presetTones[key].background }]}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
+            <ColorSwatchGrid value={colorKey} onChange={setColorKey} />
           </View>
 
           {!isNew && (
@@ -249,21 +223,6 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
-  },
-  swatches: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  swatchSlot: {
-    padding: 3,
-    borderWidth: 2,
-    borderRadius: SWATCH_SIZE / 2 + 5,
-  },
-  swatch: {
-    width: SWATCH_SIZE,
-    height: SWATCH_SIZE,
-    borderRadius: SWATCH_SIZE / 2,
   },
   saveButton: {
     fontSize: 16,

@@ -22,6 +22,7 @@ import {
   View,
 } from 'react-native';
 
+import { ColorSwatchGrid } from '@/components/ColorSwatchGrid';
 import { NumericField } from '@/components/NumericField';
 import { PackBuyFields, packBuyCardStyle } from '@/components/PackBuyFields';
 import { PresetRow } from '@/components/PresetRow';
@@ -60,19 +61,14 @@ import { formatYen } from '@/logic/format';
 import {
   clampPresetInitial,
   isPackBuy,
-  normalizePresetColor,
   packBuyTarget,
-  PRESET_COLOR_KEYS,
+  presetColorValue,
   presetDraftUnitPrice,
   presetInitial,
   validatePreset,
-  type PresetColorKey,
 } from '@/logic/preset';
 import { shippingPresetTotal } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
-
-/** 色の丸（§3.3-6）。10 色を折り返して 2 段に並べる（PRESET_COLOR_KEYS のコメント参照） */
-const SWATCH_SIZE = 36;
 
 type Props = {
   type: PresetType;
@@ -99,9 +95,11 @@ export function PresetFormScreen({ type, preset }: Props) {
   const [packPrice, setPackPrice] = useState(
     preset != null && isPackBuy(preset) ? String(preset.packPrice) : '',
   );
-  const [colorKey, setColorKey] = useState<PresetColorKey>(
-    normalizePresetColor(preset?.colorKey ?? ''),
-  );
+  /**
+   * バッジの色（SPEC-V7 §2.1）。**保存値は hex**（固定色も自由色も同じ形）。
+   * 旧形式の色キーが残っていても resolvePresetTone が読めるが、state は hex に寄せる
+   */
+  const [color, setColor] = useState<string>(() => presetColorValue(preset?.colorKey ?? ''));
   /**
    * 専用資材の代金（SPEC-V6 §2）。**送料でしか出さない欄。**
    *
@@ -146,7 +144,7 @@ export function PresetFormScreen({ type, preset }: Props) {
     type,
     name,
     initial,
-    colorKey,
+    colorKey: color,
     // まとめ買いのときは 1 個あたりを映す（保存されるのもこの値。§2.6.4）。
     // 送料はまとめ買いでも金額欄が送料そのものなので、単価に差し替えない（SPEC-V6 §2）
     value:
@@ -164,7 +162,7 @@ export function PresetFormScreen({ type, preset }: Props) {
     const input = {
       type,
       name: validation.name,
-      colorKey,
+      colorKey: color,
       initial: validation.initial,
       value: validation.value,
       packQuantity: validation.packQuantity,
@@ -175,7 +173,7 @@ export function PresetFormScreen({ type, preset }: Props) {
     else updatePreset(preset.id, input);
     // 一覧は useFocusEffect で引き直すので、ここでは戻るだけでよい
     router.back();
-  }, [colorKey, preset, router, type, validation]);
+  }, [color, preset, router, type, validation]);
 
   /** まとめ買いの欄を出すか（§2.6.2 / SPEC-V6 §2。2 択を出すのは梱包材と送料） */
   const isPackBuyMode = packBuyTarget(type) != null && packBuy;
@@ -402,35 +400,7 @@ export function PresetFormScreen({ type, preset }: Props) {
             <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
               {PRESET_COLOR_FIELD_LABEL}
             </Text>
-            <View style={styles.swatches}>
-              {PRESET_COLOR_KEYS.map((key) => {
-                const selected = key === colorKey;
-                return (
-                  <Pressable
-                    key={key}
-                    onPress={() => setColorKey(key)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={key}
-                    style={({ pressed }) => [
-                      styles.swatchSlot,
-                      {
-                        // 選択中は外周にリング（§3.3-6）。丸の外側に間を空けて二重丸にするので、
-                        // 枠は丸そのものではなくこの器が持つ（丸の中に線が食い込まない）
-                        borderColor: selected ? colors.label : 'transparent',
-                        opacity: pressed ? 0.5 : 1,
-                      },
-                    ]}>
-                    <View
-                      style={[
-                        styles.swatch,
-                        { backgroundColor: colors.presetTones[key].background },
-                      ]}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
+            <ColorSwatchGrid value={color} onChange={setColor} />
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
@@ -481,6 +451,7 @@ export function PresetFormScreen({ type, preset }: Props) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
     </>
   );
 }
@@ -546,21 +517,6 @@ const styles = StyleSheet.create({
   breakdownTotalValue: {
     fontSize: 24,
     fontWeight: '700',
-  },
-  swatches: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  swatchSlot: {
-    padding: 3,
-    borderWidth: 2,
-    borderRadius: SWATCH_SIZE / 2 + 5,
-  },
-  swatch: {
-    width: SWATCH_SIZE,
-    height: SWATCH_SIZE,
-    borderRadius: SWATCH_SIZE / 2,
   },
   initialInput: {
     borderRadius: 6,

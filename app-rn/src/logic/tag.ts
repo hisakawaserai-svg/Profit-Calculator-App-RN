@@ -8,10 +8,11 @@
 // 実体は「明暗どちらでも読める色の見本帳」なので改名しない。
 
 import {
-  normalizePresetColor,
+  presetColorKeyOf,
+  presetColorValue,
+  PRESET_COLOR_HEXES,
   presetGraphemes,
   PRESET_COLOR_KEYS,
-  type PresetColorKey,
 } from './preset';
 
 /**
@@ -36,9 +37,12 @@ export const TAG_NAME_SEPARATOR = '・';
  * 保存値が未知の色でも既定色（blue）として「使用済み」に数える ── 正規化した後の
  * 見た目が被らないようにするのが目的なので、生の文字列ではなく表示される色で判定する。
  */
-export function nextTagColor(existing: readonly { colorKey: string }[]): PresetColorKey {
-  const used = new Set(existing.map((tag) => normalizePresetColor(tag.colorKey)));
-  return PRESET_COLOR_KEYS.find((key) => !used.has(key)) ?? PRESET_COLOR_KEYS[0];
+export function nextTagColor(existing: readonly { colorKey: string }[]): string {
+  // 自由色（SPEC-V7 §3）は「使用済み」に数えない ── 固定色を一巡させるための関数で、
+  // 自由色は固定色のどれとも重ならないため
+  const used = new Set(existing.map((tag) => presetColorKeyOf(tag.colorKey)));
+  const key = PRESET_COLOR_KEYS.find((candidate) => !used.has(candidate)) ?? PRESET_COLOR_KEYS[0];
+  return PRESET_COLOR_HEXES[key];
 }
 
 /**
@@ -54,7 +58,7 @@ export type TagInvalidReason =
   | 'name-has-separator'
   | 'name-duplicated';
 
-/** 編集シート（§2.3）が持つ入力そのまま。色は 8 色の丸から選んだキー */
+/** 編集シート（§2.3）が持つ入力そのまま。色は丸から選んだ hex（SPEC-V7 §2.1） */
 export type TagDraft = {
   name: string;
   colorKey: string;
@@ -65,8 +69,8 @@ export type TagValidation =
       valid: true;
       /** 前後の空白を落とした保存値 */
       name: string;
-      /** 正規化済みの色キー */
-      colorKey: PresetColorKey;
+      /** hex（SPEC-V7 §2.1）。固定色も自由色も同じ形 */
+      colorKey: string;
     }
   | { valid: false; reason: TagInvalidReason };
 
@@ -95,7 +99,8 @@ export function validateTag(draft: TagDraft, others: readonly { name: string }[]
     return { valid: false, reason: 'name-duplicated' };
   }
 
-  return { valid: true, name, colorKey: normalizePresetColor(draft.colorKey) };
+  // 固定色は hex に寄せ、自由色はそのまま。読めない値は既定色へ倒す（SPEC-V7 §2.1）
+  return { valid: true, name, colorKey: presetColorValue(draft.colorKey) };
 }
 
 /**

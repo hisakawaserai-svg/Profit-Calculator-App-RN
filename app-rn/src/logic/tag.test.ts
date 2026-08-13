@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PRESET_COLOR_KEYS } from './preset';
+import { PRESET_COLOR_HEXES, PRESET_COLOR_KEYS } from './preset';
 import {
   liveTagIds,
   nextTagColor,
@@ -34,7 +34,7 @@ describe('§1.3 validateTag: 名前の検証', () => {
     expect(validateTag({ name: '  服  ', colorKey: 'red' }, [])).toEqual({
       valid: true,
       name: '服',
-      colorKey: 'red',
+      colorKey: PRESET_COLOR_HEXES.red,
     });
   });
 
@@ -79,11 +79,11 @@ describe('§1.3 validateTag: 名前の検証', () => {
     expect(result).not.toHaveProperty('name');
   });
 
-  it('未知の色キーは既定色へ倒す（§1.3 の normalizePresetColor）', () => {
+  it('未知の色キーは既定色へ倒す（§1.3 / SPEC-V7 §2.1 は hex で返す）', () => {
     expect(validateTag({ name: '洋服', colorKey: 'chartreuse' }, [])).toEqual({
       valid: true,
       name: '洋服',
-      colorKey: 'blue',
+      colorKey: PRESET_COLOR_HEXES.blue,
     });
   });
 });
@@ -118,13 +118,14 @@ describe('§1.3 validateTag: 名前の重複は弾く（プリセットと逆）
     expect(validateTag({ name: '洋服', colorKey: 'green' }, [named('食器')])).toEqual({
       valid: true,
       name: '洋服',
-      colorKey: 'green',
+      colorKey: PRESET_COLOR_HEXES.green,
     });
   });
 });
 
 describe('§1.2 nextTagColor: 使用済みの色を避ける（決定 §9-8）', () => {
-  const [first, second, third] = PRESET_COLOR_KEYS;
+  // 返るのは hex（SPEC-V7 §2.1）。並び順の意味は変わらない
+  const [first, second, third] = PRESET_COLOR_KEYS.map((key) => PRESET_COLOR_HEXES[key]);
 
   it('0 件ならパレットの先頭', () => {
     expect(nextTagColor([])).toBe(first);
@@ -141,14 +142,14 @@ describe('§1.2 nextTagColor: 使用済みの色を避ける（決定 §9-8）',
   });
 
   it('すべて使い切ったら先頭から一巡する（重複を許す）', () => {
-    const all = PRESET_COLOR_KEYS.map((colorKey) => ({ colorKey }));
+    const all = PRESET_COLOR_KEYS.map((key) => ({ colorKey: PRESET_COLOR_HEXES[key] }));
 
     expect(nextTagColor(all)).toBe(first);
   });
 
   it('未知の色キーは既定色（blue）を使っているものとして数える', () => {
     // 表示上は blue になるので、次の色として blue を選ばない
-    expect(nextTagColor([{ colorKey: 'chartreuse' }])).not.toBe('blue');
+    expect(nextTagColor([{ colorKey: 'chartreuse' }])).not.toBe(PRESET_COLOR_HEXES.blue);
   });
 });
 

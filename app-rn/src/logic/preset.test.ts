@@ -12,6 +12,10 @@ import {
   isRatePreset,
   normalizePresetColor,
   packBuyTarget,
+  PRESET_COLOR_HEXES,
+  presetColorKeyOf,
+  presetColorValue,
+  resolvePresetTone,
   PRESET_COLOR_KEYS,
   PRESET_TYPES,
   presetDraftUnitPrice,
@@ -87,7 +91,8 @@ describe('§1.6 色キーの正規化', () => {
     for (const key of PRESET_COLOR_KEYS) {
       expect(normalizePresetColor(key)).toBe(key);
     }
-    expect(PRESET_COLOR_KEYS).toHaveLength(10);
+    // 11 色目（gray）は SPEC-V7 §2.1 で追加（丸 11 個 ＋ 自由色で 6 × 2）
+    expect(PRESET_COLOR_KEYS).toHaveLength(11);
   });
 
   it('未知の値・空文字・hex は既定色へ倒す（DB に enum を付けていないので必ずここを通す）', () => {
@@ -779,5 +784,88 @@ describe('SPEC-V6 §3 送料プリセットの札（合計でも引ける）', (
   it('資材費を持たないプリセット（他の 2 種）はこれまでどおり value だけで引ける', () => {
     expect(findPresetByValue([{ name: '封筒', value: 15 }], 15)?.name).toBe('封筒');
     expect(findPresetByValue([{ name: '封筒', value: 15 }], 20)).toBeNull();
+  });
+});
+
+describe('SPEC-V7 §2 プリセットの色（hex 保存と自由色）', () => {
+  // theme.presetTones と同じ形の最小の表（値は light の実物）
+  const tones = {
+    red: { background: '#FF3B30', foreground: '#FFFFFF' },
+    orange: { background: '#F07800', foreground: '#FFFFFF' },
+    yellow: { background: '#FFCC00', foreground: '#000000' },
+    green: { background: '#2E9E4F', foreground: '#FFFFFF' },
+    teal: { background: '#1E93AE', foreground: '#FFFFFF' },
+    blue: { background: '#007AFF', foreground: '#FFFFFF' },
+    indigo: { background: '#5856D6', foreground: '#FFFFFF' },
+    purple: { background: '#9A3FCB', foreground: '#FFFFFF' },
+    pink: { background: '#FF2D55', foreground: '#FFFFFF' },
+    brown: { background: '#8E6B4A', foreground: '#FFFFFF' },
+    gray: { background: '#6E6E73', foreground: '#FFFFFF' },
+  };
+
+  it('固定色は 11 色（丸 11 個 ＋ 自由色で 6 × 2）', () => {
+    expect(PRESET_COLOR_KEYS).toHaveLength(11);
+    expect(Object.keys(PRESET_COLOR_HEXES)).toHaveLength(11);
+  });
+
+  it('presetColorKeyOf は固定色の hex を引ける（大文字小文字を問わない）', () => {
+    expect(presetColorKeyOf('#007AFF')).toBe('blue');
+    expect(presetColorKeyOf('#007aff')).toBe('blue');
+    expect(presetColorKeyOf('#6E6E73')).toBe('gray');
+  });
+
+  it('presetColorKeyOf は旧形式のキーも引ける（タグは今もキーを保存する）', () => {
+    expect(presetColorKeyOf('blue')).toBe('blue');
+    expect(presetColorKeyOf('brown')).toBe('brown');
+  });
+
+  it('自由色・壊れた値では null（＝固定色ではない）', () => {
+    expect(presetColorKeyOf('#123456')).toBeNull();
+    expect(presetColorKeyOf('')).toBeNull();
+    expect(presetColorKeyOf('nope')).toBeNull();
+  });
+
+  it('固定色はテーマの表をそのまま使う（文字色も表のまま。見た目を変えない）', () => {
+    // #007AFF は輝度だけで決めると黒文字になるが、固定色は表が優先する
+    expect(resolvePresetTone('#007AFF', tones)).toEqual({
+      background: '#007AFF',
+      foreground: '#FFFFFF',
+    });
+    expect(resolvePresetTone('blue', tones)).toEqual(tones.blue);
+  });
+
+  it('自由色は選んだ色そのもので、文字色は輝度から決まる', () => {
+    expect(resolvePresetTone('#FFF2CC', tones)).toEqual({
+      background: '#FFF2CC',
+      foreground: '#000000',
+    });
+    expect(resolvePresetTone('#123456', tones)).toEqual({
+      background: '#123456',
+      foreground: '#FFFFFF',
+    });
+  });
+
+  it('3 桁の hex も自由色として読める', () => {
+    expect(resolvePresetTone('#abc', tones)).toEqual({
+      background: '#AABBCC',
+      foreground: '#000000',
+    });
+  });
+
+  it('読めない値は既定色（青）に倒す', () => {
+    expect(resolvePresetTone('', tones)).toEqual(tones.blue);
+    expect(resolvePresetTone('rgb(0,0,0)', tones)).toEqual(tones.blue);
+  });
+
+  it('presetColorValue は保存する形（hex）に寄せる', () => {
+    expect(presetColorValue('blue')).toBe('#007AFF');
+    expect(presetColorValue('#123456')).toBe('#123456');
+    expect(presetColorValue('#abc')).toBe('#AABBCC');
+    expect(presetColorValue('')).toBe('#007AFF');
+  });
+
+  it('固定色の hex は 11 色とも重複しない（識別子として使うため）', () => {
+    const hexes = Object.values(PRESET_COLOR_HEXES);
+    expect(new Set(hexes).size).toBe(hexes.length);
   });
 });

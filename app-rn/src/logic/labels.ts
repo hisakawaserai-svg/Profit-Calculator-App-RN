@@ -1185,6 +1185,16 @@ export function withShippingMaterialLabel(amount: string): string {
 }
 
 export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
+
+/**
+ * 自由色（SPEC-V7 §3）。固定色の丸の最後に置く 12 個目の口。
+ * 「その他」ではなく「自由色」なのは、**残りものではなく対等な選択肢**だから ──
+ * 押すと色相と明るさを自分で決められる。
+ */
+export const CUSTOM_COLOR_LABEL = '自由色';
+export const COLOR_PICKER_TITLE = '色を選ぶ';
+/** 連続量を合わせる操作なので確定ボタンを置く（プリセットの選択シートとは逆。§3） */
+export const COLOR_PICKER_DONE_LABEL = '決定';
 export const PRESET_INITIAL_FIELD_LABEL = 'バッジの文字';
 
 /** 頭文字の欄の下の 1 行（§1.2）。空のままでも何が出るかを先に言う */

@@ -20,7 +20,11 @@ export type PresetInput = {
   type: PresetType;
   /** 前後の空白を落とした 1〜20 文字（§1.4） */
   name: string;
-  /** PresetColorKey。不正値の防御は読み出し側の normalizePresetColor（§1.6） */
+  /**
+   * バッジの色（SPEC-V7 §2.1）。**hex（`#RRGGBB`）で保存する** ── 固定色も自由色も
+   * 同じ形。固定色かどうかは値そのもので決まる（logic/preset.presetColorKeyOf）。
+   * 不正値の防御は読み出し側の resolvePresetTone。
+   */
   colorKey: string;
   /** 0〜2 文字。空 = 表示時に name から導出する（§1.2） */
   initial: string;

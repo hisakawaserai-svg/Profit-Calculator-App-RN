@@ -10,13 +10,19 @@
 
 import type { PresetType } from '@/db/schema';
 
+import { normalizeHex, readableForeground } from './color';
+
 /**
- * 固定パレット（§1.3）。カラーピッカー（自由な色指定）は持たない。
+ * 固定パレット（§1.3 / SPEC-V7 §2）。**これに加えて自由色（カラーピッカー）を選べる。**
  *
  * §1.3 は 8 色で決めていたが、編集画面（設計案 25b）が色の丸を**折り返して 2 段**に
  * 並べるため 10 色にした。8 色の根拠は「選択肢が 8 個なら 1 行に収まる横並びで選べる」で、
  * 1 段に詰め込む前提のもの。段を折り返すなら、丸の大きさ（＝押しやすさ）を変えずに 10 色置ける。
  * 足したのは pink と brown ── 既存 8 色と色相が重ならず、白か黒のどちらかの文字が乗る 2 色。
+ *
+ * **11 色目は gray**（SPEC-V7 §2.1）。丸を 6 × 2 に並べ、12 個目を自由色の口にすると
+ * 段が揃うため ── 残っている色相はどれも既存の 10 色と隣り合ってしまうので、
+ * **色相を持たない 1 色**を足した。
  */
 export const PRESET_COLOR_KEYS = [
   'red',
@@ -29,9 +35,83 @@ export const PRESET_COLOR_KEYS = [
   'purple',
   'pink',
   'brown',
+  'gray',
 ] as const;
 
 export type PresetColorKey = (typeof PRESET_COLOR_KEYS)[number];
+
+/**
+ * 固定色の**保存値**（SPEC-V7 §2.1）。プリセットは色キーではなく **hex を保存する**
+ * ようになった（自由色と同じ形にするため）ので、この 11 個が「固定色として選ばれた」
+ * ことを表す識別子になる。
+ *
+ * **値はライトテーマの地色そのもの。** 保存された hex がここに一致したときだけ
+ * テーマの対応表（theme.presetTones）を引くので、**明暗で色を出し分ける従来の挙動が
+ * そのまま残る**（SPEC-V3 §1.3 が hex 保存を避けた理由への答え）。
+ * 自由色は一致しないので、選ばれた hex がそのまま両テーマで出る。
+ */
+export const PRESET_COLOR_HEXES: Record<PresetColorKey, string> = {
+  red: '#FF3B30',
+  orange: '#F07800',
+  yellow: '#FFCC00',
+  green: '#2E9E4F',
+  teal: '#1E93AE',
+  blue: '#007AFF',
+  indigo: '#5856D6',
+  purple: '#9A3FCB',
+  pink: '#FF2D55',
+  brown: '#8E6B4A',
+  gray: '#6E6E73',
+};
+
+/** 固定色の hex → キー。保存値がどの固定色かを引く（見つからなければ自由色） */
+const PRESET_COLOR_KEY_BY_HEX = new Map<string, PresetColorKey>(
+  PRESET_COLOR_KEYS.map((key) => [PRESET_COLOR_HEXES[key], key]),
+);
+
+/**
+ * 保存値がどの固定色か（SPEC-V7 §2.1）。自由色・空・壊れた値では null。
+ * 旧形式の色キー（`'blue'` など）もここで拾う ── マイグレーション後に残ることは
+ * ないが、タグ（SPEC-V4）は今もキーを保存しており、同じ関数で読めるようにしておく。
+ */
+export function presetColorKeyOf(stored: string): PresetColorKey | null {
+  if ((PRESET_COLOR_KEYS as readonly string[]).includes(stored)) {
+    return stored as PresetColorKey;
+  }
+  const hex = normalizeHex(stored);
+  return hex == null ? null : (PRESET_COLOR_KEY_BY_HEX.get(hex) ?? null);
+}
+
+/**
+ * 保存する色の値（SPEC-V7 §2.1）。**編集画面の state はこれで初期化する。**
+ * 旧形式の色キーは対応する hex へ、自由色はそのまま、読めない値は既定色（青）へ倒す。
+ */
+export function presetColorValue(stored: string): string {
+  const key = presetColorKeyOf(stored);
+  if (key != null) return PRESET_COLOR_HEXES[key];
+  return normalizeHex(stored) ?? PRESET_COLOR_HEXES[DEFAULT_PRESET_COLOR_KEY];
+}
+
+/**
+ * バッジに使う地色と文字色（SPEC-V7 §2）。**固定色と自由色の分かれ道はここ 1 か所。**
+ *
+ * - 固定色（保存値が PRESET_COLOR_HEXES のどれか / 旧形式のキー）
+ *   … テーマの対応表をそのまま使う。**文字色も表のまま**で、輝度の判定は通さない
+ *     ── 比率だけで決めると `#007AFF` が黒文字になり、既存の見た目が変わる（§2.2）
+ * - 自由色 … 選ばれた hex をそのまま地色にし、**文字色は輝度から決める**
+ * - 読めない値 … 既定色（青）に倒す
+ */
+export function resolvePresetTone(
+  stored: string,
+  tones: Record<PresetColorKey, { background: string; foreground: string }>,
+): { background: string; foreground: string } {
+  const key = presetColorKeyOf(stored);
+  if (key != null) return tones[key];
+
+  const hex = normalizeHex(stored);
+  if (hex == null) return tones[DEFAULT_PRESET_COLOR_KEY];
+  return { background: hex, foreground: readableForeground(hex) };
+}
 
 /**
  * 不正な colorKey を倒す先（§1.6）。DB の color_key は drizzle の enum を付けていない

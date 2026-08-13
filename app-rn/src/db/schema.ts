@@ -80,7 +80,9 @@ export const presets = sqliteTable('presets', {
   id: text('id').primaryKey(), // UUID。初期値だけは内容が読める固定 ID（§2.4）
   type: text('type', { enum: ['site', 'shipping', 'packaging'] }).notNull(),
   name: text('name').notNull(),
-  colorKey: text('color_key').notNull(), // PresetColorKey（§1.3）
+  // バッジの色（SPEC-V7 §2.1）。**hex（`#RRGGBB`）**。0007 でキーから移した。
+  // 固定色かどうかは値そのもので決まるので、列は 1 本のまま自由色も収まる
+  colorKey: text('color_key').notNull(),
   initial: text('initial').notNull().default(''), // 空 = name から導出（§1.2）
   value: real('value').notNull().default(0), // site = %, それ以外 = 円
   // SPEC-V3 §2.6。梱包材のまとめ買い（「100 枚で 800 円」）の材料。
@@ -117,7 +119,9 @@ export type NewPreset = typeof presets.$inferInsert;
 export const tags = sqliteTable('tags', {
   id: text('id').primaryKey(), // UUID（seed がないので固定 ID は不要）
   name: text('name').notNull(),
-  colorKey: text('color_key').notNull(), // PresetColorKey（§1.1 でパレットを共有）
+  // バッジの色（SPEC-V7 §2.1）。**hex（`#RRGGBB`）**。0008 でキーから移した。
+  // パレットはプリセットと共有（§1.1）で、自由色も同じ列に収まる
+  colorKey: text('color_key').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
 }, (table) => [
   // 全アクセスが「全件を並び順で」なので、この 1 本で足りる（§1.5）

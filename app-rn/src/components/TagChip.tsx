@@ -4,13 +4,13 @@
 // 2 文字のバッジで足りる（どの行にあるかで意味が読める）が、タグは**名前そのものを読む**
 // 必要があり、長さも可変。色は識別の補助（点）に落とし、名前を本体にする。
 //
-// 色はここでは決めない ── 正規化（normalizePresetColor）は logic/preset.ts の純粋関数で、
+// 色はここでは決めない ── 解決（resolvePresetTone。自由色も通る。SPEC-V7 §2）は logic の純粋関数で、
 // この部品は結果を描くだけ（PresetBadge と同じ分担）。
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { tagRemoveAccessibilityLabel } from '@/logic/labels';
-import { normalizePresetColor } from '@/logic/preset';
+import { resolvePresetTone } from '@/logic/preset';
 import { useThemeColors } from '@/theme';
 
 /** 色の点の直径（§2.3）。名前の左に置く ── 金額の行に出ることはないので色が隣と競合しない */
@@ -54,7 +54,7 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: P
   // 選択中は「青く塗られていること」の方が強い手がかりになり、点の色は要らなくなる
   const dotColor = isActive
     ? ACTIVE_FOREGROUND
-    : colors.presetTones[normalizePresetColor(tag.colorKey)].background;
+    : resolvePresetTone(tag.colorKey, colors.presetTones).background;
   const isPlaceholder = tag.name === '' && namePlaceholder != null;
   const removable = variant === 'selected' && onRemove != null;
 
@@ -116,7 +116,7 @@ export function TagDot({ colorKey, size = DOT_SIZE }: { colorKey: string; size?:
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: colors.presetTones[normalizePresetColor(colorKey)].background,
+        backgroundColor: resolvePresetTone(colorKey, colors.presetTones).background,
       }}
     />
   );

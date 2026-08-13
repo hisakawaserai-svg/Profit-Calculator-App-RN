@@ -15,7 +15,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import journal from '../../drizzle/meta/_journal.json';
-import { normalizePresetColor, PRESET_COLOR_KEYS } from '../logic/preset';
+import { PRESET_COLOR_HEXES, presetColorKeyOf } from '../logic/preset';
 import { createPresetRepository, type PresetRepository } from './presets';
 import { createRepository, type Repository, type SaveRecordInput } from './repository';
 import * as schema from './schema';
@@ -84,10 +84,11 @@ describe('§1.6 / §2 マイグレーション: 初期値 17 件が入る', () =
 
   it('販売サイトは §2.2 の 4 件（サービス名を持たず「手数料 N%」の形）', () => {
     expect(seedRows(sqlite, 'site')).toEqual([
-      { id: 'seed-site-10', name: '手数料 10%', colorKey: 'red', initial: '10', value: 10, sortOrder: 1 },
-      { id: 'seed-site-6', name: '手数料 6%', colorKey: 'orange', initial: '6', value: 6, sortOrder: 2 },
-      { id: 'seed-site-5', name: '手数料 5%', colorKey: 'blue', initial: '5', value: 5, sortOrder: 3 },
-      { id: 'seed-site-none', name: '手数料なし（直接取引）', colorKey: 'green', initial: '0', value: 0, sortOrder: 4 },
+      // 色は 0007 で hex に移した（SPEC-V7 §2.1）。**同じ色**のまま形だけが変わっている
+      { id: 'seed-site-10', name: '手数料 10%', colorKey: PRESET_COLOR_HEXES.red, initial: '10', value: 10, sortOrder: 1 },
+      { id: 'seed-site-6', name: '手数料 6%', colorKey: PRESET_COLOR_HEXES.orange, initial: '6', value: 6, sortOrder: 2 },
+      { id: 'seed-site-5', name: '手数料 5%', colorKey: PRESET_COLOR_HEXES.blue, initial: '5', value: 5, sortOrder: 3 },
+      { id: 'seed-site-none', name: '手数料なし（直接取引）', colorKey: PRESET_COLOR_HEXES.green, initial: '0', value: 0, sortOrder: 4 },
     ]);
   });
 
@@ -144,14 +145,15 @@ describe('§1.6 / §2 マイグレーション: 初期値 17 件が入る', () =
     }
   });
 
-  it('色はパレットの中から選ばれている（§1.3。正規化で倒れる行がない）', () => {
+  it('色は固定パレットの hex になっている（§1.3 / SPEC-V7 §2.1）', () => {
     const rows = sqlite.prepare('SELECT color_key AS colorKey FROM presets').all() as {
       colorKey: string;
     }[];
 
     for (const row of rows) {
-      expect(PRESET_COLOR_KEYS).toContain(row.colorKey);
-      expect(normalizePresetColor(row.colorKey)).toBe(row.colorKey);
+      // 0007 のあと、初期値はすべて「固定色として選ばれた」形（hex）で入っている
+      expect(presetColorKeyOf(row.colorKey)).not.toBeNull();
+      expect(row.colorKey).toMatch(/^#[0-9A-F]{6}$/);
     }
   });
 
@@ -669,5 +671,84 @@ describe('SPEC-V6 §1 専用資材の代金の読み書き', () => {
     for (const preset of presetRepo.listByType('shipping')) {
       if (preset.id.startsWith('seed-')) expect(preset.materialCost).toBe(0);
     }
+  });
+});
+
+describe('SPEC-V7 §2.1 マイグレーション: 色キー → hex（0007 / 0008）', () => {
+  /** 0006 までを流した「色キーのままの状態」に行を入れてから 0007・0008 を流す */
+  function migrateWithRows() {
+    const sqlite = newDatabase(6);
+    sqlite
+      .prepare(
+        `INSERT INTO presets (id, type, name, color_key, initial, value, pack_quantity, pack_price, sort_order)
+         VALUES ('mine-blue', 'shipping', '自分の送料', 'blue', '自', 450, 0, 0, 98),
+                ('mine-broken', 'shipping', '壊れた色', 'chartreuse', '壊', 300, 0, 0, 99)`,
+      )
+      .run();
+    sqlite
+      .prepare(
+        `INSERT INTO tags (id, name, color_key, sort_order) VALUES ('t1', '洋服', 'green', 1)`,
+      )
+      .run();
+    for (const entry of journal.entries.slice(7)) {
+      for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
+    }
+    return sqlite;
+  }
+
+  it('固定色は同じ色の hex になる（見た目が変わらない）', () => {
+    const row = migrateWithRows()
+      .prepare(`SELECT color_key AS colorKey FROM presets WHERE id = 'mine-blue'`)
+      .get() as { colorKey: string };
+
+    expect(row.colorKey).toBe(PRESET_COLOR_HEXES.blue);
+    // 変換後も「固定色の青」として解決される ＝ 明暗の出し分けが従来どおり続く
+    expect(presetColorKeyOf(row.colorKey)).toBe('blue');
+  });
+
+  it('読めない色は既定色（青）へ倒す（読み出し時の挙動と同じ）', () => {
+    const row = migrateWithRows()
+      .prepare(`SELECT color_key AS colorKey FROM presets WHERE id = 'mine-broken'`)
+      .get() as { colorKey: string };
+
+    expect(row.colorKey).toBe(PRESET_COLOR_HEXES.blue);
+  });
+
+  it('タグも同じ変換を受ける（0008。パレットを共有しているため）', () => {
+    const row = migrateWithRows()
+      .prepare(`SELECT color_key AS colorKey FROM tags WHERE id = 't1'`)
+      .get() as { colorKey: string };
+
+    expect(row.colorKey).toBe(PRESET_COLOR_HEXES.green);
+  });
+
+  it('金額・名前・並び順は 1 つも動かない', () => {
+    const row = migrateWithRows()
+      .prepare(`SELECT * FROM presets WHERE id = 'mine-blue'`)
+      .get() as Record<string, unknown>;
+
+    expect(row).toMatchObject({
+      name: '自分の送料',
+      initial: '自',
+      value: 450,
+      pack_quantity: 0,
+      pack_price: 0,
+      sort_order: 98,
+    });
+  });
+
+  it('二重に流しても hex は書き換わらない（すでに # で始まる行は対象外）', () => {
+    const sqlite = migrateWithRows();
+    for (const entry of journal.entries.slice(7)) {
+      for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
+    }
+
+    expect(
+      (
+        sqlite
+          .prepare(`SELECT color_key AS colorKey FROM presets WHERE id = 'mine-blue'`)
+          .get() as { colorKey: string }
+      ).colorKey,
+    ).toBe(PRESET_COLOR_HEXES.blue);
   });
 });
