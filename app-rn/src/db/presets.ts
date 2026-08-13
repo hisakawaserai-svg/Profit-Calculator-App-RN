@@ -33,6 +33,11 @@ export type PresetInput = {
   packQuantity: number;
   /** まとめ買いの購入価格（円）。同上 */
   packPrice: number;
+  /**
+   * 専用資材の代金（円。SPEC-V6 §1）。**送料以外では常に 0。**
+   * まとめ買いで登録した送料プリセットでは、packQuantity / packPrice から出た単価が入る。
+   */
+  materialCost: number;
 };
 
 export function createPresetRepository(
@@ -105,6 +110,8 @@ export function createPresetRepository(
           // 書かずに残すと、モードを packQuantity > 0 で判定する決定と食い違う
           packQuantity: input.packQuantity,
           packPrice: input.packPrice,
+          // 資材費も同じ理由で必ず書く（送料以外は 0 が渡る）
+          materialCost: input.materialCost,
         })
         .where(and(eq(presets.id, id), eq(presets.type, input.type)))
         .run();

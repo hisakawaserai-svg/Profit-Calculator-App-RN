@@ -272,6 +272,8 @@ describe('§1.5.1 repository: site_name の保存と取得', () => {
     memo: '',
     siteName: '',
     photoFileName: null,
+    shippingMaterialCost: 0,
+    excludesShippingMaterial: false,
     tagIds: [],
   };
 
@@ -337,6 +339,8 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
     memo: '',
     siteName: '',
     photoFileName: null,
+    shippingMaterialCost: 0,
+    excludesShippingMaterial: false,
     tagIds: [],
   };
 
@@ -412,6 +416,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 30,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
 
     expect(created.sortOrder).toBe(7); // 初期値 6 件の次
@@ -428,6 +433,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 3,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
 
     expect(created.sortOrder).toBe(5); // site は 4 件なので 5
@@ -446,6 +452,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 4,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
 
     expect(created.sortOrder).toBe(1);
@@ -461,6 +468,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 250,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
 
     const after = presetRepo.getById('seed-shipping-a4-3cm');
@@ -472,6 +480,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 250,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
     expect(after?.sortOrder).toBe(before?.sortOrder);
     expect(after?.type).toBe('shipping');
@@ -486,13 +495,15 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       // value は保存時に確定した 1 個あたり（validatePreset の結果）
       value: 8,
       packQuantity: 100,
-      packPrice: 800,
+      packPrice: 0,
+      materialCost: 0,
     });
 
     expect(presetRepo.getById(created.id)).toMatchObject({
       value: 8,
       packQuantity: 100,
-      packPrice: 800,
+      packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -504,7 +515,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       initial: '封',
       value: 8,
       packQuantity: 100,
-      packPrice: 800,
+      packPrice: 0,
+      materialCost: 0,
     });
 
     presetRepo.update(created.id, {
@@ -515,6 +527,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 8,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
 
     expect(presetRepo.getById(created.id)).toMatchObject({
@@ -522,6 +535,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 8,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -569,6 +583,7 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
       value: 70,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     } as const;
     const created = presetRepo.create(input);
 
@@ -576,5 +591,83 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
     expect(
       presetRepo.listByType('packaging').filter((row) => row.name === '段ボール（小）'),
     ).toHaveLength(2);
+  });
+});
+
+describe('SPEC-V6 §1 専用資材の代金の読み書き', () => {
+  let presetRepo: PresetRepository;
+
+  beforeEach(() => {
+    presetRepo = createPresetRepository(drizzle(newDatabase(), { schema }), {
+      generateId: randomUUID,
+    });
+  });
+
+  it('create で資材費が書かれ、読み出しでそのまま返る', () => {
+    const created = presetRepo.create({
+      type: 'shipping',
+      name: '専用箱（小）',
+      colorKey: 'blue',
+      initial: '小',
+      value: 450,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 70,
+    });
+
+    expect(created.materialCost).toBe(70);
+    expect(presetRepo.getById(created.id)?.materialCost).toBe(70);
+  });
+
+  it('update で 0 に戻せる（書かずに残すと古い資材費が生き続ける）', () => {
+    const created = presetRepo.create({
+      type: 'shipping',
+      name: '専用箱（中）',
+      colorKey: 'green',
+      initial: '中',
+      value: 700,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 100,
+    });
+
+    presetRepo.update(created.id, {
+      type: 'shipping',
+      name: '専用箱（中）',
+      colorKey: 'green',
+      initial: '中',
+      value: 700,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 0,
+    });
+
+    expect(presetRepo.getById(created.id)?.materialCost).toBe(0);
+  });
+
+  it('まとめ買いで登録した資材費は、入数と購入価格の控えと一緒に残る（§2）', () => {
+    const created = presetRepo.create({
+      type: 'shipping',
+      name: '専用袋',
+      colorKey: 'teal',
+      initial: '袋',
+      value: 520,
+      packQuantity: 100,
+      packPrice: 1500,
+      materialCost: 15,
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      value: 520,
+      materialCost: 15,
+      packQuantity: 100,
+      packPrice: 1500,
+    });
+  });
+
+  it('初期プリセット（0002 の seed）は資材費 0 円のまま', () => {
+    for (const preset of presetRepo.listByType('shipping')) {
+      if (preset.id.startsWith('seed-')) expect(preset.materialCost).toBe(0);
+    }
   });
 });

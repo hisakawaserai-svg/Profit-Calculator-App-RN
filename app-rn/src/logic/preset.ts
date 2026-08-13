@@ -128,12 +128,20 @@ export function isRatePreset(type: PresetType): boolean {
  * バッジが出てしまうため、値がないことと 0 であることを分ける。
  * 同じ値が 2 件あるときは並び順で先の 1 件（§3.4 の sortOrder 昇順で渡ってくる）。
  */
-export function findPresetByValue<T extends { value: number }>(
+export function findPresetByValue<T extends { value: number; materialCost?: number }>(
   presets: readonly T[],
   value: number | null,
 ): T | null {
   if (value == null) return null;
-  return presets.find((preset) => preset.value === value) ?? null;
+  // 送料プリセットは**合計でも引ける**（SPEC-V6 §3）── 選ぶと欄に入るのは
+  // 「送料 ＋ 専用資材」なので、value だけで引くと選んだ直後に札が消える。
+  // 「専用資材を使わない」を立てた記録では欄が送料そのものになるので、両方を見る
+  return (
+    presets.find(
+      (preset) =>
+        preset.value === value || preset.value + (preset.materialCost ?? 0) === value,
+    ) ?? null
+  );
 }
 
 /**
@@ -233,6 +241,7 @@ export type PresetInvalidReason =
   | 'name-required'
   | 'name-too-long'
   | 'value-out-of-range'
+  | 'material-cost-out-of-range'
   | 'pack-quantity-required'
   | 'pack-price-out-of-range';
 
@@ -253,6 +262,11 @@ export type PresetDraft = {
   packQuantity?: string;
   /** sanitizeNumericInput 済みの購入価格（まとめ買いのときだけ見る） */
   packPrice?: string;
+  /**
+   * sanitizeNumericInput 済みの専用資材の代金（SPEC-V6 §2。送料のときだけ見る）。
+   * まとめ買いのときはこの欄を見ず、入数と購入価格から確定する。
+   */
+  materialCost?: string;
 };
 
 export type PresetValidation =
@@ -268,6 +282,8 @@ export type PresetValidation =
       packQuantity: number;
       /** 購入価格。同上 */
       packPrice: number;
+      /** 専用資材の代金（SPEC-V6 §1）。送料以外は 0 */
+      materialCost: number;
     }
   | { valid: false; reason: PresetInvalidReason };
 
@@ -289,11 +305,25 @@ function isPackQuantityBlank(draft: PresetDraft): boolean {
 }
 
 /**
- * 下書きが「まとめ買い」か（§2.6.2）。梱包材でしか 2 択を出さないので、
- * 他の種類では packBuy が立っていても 1 個ずつとして扱う（販売サイト・送料の行は 2 列とも 0）。
+ * まとめ買いの単価が**何の金額になるか**（§2.6.2 / SPEC-V6 §2）。
+ *
+ * - 梱包材 … 1 個あたりがそのまま登録額（value）
+ * - 送料   … 1 個あたりが**専用資材の代金**（materialCost）。送料そのもの（value）は
+ *            「1 回いくら」で箱買いの概念を持たないので、まとめ買いの対象にならない
+ * - 販売サイト … 率（%）なので個数の単位がない。2 択そのものを出さない
+ */
+export function packBuyTarget(type: PresetType): 'value' | 'materialCost' | null {
+  if (type === 'packaging') return 'value';
+  if (type === 'shipping') return 'materialCost';
+  return null;
+}
+
+/**
+ * 下書きが「まとめ買い」か（§2.6.2 / SPEC-V6 §2）。2 択を出すのは梱包材と送料だけなので、
+ * 販売サイトでは packBuy が立っていても 1 個ずつとして扱う（行は 2 列とも 0）。
  */
 export function isPackBuyDraft(draft: PresetDraft): boolean {
-  return draft.type === 'packaging' && draft.packBuy === true;
+  return packBuyTarget(draft.type) != null && draft.packBuy === true;
 }
 
 /**
@@ -326,51 +356,93 @@ export function validatePreset(draft: PresetDraft): PresetValidation {
   // ここに 3 文字以上が渡ってくることがある
   const initial = clampPresetInitial(draft.initial.trim());
 
-  if (isPackBuyDraft(draft)) {
-    const packQuantity = parseDraftNumber(draft.packQuantity ?? '');
-    // 入数が空・0 のときは保存できない（§2.6.6）。1 個ずつに倒したり 1 とみなしたりしない ──
-    // 黙って別の意味で保存されると、次に開いたときモードが戻っていて理由が分からない
-    if (
-      isPackQuantityBlank(draft) ||
-      decimalPlaces(draft.packQuantity ?? '') > 0 ||
-      packQuantity > PRESET_PACK_QUANTITY_MAX
-    ) {
-      return { valid: false, reason: 'pack-quantity-required' };
+  const pack = validatePackBuy(draft);
+  if (pack != null && !pack.valid) return pack;
+
+  // 梱包材のまとめ買いでは、金額欄そのものを出していない（単価が登録額になる）
+  const valueFromPack = pack != null && packBuyTarget(draft.type) === 'value';
+  let value: number;
+  if (valueFromPack) {
+    value = pack.value;
+  } else {
+    const maxPlaces = draft.type === 'shipping' ? 0 : 1;
+    const max = isRatePreset(draft.type) ? PRESET_RATE_MAX : PRESET_AMOUNT_MAX;
+    if (decimalPlaces(draft.value) > maxPlaces) {
+      return { valid: false, reason: 'value-out-of-range' };
     }
 
-    const packPrice = parseDraftNumber(draft.packPrice ?? '');
-    if (
-      decimalPlaces(draft.packPrice ?? '') > 0 ||
-      packPrice < 0 ||
-      packPrice > PRESET_AMOUNT_MAX
-    ) {
-      return { valid: false, reason: 'pack-price-out-of-range' };
-    }
-
-    // 入数が 1 以上あることは上で確かめてあるので null にはならない（保険として 0 に倒す）
-    const unitPrice = presetUnitPrice(packPrice, packQuantity) ?? 0;
-    return { valid: true, name, initial, value: unitPrice, packQuantity, packPrice };
+    // 入力は sanitizeNumericInput を通っているので符号は付かないが、
+    // 直接呼ばれても壊れないよう下限も見る（§4.3 の「範囲外でも正規化される」の裏返し）
+    const parsed = parseDraftNumber(draft.value);
+    if (parsed < 0 || parsed > max) return { valid: false, reason: 'value-out-of-range' };
+    value = parsed;
   }
 
-  const maxPlaces = draft.type === 'shipping' ? 0 : 1;
-  const max = isRatePreset(draft.type) ? PRESET_RATE_MAX : PRESET_AMOUNT_MAX;
-  if (decimalPlaces(draft.value) > maxPlaces) {
-    return { valid: false, reason: 'value-out-of-range' };
-  }
-
-  // 入力は sanitizeNumericInput を通っているので符号は付かないが、
-  // 直接呼ばれても壊れないよう下限も見る（§4.3 の「範囲外でも正規化される」の裏返し）
-  const parsed = parseDraftNumber(draft.value);
-  if (parsed < 0 || parsed > max) return { valid: false, reason: 'value-out-of-range' };
+  const materialCost = shippingMaterialCostOf(draft, pack);
+  if (materialCost == null) return { valid: false, reason: 'material-cost-out-of-range' };
 
   return {
     valid: true,
     name,
     initial,
-    value: parsed,
+    value,
+    materialCost,
     // 「1 個ずつ」に戻して保存すると控えは捨てる（決定 §2.6.8-3）。
     // 残すと「1 個ずつなのに入数がある」不整合な行ができ、isPackBuy の判定と食い違う
-    packQuantity: 0,
-    packPrice: 0,
+    packQuantity: pack?.valid ? pack.packQuantity : 0,
+    packPrice: pack?.valid ? pack.packPrice : 0,
   };
+}
+
+/** まとめ買いの 3 つ（入数・購入価格・そこから出る単価）。1 個ずつのときは null */
+type PackBuyValidation =
+  | { valid: true; packQuantity: number; packPrice: number; value: number }
+  | { valid: false; reason: PresetInvalidReason };
+
+/**
+ * まとめ買いの欄（§2.6.6）。1 個ずつの下書きでは見るものが無いので null を返す。
+ * 単価が何になるか（登録額 / 資材費）は呼び出し側が packBuyTarget で振り分ける。
+ */
+function validatePackBuy(draft: PresetDraft): PackBuyValidation | null {
+  if (!isPackBuyDraft(draft)) return null;
+
+  const packQuantity = parseDraftNumber(draft.packQuantity ?? '');
+  // 入数が空・0 のときは保存できない（§2.6.6）。1 個ずつに倒したり 1 とみなしたりしない ──
+  // 黙って別の意味で保存されると、次に開いたときモードが戻っていて理由が分からない
+  if (
+    isPackQuantityBlank(draft) ||
+    decimalPlaces(draft.packQuantity ?? '') > 0 ||
+    packQuantity > PRESET_PACK_QUANTITY_MAX
+  ) {
+    return { valid: false, reason: 'pack-quantity-required' };
+  }
+
+  const packPrice = parseDraftNumber(draft.packPrice ?? '');
+  if (decimalPlaces(draft.packPrice ?? '') > 0 || packPrice < 0 || packPrice > PRESET_AMOUNT_MAX) {
+    return { valid: false, reason: 'pack-price-out-of-range' };
+  }
+
+  // 入数が 1 以上あることは上で確かめてあるので null にはならない（保険として 0 に倒す）
+  return { valid: true, packQuantity, packPrice, value: presetUnitPrice(packPrice, packQuantity) ?? 0 };
+}
+
+/**
+ * 専用資材の代金（SPEC-V6 §2）。**送料以外は常に 0。**
+ * 範囲外・桁数オーバーのときだけ null を返す（呼び出し側が理由に倒す）。
+ *
+ * 小数第 1 位まで許すのは、まとめ買いの単価（15.5 円など）がそのまま入り得るため ──
+ * 送料そのもの（整数のみ）と桁数の規則が違うのは、由来が違うからで、梱包材と同じ扱いになる。
+ */
+function shippingMaterialCostOf(
+  draft: PresetDraft,
+  pack: PackBuyValidation | null,
+): number | null {
+  if (draft.type !== 'shipping') return 0;
+  if (pack != null && pack.valid) return pack.value;
+
+  const text = draft.materialCost ?? '';
+  if (decimalPlaces(text) > 1) return null;
+  const parsed = parseDraftNumber(text);
+  if (parsed < 0 || parsed > PRESET_AMOUNT_MAX) return null;
+  return parsed;
 }

@@ -39,6 +39,28 @@ export const saleRecords = sqliteTable('sale_records', {
   // 既存行を書き換えないマイグレーション（0005 の ADD COLUMN のみ・バックフィルなし）に
   // そのまま乗る（§2.1）。CSV には出さない（§5）。
   photoFileName: text('photo_file_name'),
+  /**
+   * 送料プリセットに付いていた専用資材の代金の「控え」（SPEC-V6 §1）。
+   *
+   * **postage はこれまでどおり「支払う送料の総額」で、資材費はそこに含まれる。**
+   * この列は金額の計算には一切入らない（profit.ts も CSV も postage しか見ない）──
+   * 入っているのは「選んだときの資材費がいくらだったか」だけで、
+   * 「専用資材を使わない」トグルを押し戻せるようにするための記憶。
+   *
+   * 記録はプリセットを id で参照しない（SPEC-V3 §1.5）ので、プリセット側を見に行っても
+   * 選んだ当時の資材費は分からない（あとから直っているかもしれない）。だから記録が持つ。
+   * 0 = 資材費のないプリセットか、プリセットを使わず手で入れた記録（＝トグルを出さない）。
+   */
+  shippingMaterialCost: real('shipping_material_cost').notNull().default(0),
+  /**
+   * 「専用資材を使わない」（SPEC-V6 §3）。true = postage に資材費を含めていない。
+   *
+   * postage から逆算しない ── 選んだあとに送料を手で直せるので、
+   * 「postage が資材費ぶん少ないか」では区別が付かない。押した状態そのものを持つ。
+   */
+  excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean' })
+    .notNull()
+    .default(false),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),
@@ -65,6 +87,18 @@ export const presets = sqliteTable('presets', {
   // value（1 個あたり）が唯一の真実で、この 2 列はそれを作り直すための控え。
   packQuantity: integer('pack_quantity').notNull().default(0), // 入数。0 = 1 個ずつ（未設定）
   packPrice: real('pack_price').notNull().default(0), // 購入価格（円）
+  /**
+   * 専用資材の代金（SPEC-V6 §1）。**送料プリセットだけが使う**（他の 2 種は常に 0）。
+   *
+   * 一部の配送方法は専用の箱・封筒を買わないと使えず、その代金は送料とは別にかかる。
+   * value（送料そのもの）と分けて持つのは、記録側で「今回は資材を使わない」を
+   * 選べるようにするため ── 合算して 1 つの値で持つと、あとから引き算できない。
+   *
+   * **まとめ買いの 2 列（packQuantity / packPrice）は、送料プリセットではこの列の材料になる。**
+   * 列を増やさないのは、送料の value が「1 回いくら」でまとめ買いの概念を持たないため
+   * （梱包材では value の材料、送料では materialCost の材料。isPackBuyDraft が種類で振り分ける）。
+   */
+  materialCost: real('material_cost').notNull().default(0),
   sortOrder: integer('sort_order').notNull().default(0),
 }, (table) => [
   // 全アクセスが「ある種類を並び順で全件」なので、この 1 本で足りる（§1.6）

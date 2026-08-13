@@ -1008,6 +1008,10 @@ export function presetBlockedNote(reason: PresetInvalidReason, type: PresetType)
       return '入数を入れてください';
     case 'pack-price-out-of-range':
       return '購入価格は 0 以上で入れてください';
+    // 専用資材の代金（SPEC-V6 §2）。0 円を許すので「入れてください」ではない ──
+    // 咎めるのは範囲の外だけで、空欄はそのまま 0 円として保存できる
+    case 'material-cost-out-of-range':
+      return `${SHIPPING_MATERIAL_LABEL}は 0 以上で入れてください`;
   }
 }
 
@@ -1040,6 +1044,16 @@ export function tagBlockedNote(reason: TagInvalidReason): string {
  */
 export function presetValueText(type: PresetType, value: number): string {
   return isRatePreset(type) ? `${value}%` : formatUnitYen(value);
+}
+
+/**
+ * 送料プリセットの行に足す 1 行（SPEC-V6 §1）。資材費があるときだけ出す。
+ *
+ * **右端の金額は送料のまま**（登録した額）で、この行が「選ぶと入る額」を言う ──
+ * 右端を合計に差し替えると、編集画面で打った 450 と一覧の 520 が食い違って見える。
+ */
+export function shippingMaterialRowNote(materialCost: number, total: number): string {
+  return `＋${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}（${SHIPPING_TOTAL_LABEL} ${formatUnitYen(total)}）`;
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -1132,6 +1146,45 @@ export const PRESET_UNIT_PRICE_LABEL = '1個あたり';
  */
 export function presetUnitPriceText(unitPrice: number | null): string {
   return unitPrice == null ? '—' : formatUnitYen(unitPrice);
+}
+
+// ---- SPEC-V6 送料プリセットの専用資材 ----
+
+/**
+ * 専用資材そのものを指す語（SPEC-V6 §1）。「梱包材」（ENVELOPE_COST_LABEL）とは**別のもの** ──
+ * あちらは自分で選んで買う箱・封筒で、こちらは**その配送方法でしか使えない指定の資材**。
+ * 語を分けるのは、記録の経費の内訳でも別の行（送料 / 梱包材）に入るため。
+ */
+export const SHIPPING_MATERIAL_LABEL = '専用資材';
+
+/** 送料プリセットの編集画面の欄（§2）。0 円のままでも保存できる（任意の欄） */
+export const SHIPPING_MATERIAL_FIELD_LABEL = `${SHIPPING_MATERIAL_LABEL}の代金`;
+
+/**
+ * 内訳カードの合計行（§2）。**送料と資材費を足したものがこの行**で、
+ * 記録に入るのもこの額（「専用資材を使わない」を選ばない限り）。
+ */
+export const SHIPPING_TOTAL_LABEL = '合計';
+
+/** 内訳カードの下の 1 行（§2）。この合計がどこで使われるのかを言う */
+export const SHIPPING_TOTAL_NOTE = '記録でこのプリセットを選ぶと、この合計が送料に入ります。';
+
+/**
+ * 記録フォームのトグル（§3）。**否定形なのは既定が「含める」だから** ──
+ * 資材の要る配送方法では買わずに送れないので、含めるほうが多数派。
+ * 例外（在庫が家にある・前に買ったぶんが余っている）を押して外す形にする。
+ */
+export const EXCLUDE_SHIPPING_MATERIAL_LABEL = `${SHIPPING_MATERIAL_LABEL}を使わない`;
+
+/**
+ * トグルの下の 1 行（§3）。いま送料にいくら含まれているかを言う ──
+ * 送料の欄には合計しか出ないので、内訳はここでしか読めない。
+ */
+export function shippingMaterialIncludedNote(amount: string): string {
+  return `${SHIPPING_MATERIAL_LABEL} ${amount} を含めた金額です`;
+}
+export function shippingMaterialExcludedNote(amount: string): string {
+  return `${SHIPPING_MATERIAL_LABEL} ${amount} を除いた金額です`;
 }
 
 export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
@@ -1868,6 +1921,13 @@ export const EXPORT_PREVIEW_SCREEN_TITLE = 'プレビュー';
 export function exportPreviewMetaLabel(shownRows: number, columnCount: number): string {
   return `先頭${shownRows}行・全${columnCount}列`;
 }
+
+/**
+ * プレビューの表の下に出す注意書き（SPEC-V6 §4）。**ヘッダ行には入れない** ──
+ * 列名は表計算ソフトがそのまま項目名として使うので、注記が混ざると邪魔になる。
+ * 画面の側で 1 行言えば、CSV の中身を汚さずに済む。
+ */
+export const CSV_SHIPPING_MATERIAL_NOTE = `送料には${SHIPPING_MATERIAL_LABEL}の代金を含みます`;
 
 /** 表の下の 1 行（案 `40a`）。横スクロールできることは形からは読めないので語で言う */
 export const EXPORT_PREVIEW_SCROLL_HINT = '横に動かすと残りの列が見えます';

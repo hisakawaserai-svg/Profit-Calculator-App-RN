@@ -19,7 +19,17 @@ import {
 
 /** マイグレーション 0002 の初期プリセットと同じ値（実際の投入もこの値で走る） */
 const SOURCES: DevSeedSources = {
-  shippingValues: [210, 185, 450, 750, 850, 1050, 0],
+  // 送料と専用資材の代金（SPEC-V6 §1）。2 件だけ資材費を持たせて、
+  // 「専用資材を使わない」の記録が作られることを確かめられるようにする
+  shippings: [
+    { value: 210, materialCost: 0 },
+    { value: 185, materialCost: 0 },
+    { value: 450, materialCost: 70 },
+    { value: 750, materialCost: 0 },
+    { value: 850, materialCost: 100 },
+    { value: 1050, materialCost: 0 },
+    { value: 0, materialCost: 0 },
+  ],
   packagingValues: [15, 40, 20, 60, 100, 10],
   sites: [
     { name: '手数料 10%', commission: 10 },
@@ -206,7 +216,12 @@ describe('金額', () => {
     eachRun((records) => {
       const postages = new Set(records.map((r) => r.postage));
       expect(postages.size).toBeGreaterThanOrEqual(3);
-      for (const postage of postages) expect(SOURCES.shippingValues).toContain(postage);
+      // 送料に入るのは「送料 ＋ 資材費」（使わない記録だけ送料のみ。SPEC-V6 §3）
+      const allowed = new Set([
+        ...SOURCES.shippings.map((preset) => preset.value + preset.materialCost),
+        ...SOURCES.shippings.map((preset) => preset.value),
+      ]);
+      for (const postage of postages) expect(allowed).toContain(postage);
 
       // 梱包材は複数選択（合算）があるので、値がプリセットに無いこと自体は正しい
       expect(new Set(records.map((r) => r.envelopeCost)).size).toBeGreaterThanOrEqual(3);
@@ -274,6 +289,47 @@ describe('タグ', () => {
       for (const record of records) {
         expect(new Set(record.tagIds).size).toBe(record.tagIds.length);
       }
+    });
+  });
+});
+
+describe('SPEC-V6 §5 専用資材', () => {
+  it('「専用資材を使わない」の記録が 3 件入る（資材費のあるプリセットが当たる）', () => {
+    eachRun((records) => {
+      const excluded = records.filter((record) => record.excludesShippingMaterial);
+
+      expect(excluded).toHaveLength(3);
+      // 使わない記録でも控えは残る（編集で開いたときにトグルが出る）
+      for (const record of excluded) {
+        expect(record.shippingMaterialCost).toBeGreaterThan(0);
+        // 送料は資材費を含まない額 ＝ プリセットの送料そのもの
+        expect(SOURCES.shippings.map((preset) => preset.value)).toContain(record.postage);
+      }
+    });
+  });
+
+  it('資材費を含める記録では、送料に資材費が乗る', () => {
+    eachRun((records) => {
+      const included = records.filter(
+        (record) => record.shippingMaterialCost > 0 && !record.excludesShippingMaterial,
+      );
+
+      expect(included.length).toBeGreaterThan(0);
+      for (const record of included) {
+        expect(SOURCES.shippings).toContainEqual({
+          value: record.postage - record.shippingMaterialCost,
+          materialCost: record.shippingMaterialCost,
+        });
+      }
+    });
+  });
+
+  it('資材費のないプリセットを当てた記録は控えが 0（トグルを出さない）', () => {
+    eachRun((records) => {
+      const plain = records.filter((record) => record.shippingMaterialCost === 0);
+
+      expect(plain.length).toBeGreaterThan(0);
+      for (const record of plain) expect(record.excludesShippingMaterial).toBe(false);
     });
   });
 });

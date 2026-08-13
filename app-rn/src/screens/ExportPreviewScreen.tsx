@@ -30,6 +30,7 @@ import {
 import { useExportPreview, useExportTable } from '@/db/useExport';
 import { fromExportParams, type ExportRouteParams } from '@/logic/exportPeriod';
 import {
+  CSV_SHIPPING_MATERIAL_NOTE,
   EXPORT_PREVIEW_BACK_LABEL,
   EXPORT_PREVIEW_SCROLL_HINT,
   exportPreviewScreenMetaLabel,
@@ -97,6 +98,12 @@ export function ExportPreviewScreen() {
         />
       </ScrollView>
 
+      {/* SPEC-V6 §4: 送料の列に専用資材の代金が含まれることを表の外で言う。
+          **ヘッダ行には入れない** ── 列名は表計算ソフトがそのまま項目名にするので、
+          注記が混ざると開いたときに邪魔になる */}
+      <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
+        {CSV_SHIPPING_MATERIAL_NOTE}
+      </Text>
       <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
         {EXPORT_PREVIEW_SCROLL_HINT}
       </Text>

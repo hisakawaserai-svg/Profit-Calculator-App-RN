@@ -22,7 +22,8 @@ import {
   View,
 } from 'react-native';
 
-import { CALCULATOR_GUTTER_WIDTH, NumericField } from '@/components/NumericField';
+import { NumericField } from '@/components/NumericField';
+import { PackBuyFields, packBuyCardStyle } from '@/components/PackBuyFields';
 import { PresetRow } from '@/components/PresetRow';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
@@ -41,30 +42,33 @@ import {
   PRESET_INITIAL_FIELD_LABEL,
   PRESET_INITIAL_NOTE,
   PRESET_NAME_FIELD_LABEL,
-  PRESET_PACK_PRICE_FIELD_LABEL,
-  PRESET_PACK_QUANTITY_FIELD_LABEL,
   PRESET_PRICE_MODE_LABEL,
   PRESET_PRICE_MODE_OPTIONS,
-  PRESET_UNIT_PRICE_LABEL,
   presetBlockedNote,
   presetDeleteConfirmMessage,
   presetDeleteLabel,
   presetEditValueNote,
   presetFormTitle,
-  presetUnitPriceText,
   presetValueFieldLabel,
   SAVE_LABEL,
+  SHIPPING_MATERIAL_FIELD_LABEL,
+  SHIPPING_MATERIAL_LABEL,
+  SHIPPING_TOTAL_LABEL,
+  SHIPPING_TOTAL_NOTE,
 } from '@/logic/labels';
+import { formatYen } from '@/logic/format';
 import {
   clampPresetInitial,
   isPackBuy,
   normalizePresetColor,
+  packBuyTarget,
   PRESET_COLOR_KEYS,
   presetDraftUnitPrice,
   presetInitial,
   validatePreset,
   type PresetColorKey,
 } from '@/logic/preset';
+import { shippingPresetTotal } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
 /** 色の丸（§3.3-6）。10 色を折り返して 2 段に並べる（PRESET_COLOR_KEYS のコメント参照） */
@@ -98,8 +102,18 @@ export function PresetFormScreen({ type, preset }: Props) {
   const [colorKey, setColorKey] = useState<PresetColorKey>(
     normalizePresetColor(preset?.colorKey ?? ''),
   );
+  /**
+   * 専用資材の代金（SPEC-V6 §2）。**送料でしか出さない欄。**
+   * まとめ買いで登録された行では、control は入数・購入価格の側にあるので空から始める
+   * （下の unitPrice が計算結果を出す。梱包材の金額欄と同じ扱い）
+   */
+  const [materialCost, setMaterialCost] = useState(
+    preset == null || preset.type !== 'shipping' || isPackBuy(preset)
+      ? ''
+      : String(preset.materialCost),
+  );
 
-  const draft = { type, name, initial, value, packBuy, packQuantity, packPrice };
+  const draft = { type, name, initial, value, packBuy, packQuantity, packPrice, materialCost };
   const validation = validatePreset(draft);
   // 入力に追従する計算結果（§2.6.2）。入数が空・0 のあいだは null ＝「—」（§2.6.6）
   const unitPrice = presetDraftUnitPrice(draft);
@@ -113,10 +127,14 @@ export function PresetFormScreen({ type, preset }: Props) {
   const changePriceMode = useCallback(
     (index: number) => {
       const next = index === 1;
-      if (!next && unitPrice != null) setValue(String(unitPrice));
+      // 単価が入る先は種類で違う（梱包材 = 金額欄 / 送料 = 専用資材の欄。§2.6.2 / SPEC-V6 §2）
+      if (!next && unitPrice != null) {
+        if (packBuyTarget(type) === 'value') setValue(String(unitPrice));
+        else setMaterialCost(String(unitPrice));
+      }
       setPackBuy(next);
     },
-    [unitPrice],
+    [type, unitPrice],
   );
 
   // プレビュー（§3.3-2）は入力に追従する。不正な値でも「今の指定」をそのまま映す ──
@@ -127,8 +145,16 @@ export function PresetFormScreen({ type, preset }: Props) {
     name,
     initial,
     colorKey,
-    // まとめ買いのときは 1 個あたりを映す（保存されるのもこの値。§2.6.4）
-    value: packBuy ? (unitPrice ?? 0) : Number.isNaN(previewValue) ? 0 : previewValue,
+    // まとめ買いのときは 1 個あたりを映す（保存されるのもこの値。§2.6.4）。
+    // 送料はまとめ買いでも金額欄が送料そのものなので、単価に差し替えない（SPEC-V6 §2）
+    value:
+      packBuy && packBuyTarget(type) === 'value'
+        ? (unitPrice ?? 0)
+        : Number.isNaN(previewValue)
+          ? 0
+          : previewValue,
+    // 資材費のある送料プリセットは、行にも「＋専用資材」の 1 行が出る（SPEC-V6 §1）
+    materialCost: validation.valid ? validation.materialCost : 0,
   };
 
   const save = useCallback(() => {
@@ -141,6 +167,7 @@ export function PresetFormScreen({ type, preset }: Props) {
       value: validation.value,
       packQuantity: validation.packQuantity,
       packPrice: validation.packPrice,
+      materialCost: validation.materialCost,
     };
     if (preset == null) createPreset(input);
     else updatePreset(preset.id, input);
@@ -148,8 +175,19 @@ export function PresetFormScreen({ type, preset }: Props) {
     router.back();
   }, [colorKey, preset, router, type, validation]);
 
-  /** まとめ買いの欄を出すか（§2.6.2。2 択を出すのは梱包材だけ） */
-  const isPackBuyMode = type === 'packaging' && packBuy;
+  /** まとめ買いの欄を出すか（§2.6.2 / SPEC-V6 §2。2 択を出すのは梱包材と送料） */
+  const isPackBuyMode = packBuyTarget(type) != null && packBuy;
+  /** 送料だけが持つ「送料 ＋ 専用資材 = 合計」の内訳（SPEC-V6 §2） */
+  const isShipping = type === 'shipping';
+  const shippingTotal = shippingPresetTotal({
+    value: Number.isNaN(previewValue) ? 0 : previewValue,
+    materialCost: packBuy
+      ? (unitPrice ?? 0)
+      : (() => {
+          const parsed = Number.parseFloat(materialCost);
+          return Number.isNaN(parsed) ? 0 : parsed;
+        })(),
+  });
 
   /**
    * 値の欄の下の 1 行。**同時に 2 行出さない**（設計案 28c への指摘）──
@@ -223,10 +261,11 @@ export function PresetFormScreen({ type, preset }: Props) {
               value={name}
               onChangeValue={setName}
             />
-            {/* §2.6.2: 2 択は金額欄の**上**。下に置くと、欄の形が変わる原因が欄の後ろに来る。
-                出すのは梱包材だけ ── 送料は「1 回いくら」で箱買いの概念がなく、
-                販売サイトは率（%）で個数の単位がない */}
-            {type === 'packaging' && (
+            {/* §2.6.2 / SPEC-V6 §2: 2 択は対象の欄の**上**。下に置くと、欄の形が変わる原因が
+                欄の後ろに来る。出すのは梱包材（1 個あたりが登録額）と送料（専用資材の代金）で、
+                販売サイトには出さない ── 率（%）に個数の単位がないため。
+                **送料では 2 択が資材費のカードの中に入る**（送料そのものは常に「1 回いくら」） */}
+            {packBuyTarget(type) === 'value' && (
               <View style={styles.modeRow}>
                 <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
                   {PRESET_PRICE_MODE_LABEL}
@@ -238,7 +277,8 @@ export function PresetFormScreen({ type, preset }: Props) {
                 />
               </View>
             )}
-            {!isPackBuyMode && (
+            {/* 送料の金額欄は常に出す（まとめ買いは資材費の側の話なので、送料の欄は消えない） */}
+            {(isShipping || !isPackBuyMode) && (
               <>
                 <NumericField
                   label={presetValueFieldLabel(type)}
@@ -249,57 +289,108 @@ export function PresetFormScreen({ type, preset }: Props) {
                   // 梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう
                   canPickPackaging={false}
                 />
-                {note}
+                {!isShipping && note}
               </>
             )}
           </View>
 
+          {/* 専用資材の代金（SPEC-V6 §2）。**送料だけの別カード** ── 送料そのものとは
+              別の支払いなので、同じカードに 2 つの金額を並べない。
+              資材を使わない配送方法では 0 円のまま置いておける（空欄 = 0 円） */}
+          {isShipping && (
+            <View
+              style={[
+                styles.card,
+                isPackBuyMode && packBuyCardStyle,
+                { backgroundColor: colors.secondaryBackground },
+              ]}>
+              <View style={[styles.modeRow, isPackBuyMode && styles.modeRowInset]}>
+                <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
+                  {SHIPPING_MATERIAL_LABEL}
+                </Text>
+                <SegmentedControl
+                  options={PRESET_PRICE_MODE_OPTIONS}
+                  selectedIndex={packBuy ? 1 : 0}
+                  onChange={changePriceMode}
+                />
+              </View>
+              {isPackBuyMode ? (
+                <PackBuyFields
+                  packQuantity={packQuantity}
+                  packPrice={packPrice}
+                  onChangePackQuantity={setPackQuantity}
+                  onChangePackPrice={setPackPrice}
+                  unitPrice={unitPrice}
+                />
+              ) : (
+                <NumericField
+                  label={SHIPPING_MATERIAL_FIELD_LABEL}
+                  value={materialCost}
+                  onChangeValue={setMaterialCost}
+                  canPickPackaging={false}
+                />
+              )}
+            </View>
+          )}
+
+          {/* 内訳（SPEC-V6 §2）。**送料と資材費を足した額が記録に入る**ので、
+              打ち込んだ 2 つの数字と、その結果を 1 枚に並べて見せる ──
+              合計だけを出すと「何と何を足した額なのか」が画面から読めない */}
+          {isShipping && (
+            <>
+              <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.label }]}>
+                    {presetValueFieldLabel(type)}
+                  </Text>
+                  <Text style={[styles.breakdownValue, { color: colors.label }]}>
+                    {formatYen(Number.isNaN(previewValue) ? 0 : previewValue)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.label }]}>
+                    {SHIPPING_MATERIAL_LABEL}
+                  </Text>
+                  <Text style={[styles.breakdownValue, { color: colors.label }]}>
+                    {formatYen(shippingTotal - (Number.isNaN(previewValue) ? 0 : previewValue))}
+                  </Text>
+                </View>
+                <View style={[styles.breakdownSeparator, { backgroundColor: colors.separator }]} />
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownTotalLabel, { color: colors.label }]}>
+                    {SHIPPING_TOTAL_LABEL}
+                  </Text>
+                  <Text style={[styles.breakdownTotalValue, { color: colors.blue }]}>
+                    {formatYen(shippingTotal)}
+                  </Text>
+                </View>
+                <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+                  {SHIPPING_TOTAL_NOTE}
+                </Text>
+              </View>
+              {note}
+            </>
+          )}
+
           {/* まとめ買いの 3 行は**別のカード**にする（設計案 28c）── 2 択で欄の形が変わったことが、
               カードが 1 枚増えることで見て取れる。名前と同じカードに続けると、どこから先が
-              「金額の入れ方」で変わった部分なのか読めない */}
-          {isPackBuyMode && (
+              「金額の入れ方」で変わった部分なのか読めない。
+              送料では資材費のカードの中に入る（上の分岐）ので、ここは梱包材だけ */}
+          {isPackBuyMode && packBuyTarget(type) === 'value' && (
             <>
-              <View style={[styles.card, styles.packCard, { backgroundColor: colors.secondaryBackground }]}>
-                <View style={styles.packRow}>
-                  <NumericField
-                    label={PRESET_PACK_QUANTITY_FIELD_LABEL}
-                    value={packQuantity}
-                    onChangeValue={setPackQuantity}
-                    // 入数は数えた個数で、式にならない（§2.6.2）
-                    showCalculator={false}
-                  />
-                </View>
-                <View
-                  style={[
-                    styles.packRow,
-                    styles.packRowDivided,
-                    { borderTopColor: colors.separator },
-                  ]}>
-                  <NumericField
-                    label={PRESET_PACK_PRICE_FIELD_LABEL}
-                    value={packPrice}
-                    onChangeValue={setPackPrice}
-                    // まとめ買いでいちばん割り算が要る欄なので、電卓はここにだけ置く（§2.6.2）
-                    canPickPackaging={false}
-                  />
-                </View>
-                {/* 計算結果の行（§2.6.2）。入力欄に見せない ── 直せる口は入数と購入価格の 2 つでよい。
-                    帯を敷くのは、上 2 行が「入れる欄」でこの行だけが「出る値」だと形で言うため */}
-                <View
-                  style={[styles.unitPriceRow, { backgroundColor: colors.highlightBackground }]}>
-                  <Text style={[styles.unitPriceLabel, { color: colors.blue }]}>
-                    {PRESET_UNIT_PRICE_LABEL}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.unitPriceValue,
-                      // 入力途中（入数が空・0）の「—」は結果ではないので青くしない ──
-                      // 青い横棒は値が入っているように見える
-                      { color: unitPrice == null ? colors.secondaryLabel : colors.blue },
-                    ]}>
-                    {presetUnitPriceText(unitPrice)}
-                  </Text>
-                </View>
+              <View
+                style={[
+                  styles.card,
+                  packBuyCardStyle,
+                  { backgroundColor: colors.secondaryBackground },
+                ]}>
+                <PackBuyFields
+                  packQuantity={packQuantity}
+                  packPrice={packPrice}
+                  onChangePackQuantity={setPackQuantity}
+                  onChangePackPrice={setPackPrice}
+                  unitPrice={unitPrice}
+                />
               </View>
               {note}
             </>
@@ -421,37 +512,38 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   // まとめ買いの 3 行のカード。左右の余白は行ごとに持たせる（1 個あたりの帯を端まで敷くため）
-  packCard: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    gap: 0,
-    overflow: 'hidden',
-  },
-  packRow: {
+  // 余白 0 のカード（PackBuyFields）の中に 2 択の行を置くときだけ、行の側で余白を持つ
+  modeRowInset: {
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  // 行と行のあいだは髪の毛線 1 本（一覧の行と同じ区切り方）。余白では離さない
-  packRowDivided: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  // 1 個あたりの行（§2.6.2）。薄い青の帯を敷いて、入れる欄ではなく出る値だと見せる
-  unitPriceRow: {
+  // 内訳（SPEC-V6 §2）。レコード詳細のレシート（RecordDetailSections）と同じ組み方 ──
+  // 同じ「引き算・足し算の結果を読む面」なので、行の形を画面ごとに変えない
+  breakdownRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingLeft: 16,
-    // 上 2 行の数値と右端を揃える（電卓ボタンのぶんだけ内側に寄せる）。
-    // 帯そのものはカードの端まで敷いたまま、中の値だけが揃う
-    paddingRight: 16 + CALCULATOR_GUTTER_WIDTH,
-    paddingVertical: 14,
+    gap: 12,
   },
-  unitPriceLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  breakdownLabel: {
+    flexShrink: 1,
+    fontSize: 15,
   },
-  unitPriceValue: {
+  breakdownValue: {
     fontSize: 17,
-    fontWeight: '600',
+  },
+  breakdownSeparator: {
+    height: 1.5,
+    marginVertical: 2,
+  },
+  breakdownTotalLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  breakdownTotalValue: {
+    fontSize: 24,
+    fontWeight: '700',
   },
   swatches: {
     flexDirection: 'row',

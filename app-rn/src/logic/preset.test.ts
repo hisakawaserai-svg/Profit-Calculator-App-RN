@@ -11,6 +11,7 @@ import {
   isPackBuy,
   isRatePreset,
   normalizePresetColor,
+  packBuyTarget,
   PRESET_COLOR_KEYS,
   PRESET_TYPES,
   presetDraftUnitPrice,
@@ -164,6 +165,7 @@ describe('§1.4 検証: 名前', () => {
       value: 210,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -201,6 +203,7 @@ describe('§1.4 検証: 手数料率（site は 0〜100・小数第 1 位まで�
       value: 8.8,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -278,6 +281,7 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: 210,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -296,6 +300,7 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: 1050,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -315,6 +320,7 @@ describe('§1.4 検証: 有効なときに返る保存値', () => {
       value: 15,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -409,6 +415,7 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
       value: 8,
       packQuantity: 100,
       packPrice: 800,
+      materialCost: 0,
     });
   });
 
@@ -422,6 +429,7 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
       value: 9.8,
       packQuantity: 100,
       packPrice: 980,
+      materialCost: 0,
     });
   });
 
@@ -472,6 +480,7 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
       value: 0,
       packQuantity: 100,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -482,14 +491,27 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
     });
   });
 
-  it('梱包材以外では 2 択を出さないので、packBuy が立っていても 1 個ずつとして扱う', () => {
-    expect(validatePreset(draft('100', '800', { type: 'shipping', value: '210' }))).toEqual({
+  it('販売サイトでは 2 択を出さないので、packBuy が立っていても 1 個ずつとして扱う', () => {
+    expect(validatePreset(draft('100', '800', { type: 'site', value: '10' }))).toEqual({
       valid: true,
       name: '封筒（A4）',
       initial: '',
-      value: 210,
+      value: 10,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
+    });
+  });
+
+  it('送料のまとめ買いは**専用資材の代金**になる（送料そのものは金額欄のまま。SPEC-V6 §2）', () => {
+    expect(validatePreset(draft('100', '800', { type: 'shipping', value: '450' }))).toEqual({
+      valid: true,
+      name: '封筒（A4）',
+      initial: '',
+      value: 450,
+      packQuantity: 100,
+      packPrice: 800,
+      materialCost: 8,
     });
   });
 
@@ -504,6 +526,7 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
       value: 8,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 
@@ -517,6 +540,7 @@ describe('§2.6.6 検証: まとめ買い（入数・購入価格）', () => {
       value: 15,
       packQuantity: 0,
       packPrice: 0,
+      materialCost: 0,
     });
   });
 });
@@ -638,5 +662,122 @@ describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
       kind: 'rate-changed',
       preset: sites[0],
     });
+  });
+});
+
+describe('SPEC-V6 §2 検証: 送料プリセットの専用資材の代金', () => {
+  const shipping = (over: Partial<PresetDraft> = {}): PresetDraft => ({
+    type: 'shipping',
+    name: '専用箱（小）',
+    initial: '',
+    value: '450',
+    ...over,
+  });
+
+  it('資材費を入れると送料と別に返る（合計は画面が出す）', () => {
+    expect(validatePreset(shipping({ materialCost: '70' }))).toMatchObject({
+      valid: true,
+      value: 450,
+      materialCost: 70,
+    });
+  });
+
+  it('資材費は空でも 0 円で有効（多くの配送方法では資材費がかからない。§2）', () => {
+    expect(validatePreset(shipping())).toMatchObject({ valid: true, value: 450, materialCost: 0 });
+    expect(validatePreset(shipping({ materialCost: '' }))).toMatchObject({
+      valid: true,
+      materialCost: 0,
+    });
+    expect(validatePreset(shipping({ materialCost: '0' }))).toMatchObject({
+      valid: true,
+      materialCost: 0,
+    });
+  });
+
+  it('まとめ買いの単価（小数第 1 位）をそのまま入れられる', () => {
+    expect(validatePreset(shipping({ materialCost: '15.5' }))).toMatchObject({
+      valid: true,
+      materialCost: 15.5,
+    });
+  });
+
+  it('小数第 2 位・範囲外は保存できない', () => {
+    expect(validatePreset(shipping({ materialCost: '15.55' }))).toEqual({
+      valid: false,
+      reason: 'material-cost-out-of-range',
+    });
+    expect(validatePreset(shipping({ materialCost: '1000000' }))).toEqual({
+      valid: false,
+      reason: 'material-cost-out-of-range',
+    });
+  });
+
+  it('送料そのものは従来どおり整数のみ（資材費と桁数の規則が違う）', () => {
+    expect(validatePreset(shipping({ value: '450.5' }))).toEqual({
+      valid: false,
+      reason: 'value-out-of-range',
+    });
+  });
+
+  it('まとめ買いのときは資材費の欄を見ない（入数と購入価格が決める）', () => {
+    expect(
+      validatePreset(
+        shipping({ packBuy: true, packQuantity: '100', packPrice: '1500', materialCost: '999' }),
+      ),
+    ).toMatchObject({ valid: true, value: 450, materialCost: 15, packQuantity: 100, packPrice: 1500 });
+  });
+
+  it('まとめ買いに戻しても送料の検証は効く（両方を同時に見る）', () => {
+    expect(
+      validatePreset(shipping({ value: '1000000', packBuy: true, packQuantity: '10', packPrice: '100' })),
+    ).toEqual({ valid: false, reason: 'value-out-of-range' });
+  });
+
+  it('送料以外では資材費を渡しても 0 になる（列を持たない種類）', () => {
+    expect(
+      validatePreset({
+        type: 'packaging',
+        name: '封筒',
+        initial: '',
+        value: '15',
+        materialCost: '70',
+      }),
+    ).toMatchObject({ valid: true, value: 15, materialCost: 0 });
+  });
+});
+
+describe('SPEC-V6 §2 packBuyTarget', () => {
+  it('単価が何になるかを種類が決める', () => {
+    expect(packBuyTarget('packaging')).toBe('value');
+    expect(packBuyTarget('shipping')).toBe('materialCost');
+    expect(packBuyTarget('site')).toBeNull();
+  });
+});
+
+describe('SPEC-V6 §3 送料プリセットの札（合計でも引ける）', () => {
+  const shippings = [
+    { name: 'A4・厚さ3cm以内', value: 210, materialCost: 0 },
+    { name: '専用箱（小）', value: 450, materialCost: 70 },
+  ];
+
+  it('合計（送料 ＋ 専用資材）で引ける ── 選んだ直後の欄はこの額', () => {
+    expect(findPresetByValue(shippings, 520)?.name).toBe('専用箱（小）');
+    expect(resolvePresetTag(shippings, 520)).toEqual({
+      kind: 'selected',
+      preset: shippings[1],
+    });
+  });
+
+  it('送料そのものでも引ける ──「専用資材を使わない」を立てた記録の欄はこの額', () => {
+    expect(findPresetByValue(shippings, 450)?.name).toBe('専用箱（小）');
+  });
+
+  it('どちらにも当たらない額では札が出ない（手で打った送料）', () => {
+    expect(findPresetByValue(shippings, 500)).toBeNull();
+  });
+
+  it('資材費を持たないプリセット（他の 2 種）はこれまでどおり value だけで引ける', () => {
+    expect(findPresetByValue([{ name: '封筒', value: 15 }], 15)?.name).toBe('封筒');
+    expect(findPresetByValue([{ name: '封筒', value: 15 }], 20)).toBeNull();
   });
 });

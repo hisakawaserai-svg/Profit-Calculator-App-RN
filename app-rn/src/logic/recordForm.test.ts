@@ -37,6 +37,8 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   siteName: '',
   // 商品写真（SPEC-V5 §1.3）。CSV には出さないので、csv.ts の期待値は変わらない
   photoFileName: null,
+  shippingMaterialCost: 0,
+  excludesShippingMaterial: false,
   ...partial,
 });
 
@@ -342,5 +344,54 @@ describe('UI-SPEC §1.3 伝票カードが使う金額（toCostInput）', () => 
 
   it('結果行は profit.ts の netProfit と一致する（画面で式を再実装しない）', () => {
     expect(netProfit(toCostInput(values()))).toBe(1800 - (300 + 95 + 50 + 30 + 180));
+  });
+});
+
+describe('SPEC-V6 §3 送料の専用資材', () => {
+  it('新規は控え 0・トグル off から始まる（計算タブから引き継ぐのは金額だけ）', () => {
+    const values = newFormValues('used', undefined, NOW);
+
+    expect(values.shippingMaterialCost).toBe(0);
+    expect(values.excludesShippingMaterial).toBe(false);
+  });
+
+  it('編集で開くと控えとトグルの向きが戻る（§3 の「編集で復元」）', () => {
+    const values = recordToFormValues(
+      record({ postage: 450, shippingMaterialCost: 70, excludesShippingMaterial: true }),
+      NOW,
+    );
+
+    expect(values.postage).toBe('450');
+    expect(values.shippingMaterialCost).toBe(70);
+    expect(values.excludesShippingMaterial).toBe(true);
+  });
+
+  it('保存入力にそのまま乗る（postage は総額のまま・控えは別）', () => {
+    const values = {
+      ...newFormValues('used', undefined, NOW),
+      postage: '520',
+      shippingMaterialCost: 70,
+      excludesShippingMaterial: false,
+    };
+
+    expect(toSaveInput(values)).toMatchObject({
+      postage: 520,
+      shippingMaterialCost: 70,
+      excludesShippingMaterial: false,
+    });
+  });
+
+  it('控えは計算に入らない（伝票の金額は postage だけで決まる）', () => {
+    const values = {
+      ...newFormValues('used', undefined, NOW),
+      salesPrice: '1000',
+      postage: '520',
+      shippingMaterialCost: 70,
+      excludesShippingMaterial: false,
+      commission: 0,
+    };
+
+    // 1000 − 520 = 480。資材費 70 を二重に引かない
+    expect(netProfit(toCostInput(values))).toBeCloseTo(480);
   });
 });

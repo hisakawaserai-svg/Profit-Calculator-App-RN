@@ -67,6 +67,8 @@ const base: SaveRecordInput = {
   siteName: '',
   // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
   photoFileName: null,
+  shippingMaterialCost: 0,
+  excludesShippingMaterial: false,
   tagIds: [],
 };
 

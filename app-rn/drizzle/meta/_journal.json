@@ -43,6 +43,13 @@
       "when": 1786524910116,
       "tag": "0005_dry_ted_forrester",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786604652874,
+      "tag": "0006_pale_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

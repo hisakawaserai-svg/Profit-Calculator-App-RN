@@ -186,6 +186,16 @@ export type SaveRecordInput = {
    */
   photoFileName: string | null;
   /**
+   * 選んだ送料プリセットの資材費の控えと、「専用資材を使わない」の状態（SPEC-V6 §3）。
+   *
+   * **金額そのものは postage が持つ**（資材費は含まれた形で入っている）ので、
+   * この 2 つは計算にも集計にも CSV にも入らない ── 記録を開き直したときに
+   * トグルを出すか／どちらに倒すかを決めるためだけの控え。
+   * 省略可にしないのは siteName / photoFileName と同じ理由（渡し忘れで静かに 0 に戻る）。
+   */
+  shippingMaterialCost: number;
+  excludesShippingMaterial: boolean;
+  /**
    * 付けるタグの id（SPEC-V4 §1.4）。空配列 = タグなし。
    *
    * **省略可にしない。** siteName と同じ理由で、保存経路が「渡し忘れて静かに全部外れる」
@@ -433,6 +443,9 @@ export function createRepository(
       // 写真はファイル名だけ（SPEC-V5 §1.3）。空文字は来ない想定だが、来ても
       // 「無い」に倒す ── 空文字のまま入ると uri() が壊れた URI を組み立てる
       photoFileName: input.photoFileName === '' ? null : input.photoFileName,
+      // 送料の内訳の控え（SPEC-V6 §3）。postage と違って計算には入らない
+      shippingMaterialCost: input.shippingMaterialCost,
+      excludesShippingMaterial: input.excludesShippingMaterial,
     };
   }
 

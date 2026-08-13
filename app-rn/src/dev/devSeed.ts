@@ -49,10 +49,16 @@ const MIN_PRESETS: Record<PresetType, number> = { shipping: 3, packaging: 3, sit
  * プリセットが消されているときに補う既定値。マイグレーション 0002 の初期値と同じ考え方で、
  * 配送サービスの商標を使わず、サイズと形状で表す。
  */
-const FALLBACK_PRESETS: Record<PresetType, readonly { name: string; value: number }[]> = {
+const FALLBACK_PRESETS: Record<
+  PresetType,
+  readonly { name: string; value: number; materialCost?: number }[]
+> = {
+  // 専用の箱を買わないと使えない配送方法（SPEC-V6 §1）を 2 つ混ぜる ──
+  // 資材費のあるプリセットが無いと、記録側のトグルを確かめられない
   shipping: [
     { name: 'A4・厚さ3cm以内', value: 210 },
-    { name: '専用箱（小）', value: 450 },
+    { name: '専用箱（小）', value: 450, materialCost: 70 },
+    { name: '専用箱（中）', value: 700, materialCost: 100 },
     { name: '宅配 80サイズ', value: 850 },
     { name: '宅配 100サイズ', value: 1050 },
   ],
@@ -103,6 +109,7 @@ function ensurePresets(type: PresetType, created: { count: number }) {
         value: preset.value,
         packQuantity: 0,
         packPrice: 0,
+        materialCost: preset.materialCost ?? 0,
       }),
     );
 
@@ -145,7 +152,10 @@ export function insertDevSeed(): DevSeedSummary {
   const tagIds = ensureTags(createdTags);
 
   const sources: DevSeedSources = {
-    shippingValues: shipping.map((preset) => preset.value),
+    shippings: shipping.map((preset) => ({
+      value: preset.value,
+      materialCost: preset.materialCost,
+    })),
     packagingValues: packaging.map((preset) => preset.value),
     sites: sites.map((preset) => ({ name: preset.name, commission: preset.value })),
     tagIds,

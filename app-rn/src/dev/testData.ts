@@ -15,6 +15,7 @@
 import type { SaveRecordInput } from '@/db/repository';
 import type { RecordKind } from '@/db/schema';
 import { netProfit } from '@/logic/profit';
+import { shippingPresetTotal, type ShippingPresetAmounts } from '@/logic/shippingMaterial';
 
 /**
  * 投入した行の目印。記録・タグ・プリセットの id の先頭に付ける。
@@ -57,6 +58,14 @@ const POSTAGE_LOSS_SLOTS = new Set([6, 19, 41]);
 
 /** 収支がちょうど 0 円になる 1 件。手数料 0・不用品にして端数が出ないようにする */
 const ZERO_PROFIT_SLOT = 33;
+
+/**
+ * 「専用資材を使わない」を立てる通し番号（3 件。SPEC-V6 §3）。
+ * どれも販売済み・特別扱いのない枠から選ぶ ── 赤字や 0 円ちょうどの枠と重ねると、
+ * 資材費を引いたぶんで狙った収支から外れる。
+ * **資材費のあるプリセットが 1 つも無ければ立たない**（既存のプリセットだけで足りている環境）。
+ */
+const MATERIAL_EXCLUDED_SLOTS = new Set([4, 21, 36]);
 
 /** 1 万円超の高額（6 件）。一覧・グラフで桁の大きい行を確かめるため */
 const HIGH_PRICE_SLOTS = new Set([1, 15, 22, 25, 36, 44]);
@@ -144,8 +153,11 @@ const MEMOS = [
  * ここで受け取るのは id ではなく値そのもの。
  */
 export type DevSeedSources = {
-  /** 送料プリセットの値（円）。1 件以上 */
-  shippingValues: readonly number[];
+  /**
+   * 送料プリセット（円）。**送料と専用資材の代金の 2 つ**（SPEC-V6 §1）──
+   * 記録に入るのは合計（資材を使わない記録だけ送料のみ）なので、片方だけでは組み立てられない。
+   */
+  shippings: readonly ShippingPresetAmounts[];
   /** 梱包材プリセットの値（円）。1 件以上 */
   packagingValues: readonly number[];
   /** 販売サイトプリセットの名前と手数料率（%）。1 件以上・率は 0〜50 */
@@ -230,7 +242,42 @@ type Amounts = {
   postage: number;
   envelopeCost: number;
   othersCost: number;
+  /** 送料の内訳の控え（SPEC-V6 §3）。postage には既に含まれている（使わない記録を除く） */
+  shippingMaterialCost: number;
+  excludesShippingMaterial: boolean;
 };
+
+/** 送料 1 件ぶんの決め方（SPEC-V6 §3）。postage・控え・トグルの 3 つは必ず一緒に決まる */
+type Shipping = Pick<Amounts, 'postage' | 'shippingMaterialCost' | 'excludesShippingMaterial'>;
+
+/**
+ * 送料を 1 つ選ぶ。**「専用資材を使わない」の枠だけは資材費のあるプリセットを当てる** ──
+ * 資材費 0 円の記録でトグルを立てても、画面には出ない（showsShippingMaterialToggle）ので
+ * 確かめる材料にならない。
+ */
+function shippingFor(index: number, sources: DevSeedSources, highest = false): Shipping {
+  const withMaterial = sources.shippings.filter((preset) => preset.materialCost > 0);
+  if (MATERIAL_EXCLUDED_SLOTS.has(index) && withMaterial.length > 0) {
+    const preset = pick(withMaterial);
+    // 使わないので送料だけ。控えは残す（編集で開いたときにトグルが出る）
+    return {
+      postage: preset.value,
+      shippingMaterialCost: preset.materialCost,
+      excludesShippingMaterial: true,
+    };
+  }
+
+  const preset = highest
+    ? sources.shippings.reduce((max, current) =>
+        shippingPresetTotal(current) > shippingPresetTotal(max) ? current : max,
+      )
+    : pick(sources.shippings);
+  return {
+    postage: shippingPresetTotal(preset),
+    shippingMaterialCost: preset.materialCost,
+    excludesShippingMaterial: false,
+  };
+}
 
 function profitOf(amounts: Amounts, commission: number): number {
   return netProfit({ ...amounts, commission });
@@ -243,11 +290,17 @@ function profitOf(amounts: Amounts, commission: number): number {
  * プリセットの値が小さいときはその他費用で 500 円まで押し上げる（売上の下限に合わせる）。
  */
 function zeroProfitAmounts(sources: DevSeedSources): Amounts {
-  const postage = Math.max(...sources.shippingValues);
+  const shipping = shippingFor(ZERO_PROFIT_SLOT, sources, true);
   const envelopeCost = Math.max(...sources.packagingValues);
-  const base = postage + envelopeCost;
+  const base = shipping.postage + envelopeCost;
   const othersCost = base >= 500 ? 0 : 500 - base;
-  return { salesPrice: base + othersCost, purchasePrice: 0, postage, envelopeCost, othersCost };
+  return {
+    salesPrice: base + othersCost,
+    purchasePrice: 0,
+    envelopeCost,
+    othersCost,
+    ...shipping,
+  };
 }
 
 function baseSalesPrice(index: number): number {
@@ -272,9 +325,9 @@ function buildAmounts(
     const amounts: Amounts = {
       salesPrice,
       purchasePrice: 0,
-      postage: Math.max(...sources.shippingValues),
       envelopeCost: envelopeCostFrom(sources.packagingValues),
       othersCost: 0,
+      ...shippingFor(index, sources, true),
     };
     // プリセットの値が小さくて黒字のままなら、確実に赤字になるまでその他費用を足す
     const profit = profitOf(amounts, commission);
@@ -287,9 +340,9 @@ function buildAmounts(
     return {
       salesPrice,
       purchasePrice: round100(salesPrice * (1.2 + Math.random() * 0.4)),
-      postage: pick(sources.shippingValues),
       envelopeCost: envelopeCostFrom(sources.packagingValues),
       othersCost: othersCostSample(),
+      ...shippingFor(index, sources),
     };
   }
 
@@ -297,9 +350,9 @@ function buildAmounts(
     salesPrice,
     purchasePrice:
       kind === 'sourced' ? Math.max(100, round100(salesPrice * (0.2 + Math.random() * 0.25))) : 0,
-    postage: pick(sources.shippingValues),
     envelopeCost: envelopeCostFrom(sources.packagingValues),
     othersCost: othersCostSample(),
+    ...shippingFor(index, sources),
   };
 
   // 赤字は「混ぜる」と決めた 6 件だけにする（安い品に高い送料が当たると偶然赤字になり得る）。

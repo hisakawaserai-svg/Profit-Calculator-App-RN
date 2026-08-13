@@ -59,6 +59,13 @@ export type RecordFormValues = {
    */
   photoFileName: string | null;
   /**
+   * 選んだ送料プリセットの資材費の控え（SPEC-V6 §3）。**入力欄ではない** ──
+   * 送料プリセットを選んだ瞬間に入り、手で触る口はない。0 = トグルを出さない。
+   */
+  shippingMaterialCost: number;
+  /** 「専用資材を使わない」（SPEC-V6 §3）。false = 資材費を含める（既定） */
+  excludesShippingMaterial: boolean;
+  /**
    * 付けるタグの id（SPEC-V4 §3.1）。**空配列でも保存できる**（§0：必須にしない）。
    *
    * 並びは `tags.sortOrder` 昇順（§1.5）── 選択シートは一覧の並びのままチェックを付けるので、
@@ -121,6 +128,10 @@ export function newFormValues(
     // 写真は常に「無し」から始まる（SPEC-V5 §3.4）。計算タブに写真の欄は無いので、
     // siteName のように引き継ぐ元も無い（InitialAmounts が持たないのはそのため）
     photoFileName: null,
+    // 送料は計算タブから金額だけを引き継ぐ（プリセットの選択そのものは引き継がない）ので、
+    // 控えは常に 0 から始まる ＝ トグルは出ない（SPEC-V6 §3）
+    shippingMaterialCost: 0,
+    excludesShippingMaterial: false,
     // タグは常に 0 件から始まる（SPEC-V4 §3.4 / 決定 §9-4）。計算タブにはタグ行が無いので、
     // siteName のように引き継ぐ元も無い ── InitialAmounts が tagIds を持たないのはそのため
     tagIds: [],
@@ -168,6 +179,9 @@ export function recordToFormValues(
     siteName: record.siteName,
     // 編集は保存済みの写真から始まる（SPEC-V5 §3.1）
     photoFileName: record.photoFileName,
+    // 保存済みの控えをそのまま戻す（SPEC-V6 §3）。これでトグルの有無も向きも復元される
+    shippingMaterialCost: record.shippingMaterialCost,
+    excludesShippingMaterial: record.excludesShippingMaterial,
     tagIds: [...tagIds],
   };
 }
@@ -240,6 +254,9 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     // 写真（SPEC-V5 §1.3）。**古いファイルを消すのは repository の責務**（§1.5）──
     // ここは「保存後に何が正か」を渡すだけで、差し替えの前後の比較はしない
     photoFileName: values.photoFileName,
+    // 送料の内訳の控え（SPEC-V6 §3）。postage には既に含まれた形で入っている
+    shippingMaterialCost: values.shippingMaterialCost,
+    excludesShippingMaterial: values.excludesShippingMaterial,
     // タグ（SPEC-V4 §1.4 / §3.1）。**中間テーブルは全消し → 入れ直し**なので、
     // ここが空配列ならその記録からタグが全部外れる。SaveRecordInput 側を省略可に
     // しないのは「渡し忘れて静かに全部外れる」を防ぐため

@@ -7,6 +7,7 @@ import m0002 from './0002_dusty_blink.sql';
 import m0003 from './0003_loose_thor.sql';
 import m0004 from './0004_true_ronan.sql';
 import m0005 from './0005_dry_ted_forrester.sql';
+import m0006 from './0006_pale_crusher_hogan.sql';
 
   export default {
     journal,
@@ -16,7 +17,8 @@ m0001,
 m0002,
 m0003,
 m0004,
-m0005
+m0005,
+m0006
     }
   }
   

@@ -10,12 +10,15 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { PresetType } from '@/db/schema';
-import { presetValueText } from '@/logic/labels';
+import { presetValueText, shippingMaterialRowNote } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 import { PresetBadge } from './PresetBadge';
 
-/** UI-SPEC §1.1-5 の行高 60px より詰める。1 行に文字が 1 段しかないため */
+/**
+ * UI-SPEC §1.1-5 の行高 60px より詰める。1 行に文字が 1 段しかないため。
+ * **最低の高さ**にしてあるのは、資材費のある送料プリセット（SPEC-V6 §1）だけ 2 段になるため。
+ */
 const ROW_HEIGHT = 48;
 
 /**
@@ -28,6 +31,11 @@ export type PresetRowValues = {
   initial: string;
   colorKey: string;
   value: number;
+  /**
+   * 専用資材の代金（SPEC-V6 §1）。送料プリセットだけが持ち、0 なら無いのと同じ。
+   * 省略できるのは、この行を保存前の入力（プレビュー）からも描くため。
+   */
+  materialCost?: number;
 };
 
 type Props = {
@@ -41,15 +49,29 @@ type Props = {
 export function PresetRow({ preset, namePlaceholder, accessory }: Props) {
   const colors = useThemeColors();
   const isPlaceholder = preset.name.length === 0 && namePlaceholder != null;
+  const materialCost = preset.materialCost ?? 0;
+  // 資材費のある送料プリセットだけ、名前の下に「選ぶと入る額」を小さく足す（SPEC-V6 §1）──
+  // 右端の金額（送料）だけを見て選ぶと、記録に入る額と食い違う
+  const materialNote =
+    preset.type === 'shipping' && materialCost > 0
+      ? shippingMaterialRowNote(materialCost, preset.value + materialCost)
+      : null;
 
   return (
     <View style={styles.row}>
       <PresetBadge preset={preset} />
-      <Text
-        style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
-        numberOfLines={1}>
-        {isPlaceholder ? namePlaceholder : preset.name}
-      </Text>
+      <View style={styles.body}>
+        <Text
+          style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
+          numberOfLines={1}>
+          {isPlaceholder ? namePlaceholder : preset.name}
+        </Text>
+        {materialNote != null && (
+          <Text style={[styles.materialNote, { color: colors.secondaryLabel }]} numberOfLines={1}>
+            {materialNote}
+          </Text>
+        )}
+      </View>
       <Text style={[styles.value, { color: colors.secondaryLabel }]} numberOfLines={1}>
         {presetValueText(preset.type, preset.value)}
       </Text>
@@ -63,11 +85,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    height: ROW_HEIGHT,
+    minHeight: ROW_HEIGHT,
+    paddingVertical: 4,
+  },
+  // 名前と（あれば）資材費の 1 行を積む列。行の高さは資材費のある行だけ伸びる
+  body: {
+    flex: 1,
+    gap: 2,
   },
   name: {
-    flex: 1,
     fontSize: 16,
+  },
+  materialNote: {
+    fontSize: 12,
   },
   value: {
     fontSize: 16,

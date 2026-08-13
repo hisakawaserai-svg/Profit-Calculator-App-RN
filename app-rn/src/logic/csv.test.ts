@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SaleRecord } from '@/db/schema';
+import { ENVELOPE_COST_LABEL, POSTAGE_LABEL } from '@/logic/labels';
 
 import {
   buildCsv,
@@ -38,6 +39,8 @@ const record = (over: Partial<SaleRecord> = {}): SaleRecord => ({
   siteName: '',
   // 商品写真（SPEC-V5 §1.3）。CSV には出さないので、csv.ts の期待値は変わらない
   photoFileName: null,
+  shippingMaterialCost: 0,
+  excludesShippingMaterial: false,
   ...over,
 });
 
@@ -471,5 +474,63 @@ describe('§5.9 プレビューと書き出しが同じデータを見る（案 
   it('limit を渡さなければ全行', () => {
     const table = buildCsvTable({ kind: 'tax', grouping: 'record', records });
     expect(table.rows).toHaveLength(records.length);
+  });
+});
+
+describe('SPEC-V6 §4 送料に含まれる専用資材の代金', () => {
+  it('資材費は送料の列に含まれた額で出る（梱包材の列には入らない）', () => {
+    // 送料 450 ＋ 専用資材 70 を選んだ記録。postage が総額（520）で、控えは 70
+    const target = record({
+      postage: 520,
+      shippingMaterialCost: 70,
+      envelopeCost: 30,
+      salesPrice: 1000,
+      commission: 0,
+      isSold: true,
+      saleDate: '2026-08-09T12:00:00.000',
+    });
+
+    const backup = buildCsvTable({ kind: 'backup', grouping: 'record', records: [target] });
+    const postageIndex = backup.header.indexOf(POSTAGE_LABEL);
+    const envelopeIndex = backup.header.indexOf(ENVELOPE_COST_LABEL);
+
+    expect(backup.rows[0][postageIndex]).toBe('520');
+    expect(backup.rows[0][envelopeIndex]).toBe('30');
+  });
+
+  it('確定申告用でも同じ（列の並びが違うだけで額は同じ）', () => {
+    const target = record({
+      postage: 520,
+      shippingMaterialCost: 70,
+      envelopeCost: 30,
+      salesPrice: 1000,
+      commission: 0,
+      isSold: true,
+      saleDate: '2026-08-09T12:00:00.000',
+    });
+
+    const tax = buildCsvTable({ kind: 'tax', grouping: 'record', records: [target] });
+    const postageIndex = tax.header.indexOf(POSTAGE_LABEL);
+
+    expect(tax.rows[0][postageIndex]).toBe('520');
+  });
+
+  it('「専用資材を使わない」の記録は送料だけが出る（控えは列に出ない）', () => {
+    const target = record({
+      postage: 450,
+      shippingMaterialCost: 70,
+      excludesShippingMaterial: true,
+      salesPrice: 1000,
+      commission: 0,
+      isSold: true,
+      saleDate: '2026-08-09T12:00:00.000',
+    });
+
+    const backup = buildCsvTable({ kind: 'backup', grouping: 'record', records: [target] });
+    const postageIndex = backup.header.indexOf(POSTAGE_LABEL);
+
+    expect(backup.rows[0][postageIndex]).toBe('450');
+    // 控えそのものの列は無い（18 列のまま）
+    expect(backup.header).toHaveLength(18);
   });
 });

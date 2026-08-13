@@ -56,6 +56,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   siteName: '',
   // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
   photoFileName: null,
+  shippingMaterialCost: 0,
+  excludesShippingMaterial: false,
   // タグ（SPEC-V4 §1.4）。集計テストではタグを付けないので空配列
   tagIds: [],
 };

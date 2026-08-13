@@ -62,6 +62,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   siteName: '',
   // 商品写真（SPEC-V5 §1.3）。null = 写真なし。写真を見る describe 群だけが上書きする
   photoFileName: null,
+  shippingMaterialCost: 0,
+  excludesShippingMaterial: false,
   // タグ（SPEC-V4 §1.4）。タグを使う describe 群は自前で上書きする
   tagIds: [],
 };
@@ -1150,7 +1152,11 @@ describe('SPEC-V5 §2.1 マイグレーション: photo_file_name 列の追加',
                  '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'メルカリ')`,
       )
       .run('id-0', '既存の記録');
-    for (const statement of migrationSql(journal.entries[5].tag)) sqlite.exec(statement);
+    // 0005 以降を最後まで流す ── repository は**今のスキーマ**で読むので、
+    // あとから足した列（SPEC-V6 の 0006 など）が無いと SELECT が通らない
+    for (const entry of journal.entries.slice(5)) {
+      for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
+    }
     return sqlite;
   }
 
@@ -1282,5 +1288,77 @@ describe('SPEC-V5 §1.5 写真の実体の後始末', () => {
     const created = repo.create({ ...withPhoto(null), photoFileName: '' });
 
     expect(repo.getById(created.id)?.photoFileName).toBeNull();
+  });
+});
+
+describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
+  /** 0005 までを流した「資材費の列がない状態」に行を入れてから 0006 を流す */
+  function migrateWithRows() {
+    const sqlite = newDatabase(5);
+    sqlite
+      .prepare(
+        `INSERT INTO sale_records
+           (id, item_name, sales_price, purchase_price, postage, envelope_cost, others_cost,
+            commission, is_sold, sale_start_date, sale_date, memo, kind, site_name)
+         VALUES (?, ?, 1000, 300, 175, 20, 5, 10, 1,
+                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'メルカリ')`,
+      )
+      .run('id-0', '既存の記録');
+    sqlite
+      .prepare(
+        `INSERT INTO presets (id, type, name, color_key, initial, value, pack_quantity, pack_price, sort_order)
+         VALUES ('mine', 'shipping', '自分の送料', 'blue', '自', 450, 0, 0, 99)`,
+      )
+      .run();
+    for (const statement of migrationSql(journal.entries[6].tag)) sqlite.exec(statement);
+    return sqlite;
+  }
+
+  it('既存のプリセットは資材費 0 円になり、送料は変わらない（§1）', () => {
+    const row = migrateWithRows()
+      .prepare(`SELECT value, material_cost AS materialCost FROM presets WHERE id = 'mine'`)
+      .get();
+
+    expect(row).toEqual({ value: 450, materialCost: 0 });
+  });
+
+  it('初期プリセット（0002 の seed）も送料はそのまま・資材費 0 円', () => {
+    const rows = migrateWithRows()
+      .prepare(
+        `SELECT value, material_cost AS materialCost FROM presets
+         WHERE type = 'shipping' AND id LIKE 'seed-%'`,
+      )
+      .all() as { value: number; materialCost: number }[];
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.materialCost).toBe(0);
+  });
+
+  it('既存の記録の金額は 1 円も動かない（送料も書き換えない。§1 の制約）', () => {
+    const row = migrateWithRows().prepare('SELECT * FROM sale_records').get() as Record<
+      string,
+      unknown
+    >;
+
+    expect(row).toMatchObject({
+      sales_price: 1000,
+      purchase_price: 300,
+      postage: 175,
+      envelope_cost: 20,
+      others_cost: 5,
+      commission: 10,
+      shipping_material_cost: 0,
+      excludes_shipping_material: 0,
+    });
+  });
+
+  it('列を足したあとも、既存の行を repository から読めて計算も変わらない', () => {
+    const repo = createRepository(drizzle(migrateWithRows(), { schema }), recordDeps());
+    const record = repo.getById('id-0');
+
+    expect(record?.shippingMaterialCost).toBe(0);
+    expect(record?.excludesShippingMaterial).toBe(false);
+    // 1000 − (300 + 175 + 20 + 5 + 100) = 400。資材費の列は計算に入らない
+    expect(netProfit(record!)).toBeCloseTo(400);
   });
 });
