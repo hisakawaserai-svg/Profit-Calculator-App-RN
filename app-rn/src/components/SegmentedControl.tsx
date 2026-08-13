@@ -1,7 +1,14 @@
 // SwiftUI の Picker(.segmented) 相当。
 // @expo/ui の segmented Picker は SwiftUI 専用で Android に載らないため、
 // 将来の Android 対応（SPEC §7-14）を見据えて RN プリミティブで実装する。
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { useThemeColors } from '@/theme';
 
@@ -21,14 +28,34 @@ type Props = {
    * 「どの行のどちらが効いているか」が一目で 1 か所に定まらない。
    */
   tone?: 'default' | 'accent';
+  /**
+   * 器の寸法の上書き（採用案 45b の「高さ 34pt・幅 212pt」）。
+   *
+   * 既定の高さは中の文字から決まる（余白 2 ＋ 上下 7 ＋ 14px の行）ので、
+   * 34pt ちょうど・幅を固定にしたい場所だけがここを使う ── 行の中に埋め込む 2 択は、
+   * 隣の行と縦のリズムを合わせるために寸法そのものを指定する必要がある。
+   */
+  containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * セグメントの上下に足す当たり判定（45b）。**見た目は 34pt のまま親指で押せるようにする** ──
+   * 44pt の高さを取ると行が縦に伸び、1 枚のシートに並ぶ行数が減る。
+   */
+  hitSlopVertical?: number;
 };
 
-export function SegmentedControl({ options, selectedIndex, onChange, tone = 'default' }: Props) {
+export function SegmentedControl({
+  options,
+  selectedIndex,
+  onChange,
+  tone = 'default',
+  containerStyle,
+  hitSlopVertical,
+}: Props) {
   const colors = useThemeColors();
   const accent = tone === 'accent';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.disabledBackground }]}>
+    <View style={[styles.container, { backgroundColor: colors.disabledBackground }, containerStyle]}>
       {options.map((option, index) => {
         const selected = index === selectedIndex;
         // 青地の上だけ白。それ以外は、非アクティブを一段落として「効いている 1 つ」を立てる
@@ -41,6 +68,7 @@ export function SegmentedControl({ options, selectedIndex, onChange, tone = 'def
           <Pressable
             key={option}
             onPress={() => onChange(index)}
+            hitSlop={hitSlopVertical == null ? undefined : { top: hitSlopVertical, bottom: hitSlopVertical }}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             style={[

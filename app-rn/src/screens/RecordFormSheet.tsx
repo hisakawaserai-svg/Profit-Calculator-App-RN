@@ -37,7 +37,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -59,8 +58,7 @@ import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
 import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import {
   selectShippingPreset,
-  setExcludesShippingMaterial,
-  showsShippingMaterialToggle,
+  type ShippingMaterialChoice,
 } from '@/logic/shippingMaterial';
 import { saveRecord } from '@/db/useRecords';
 import { useRecordTagIds, useTagList } from '@/db/useTags';
@@ -70,7 +68,6 @@ import {
   EDIT_RECORD_TITLE,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   ENVELOPE_COST_LABEL,
-  EXCLUDE_SHIPPING_MATERIAL_LABEL,
   ITEM_NAME_CAPTION,
   ITEM_NAME_LABEL,
   ITEM_NAME_PLACEHOLDER,
@@ -97,8 +94,6 @@ import {
   deductionLabel,
   memoSectionLabel,
   profitLabel,
-  shippingMaterialExcludedNote,
-  shippingMaterialIncludedNote,
   soldDateNotes,
   switchStatusLabel,
   todayDateLabel,
@@ -277,17 +272,12 @@ function RecordForm({
   };
 
   /**
-   * 送料プリセットを選んだとき（SPEC-V6 §3）。**既定で合計（送料 ＋ 専用資材）が入る。**
-   * 資材費の控えとトグルの向きも一緒に置き換える ── 選び直したときに前のプリセットの
-   * 資材費が残っていると、トグルが別の額を出し入れすることになる。
+   * 送料プリセットを選んだとき（採用案 45b）。**シートで選んだ側がそのまま入る**
+   * （既定は「＋資材」）。資材費の控えも一緒に置き換える ── 選び直したときに
+   * 前のプリセットの控えが残っていると、記録が別の資材費を覚えたままになる。
    */
-  const selectShipping = (preset: Preset) => {
-    setValues((current) => ({ ...current, ...selectShippingPreset(preset) }));
-  };
-
-  /** トグル（SPEC-V6 §3）。金額の増減は純粋関数に任せ、ここは state を差し替えるだけ */
-  const changeExcludesShippingMaterial = (excludes: boolean) => {
-    setValues((current) => ({ ...current, ...setExcludesShippingMaterial(current, excludes) }));
+  const selectShipping = (preset: Preset, choice: ShippingMaterialChoice) => {
+    setValues((current) => ({ ...current, ...selectShippingPreset(preset, choice) }));
   };
 
   /**
@@ -473,17 +463,6 @@ function RecordForm({
             // 押しても何も起きないように見えるリンクは出さない（PresetPickerSheet 参照）
             canOpenSettings={false}
           />
-
-          {/* 8a. 「専用資材を使わない」（SPEC-V6 §3）。**資材費のあるプリセットを選んだときだけ出す** ──
-              資材費 0 円の記録では押しても金額が動かず、壊れたスイッチに見える。
-              番号を 8a にしてあるのは、他の番号が UI-SPEC §1.3-N を指しているため */}
-          {showsShippingMaterialToggle(values) && (
-            <ShippingMaterialRow
-              materialCost={values.shippingMaterialCost}
-              excludes={values.excludesShippingMaterial}
-              onChange={changeExcludesShippingMaterial}
-            />
-          )}
 
           {/* 9. 手数料。他の行と違って入れるのは「率」で、伝票に載るのはそこから出た「額」。
               率の ± は行名と額の間に置き、行の形（左が名前・右が金額）を崩さない */}
@@ -724,47 +703,6 @@ function TagSection({
 }
 
 /**
- * 「専用資材を使わない」の行（SPEC-V6 §3）。送料の行の直下に置く。
- *
- * **伝票カードの中に置く**のは、押すと送料の金額がその場で動くため ── 金額が変わる操作は、
- * 変わる先（送料の行）と同じ面にないと、何が起きたのか目で追えない。
- *
- * 2 択のセグメント（金額の入れ方など）ではなく**スイッチ**にしたのは、これが
- * 「どちらか 1 つを選ぶ」ではなく**既定のある on/off** だから ── 既定（含める）のままの人が
- * 大多数で、押すのは例外のとき。下の 1 行が、いま送料にいくら含まれているかを言う。
- */
-function ShippingMaterialRow({
-  materialCost,
-  excludes,
-  onChange,
-}: {
-  materialCost: number;
-  excludes: boolean;
-  onChange: (excludes: boolean) => void;
-}) {
-  const colors = useThemeColors();
-  const amount = formatYen(materialCost);
-
-  return (
-    <View style={styles.materialSection}>
-      <View style={styles.materialRow}>
-        <Text style={[styles.materialLabel, { color: colors.label }]}>
-          {EXCLUDE_SHIPPING_MATERIAL_LABEL}
-        </Text>
-        <Switch
-          value={excludes}
-          onValueChange={onChange}
-          accessibilityLabel={EXCLUDE_SHIPPING_MATERIAL_LABEL}
-        />
-      </View>
-      <Text style={[styles.materialNote, { color: colors.secondaryLabel }]}>
-        {excludes ? shippingMaterialExcludedNote(amount) : shippingMaterialIncludedNote(amount)}
-      </Text>
-    </View>
-  );
-}
-
-/**
  * 伝票カードの見出し行（UI-SPEC §1.3-3 / 設計案 4b）。
  * 左が今の状態（ドット＋語）、右が切替リンク。上端に 2 択ボタンを置かないのは、
  * 金額の流れの前に無関係な操作が挟まるため（設計案ターン 4 の結論）。
@@ -938,25 +876,6 @@ const styles = StyleSheet.create({
   commissionValue: {
     flex: 1,
     textAlign: 'right',
-  },
-  // 送料の行の直下に続ける（SPEC-V6 §3）。行と行のあいだの間隔は伝票の他の行と同じ
-  materialSection: {
-    gap: 4,
-    // 送料の行の下に「くっついている」ことを、上だけ詰めることで示す
-    marginTop: -6,
-  },
-  materialRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  materialLabel: {
-    flexShrink: 1,
-    fontSize: 15,
-  },
-  materialNote: {
-    fontSize: 12,
   },
   packingSummary: {
     fontSize: 15,

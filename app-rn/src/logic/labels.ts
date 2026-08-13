@@ -1170,21 +1170,18 @@ export const SHIPPING_TOTAL_LABEL = '合計';
 export const SHIPPING_TOTAL_NOTE = '記録でこのプリセットを選ぶと、この合計が送料に入ります。';
 
 /**
- * 記録フォームのトグル（§3）。**否定形なのは既定が「含める」だから** ──
- * 資材の要る配送方法では買わずに送れないので、含めるほうが多数派。
- * 例外（在庫が家にある・前に買ったぶんが余っている）を押して外す形にする。
+ * 選択シートの行に埋め込む 2 択（採用案 45b）。**並びは「送料のみ」→「＋資材」。**
+ *
+ * 記録フォーム側のトグル（旧「専用資材を使わない」）を置き換えたもの ── 選ぶ場所と
+ * 資材を決める場所が 2 つに分かれていたのをやめ、選択と同時に決める形にした。
+ *
+ * 右側が**金額を持つ**（「＋資材 100円」）のは、押した結果いくら増えるのかを
+ * 押す前に読めるようにするため。左は増えない側なので額を持たない。
+ * 既定（行そのものを押したとき）は右 ＝ 資材を使う側。
  */
-export const EXCLUDE_SHIPPING_MATERIAL_LABEL = `${SHIPPING_MATERIAL_LABEL}を使わない`;
-
-/**
- * トグルの下の 1 行（§3）。いま送料にいくら含まれているかを言う ──
- * 送料の欄には合計しか出ないので、内訳はここでしか読めない。
- */
-export function shippingMaterialIncludedNote(amount: string): string {
-  return `${SHIPPING_MATERIAL_LABEL} ${amount} を含めた金額です`;
-}
-export function shippingMaterialExcludedNote(amount: string): string {
-  return `${SHIPPING_MATERIAL_LABEL} ${amount} を除いた金額です`;
+export const SHIPPING_ONLY_LABEL = '送料のみ';
+export function withShippingMaterialLabel(amount: string): string {
+  return `＋資材 ${amount}`;
 }
 
 export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';

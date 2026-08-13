@@ -4,6 +4,15 @@
 // プリセットは送料（value）と資材費（materialCost）を**別々に持ち**、記録に入れるときに
 // 足す ── 合算した 1 つの値で持つと、「今回は資材を使わない」をあとから引き算できない。
 //
+// ## 選ぶのはシートの中（採用案 45b）
+//
+// 資材費のあるプリセットの行には**セグメント 2 択**（「送料のみ」/「＋資材 100円」）が出て、
+// **選択と資材の有無が 1 タップで同時に決まる**。記録フォーム側のトグル（旧 §3）は廃止した ──
+// 「選んでから、別の場所でもう一度決める」形は、選ぶ時点で決められるなら余計な 1 手。
+//
+// **既定は「＋資材」**（行そのものを押したときもこちら）。資材費を登録してあるプリセットは、
+// その資材を使う前提で登録されているため。
+//
 // ## 記録の側が持つもの
 //
 // 記録は**プリセットを id で参照しない**（SPEC-V3 §1.5。値をコピーする）ので、
@@ -20,7 +29,6 @@
 // トグルの状態を postage から逆算しないのは、選んだあとに送料を手で直せるため ──
 // 「postage が資材費ぶん少ないか」では、手で直した記録と区別が付かない。
 
-import { parseNumericInput } from './input';
 import { amountToInput } from './recordForm';
 
 /** プリセットのうち、この計算に要る 2 つだけ（テストから作りやすくするため） */
@@ -30,6 +38,12 @@ export type ShippingPresetAmounts = {
   /** 専用資材の代金（円）。0 = 資材の要らない配送方法 */
   materialCost: number;
 };
+
+/**
+ * 資材を使うか（採用案 45b のセグメント 2 択）。**既定は `'with-material'`。**
+ * 順番も「送料のみ → ＋資材」ではなく意味の順で持ち、並びはセグメント側が決める。
+ */
+export type ShippingMaterialChoice = 'with-material' | 'shipping-only';
 
 /**
  * 記録のフォームが持つ送料まわりの状態。**postage は入力中の文字列のまま**
@@ -55,47 +69,49 @@ export function hasShippingMaterial(preset: ShippingPresetAmounts): boolean {
 }
 
 /**
- * 記録の側にトグルを出すか（SPEC-V6 §3）。**控えが 0 なら出さない** ──
- * 資材費のないプリセットを選んだ場合と、プリセットを使わず手で入れた記録がこれに当たる。
+ * 選んだ側の金額（45b）。**シートの行の右端に出る額でもあり、欄に入る額でもある。**
+ * 同じ 1 本から取るので、押す前に見えていた数字とそのあと欄に入る数字が食い違わない。
  */
-export function showsShippingMaterialToggle(state: {
-  shippingMaterialCost: number;
-}): boolean {
-  return state.shippingMaterialCost > 0;
+export function shippingAmountFor(
+  preset: ShippingPresetAmounts,
+  choice: ShippingMaterialChoice,
+): number {
+  return choice === 'with-material' ? shippingPresetTotal(preset) : preset.value;
 }
 
 /**
- * 送料プリセットを選んだとき（SPEC-V6 §3）。**既定は「資材費を含める」**。
+ * いま欄に入っている額から、そのプリセットの**どちら側が選ばれているか**を引く（45b）。
+ * 一致しなければ null ＝ この行は選ばれていない（手で打った額・別のプリセット）。
  *
- * 資材の要る配送方法では、それを買わずに送ることはできない ── 含めるほうが多数派なので、
- * 追加のタップ 0 で合計が入る形にする。除くのは選んだあとにトグルで。
+ * 記録を開き直したときの復元もこれ 1 本で足りる ── 保存済みの postage は
+ * 選んだ側の額そのものなので、保存されている資材の有無がそのまま戻る。
+ * **合計の側を先に見る**のは、資材費 0 円のプリセットで両者が同じ額になるため
+ * （その行にセグメントは出ないので、どちらを返しても表示は変わらない）。
  */
-export function selectShippingPreset(preset: ShippingPresetAmounts): ShippingMaterialState {
-  return {
-    postage: amountToInput(shippingPresetTotal(preset)),
-    shippingMaterialCost: preset.materialCost,
-    excludesShippingMaterial: false,
-  };
+export function shippingMaterialChoiceOf(
+  preset: ShippingPresetAmounts,
+  value: number | null,
+): ShippingMaterialChoice | null {
+  if (value == null) return null;
+  if (shippingPresetTotal(preset) === value) return 'with-material';
+  if (preset.value === value) return 'shipping-only';
+  return null;
 }
 
 /**
- * 「専用資材を使わない」を押したとき（SPEC-V6 §3）。押した向きへ資材費ぶんだけ動かす。
+ * 送料プリセットを選んだとき（45b）。**シートで選んだ側をそのまま記録に写す。**
  *
- * **同じ向きに 2 度押しても二重に引かない**（状態が既にその向きなら何もしない）──
- * 画面はトグルなので普通は起きないが、ここが単調だと呼び出し側が順序を気にせずに済む。
- * 引いた結果が負になることはない（控えは選んだときに足した額そのもの）が、
- * 送料を手で小さく直したあとに押された場合に備えて 0 で止める。
+ * 控え（shippingMaterialCost）は選んだ側に関わらず必ず残す ── 開き直したときに
+ * セグメントを出すかどうかは、この控えではなくプリセットの側が決めるが、
+ * CSV に出ない「そのとき資材がいくらだったか」の記録としてここにしか残らない。
  */
-export function setExcludesShippingMaterial(
-  state: ShippingMaterialState,
-  excludes: boolean,
+export function selectShippingPreset(
+  preset: ShippingPresetAmounts,
+  choice: ShippingMaterialChoice = 'with-material',
 ): ShippingMaterialState {
-  if (state.excludesShippingMaterial === excludes) return state;
-
-  const current = parseNumericInput(state.postage);
-  const next = excludes
-    ? Math.max(0, current - state.shippingMaterialCost)
-    : current + state.shippingMaterialCost;
-
-  return { ...state, postage: amountToInput(next), excludesShippingMaterial: excludes };
+  return {
+    postage: amountToInput(shippingAmountFor(preset, choice)),
+    shippingMaterialCost: preset.materialCost,
+    excludesShippingMaterial: choice === 'shipping-only',
+  };
 }

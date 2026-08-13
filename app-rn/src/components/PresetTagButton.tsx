@@ -34,6 +34,7 @@ import type { Preset, PresetType } from '@/db/schema';
 import { usePresetList } from '@/db/usePresets';
 import { presetPickerTitle, presetTagStateLabel } from '@/logic/labels';
 import { resolvePresetTag } from '@/logic/preset';
+import type { ShippingMaterialChoice } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
 /** 行の中に収める大きさ。一覧の 28px より小さくして、数値と同じ行に並べても重くしない */
@@ -52,7 +53,11 @@ type Props = {
    * 選んでもいないのに出してしまう。手で率を変えても札が残るのも同じ理由（§1.5.1）。
    */
   selectedName?: string;
-  onSelect: (preset: Preset) => void;
+  /**
+   * 選んだ行と、送料の 2 択（採用案 45b）。`choice` は送料以外・資材費 0 円の行では
+   * 常に `'with-material'` ── 呼び出し側は送料のときだけ見ればよい。
+   */
+  onSelect: (preset: Preset, choice: ShippingMaterialChoice) => void;
   disabled?: boolean;
   /**
    * シート末尾の「設定で編集する ▸」を出すか（既定 true）。

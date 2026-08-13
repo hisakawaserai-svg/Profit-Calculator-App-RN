@@ -44,9 +44,14 @@ type Props = {
   namePlaceholder?: string;
   /** 行の右端（値のさらに右）に置くもの。一覧の「›」、編集モードの削除ボタン等 */
   accessory?: ReactNode;
+  /**
+   * 名前の下に積むもの（採用案 45b の 2 択）。**行の他の列は動かさない** ──
+   * バッジ・名前・右端の額の位置は、これがあってもなくても同じ場所に来る。
+   */
+  belowName?: ReactNode;
 };
 
-export function PresetRow({ preset, namePlaceholder, accessory }: Props) {
+export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Props) {
   const colors = useThemeColors();
   const isPlaceholder = preset.name.length === 0 && namePlaceholder != null;
   const materialCost = preset.materialCost ?? 0;
@@ -60,22 +65,27 @@ export function PresetRow({ preset, namePlaceholder, accessory }: Props) {
   return (
     <View style={styles.row}>
       <PresetBadge preset={preset} />
+      {/* バッジの右は 1 つの列。**名前と額は必ず同じ行**で、下に積むもの（資材費の 1 行・
+          45b の 2 択）はその下に来る ── 下に積むものがあっても、額と ✓ の位置は動かない */}
       <View style={styles.body}>
-        <Text
-          style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
-          numberOfLines={1}>
-          {isPlaceholder ? namePlaceholder : preset.name}
-        </Text>
+        <View style={styles.line}>
+          <Text
+            style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
+            numberOfLines={1}>
+            {isPlaceholder ? namePlaceholder : preset.name}
+          </Text>
+          <Text style={[styles.value, { color: colors.secondaryLabel }]} numberOfLines={1}>
+            {presetValueText(preset.type, preset.value)}
+          </Text>
+          {accessory}
+        </View>
         {materialNote != null && (
           <Text style={[styles.materialNote, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {materialNote}
           </Text>
         )}
+        {belowName}
       </View>
-      <Text style={[styles.value, { color: colors.secondaryLabel }]} numberOfLines={1}>
-        {presetValueText(preset.type, preset.value)}
-      </Text>
-      {accessory}
     </View>
   );
 }
@@ -88,12 +98,18 @@ const styles = StyleSheet.create({
     minHeight: ROW_HEIGHT,
     paddingVertical: 4,
   },
-  // 名前と（あれば）資材費の 1 行を積む列。行の高さは資材費のある行だけ伸びる
+  // 名前・額の行と、その下に積むものの列。行の高さは下に積むものがある行だけ伸びる
   body: {
     flex: 1,
-    gap: 2,
+    gap: 8,
+  },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   name: {
+    flex: 1,
     fontSize: 16,
   },
   materialNote: {

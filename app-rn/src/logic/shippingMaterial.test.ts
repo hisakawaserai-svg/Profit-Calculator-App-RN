@@ -3,10 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   hasShippingMaterial,
   selectShippingPreset,
-  setExcludesShippingMaterial,
+  shippingAmountFor,
+  shippingMaterialChoiceOf,
   shippingPresetTotal,
-  showsShippingMaterialToggle,
-  type ShippingMaterialState,
 } from './shippingMaterial';
 
 const withMaterial = { value: 450, materialCost: 70 };
@@ -26,21 +25,48 @@ describe('shippingPresetTotal', () => {
   });
 });
 
-describe('hasShippingMaterial / showsShippingMaterialToggle', () => {
-  it('資材費があるときだけ true', () => {
+describe('hasShippingMaterial', () => {
+  it('資材費があるときだけ true（＝この行にだけ 2 択を出す。45b）', () => {
     expect(hasShippingMaterial(withMaterial)).toBe(true);
     expect(hasShippingMaterial(withoutMaterial)).toBe(false);
   });
+});
 
-  it('記録側は控えの有無で決まる', () => {
-    expect(showsShippingMaterialToggle({ shippingMaterialCost: 70 })).toBe(true);
-    // 資材費のないプリセット・手入力の記録はどちらも 0
-    expect(showsShippingMaterialToggle({ shippingMaterialCost: 0 })).toBe(false);
+describe('shippingAmountFor', () => {
+  it('選んだ側の額を返す', () => {
+    expect(shippingAmountFor(withMaterial, 'with-material')).toBe(520);
+    expect(shippingAmountFor(withMaterial, 'shipping-only')).toBe(450);
+  });
+
+  it('資材費が 0 ならどちらでも同じ', () => {
+    expect(shippingAmountFor(withoutMaterial, 'with-material')).toBe(210);
+    expect(shippingAmountFor(withoutMaterial, 'shipping-only')).toBe(210);
+  });
+});
+
+describe('shippingMaterialChoiceOf', () => {
+  it('合計なら「＋資材」、送料そのものなら「送料のみ」', () => {
+    expect(shippingMaterialChoiceOf(withMaterial, 520)).toBe('with-material');
+    expect(shippingMaterialChoiceOf(withMaterial, 450)).toBe('shipping-only');
+  });
+
+  it('どちらとも違う額・空欄なら null（この行は選ばれていない）', () => {
+    expect(shippingMaterialChoiceOf(withMaterial, 500)).toBeNull();
+    expect(shippingMaterialChoiceOf(withMaterial, null)).toBeNull();
+  });
+
+  it('資材費 0 円では合計と送料が同じなので「＋資材」を返す（2 択は出ない行）', () => {
+    expect(shippingMaterialChoiceOf(withoutMaterial, 210)).toBe('with-material');
+  });
+
+  it('保存済みの記録の送料からそのまま復元できる（45b の復元）', () => {
+    const saved = selectShippingPreset(withMaterial, 'shipping-only');
+    expect(shippingMaterialChoiceOf(withMaterial, Number(saved.postage))).toBe('shipping-only');
   });
 });
 
 describe('selectShippingPreset', () => {
-  it('既定で合計が入り、控えを残す', () => {
+  it('既定（行そのものを押したとき）は「＋資材」で合計が入り、控えを残す', () => {
     expect(selectShippingPreset(withMaterial)).toEqual({
       postage: '520',
       shippingMaterialCost: 70,
@@ -68,48 +94,33 @@ describe('selectShippingPreset', () => {
   });
 });
 
-describe('setExcludesShippingMaterial', () => {
-  const selected: ShippingMaterialState = selectShippingPreset(withMaterial);
-
-  it('オンにすると資材費ぶん引く', () => {
-    expect(setExcludesShippingMaterial(selected, true)).toEqual({
+describe('selectShippingPreset（45b の 2 択）', () => {
+  it('「送料のみ」を選ぶと送料だけが入り、除外の印が付く', () => {
+    expect(selectShippingPreset(withMaterial, 'shipping-only')).toEqual({
       postage: '450',
       shippingMaterialCost: 70,
       excludesShippingMaterial: true,
     });
   });
 
-  it('オフに戻すと足し直す', () => {
-    const excluded = setExcludesShippingMaterial(selected, true);
-    expect(setExcludesShippingMaterial(excluded, false)).toEqual(selected);
+  it('「送料のみ」でも控えは残る（記録に「そのとき資材がいくらだったか」を残す）', () => {
+    expect(selectShippingPreset(withMaterial, 'shipping-only').shippingMaterialCost).toBe(70);
   });
 
-  it('同じ向きに 2 度押しても二重に引かない', () => {
-    const once = setExcludesShippingMaterial(selected, true);
-    expect(setExcludesShippingMaterial(once, true)).toBe(once);
+  it('選び直すと側も控えも入れ替わる', () => {
+    const first = selectShippingPreset(withMaterial, 'shipping-only');
+    const second = selectShippingPreset(withoutMaterial, 'with-material');
+    expect(first.excludesShippingMaterial).toBe(true);
+    expect(second).toEqual({
+      postage: '210',
+      shippingMaterialCost: 0,
+      excludesShippingMaterial: false,
+    });
   });
 
-  it('控えが 0 なら金額は動かない', () => {
-    const noMaterial = selectShippingPreset(withoutMaterial);
-    expect(setExcludesShippingMaterial(noMaterial, true).postage).toBe('210');
-  });
-
-  it('送料を手で小さく直したあとにオンにしても負にならない', () => {
-    const edited: ShippingMaterialState = { ...selected, postage: '50' };
-    expect(setExcludesShippingMaterial(edited, true).postage).toBe('');
-  });
-
-  it('送料を手で直しても、控えぶんの増減は保たれる', () => {
-    const edited: ShippingMaterialState = { ...selected, postage: '600' };
-    const excluded = setExcludesShippingMaterial(edited, true);
-    expect(excluded.postage).toBe('530');
-    expect(setExcludesShippingMaterial(excluded, false).postage).toBe('600');
-  });
-
-  it('小数の資材費でも往復して元に戻る', () => {
-    const fractional = selectShippingPreset({ value: 450, materialCost: 15.5 });
-    const excluded = setExcludesShippingMaterial(fractional, true);
-    expect(excluded.postage).toBe('450');
-    expect(setExcludesShippingMaterial(excluded, false).postage).toBe('465.5');
+  it('小数の資材費でも選んだ側の額がそのまま入る', () => {
+    const fractional = { value: 450, materialCost: 15.5 };
+    expect(selectShippingPreset(fractional, 'with-material').postage).toBe('465.5');
+    expect(selectShippingPreset(fractional, 'shipping-only').postage).toBe('450');
   });
 });

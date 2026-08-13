@@ -10,6 +10,11 @@
 //   （NumericField の onSubmit → sanitizeNumericInput）へ通す（§4.3）
 //
 // 複数選択（梱包材。§4.5）は電卓の中に置くので、この部品には入れていない（Step 4）。
+//
+// **資材費のある送料プリセットの行だけ、名前の下に 2 択が出る**（採用案 45b。SPEC-V6 §2）──
+// 「送料のみ / ＋資材 100円」。どちらを押しても、その場で**選択と資材の有無が同時に決まる**
+// （1 タップ）。行そのものを押したときは「＋資材」── 資材費を登録してあるプリセットは、
+// その資材を使う前提で登録されているため。
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -18,8 +23,12 @@ import { EmptyState } from '@/components/EmptyState';
 import { PresetRow } from '@/components/PresetRow';
 import { SheetModal } from '@/components/SheetModal';
 import type { Preset, PresetType } from '@/db/schema';
+import { SegmentedControl } from '@/components/SegmentedControl';
+import { formatUnitYen } from '@/logic/format';
 import {
   CLOSE_LABEL,
+  SHIPPING_ONLY_LABEL,
+  withShippingMaterialLabel,
   PRESET_PICKER_ADD_LINK,
   PRESET_PICKER_EDIT_LINK,
   PRESET_PICKER_EMPTY_TITLE,
@@ -28,16 +37,29 @@ import {
   presetPickerTitle,
 } from '@/logic/labels';
 import { findPresetByValue } from '@/logic/preset';
+import {
+  hasShippingMaterial,
+  shippingAmountFor,
+  shippingMaterialChoiceOf,
+  type ShippingMaterialChoice,
+} from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
 type Props = {
   visible: boolean;
   type: PresetType;
   presets: Preset[];
-  /** 今の欄の値。一致する行にチェックを付ける（§4.3-2）。空欄は null */
+  /**
+   * 今の欄の値。一致する行にチェックを付ける（§4.3-2）。空欄は null。
+   * 送料では**どちらの側（送料のみ / ＋資材）が効いているか**もこの値から決まる（45b）──
+   * 保存済みの記録を開き直したときの復元もこれで足りる（postage は選んだ側の額そのもの）。
+   */
   value: number | null;
-  /** 選んだ時点で呼ばれる。シートはこのあと自分で閉じる */
-  onSelect: (preset: Preset) => void;
+  /**
+   * 選んだ時点で呼ばれる。シートはこのあと自分で閉じる。
+   * `choice` は 45b の 2 択（送料以外・資材費 0 円の行では常に `'with-material'`）。
+   */
+  onSelect: (preset: Preset, choice: ShippingMaterialChoice) => void;
   /**
    * 設定タブへのリンク（§4.3-3）を出すか（既定 true）。
    *
@@ -101,33 +123,75 @@ export function PresetPickerSheet({
               />
             ) : (
               <View style={[styles.group, { backgroundColor: colors.secondaryBackground }]}>
-                {presets.map((preset, index) => (
-                  <View key={preset.id}>
-                    {index > 0 && (
-                      <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-                    )}
-                    <Pressable
-                      style={({ pressed }) => [styles.row, { opacity: pressed ? 0.5 : 1 }]}
-                      onPress={() => {
-                        onSelect(preset);
-                        close();
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: preset.id === checked?.id }}>
-                      <PresetRow
-                        preset={preset}
-                        accessory={
-                          preset.id === checked?.id ? (
-                            <Ionicons name="checkmark" size={18} color={colors.blue} />
-                          ) : (
-                            // チェックの有無で名前・値の位置がずれないよう、同じ幅を空けておく
-                            <View style={styles.checkPlaceholder} />
-                          )
-                        }
-                      />
-                    </Pressable>
-                  </View>
-                ))}
+                {presets.map((preset, index) => {
+                  const isChecked = preset.id === checked?.id;
+                  // 効いている側（45b）。選ばれていない行では null ＝ どちらも持ち上げない
+                  const choice = isChecked ? shippingMaterialChoiceOf(preset, value) : null;
+                  // 資材費のある送料プリセットだけ 2 択を出す（§2）。他は行の形を変えない
+                  const withSegment = hasShippingMaterial(preset);
+                  const select = (next: ShippingMaterialChoice) => {
+                    onSelect(preset, next);
+                    close();
+                  };
+
+                  return (
+                    <View key={preset.id}>
+                      {index > 0 && (
+                        <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                      )}
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.row,
+                          withSegment && styles.segmentRow,
+                          // 選択中の行は薄い青の下地（45b）。✓ だけより、どの行が効いているかが
+                          // 行の塊として読める ── 2 択の行では ✓ が名前と離れて見えるため
+                          isChecked && { backgroundColor: colors.highlightBackground },
+                          { opacity: pressed ? 0.5 : 1 },
+                        ]}
+                        // 行そのものを押したら「＋資材」で確定する（45b の既定）
+                        onPress={() => select('with-material')}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isChecked }}>
+                        <PresetRow
+                          preset={{
+                            ...preset,
+                            // 右端の額は**選んだ側の額**（45b）。選ばれていない行は登録した送料
+                            value: shippingAmountFor(preset, choice ?? 'shipping-only'),
+                            // 副題（「＋専用資材 …」）は 2 択が言うので出さない（45b）
+                            materialCost: 0,
+                          }}
+                          accessory={
+                            isChecked ? (
+                              <Ionicons name="checkmark" size={18} color={colors.blue} />
+                            ) : (
+                              // チェックの有無で名前・値の位置がずれないよう、同じ幅を空けておく
+                              <View style={styles.checkPlaceholder} />
+                            )
+                          }
+                          belowName={
+                            withSegment ? (
+                              <SegmentedControl
+                                options={[
+                                  SHIPPING_ONLY_LABEL,
+                                  withShippingMaterialLabel(formatUnitYen(preset.materialCost)),
+                                ]}
+                                selectedIndex={
+                                  choice == null ? null : choice === 'shipping-only' ? 0 : 1
+                                }
+                                onChange={(next) =>
+                                  select(next === 0 ? 'shipping-only' : 'with-material')
+                                }
+                                containerStyle={styles.segment}
+                                // 見た目は 34pt のまま、親指で押せる高さ（46pt）にする
+                                hitSlopVertical={6}
+                              />
+                            ) : undefined
+                          }
+                        />
+                      </Pressable>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -186,6 +250,16 @@ const styles = StyleSheet.create({
   },
   row: {
     paddingHorizontal: 16,
+  },
+  // 2 択を抱える行は 96pt（45b）。1 行ぶんだけ伸ばし、他の行の高さは変えない
+  segmentRow: {
+    justifyContent: 'center',
+    minHeight: 96,
+  },
+  // 45b の指定どおり 高さ 34pt・幅 212pt。当たり判定は hitSlop で 46pt ぶん取る
+  segment: {
+    width: 212,
+    height: 34,
   },
   checkPlaceholder: {
     width: 18,

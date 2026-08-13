@@ -23,6 +23,10 @@ import { PresetTagButton } from '@/components/PresetTagButton';
 import type { Preset, PresetType } from '@/db/schema';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import {
+  shippingAmountFor,
+  type ShippingMaterialChoice,
+} from '@/logic/shippingMaterial';
+import {
   calculatorAccessibilityLabel,
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
@@ -82,11 +86,11 @@ type Props = {
   /**
    * プリセットを選んだときの処理の差し替え（SPEC-V6 §3）。
    *
-   * 既定は「value を欄に書く」だけ。**送料の行だけは合計（送料 ＋ 専用資材）を入れ、
-   * 資材費の控えも一緒に記録へ持つ**必要があるので、選んだ行そのものを呼び出し側へ渡す。
-   * 欄への書き戻しは受け取った側の責任になる。
+   * 既定は「シートで選ばれた側の額を欄に書く」だけ（送料では 45b の 2 択で決まる額）。
+   * **記録フォームだけは資材費の控えも記録へ持つ**必要があるので、選んだ行と
+   * 選ばれた側を呼び出し側へ渡す。欄への書き戻しは受け取った側の責任になる。
    */
-  onSelectPreset?: (preset: Preset) => void;
+  onSelectPreset?: (preset: Preset, choice: ShippingMaterialChoice) => void;
   /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
   canOpenSettings?: boolean;
   /**
@@ -136,10 +140,11 @@ export function NumericField({
             // 空欄は「選んでいない」。0 円のプリセットのバッジが未入力の欄に出ないようにする
             value={value === '' ? null : parseNumericInput(value)}
             // 書き戻しは電卓と同じ経路を通す（§4.3）。プリセットの値が範囲外でも必ず正規化される
-            onSelect={(preset) =>
+            onSelect={(preset, choice) =>
               onSelectPreset != null
-                ? onSelectPreset(preset)
-                : onChangeValue(sanitizeNumericInput(String(preset.value)))
+                ? onSelectPreset(preset, choice)
+                : // 既定の経路（計算タブ・プリセット編集画面）。送料では選ばれた側の額が入る
+                  onChangeValue(sanitizeNumericInput(String(shippingAmountFor(preset, choice))))
             }
             disabled={disabled}
             canOpenSettings={canOpenSettings}
