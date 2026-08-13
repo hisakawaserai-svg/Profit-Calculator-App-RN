@@ -46,6 +46,7 @@ import { daysBetween } from '@/logic/listingDays';
 import { commissionCost, netProfit, roundForDisplay, totalExpenses } from '@/logic/profit';
 import { saleDateRange } from '@/logic/saleDate';
 import { useThemeColors } from '@/theme';
+import { LongPressCopy } from '@/components/LongPressCopy';
 
 /** 日付が未設定のときの表示（Swift 版 ?? "未設定"） */
 const UNSET_DATE = '未設定';
@@ -76,9 +77,11 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
     <View style={[styles.card, styles.receiptCard, { backgroundColor: colors.secondaryBackground }]}>
       <View style={styles.receiptRow}>
         <Text style={[styles.receiptLabel, { color: colors.label }]}>{SALES_PRICE_LABEL}</Text>
-        <Text style={[styles.salesPrice, { color: colors.label }]}>
-          {formatYen(record.salesPrice)}
-        </Text>
+        <LongPressCopy label={SALES_PRICE_LABEL} text={record.salesPrice.toString()}>
+          <Text style={[styles.salesPrice, { color: colors.label }]}>
+              {formatYen(record.salesPrice)}
+          </Text>
+        </LongPressCopy>
       </View>
 
       <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -120,9 +123,11 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
       <View style={styles.receiptRow}>
         {/* カード 1 枚 = レコード 1 件なので種別語（SPEC-V2 §1.3 / §5.3） */}
         <Text style={[styles.resultLabel, { color: colors.label }]}>{profitLabel(record.kind)}</Text>
-        <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
-          {formatYen(profit)}
-        </Text>
+        <LongPressCopy label={profitLabel(record.kind)} text={profit.toString()}>
+          <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
+            {formatYen(profit)}
+          </Text>
+        </LongPressCopy>
       </View>
     </View>
   );
@@ -146,13 +151,15 @@ function ReceiptDeductionRow({
   return (
     <View style={styles.receiptRow}>
       <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel(label)}</Text>
-      <Text
-        style={[
-          styles.deductionAmount,
-          { color: unsetText != null ? colors.mutedLabel : color },
-        ]}>
-        {unsetText ?? formatYen(amount)}
-      </Text>
+      <LongPressCopy label={label} text={amount.toString()}>
+        <Text
+          style={[
+            styles.deductionAmount,
+            { color: unsetText != null ? colors.mutedLabel : color },
+          ]}>
+          {unsetText ?? formatYen(amount)}
+        </Text>
+      </LongPressCopy>
     </View>
   );
 }
