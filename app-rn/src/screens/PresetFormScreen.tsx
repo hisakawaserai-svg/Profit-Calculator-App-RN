@@ -104,13 +104,15 @@ export function PresetFormScreen({ type, preset }: Props) {
   );
   /**
    * 専用資材の代金（SPEC-V6 §2）。**送料でしか出さない欄。**
-   * まとめ買いで登録された行では、control は入数・購入価格の側にあるので空から始める
-   * （下の unitPrice が計算結果を出す。梱包材の金額欄と同じ扱い）
+   *
+   * 0 円は**空欄で出す**（金額欄と違って「0」と書かない）── 資材費のない配送方法の方が
+   * 多く、0 が入っていると打ち始めたときに「070」になる。空欄 = 0 円は検証の側と揃っている。
+   * まとめ買いで登録された行でも空から始める（値は入数・購入価格の側が持つ）。
    */
   const [materialCost, setMaterialCost] = useState(
-    preset == null || preset.type !== 'shipping' || isPackBuy(preset)
-      ? ''
-      : String(preset.materialCost),
+    preset != null && preset.type === 'shipping' && !isPackBuy(preset) && preset.materialCost > 0
+      ? String(preset.materialCost)
+      : '',
   );
 
   const draft = { type, name, initial, value, packBuy, packQuantity, packPrice, materialCost };
