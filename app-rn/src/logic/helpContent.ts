@@ -28,8 +28,17 @@
 /** ページ（チップ）の id */
 export type HelpPageId = 'calc' | 'record' | 'data' | 'terms';
 
-/** 図の id。実体は `HelpDiagram.tsx` の 4 つの部品 */
-export type HelpFigureId = 'kind' | 'terms' | 'siteAmount' | 'saleDate';
+/** 図の id。実体は `HelpDiagram.tsx` の 9 つの部品 */
+export type HelpFigureId =
+  | 'kind'
+  | 'terms'
+  | 'siteAmount'
+  | 'saleDate'
+  | 'reversePrice'
+  | 'tagOr'
+  | 'chart'
+  | 'csvKinds'
+  | 'expenseItems';
 
 export type HelpBlock =
   | {
@@ -70,6 +79,7 @@ export const HELP_PAGES: HelpPage[] = [
         title: 'いくらで売ればいいか知りたい',
         body: '「目標から逆算」に切り替えて、ほしい利益と、かかるお金を入れます。上の数字が「この値段で売ればいい」という販売価格になります。値段を決めてから出品したいときに使います。',
       },
+      { kind: 'figure', id: 'calc-reverse-figure', figure: 'reversePrice' },
       {
         kind: 'text',
         id: 'calc-calculator',
@@ -147,6 +157,7 @@ export const HELP_PAGES: HelpPage[] = [
         title: '「洋服」「食器」のように分けたい',
         body: '記録の画面で、商品名の下の「タグ」の「＋」を押すと選べます。まだ無いタグは、その場の検索欄に打って「＋『洋服』を作る」で作れます。タグは付けなくてもかまいません。',
       },
+      { kind: 'figure', id: 'record-tag-or', figure: 'tagOr' },
       {
         kind: 'text',
         id: 'record-tag-delete',
@@ -221,6 +232,7 @@ export const HELP_PAGES: HelpPage[] = [
         body: '「収支の推移」は、棒 1 本が 1 日分の収支です。上に出ている「この月の収支」は、その期間で売れた記録を合計したものです。まだ売れていない記録はグラフに入りません。',
         link: { label: '「収支」ということばについて ›', to: 'terms' },
       },
+      { kind: 'figure', id: 'data-chart-figure', figure: 'chart' },
       {
         kind: 'text',
         id: 'data-period',
@@ -245,6 +257,7 @@ export const HELP_PAGES: HelpPage[] = [
         title: '書き出しの 2 種類のちがい',
         body: '設定タブの「書き出し（CSV）」から書き出せます。「データ保存用」はメモやタグも含めて全部を書き出すもので、控えとして残すならこちらです。「確定申告用」は帳簿を作るための列だけにしたもので、メモとタグは入りません。',
       },
+      { kind: 'figure', id: 'export-kinds-figure', figure: 'csvKinds' },
       {
         kind: 'text',
         id: 'export-period',
@@ -311,12 +324,7 @@ export const HELP_PAGES: HelpPage[] = [
       },
       { kind: 'figure', id: 'terms-words', figure: 'terms' },
       { kind: 'figure', id: 'terms-site', figure: 'siteAmount' },
-      {
-        kind: 'text',
-        id: 'terms-expenses',
-        title: '経費にふくまれるもの',
-        body: 'このアプリが経費として引くのは、仕入価格・送料・販売手数料・梱包材・その他の 5 つです。販売サイトが「手取り」として出す金額は販売手数料と送料までのことが多いため、このアプリの数字のほうが少なくなります。',
-      },
+      { kind: 'figure', id: 'terms-expenses', figure: 'expenseItems' },
     ],
   },
 ];

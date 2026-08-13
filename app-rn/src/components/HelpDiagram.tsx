@@ -17,7 +17,9 @@
 // 互いに一致していないと意味が壊れる（1,500 − 150 − 215 − 50 = 1,085）。
 // 描画と離すと片方だけ直る事故が起きるので、数字と語を並びの隣に置く。
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Polyline } from 'react-native-svg';
 
+import { TagChip } from '@/components/TagChip';
 import { groupDigits } from '@/logic/format';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -344,6 +346,255 @@ export function SaleDateRangeFigure() {
 }
 
 /**
+ * 図 5: 逆算の出し方（計算ページ）。
+ *
+ * **図 1 の不用品と同じ帯をそのまま使う。** 逆算は別の計算ではなく、
+ * **同じ 1 本の帯をどちら側から見るか**の違いでしかない ── 全体（販売価格）を知って
+ * 緑を求めるのが「純利益を出す」、緑（ほしい利益）を知って全体を求めるのが「目標から逆算」。
+ * 別の絵にすると「2 つの計算がある」と読まれる。
+ */
+export function ReversePriceFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <Figure
+      title="「いくらで売ればいいか」の出し方"
+      subtitle="ほしい利益が先に決まっているとき"
+      caption="同じ 1 本の帯を、どちら側から見るかの違いです。ほしい利益（緑）を決めると、かかるお金を足した全体が販売価格になります。">
+      <Text style={[styles.rowTitle, { color: colors.label }]}>ほしい利益から逆に足す</Text>
+      <HelpBar
+        segments={[
+          { key: 'commission', amount: COMMISSION, tone: 'commission' },
+          { key: 'postage', amount: POSTAGE, tone: 'light' },
+          { key: 'others', amount: OTHERS, tone: 'mid' },
+          {
+            key: 'kept',
+            amount: APP_AMOUNT,
+            tone: 'kept',
+            label: `ほしい利益 ${yen(APP_AMOUNT)}`,
+          },
+        ]}
+      />
+      <HelpLegend
+        items={[
+          { key: 'commission', tone: 'commission', text: `手数料 ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `送料 ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `経費 ${OTHERS}` },
+        ]}
+      />
+      {/* 帯の全体が販売価格であることを、幅いっぱいの線で名指しする */}
+      <View style={styles.totalMeasure}>
+        <View style={[styles.totalLine, { backgroundColor: colors.blue }]} />
+        <Text style={[styles.totalText, { color: colors.label }]}>
+          {`これが販売価格 ${yen(SALES_PRICE)}`}
+        </Text>
+      </View>
+    </Figure>
+  );
+}
+
+/**
+ * 図 6: タグを 2 つ選んだとき（記録ページ）。
+ *
+ * **OR であることは文だけでは伝わらない。** 「どちらか」と書いても、
+ * 「両方付いていないと出ない」と読む人がいる。**出る / 出ない**を 1 行ずつ並べて、
+ * 両方付いた記録も出ることを列として見せる。
+ *
+ * チップは実物（`TagChip`）を使う ── 図の中だけの見た目を作ると、
+ * 画面で探すときに手がかりにならない。
+ */
+export function TagFilterOrFigure() {
+  const colors = useThemeColors();
+  const rows: { key: string; tags: { name: string; colorKey: string }[]; hit: boolean }[] = [
+    { key: 'a', tags: [{ name: '洋服', colorKey: 'red' }], hit: true },
+    { key: 'b', tags: [{ name: '食器', colorKey: 'blue' }], hit: true },
+    {
+      key: 'ab',
+      tags: [
+        { name: '洋服', colorKey: 'red' },
+        { name: '食器', colorKey: 'blue' },
+      ],
+      hit: true,
+    },
+    { key: 'none', tags: [{ name: '本', colorKey: 'green' }], hit: false },
+  ];
+
+  return (
+    <Figure
+      title="タグを 2 つ選んだとき"
+      subtitle="「洋服」と「食器」を選ぶと"
+      caption="どちらかが付いていれば出ます。両方が付いている必要はありません。タグを増やすほど、出る記録は多くなります。">
+      {rows.map((row) => (
+        <View key={row.key} style={[styles.orRow, { borderColor: colors.separator }]}>
+          <View style={styles.orTags}>
+            {row.tags.map((tag) => (
+              <TagChip key={tag.name} tag={tag} />
+            ))}
+          </View>
+          <Text
+            style={[styles.orMark, { color: row.hit ? colors.green : colors.disabledContent }]}>
+            {row.hit ? '出る' : '出ない'}
+          </Text>
+        </View>
+      ))}
+    </Figure>
+  );
+}
+
+/** 図 7 の棒（説明用の固定値）。日ごとの収支 */
+const CHART_DAYS = [450, 0, 1085, 320, 0, 780];
+
+/**
+ * 図 7: グラフの読みかた（データページ）。
+ *
+ * **棒と線が別のものを指していることが、文では伝わりにくい。**
+ * 棒は「その日だけ」、線は「その日までの合計」で、線が下がらないのはそのため。
+ * 線の色はデータタブの実物と同じ indigo にする（図で覚えた色がそのまま使える）。
+ */
+export function ChartReadingFigure() {
+  const colors = useThemeColors();
+  const max = Math.max(...CHART_DAYS);
+  // 累計は棒を左から足したもの。折れ線の頂点はその高さに置く
+  const cumulative = CHART_DAYS.reduce<number[]>(
+    (acc, value) => [...acc, (acc[acc.length - 1] ?? 0) + value],
+    [],
+  );
+  const total = cumulative[cumulative.length - 1];
+  const points = cumulative
+    .map((value, index) => {
+      const x = ((index + 0.5) / CHART_DAYS.length) * 100;
+      const y = 100 - (value / total) * 100;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <Figure
+      title="グラフの読みかた"
+      caption="棒 1 本がその日の収支、線はその日までの合計です。売れた日がない日は棒が立ちません。棒を押すと、その日に売れた記録が下に出ます。">
+      <View style={styles.chart}>
+        {/* 折れ線は棒の上に重ねる。棒と同じ枠を使うので、頂点の位置が棒とずれない */}
+        <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none">
+          <Polyline
+            points={points}
+            fill="none"
+            stroke={colors.indigo}
+            strokeWidth={2}
+            vectorEffect="non-scaling-stroke"
+          />
+        </Svg>
+        <View style={styles.chartBars}>
+          {CHART_DAYS.map((value, index) => (
+            <View key={index} style={styles.chartSlot}>
+              <View
+                style={[
+                  styles.chartBar,
+                  { height: `${(value / max) * 100}%`, backgroundColor: colors.green },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
+          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>日ごとの収支</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { backgroundColor: colors.indigo }]} />
+          <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>累計の収支</Text>
+        </View>
+      </View>
+    </Figure>
+  );
+}
+
+/** 図 8 の比較（実際の列数。SPEC-V3 §5.3） */
+const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] = [
+  { key: 'basic', label: '日付・商品名・金額', backup: true, tax: true },
+  { key: 'site', label: '販売サイト・種別', backup: true, tax: true },
+  { key: 'breakdown', label: '経費の内わけ', backup: true, tax: true },
+  { key: 'memo', label: 'メモ', backup: true, tax: false },
+  { key: 'tag', label: 'タグ', backup: true, tax: false },
+];
+
+/**
+ * 図 8: 書き出しの 2 種類（データページ）。
+ *
+ * **「18 列 / 11 列」という数字だけでは、何が減るのかが分からない。**
+ * 減るのはメモとタグで、金額の列は減らないことを行ごとに見せる ──
+ * 「確定申告用は情報が足りない版」ではなく「帳簿に関係のない記述を持ち込まない版」だと読める。
+ */
+export function CsvKindsFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <Figure
+      title="書き出しの 2 種類"
+      subtitle="減るのはメモとタグだけ"
+      caption="確定申告用でも、金額の列は減りません。帳簿に関係のない記述を申告の書類へ持ち込まないための形です。">
+      <View style={styles.csvHead}>
+        <View style={styles.csvLabelCol} />
+        <Text style={[styles.csvKind, { color: colors.label }]}>データ保存用{'\n'}18 列</Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>確定申告用{'\n'}11 列</Text>
+      </View>
+      {CSV_ROWS.map((row) => (
+        <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
+          <Text style={[styles.csvLabel, styles.csvLabelCol, { color: colors.label }]}>
+            {row.label}
+          </Text>
+          <Text style={[styles.csvMark, { color: row.backup ? colors.green : colors.disabledContent }]}>
+            {row.backup ? '入る' : '－'}
+          </Text>
+          <Text style={[styles.csvMark, { color: row.tax ? colors.green : colors.disabledContent }]}>
+            {row.tax ? '入る' : '入らない'}
+          </Text>
+        </View>
+      ))}
+    </Figure>
+  );
+}
+
+/** 図 9 の 5 項目。色は帯の語彙のまま（オレンジは手数料だけ・他はグレー） */
+const EXPENSE_ITEMS: { key: string; tone: ToneKey; name: string; note: string }[] = [
+  { key: 'purchase', tone: 'dark', name: '仕入価格', note: '売るために買ったお金（不用品では出ません）' },
+  { key: 'postage', tone: 'light', name: '送料', note: '発送にかかったお金' },
+  { key: 'commission', tone: 'commission', name: '販売手数料', note: '販売サイトに引かれるお金' },
+  { key: 'envelope', tone: 'mid', name: '梱包材', note: '箱・封筒・テープなど' },
+  { key: 'others', tone: 'mid', name: 'その他', note: '交通費など、上に当てはまらないもの' },
+];
+
+/**
+ * 図 9: 経費にふくまれるもの（ことばページ）。
+ *
+ * **帯にしない。** 同じページに帯が既に 2 つあり、3 つ目を出すと
+ * 「また同じ絵」に見えて読み飛ばされる。ここで要るのは割合ではなく**顔ぶれ**なので、
+ * 5 つを 1 行ずつ並べて、それぞれが何を指すかを添える。
+ * 色は帯の語彙のまま置く（オレンジは手数料だけ・他はグレー）ので、帯と突き合わせて読める。
+ */
+export function ExpenseItemsFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <Figure
+      title="経費にふくまれるもの"
+      subtitle="このアプリが販売価格から引くのは、この 5 つ"
+      caption="この 5 つを足したものが「引かれる分」で、販売価格から引いた残りが手元に残る金額です。入れた欄だけで計算するので、使わない欄は空のままでかまいません。">
+      {EXPENSE_ITEMS.map((item) => (
+        <View key={item.key} style={styles.expenseRow}>
+          <View style={[styles.expenseDot, { backgroundColor: toneColor(item.tone, colors) }]} />
+          <View style={styles.expenseText}>
+            <Text style={[styles.expenseName, { color: colors.label }]}>{item.name}</Text>
+            <Text style={[styles.expenseNote, { color: colors.secondaryLabel }]}>{item.note}</Text>
+          </View>
+        </View>
+      ))}
+    </Figure>
+  );
+}
+
+/**
  * 斜線。RN には繰り返しパターンが無いので、細い View を回して等間隔に並べ、
  * 親の `overflow: 'hidden'` で切る。SVG を持ち込むほどの絵ではない。
  */
@@ -521,6 +772,120 @@ const styles = StyleSheet.create({
     width: 1,
     height: 80,
     transform: [{ rotate: '-45deg' }],
+  },
+  totalMeasure: {
+    paddingTop: 8,
+    gap: 5,
+  },
+  totalLine: {
+    height: 2,
+    borderRadius: 1,
+  },
+  totalText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 8,
+  },
+  orTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+  },
+  orMark: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  chart: {
+    height: 110,
+    justifyContent: 'flex-end',
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: '100%',
+  },
+  chartSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: '100%',
+  },
+  chartBar: {
+    width: 14,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+  },
+  legendLine: {
+    width: 14,
+    height: 2,
+    borderRadius: 1,
+  },
+  csvHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingBottom: 6,
+  },
+  csvLabelCol: {
+    flex: 1.4,
+  },
+  csvKind: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  csvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 9,
+  },
+  csvLabel: {
+    fontSize: 14,
+  },
+  csvMark: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  expenseRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 5,
+  },
+  expenseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    marginTop: 5,
+  },
+  expenseText: {
+    flex: 1,
+    gap: 1,
+  },
+  expenseName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  expenseNote: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   rangeCaptions: {
     flexDirection: 'row',

@@ -16,9 +16,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
+  ChartReadingFigure,
+  CsvKindsFigure,
+  ExpenseItemsFigure,
   KindComparisonFigure,
+  ReversePriceFigure,
   SaleDateRangeFigure,
   SiteAmountFigure,
+  TagFilterOrFigure,
   TermsFigure,
 } from '@/components/HelpDiagram';
 import {
@@ -36,6 +41,11 @@ const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
   terms: TermsFigure,
   siteAmount: SiteAmountFigure,
   saleDate: SaleDateRangeFigure,
+  reversePrice: ReversePriceFigure,
+  tagOr: TagFilterOrFigure,
+  chart: ChartReadingFigure,
+  csvKinds: CsvKindsFigure,
+  expenseItems: ExpenseItemsFigure,
 };
 
 type Props = {
