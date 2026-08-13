@@ -15,6 +15,9 @@
 //   その間にできる「どこからも指されないファイル」は、このフォームが閉じるときに自分で片づける。
 // - 種別セレクタは商品名の直下・金額の積み上げの直前（§6-6）。仕入価格行と同じカードなので、
 //   切替で行が消えるのがその場で見える（SPEC-V2 §1.5 の目視要件）。
+// - タグは伝票カードの中の 1 行をやめ、**伝票の直後の独立したカード**にした
+//   （SPEC-V4 §3.1 の改訂）。金額でないものを金額の面に置かないのと、チップが
+//   折り返しても伝票の形が変わらないようにするため。
 // - 日付とメモは折りたたむ。畳んだままでも中身が分かるよう、見出しに日付・入力有無を出す。
 // - 表示語はすべて labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 //
@@ -26,7 +29,6 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -77,6 +79,8 @@ import {
   SAVE_LABEL,
   SOLD_DATE_FIELD_LABEL,
   SOLD_RECORDS_LABEL,
+  TAG_ADD_LABEL,
+  TAG_FIELD_EMPTY_LABEL,
   TAG_LABEL,
   TAG_PICKER_OPEN_LABEL,
   UNSET_INPUT_LABEL,
@@ -383,6 +387,13 @@ function RecordForm({
               placeholder={ITEM_NAME_PLACEHOLDER}
               placeholderTextColor={colors.mutedLabel}
               accessibilityLabel={ITEM_NAME_LABEL}
+              // 左の正方形のぶん、この欄は 1 行あたり 10 字ほどしか入らない。1 行のままだと
+              // 長い商品名は**左へ流れて先頭が見えなくなる**ので、折り返して 2 行目に伸ばす
+              // （欄の幅ではなく「打った字が全部見えるか」の方を取る）。
+              // 改行そのものは入れさせない ── 商品名は一覧では 1 行で出るものなので、
+              // return はキーボードを閉じる側に割り当てる
+              multiline
+              submitBehavior="blurAndSubmit"
             />
             <Text
               style={[styles.itemNameCaption, { color: hasError ? colors.red : colors.secondaryLabel }]}
@@ -391,23 +402,7 @@ function RecordForm({
             </Text>
           </PhotoField>
 
-          {/* 4a. タグ行（SPEC-V4 §3.1）。商品名の直下・種別セレクタの上（決定 §9-3）──
-              番号を 4a にしてあるのは、他の番号が UI-SPEC §1.3-N を指しているため
-              （§9a の販売サイト名の行と同じ扱い）。
-              タグは「何を売ったか」の情報で金額ではないので、金額の積み上げの中に混ぜない。
-              0 件でもラベルと「＋」だけの行を出す（出したり消したりすると機能に気付けない） */}
-          <TagFieldRow
-            tags={selectedTags(tags, values.tagIds)}
-            onOpenPicker={() => setTagPickerOpen(true)}
-            onRemove={(id) =>
-              update(
-                'tagIds',
-                values.tagIds.filter((tagId) => tagId !== id),
-              )
-            }
-          />
-
-          {/* 5. 種別セレクタ。タグ行の直下・金額の積み上げの直前（UI-SPEC §6-6 / 決定 §9-3） */}
+          {/* 5. 種別セレクタ。商品名の直下・金額の積み上げの直前（UI-SPEC §6-6 / 決定 §9-3） */}
           <RecordKindSelector kind={values.kind} onChange={updateKind} />
 
           {/* 6. 販売価格。伝票の一番上で、ここから下へ引いていく */}
@@ -531,6 +526,27 @@ function RecordForm({
           </View>
         </View>
 
+        {/* 11a. タグカード（SPEC-V4 §3.1 の改訂）。伝票カードの中の 1 行から、
+            **カードを分けて見出し「タグ」＋その下に並べる**形に改めた ──
+            タグは「何を売ったか」の情報で金額ではないので、そもそも金額の面に置かない
+            （レコード詳細でタグをレシートカードの外に出しているのと同じ理由。§3.4）。
+            行だったころはチップが折り返すたびに伝票の商品名と種別の間が開いていたが、
+            カードなら何段に伸びても金額の流れは動かない。
+            伝票カードの**直後**に置くのは、日付・メモ（畳んである補足）より前に
+            「何を売ったか」が来る並びを保つため */}
+        <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+          <TagSection
+            tags={selectedTags(tags, values.tagIds)}
+            onOpenPicker={() => setTagPickerOpen(true)}
+            onRemove={(id) =>
+              update(
+                'tagIds',
+                values.tagIds.filter((tagId) => tagId !== id),
+              )
+            }
+          />
+        </View>
+
         {/* 12. 日付カード（折りたたみ）。畳んだままでも操作対象の日付が読める */}
         <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
           <CollapsibleSection
@@ -614,15 +630,23 @@ function RecordForm({
 }
 
 /**
- * 伝票カードのタグ行（SPEC-V4 §3.1）。「タグ」ラベル ＋ 選択中のチップ ＋「＋」。
+ * タグの節（SPEC-V4 §3.1 の改訂）。**見出し「タグ」＋ 右に「＋ 追加」、その下にチップ。**
  *
- * - **0 件でも行ごと消さない** ── 出したり消したりすると機能に気付けない（SPEC-V3 §4.1 と同じ判断）
- * - チップが増えたら**折り返して 2 段目に伸びる**。横スクロールにすると端のタグが見えない。
- *   数が増えるのは利用者が選んだ結果なので、高さが伸びるのは受け入れる
+ *     タグ                          ＋ 追加
+ *     [● 洋服 ✕] [● 中古 ✕]
+ *
+ * 伝票カードの中の 1 行（ラベルの右にチップを流す形）から改めた ──
+ * 行だと**チップの置き場が横の残り幅しかなく**、2〜3 個で折り返して伝票が押し広げられる。
+ * 見出しの下を全幅で使えば、同じ数でも 1 段に収まる。
+ *
+ * - **0 件でも節ごと消さない** ── 出したり消したりすると機能に気付けない
+ *   （SPEC-V3 §4.1 と同じ判断）。代わりに「まだ付いていません」を薄く出す
+ * - 「＋ 追加」は**見出しの右**。チップの列の最後尾に置くと、数が増えるたびに
+ *   足す口の位置が動く（0 件のときは薄い語の隣にぽつんと残る）
  * - 「✕」を押すとその場で 1 つ外れる（シートを開き直さずに済む）
  * - 並びは tags.sortOrder 昇順（§1.5）。呼び出し側が selectedTags で解決して渡す
  */
-function TagFieldRow({
+function TagSection({
   tags,
   onOpenPicker,
   onRemove,
@@ -634,30 +658,30 @@ function TagFieldRow({
   const colors = useThemeColors();
 
   return (
-    <View style={styles.tagRow}>
-      <Text style={[styles.tagRowLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
-      <View style={styles.tagRowChips}>
-        {tags.map((tag) => (
-          <TagChip
-            key={tag.id}
-            tag={tag}
-            variant="selected"
-            onRemove={() => onRemove(tag.id)}
-          />
-        ))}
-        {/* 「＋」はチップの列の最後尾。チップが折り返しても、常に最後のチップの隣にいる */}
+    <View style={styles.tagSection}>
+      <View style={styles.tagSectionHeader}>
+        <Text style={[styles.tagSectionLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
         <Pressable
           onPress={onOpenPicker}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={TAG_PICKER_OPEN_LABEL}
-          style={({ pressed }) => [
-            styles.tagAddButton,
-            { borderColor: colors.separator, opacity: pressed ? 0.5 : 1 },
-          ]}>
-          <Ionicons name="add" size={18} color={colors.blue} />
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+          <Text style={[styles.tagAddLabel, { color: colors.blue }]}>{TAG_ADD_LABEL}</Text>
         </Pressable>
       </View>
+
+      {tags.length === 0 ? (
+        <Text style={[styles.tagEmptyLabel, { color: colors.mutedLabel }]}>
+          {TAG_FIELD_EMPTY_LABEL}
+        </Text>
+      ) : (
+        <View style={styles.tagSectionChips}>
+          {tags.map((tag) => (
+            <TagChip key={tag.id} tag={tag} variant="selected" onRemove={() => onRemove(tag.id)} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -790,32 +814,31 @@ const styles = StyleSheet.create({
   itemNameCaption: {
     fontSize: 12,
   },
-  tagRow: {
+  tagSection: {
+    gap: 10,
+  },
+  tagSectionHeader: {
     flexDirection: 'row',
-    // チップが折り返して 2 段になっても、ラベルは 1 段目の高さに留める
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
-    minHeight: 32,
   },
-  tagRowLabel: {
+  tagSectionLabel: {
+    // 見出しの重さは日付・メモの折りたたみの見出しと揃える（同じ「節の名前」なので）
     fontSize: 16,
-    // チップ（縦 4px の余白 ＋ 15px の字）と 1 行目の中心が揃うぶんだけ下げる
-    paddingTop: 4,
+    fontWeight: '600',
   },
-  tagRowChips: {
-    flex: 1,
+  tagAddLabel: {
+    fontSize: 15,
+  },
+  tagSectionChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
   },
-  tagAddButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
+  tagEmptyLabel: {
+    fontSize: 15,
   },
   salesPriceValue: {
     fontSize: 24,

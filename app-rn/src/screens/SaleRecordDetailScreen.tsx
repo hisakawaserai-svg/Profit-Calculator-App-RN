@@ -9,8 +9,8 @@
 // - 状態はメタ行のバッジ（表示）と状態カード（変更）の両方を置く（§5-13。役割が違う）。
 // - 写真は商品名の直後・**レシートカードの外側**（SPEC-V5 §2.1）。カードは金額の面なので、
 //   金額でないものを中に入れない（タグと同じ理由。SPEC-V4 §3.4）。
-//   写真が無いときは節ごと出さず、**商品名の行の右端の写真アイコン**が足す口になる
-//   （§2.2 / 決定 §6-4）。押すと編集フォームが開く。
+//   写真が無いときは節ごと出さず、**見出しの塊の右端の破線の正方形**（編集フォームの
+//   空枠と同じ形）が足す口になる（§2.2 / 決定 §6-4）。押すと編集フォームが開く。
 // - 画面下部の 1 件サマリー（Swift 版 CareerSummarySection）は置かない（§5-12）。
 //   レシートの結果行（種別語＋額）が同じ役割を果たす。
 // - 経過日数は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
@@ -61,12 +61,14 @@ import {
   DELETE_CONFIRM_TITLE,
   DELETE_LABEL,
   EDIT_RECORD_LABEL,
+  ITEM_NAME_LABEL,
   LISTING_STATUS_LABEL,
   MARKED_AS_SOLD_MESSAGE,
   MEMO_EMPTY_LABEL,
   MEMO_LABEL,
   PHOTO_ADD_FROM_DETAIL_LABEL,
   PHOTO_IMAGE_LABEL,
+  PHOTO_SQUARE_LABEL,
   PHOTO_TAP_HINT,
   REVERT_TO_LISTING_CONFIRM_LABEL,
   SOLD_BADGE_LABEL,
@@ -82,6 +84,7 @@ import { initialSaleDate } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useThemeColors, type ThemeColors } from '@/theme';
+import { LongPressCopy } from '@/components/LongPressCopy';
 
 export function SaleRecordDetailScreen() {
   const colors = useThemeColors();
@@ -222,8 +225,8 @@ export function SaleRecordDetailScreen() {
 
           {/* 3. 見出しの塊（SPEC-V5 §2.1）。**左に写真・右に商品名とタグ。**
               レシートカードの外側に置くのは、カードが金額の面だから（UI-SPEC §1.4）。
-              写真が無いときは正方形ごと出さず、商品名の行の右端の小さなアイコンが
-              足す口になる（§2.2 / 決定 §6-4） */}
+              写真が無いときは左の正方形を出さず、塊の右端の破線の正方形
+              （編集フォームの空枠と同じ形）が足す口になる（§2.2 / 決定 §6-4） */}
           <RecordHeaderBlock
             record={record}
             tags={recordTags}
@@ -249,13 +252,15 @@ export function SaleRecordDetailScreen() {
           <View style={styles.memoSection}>
             <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{MEMO_LABEL}</Text>
             <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-              <Text
-                style={[
-                  styles.memoText,
-                  { color: record.memo === '' ? colors.mutedLabel : colors.label },
-                ]}>
-                {record.memo === '' ? MEMO_EMPTY_LABEL : record.memo}
-              </Text>
+              <LongPressCopy label={MEMO_LABEL} text={record.memo}>
+                <Text
+                  style={[
+                    styles.memoText,
+                    { color: record.memo === '' ? colors.mutedLabel : colors.label },
+                  ]}>
+                  {record.memo === '' ? MEMO_EMPTY_LABEL : record.memo}
+                </Text>
+              </LongPressCopy>
             </View>
           </View>
         </ScrollView>
@@ -402,24 +407,25 @@ function RecordHeaderBlock({
           </Pressable>
         )}
 
-        <View style={styles.headerText}>
+        {/* 正方形より中身が短いときは、名前とタグを**正方形の高さの中で天地中央**に置く
+            （一覧の行と同じ手当て。RecordRow の body）── 商品名 1 行だけの記録では
+            右側が上に張り付いて、正方形の下半分が空いて見えるため。
+            正方形そのものは上端に置いたまま（headerRow は flex-start）にするのは、
+            名前が 2 行・3 行に伸びたときに写真が下へ動かないようにするため */}
+        <View
+          style={[
+            styles.headerText,
+            { minHeight: uri == null ? PHOTO_PLACEHOLDER_SIZE : PHOTO_SIZE },
+          ]}>
           <View style={styles.itemNameRow}>
-            <Text style={[styles.itemName, { color: colors.label }]}>
-              {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
-            </Text>
-            {/* 写真が無いときだけ、行の右端に足す口（§2.2 / 決定 §6-4）。
-                縦を 1pt も使わず、押せることだけが分かる大きさに落としてある。
-                語が出ないぶんは読み上げ語で補う */}
-            {uri == null && (
-              <Pressable
-                onPress={onAddPhoto}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={PHOTO_ADD_FROM_DETAIL_LABEL}
-                style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                <Ionicons name="image-outline" size={24} color={colors.blue} />
-              </Pressable>
-            )}
+            <LongPressCopy
+              label={ITEM_NAME_LABEL}
+              text={record.itemName}
+              style={styles.itemNameCopy}>
+              <Text style={[styles.itemName, { color: colors.label }]}>
+                {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+              </Text>
+            </LongPressCopy>
           </View>
 
           {tags.length > 0 && (
@@ -430,6 +436,30 @@ function RecordHeaderBlock({
             </View>
           )}
         </View>
+
+        {/* 写真が無いときだけ、塊の右端に足す口（§2.2 / 決定 §6-4）。
+            小さなアイコン 1 つから**編集フォームと同じ破線の正方形**に改めた ──
+            同じ記録の「写真がまだ無い」状態を詳細とフォームで別の形で見せると、
+            押した先（フォーム）に出るものが押す前に読めない。破線 ＋「写真」の語なのも
+            フォームと同じ理由で、実線だと「写真が出る場所」に見えて押せることが読めない。
+            位置は今までどおり右（写真があるときの左の正方形とは入れ替わる）。
+            商品名の行の中ではなく塊の右に置くのは、タグの行が正方形の左へ回り込んで、
+            写真があるときと同じ形に収まるため */}
+        {uri == null && (
+          <Pressable
+            onPress={onAddPhoto}
+            accessibilityRole="button"
+            accessibilityLabel={PHOTO_ADD_FROM_DETAIL_LABEL}
+            style={({ pressed }) => [
+              styles.photoPlaceholder,
+              { borderColor: colors.separator, opacity: pressed ? 0.5 : 1 },
+            ]}>
+            <Ionicons name="image-outline" size={22} color={colors.blue} />
+            <Text style={[styles.photoPlaceholderLabel, { color: colors.blue }]}>
+              {PHOTO_SQUARE_LABEL}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* 画像には押せる印が付かないので、押せることは語で言う（§2.1）。
@@ -456,6 +486,15 @@ function StatusBadge({ isSold, colors }: { isSold: boolean; colors: ThemeColors 
 
 /** 下端の操作列の高さ（余白込み）。undo バーはこの上に重ねる（UI-SPEC §8.3） */
 const ACTION_BAR_HEIGHT = 88;
+
+/**
+ * 写真の一辺（SPEC-V5 §2.1）。一覧の枠（56pt）・フォームの枠（72pt）より大きい ──
+ * この画面がいちばん 1 件を見る面なので、3 つの中では最大にする。
+ */
+const PHOTO_SIZE = 88;
+
+/** 写真が無いときの破線の枠。編集フォームの空枠（PhotoField）と同じ 72pt */
+const PHOTO_PLACEHOLDER_SIZE = 72;
 
 const styles = StyleSheet.create({
   container: {
@@ -492,8 +531,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  itemName: {
+  itemNameCopy: {
     flexShrink: 1,
+  },
+  itemName: {
     fontSize: 26,
     fontWeight: '700',
   },
@@ -508,14 +549,28 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     gap: 8,
+    // 正方形（写真 or 破線の枠）の高さの中で天地中央。minHeight は写真の有無で変わるので
+    // 呼び出し側で足す。中身がこれより高くなったら、そこからは普通に下へ伸びる
+    justifyContent: 'center',
   },
   photo: {
-    // 一覧の枠（56pt）より大きく、フォームの枠（72pt）よりも大きい ──
-    // この画面がいちばん 1 件を見る面なので、3 つの中では最大にする
-    width: 88,
-    height: 88,
+    width: PHOTO_SIZE,
+    height: PHOTO_SIZE,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  photoPlaceholder: {
+    width: PHOTO_PLACEHOLDER_SIZE,
+    height: PHOTO_PLACEHOLDER_SIZE,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  photoPlaceholderLabel: {
+    fontSize: 11,
   },
   tagLine: {
     flexDirection: 'row',
