@@ -30,9 +30,16 @@ function tabIcon(focusedName: IoniconName, unfocusedName: IoniconName) {
 export default function TabLayout() {
   return (
     <Tabs>
+      {/* 計算タブも自前の Stack を持つ（(calc)/_layout.tsx）。push する行き先は無いが、
+          ヘッダをネイティブスタック側に揃えるため ── ここだけ JS ヘッダのままだと、
+          ガラスのピルが出ず右の余白も 24pt ずれる。よってタブ側のヘッダは切る */}
       <Tabs.Screen
-        name="index"
-        options={{ title: '計算', tabBarIcon: tabIcon('calculator', 'calculator-outline') }}
+        name="(calc)"
+        options={{
+          title: '計算',
+          tabBarIcon: tabIcon('calculator', 'calculator-outline'),
+          headerShown: false,
+        }}
       />
       {/* 記録・データ・設定はタブ内に Stack を持ち（レコード詳細・使いかたへのプッシュ遷移。UI-SPEC §2）、
           ヘッダーはその Stack 側が出すのでタブのヘッダーは切る */}

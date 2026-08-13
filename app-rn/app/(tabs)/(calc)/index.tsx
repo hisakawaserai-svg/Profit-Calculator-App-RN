@@ -9,7 +9,7 @@
 // - 表示語はすべて src/logic/labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 // - 決定 §7-14 により iPad/Mac の 2 ペインレイアウトは移植せず、iPhone 縦 1 カラムのみ。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Animated,
@@ -188,7 +188,7 @@ export default function CalcScreen() {
 
   return (
     <>
-      <Tabs.Screen options={screenOptions} />
+      <Stack.Screen options={screenOptions} />
 
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
         <ScrollView

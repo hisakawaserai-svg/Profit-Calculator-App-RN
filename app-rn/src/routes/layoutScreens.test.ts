@@ -66,6 +66,7 @@ describe('レイアウトの screen 宣言', () => {
   it('app/ 配下のレイアウトを見つけられている', () => {
     // 見つからないと以下が全部素通りするので、本数そのものを固定する
     expect(layouts.map((layout) => layout.name).sort()).toEqual([
+      '(tabs)/(calc)/_layout.tsx',
       '(tabs)/_layout.tsx',
       '(tabs)/data/_layout.tsx',
       '(tabs)/records/_layout.tsx',
