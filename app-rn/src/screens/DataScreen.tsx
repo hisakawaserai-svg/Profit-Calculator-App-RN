@@ -30,6 +30,8 @@ import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
 import { FilterNoticeRow } from '@/components/FilterNoticeRow';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
@@ -223,6 +225,7 @@ export function DataScreen() {
   );
   const selectedKey = selection != null && selection.filter === recordFilter ? selection.key : null;
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
@@ -331,7 +334,14 @@ export function DataScreen() {
     { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
   ];
 
-  const screenOptions = useMemo(() => ({ title: 'データ' }), []);
+  // UI-SPEC §1.5-1: ヘッダの右は「？」だけ
+  const screenOptions = useMemo(
+    () => ({
+      title: 'データ',
+      headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
+    }),
+    [],
+  );
 
   return (
     <>
@@ -420,6 +430,15 @@ export function DataScreen() {
         onSelect={changePeriod}
         onClose={() => setShowPeriodSheet(false)}
       />
+
+      {/* ヘッダの「？」（UI-SPEC §5-9）。データタブも設定タブとは別スタックなので push しない */}
+      {showHelp && (
+        <HelpSheet
+          entry="data"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }

@@ -46,6 +46,8 @@ import {
   View,
 } from 'react-native';
 
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
 import { TagChip } from '@/components/TagChip';
@@ -94,6 +96,7 @@ export function SaleRecordDetailScreen() {
   const { tagIds, refresh: refreshTagIds } = useRecordTagIds(id);
   const recordTags = selectedTags(tags, tagIds);
   const [showForm, setShowForm] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（出品中の経過日数の基準） */
   const today = useMemo(() => new Date(), []);
 
@@ -184,10 +187,15 @@ export function SaleRecordDetailScreen() {
     ]);
   }, [id, router]);
 
-  // ヘッダは「◀ 記録」だけ（UI-SPEC §1.4-1）。編集・削除は下端の操作列へ移したので
-  // headerRight は空にしてある（「？」の配線はステップ 6）。
+  // ヘッダは「◀ 記録」と右の「？」（UI-SPEC §1.4-1）。編集・削除は下端の操作列にある。
   // 中央のタイトルを空にするのは、すぐ下のメタ行と商品名がこの画面の見出しを兼ねるため
-  const screenOptions = useMemo(() => ({ title: '' }), []);
+  const screenOptions = useMemo(
+    () => ({
+      title: '',
+      headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
+    }),
+    [],
+  );
 
   // record が無いときは上の useEffect が前画面へ戻す。戻るまでの 1 フレームぶんの表示
   if (record == null) {
@@ -304,6 +312,15 @@ export function SaleRecordDetailScreen() {
           refreshTagIds();
         }}
       />
+
+      {/* ヘッダの「？」（UI-SPEC §5-9）。詳細で困るのは直し方なので、その項目が先頭に出る */}
+      {showHelp && (
+        <HelpSheet
+          entry="recordDetail"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }

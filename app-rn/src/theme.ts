@@ -43,13 +43,13 @@ export type ThemeColors = {
   /** 電卓ボタン・電卓の演算子キー・決定ボタン */
   blue: string;
   gray: string;
-  /** ヘルプの「目標利益の逆算」 */
+  /** タグ・プリセットのパレット（logic/preset.ts の PresetColorKey） */
   teal: string;
-  /** ヘルプの「かんたん売却更新」 */
+  /** 同上 */
   yellow: string;
-  /** ヘルプの「分析グラフの活用」 */
+  /** データタブの累計収支の折れ線（UI-SPEC §1.5-4） */
   indigo: string;
-  /** ヘルプの「記録の整理と分析」見出し */
+  /** 同上（パレット） */
   purple: string;
   /** disabled 時に入力欄へかぶせる地色 */
   disabledBackground: string;
@@ -66,6 +66,16 @@ export type ThemeColors = {
    * 手元（green）・販売手数料（orange）と混ざらないよう、赤の 1 色相を明度だけで振る。
    */
   expenseTones: readonly [string, string, string, string];
+  /**
+   * 使いかたの図の帯で「引かれるもの」に使うグレー 3 段（案 `20a`）。
+   *
+   * **計算タブの帯（expenseTones の赤系）とは別に持つ。** 図は説明用の固定値で、
+   * 実際の記録とは連動しない（案 `20a`）── 同じ赤を使うと「自分の数字が出ている」と
+   * 読まれる。図の語彙はオレンジ＝手数料 / グレー＝引かれるもの / 緑＝手元に残る分の 3 つで、
+   * グレーの中の区別（送料・経費・仕入）だけを明度で付ける。
+   * 並びは薄い順。仕入は帯の中で最も広く、文字を載せるので最も濃い側を使う。
+   */
+  helpDiagramTones: readonly [string, string, string];
   /**
    * 内容の上に重ねる固定バーの地色（UI-SPEC §1.1-2 / §1.1-7）。
    *
@@ -115,6 +125,7 @@ const light: ThemeColors = {
   highlightBackground: 'rgba(0, 122, 255, 0.12)',
   barBackground: '#F2F2F7',
   expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
+  helpDiagramTones: ['#D1D1D6', '#AEAEB2', '#8E8E93'],
   presetTones: {
     red: { background: '#FF3B30', foreground: '#FFFFFF' },
     orange: { background: '#F07800', foreground: '#FFFFFF' },
@@ -151,6 +162,8 @@ const dark: ThemeColors = {
   highlightBackground: 'rgba(10, 132, 255, 0.24)',
   barBackground: '#000000',
   expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
+  // 暗い地の上では明度の向きを反転させる（薄い順は保つ）。白文字が載る側を最も明るくしない
+  helpDiagramTones: ['#48484A', '#5E5E63', '#7C7C80'],
   presetTones: {
     red: { background: '#FF453A', foreground: '#FFFFFF' },
     orange: { background: '#FF9F0A', foreground: '#000000' },

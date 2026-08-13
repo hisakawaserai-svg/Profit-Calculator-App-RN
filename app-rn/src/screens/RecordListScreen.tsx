@@ -26,6 +26,8 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { EmptyState } from '@/components/EmptyState';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { OptionSheet, type SheetOption } from '@/components/OptionSheet';
 import { PeriodSheet } from '@/components/PeriodSheet';
@@ -126,6 +128,7 @@ export function RecordListScreen() {
   const [searchText, setSearchText] = useState('');
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showSortSheet, setShowSortSheet] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
@@ -267,6 +270,8 @@ export function RecordListScreen() {
                   accessibilityLabel="並び替え">
                   <Ionicons name="swap-vertical" size={22} color={colors.blue} />
                 </Pressable>
+                {/* UI-SPEC §1.2-1: ⌕ ・ ⇅ ・ ？ の 3 つ。検索中は行ごと入れ替わるので出ない */}
+                <HelpButton onPress={() => setShowHelp(true)} />
               </View>
             ),
           },
@@ -377,6 +382,15 @@ export function RecordListScreen() {
         onClose={() => setShowSortSheet(false)}
       />
       <RecordFormSheet visible={showForm} onClose={() => setShowForm(false)} onSaved={refresh} />
+
+      {/* ヘッダの「？」（UI-SPEC §5-9）。記録タブは設定タブとは別スタックなので push しない */}
+      {showHelp && (
+        <HelpSheet
+          entry="recordList"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }

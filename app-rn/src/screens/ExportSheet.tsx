@@ -34,6 +34,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CsvDataRow, CsvHeaderRow } from '@/components/CsvTable';
+import { HelpSheet } from '@/components/HelpSheet';
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { toMonthKey } from '@/db/dates';
@@ -61,6 +62,7 @@ import {
   EXPORT_TARGET_OPTIONS,
   EXPORT_TARGET_SECTION_LABEL,
   EXPORT_TAX_NOTICE,
+  EXPORT_TAX_NOTICE_OPEN_LABEL,
   exportCountLabel,
   exportEmptyNote,
   exportPreviewMetaLabel,
@@ -83,6 +85,8 @@ export function ExportSheet() {
   // 4 つの条件。**既定は「データ保存用・今月・1件ずつ・売れた記録のみ」**
   // （対象の既定は決定 §8-9。期間は他の画面と同じく今月から始める）
   const [kind, setKind] = useState<CsvExportKind>('backup');
+  /** §5.8 の注意書きから開くヘルプ（UI-SPEC Step 6） */
+  const [showHelp, setShowHelp] = useState(false);
   const [grouping, setGrouping] = useState<CsvGrouping>('record');
   const [period, setPeriod] = useState<Period>(currentMonthKey);
   const [includeListing, setIncludeListing] = useState(false);
@@ -154,14 +158,22 @@ export function ExportSheet() {
             />
           </Section>
 
-          {/* §5.8: 確定申告用のときだけ出す固定の注意書き。**押せない**（ヘルプが未実装。§5.8） */}
+          {/* §5.8: 確定申告用のときだけ出す固定の注意書き。
+              **押すとヘルプの「確定申告に使うときの注意」が開く**（UI-SPEC Step 6 で繋いだ）。
+              消す動きは持たない ── 課税対象を申告から落とす事故のほうが重い */}
           {kind === 'tax' && (
-            <View
-              style={[styles.notice, { backgroundColor: colors.secondaryBackground }]}
-              accessibilityRole="text">
+            <Pressable
+              onPress={() => setShowHelp(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`${EXPORT_TAX_NOTICE} ${EXPORT_TAX_NOTICE_OPEN_LABEL}`}
+              style={({ pressed }) => [
+                styles.notice,
+                { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.6 : 1 },
+              ]}>
               <Ionicons name="alert-circle-outline" size={18} color={colors.orange} />
               <Text style={[styles.noticeText, { color: colors.label }]}>{EXPORT_TAX_NOTICE}</Text>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
+            </Pressable>
           )}
 
           {/* §5.5 の改訂: 記録タブ・データタブと**同じ盤面**。ここで作り直さない */}
@@ -262,6 +274,9 @@ export function ExportSheet() {
           </Pressable>
         </View>
       </View>
+
+      {/* §5.8 のバナーの飛び先。注意書きそのものが先頭に出る（HELP_ENTRIES.export） */}
+      {showHelp && <HelpSheet entry="export" onClose={() => setShowHelp(false)} />}
     </>
   );
 }

@@ -9,7 +9,7 @@
 // - 表示語はすべて src/logic/labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 // - 決定 §7-14 により iPad/Mac の 2 ペインレイアウトは移植せず、iPhone 縦 1 カラムのみ。
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Animated,
@@ -24,6 +24,8 @@ import {
 } from 'react-native';
 
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import {
   CostProportionBar,
   partColor,
@@ -113,6 +115,8 @@ export default function CalcScreen() {
 
   const [mode, setMode] = useState(MODE_PROFIT);
   const [showForm, setShowForm] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const router = useRouter();
   // 内訳の開閉は結果カードと固定バーで独立させる（UI-SPEC §1.1「挙動」）。
   // 逆算側は中身が別もの（項目別の金額と計算のしかた）なので、結果側とも別に持つ
   const [cardBreakdownOpen, setCardBreakdownOpen] = useState(false);
@@ -173,9 +177,14 @@ export default function CalcScreen() {
 
   const canClear = hasAnyInput(values, defaultRecordKind);
 
-  // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7）。
-  // 「？」の配線はステップ 6（各画面のヘルプ）でまとめて行う
-  const screenOptions = useMemo(() => ({ headerTitle: '利益計算' }), []);
+  // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7 / §1.1-1）
+  const screenOptions = useMemo(
+    () => ({
+      headerTitle: '利益計算',
+      headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
+    }),
+    [],
+  );
 
   return (
     <>
@@ -361,6 +370,15 @@ export default function CalcScreen() {
         initialAmounts={toInitialAmounts(values, displayedSalesPrice)}
         onClose={() => setShowForm(false)}
       />
+
+      {/* ヘッダの「？」（UI-SPEC §5-9）。設定タブ配下の使いかたへ push はしない */}
+      {showHelp && (
+        <HelpSheet
+          entry="calc"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }

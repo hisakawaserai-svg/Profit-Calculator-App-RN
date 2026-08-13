@@ -1,276 +1,218 @@
-// HelpView.swift の移植。ヘルプタブ（SPEC §3.2 / §3.1）。
-// 静的なアコーディオン（Swift 版の 3 セクション + 種別の 1 セクション）のみで、
-// データ処理は一切しない。
+// 使いかた（UI-SPEC §3.2 / §5-9 / 採用案 `19c` `20b` `20c`）。
 //
-// 本文は Swift 版の文言をそのまま持ってきている。アイコンは SF Symbols を
-// Ionicons の近いものに置き換えた（タブアイコンと同じ方針。app/(tabs)/_layout.tsx 参照）。
-// 決定 §7-14 により macOS 分岐（listStyle の出し分け）は移植しない。
+// **上部のチップで 4 ページを切り替える**（計算 / 記録 / データ / ことば）。
+// アコーディオンだった旧実装（Swift 版 HelpView の移植）は全面的に置き換えた ──
+// 中身が 4 タブ化前の文言（出品中タブ・実績タブ・分析タブ・売却済みスイッチ）のままで、
+// 実物と食い違っていた。
 //
-// SPEC-V2 §1.3 / §6.1 で「記録の種別について」セクションを 1 つ追加した（Swift 版にはない）。
-// 用語の説明なので、種別語（純利益 / 利益）が最初に出てくる計算タブの説明の直後に置く。
-// 文中の表示語は labels.ts の確定値と一致させること（§5.3）。
-import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+// **この画面は 2 通りの出しかたで使い回す**（§5-9）:
+//   - 設定タブの「使いかた」から push（全ページ・チップは既定の「計算」から）
+//   - 各画面の「？」からシート（案 `20c`。困りそうな項目を先頭に持ち上げ、下端に
+//     「使いかたを最初から読む ›」を置く）
+//
+// 本文と並びは `logic/helpContent.ts`、図は `components/HelpDiagram.tsx`。
+// この画面が持つのは**並べ方だけ**で、文字列を組み立てない（SPEC-V2 §5.3）。
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Accordion } from '@/components/Accordion';
-import { useThemeColors, type ThemeColors } from '@/theme';
+import {
+  KindComparisonFigure,
+  SaleDateRangeFigure,
+  SiteAmountFigure,
+  TermsFigure,
+} from '@/components/HelpDiagram';
+import {
+  HELP_PAGES,
+  HELP_READ_ALL_LABEL,
+  orderedBlocks,
+  type HelpBlock,
+  type HelpFigureId,
+  type HelpPageId,
+} from '@/logic/helpContent';
+import { useThemeColors } from '@/theme';
 
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
-
-/**
- * テーマの色キーで持つ（配色を theme.ts に集約するため。直接の色文字列は書かない）。
- * 1 色を指すキーだけに絞る（expenseTones のような色の並びはアイコン 1 個には渡せない）。
- */
-type ColorKey = {
-  [K in keyof ThemeColors]: ThemeColors[K] extends string ? K : never;
-}[keyof ThemeColors];
-
-type HelpItem = {
-  icon: IoniconName;
-  colorKey: ColorKey;
-  title: string;
-  content: string;
+const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
+  kind: KindComparisonFigure,
+  terms: TermsFigure,
+  siteAmount: SiteAmountFigure,
+  saleDate: SaleDateRangeFigure,
 };
 
-type HelpSection = {
-  icon: IoniconName;
-  colorKey: ColorKey;
-  title: string;
-  items: HelpItem[];
+type Props = {
+  /** 最初に開くページ。省略時は先頭（計算） */
+  initialPage?: HelpPageId;
+  /** このブロックをページの先頭へ持ち上げる（各画面の「？」から。案 `20c`） */
+  leadBlockId?: string;
+  /** シートから開いたときだけ渡す。下端の「最初から読む」を押したとき */
+  onReadAll?: () => void;
+  /**
+   * ページの見出しを出すか（既定 true）。
+   *
+   * **シートでは出さない**（案 `20c`）── シートは見出し行にその場の語（「記録の書きかた」）を
+   * 持っているので、中にページ名を重ねると 1 つの面に別名が 2 つ並ぶ。
+   * どのページかはチップの選択で読める。設定タブから push したときは見出し行が
+   * 「使いかた」なので、ページ名はこちらが出す（案 `20b`）。
+   */
+  showPageTitle?: boolean;
 };
 
-/**
- * Swift 版の 3 つの Section（DisclosureGroup）と同じ内容・同じ順序。
- * 2 番目の「記録の種別について」だけが RN 版での追加（SPEC-V2 §1.3）。
- */
-const SECTIONS: HelpSection[] = [
-  {
-    icon: 'calculator',
-    colorKey: 'blue',
-    title: '利益計算機について',
-    items: [
-      {
-        icon: 'calculator-outline',
-        colorKey: 'blue',
-        title: 'かんたん電卓',
-        content:
-          '各入力欄の右側にある青いボタンを押すと電卓が開きます。仕入れ金額の合算や、送料の計算に便利です。',
-      },
-      {
-        icon: 'arrow-undo-circle',
-        colorKey: 'teal',
-        title: '目標利益の逆算',
-        content:
-          '「これくらい利益がほしい」という目標がある時に便利です。目標利益と経費を入力すると、いくらで売ればいいか自動で計算します。',
-      },
-      {
-        icon: 'refresh',
-        colorKey: 'gray',
-        title: '入力欄のリセット',
-        content:
-          '画面右上にある、くるっと回った矢印のボタンを押すと、入力した数字をすべて消して最初から計算し直すことができます。',
-      },
-      {
-        icon: 'add-circle',
-        colorKey: 'green',
-        title: '出品の記録（＋ボタン）',
-        content:
-          '計算機画面の右上にある「＋」ボタンを押すと記録できます。出品日を入力すると「出品中」タブに登録されます。',
-      },
-    ],
-  },
-  {
-    icon: 'pricetags',
-    colorKey: 'teal',
-    title: '記録の種別について',
-    items: [
-      {
-        icon: 'home',
-        colorKey: 'teal',
-        title: '不用品と仕入品のちがい',
-        content:
-          '記録は「不用品」と「仕入品」のどちらかを選びます。不用品は自宅にあった物を売る記録で、仕入れにお金がかかっていないため仕入価格の欄は出てきません（0円として計算します）。仕入品は仕入れて売る記録で、仕入価格を入力できます。計算のしかたはどちらも同じで、経費を差し引いた残りが手元に残る金額です。',
-      },
-      {
-        icon: 'swap-horizontal',
-        colorKey: 'green',
-        title: '「純利益」「利益」「収支」の使い分け',
-        content:
-          '1件の記録では、不用品は「純利益」、仕入品は「利益」と呼びます。月ごとの合計や画面下の累計、データタブのように複数の記録をまとめた金額は、2つの種別が混ざることがあるため「収支」と呼びます。呼び方が違うだけで、どれも「販売価格から経費を引いた金額」で、計算のしかたは同じです。「経費」「販売価格」は種別によって変わりません。',
-      },
-      {
-        icon: 'information-circle',
-        colorKey: 'orange',
-        title: '経費にふくまれるもの',
-        content:
-          '本アプリの純利益は梱包材やその他の経費も差し引いた額のため、販売サイトに表示される金額より少なくなることがあります。販売サイトの「手取り」は販売手数料と送料だけを引いた金額であることが多いためで、どちらかが間違っているわけではありません。',
-      },
-      {
-        icon: 'settings',
-        colorKey: 'gray',
-        title: '最初に選ばれる種別を変える',
-        content:
-          '設定タブを開き、「新規作成時の種別」で選べます。新しく記録を追加するときに最初に選ばれている種別が変わるだけで、保存済みの記録の種別は変わりません。1件ずつの種別は、記録の編集画面でいつでも変えられます。',
-      },
-    ],
-  },
-  {
-    icon: 'cube',
-    colorKey: 'orange',
-    title: '出品と売却のルール',
-    items: [
-      {
-        icon: 'refresh',
-        colorKey: 'gray',
-        title: '表示のリセット',
-        content:
-          'カレンダーで月を選んでいる時に、右上の矢印ボタンを押すと、すべての期間のデータをまとめて表示する状態に戻せます。',
-      },
-      {
-        icon: 'pencil',
-        colorKey: 'blue',
-        title: 'データの編集',
-        content:
-          '詳細画面の右上にある「ペン」ボタンを押すと編集画面が開き、そのデータの編集ができます。',
-      },
-      {
-        icon: 'checkmark-circle',
-        colorKey: 'orange',
-        title: '売れた時の操作',
-        content:
-          '商品が売れたら、編集画面で「売却済み」スイッチをオンにして、販売日を入力してください。自動的に「実績」タブへ移動します。',
-      },
-      {
-        icon: 'flash',
-        colorKey: 'yellow',
-        title: 'かんたん売却更新',
-        content:
-          '詳細画面にある「出品中」のスイッチをオンにするだけで、販売日を「今日」にして実績へ移動させることができます。',
-      },
-    ],
-  },
-  {
-    icon: 'bar-chart',
-    colorKey: 'purple',
-    title: '記録の整理と分析',
-    items: [
-      {
-        icon: 'create',
-        colorKey: 'red',
-        title: '記録の直し方・消し方',
-        content:
-          'リストの記録をタップして詳細画面を開くと、右上に「編集（ペン）」や「削除（ゴミ箱）」ボタンがあります。',
-      },
-      {
-        icon: 'search',
-        colorKey: 'gray',
-        title: '商品の探し方',
-        content:
-          '画面上の検索バーに名前を入れたり、並び替えボタン（上下矢印マーク）を使ってみたい記録を探せます。',
-      },
-      {
-        icon: 'bar-chart',
-        colorKey: 'indigo',
-        title: '分析グラフの活用',
-        content:
-          '分析タブではこれまでの売上推移が見れます。グラフの棒を触ると、その日の詳細な数字と下にその内訳が表示され、日々の頑張りを振り返ることができます。',
-      },
-    ],
-  },
-];
-
-export function HelpScreen() {
+export function HelpScreen({
+  initialPage,
+  leadBlockId,
+  onReadAll,
+  showPageTitle = true,
+}: Props) {
   const colors = useThemeColors();
+  const [pageId, setPageId] = useState<HelpPageId>(initialPage ?? HELP_PAGES[0].id);
+  const page = HELP_PAGES.find((candidate) => candidate.id === pageId) ?? HELP_PAGES[0];
+
+  // 持ち上げが効くのは「？」で開いた最初のページだけ。チップで移ったら素の並びに戻す
+  // ── 移った先は自分で選んだページなので、並べ替える理由がない
+  const blocks = orderedBlocks(page, pageId === initialPage ? leadBlockId : undefined);
 
   return (
-    // ヘッダーのタイトルは表示元（設定タブ配下の使いかた / 将来は各画面の「？」のシート）が付ける。
-    // この画面自身は特定のナビゲータに結び付かない（UI-SPEC §5-9）。
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.scrollContent}>
-      {SECTIONS.map((section) => (
-        <Accordion
-          key={section.title}
-          accessibilityLabel={section.title}
-          label={
-            <View style={styles.sectionLabel}>
-              <Ionicons name={section.icon} size={22} color={colors[section.colorKey]} />
-              <Text style={[styles.sectionTitle, { color: colors[section.colorKey] }]}>
-                {section.title}
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      {/* チップ（案 `20b`）。横に並べるだけで収まる 4 枚なので、横スクロールは持たない */}
+      <View style={styles.chipRow}>
+        {HELP_PAGES.map((candidate) => {
+          const selected = candidate.id === pageId;
+          return (
+            <Pressable
+              key={candidate.id}
+              onPress={() => setPageId(candidate.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              style={({ pressed }) => [
+                styles.chip,
+                {
+                  backgroundColor: selected ? colors.blue : colors.secondaryBackground,
+                  opacity: pressed ? 0.6 : 1,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.chipLabel,
+                  { color: selected ? '#FFFFFF' : colors.label },
+                  selected && styles.chipLabelSelected,
+                ]}>
+                {candidate.chip}
               </Text>
-            </View>
-          }>
-          <View style={styles.itemList}>
-            {section.items.map((item) => (
-              <HelpContentRow key={item.title} item={item} />
-            ))}
-          </View>
-        </Accordion>
-      ))}
-    </ScrollView>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {showPageTitle && (
+          <Text style={[styles.pageTitle, { color: colors.label }]}>{page.title}</Text>
+        )}
+        {blocks.map((block) => (
+          <Block key={block.id} block={block} onOpenPage={setPageId} />
+        ))}
+
+        {/* 案 `20c`: シートから開いたときだけ、全体へ行ける口を下端に置く */}
+        {onReadAll != null && (
+          <Pressable
+            onPress={onReadAll}
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.readAll, { opacity: pressed ? 0.5 : 1 }]}>
+            <Text style={[styles.readAllLabel, { color: colors.blue }]}>{HELP_READ_ALL_LABEL}</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
-/** Swift 版 HelpContentRow。アイコン＋タイトル＋説明文の 1 項目 */
-function HelpContentRow({ item }: { item: HelpItem }) {
+function Block({
+  block,
+  onOpenPage,
+}: {
+  block: HelpBlock;
+  onOpenPage: (page: HelpPageId) => void;
+}) {
   const colors = useThemeColors();
 
+  if (block.kind === 'figure') {
+    const Figure = FIGURES[block.figure];
+    return <Figure />;
+  }
+
   return (
-    <View style={styles.row}>
-      <Ionicons
-        name={item.icon}
-        size={24}
-        color={colors[item.colorKey]}
-        style={styles.rowIcon}
-      />
-      <View style={styles.rowText}>
-        <Text style={[styles.rowTitle, { color: colors.label }]}>{item.title}</Text>
-        <Text style={[styles.rowContent, { color: colors.secondaryLabel }]}>{item.content}</Text>
-      </View>
+    <View style={styles.textBlock}>
+      {/* 図の直後の補足だけは見出しを持たない（図の見出しが兼ねる） */}
+      {block.title !== '' && (
+        <Text style={[styles.blockTitle, { color: colors.label }]}>{block.title}</Text>
+      )}
+      <Text style={[styles.blockBody, { color: colors.secondaryLabel }]}>{block.body}</Text>
+      {block.link != null && (
+        <Pressable
+          onPress={() => onOpenPage(block.link!.to)}
+          hitSlop={8}
+          accessibilityRole="link"
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+          <Text style={[styles.blockLink, { color: colors.blue }]}>{block.link.label}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-    gap: 16,
-  },
-  sectionLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  itemList: {
-    gap: 20,
-    paddingTop: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 15,
-  },
-  rowIcon: {
-    width: 35,
-    textAlign: 'center',
-  },
-  rowText: {
+  screen: {
     flex: 1,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  chip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 999,
+  },
+  chipLabel: {
+    fontSize: 15,
+  },
+  chipLabelSelected: {
+    fontWeight: '700',
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 20,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  textBlock: {
     gap: 6,
   },
-  rowTitle: {
+  blockTitle: {
     fontSize: 17,
     fontWeight: '600',
   },
-  rowContent: {
+  blockBody: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
+  },
+  blockLink: {
+    fontSize: 15,
+    fontWeight: '600',
+    paddingTop: 2,
+  },
+  readAll: {
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  readAllLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

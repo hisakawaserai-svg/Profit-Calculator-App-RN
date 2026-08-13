@@ -43,6 +43,8 @@ import {
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import { PhotoField } from '@/components/PhotoField';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
@@ -185,6 +187,8 @@ function RecordForm({
   const createdPhotos = useRef<string[]>([]);
   /** タグ選択シート（§3.2）。開いている間だけマウントする */
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  /** ヘッダの「？」（案 `20c`）。開いている間だけマウントする */
+  const [showHelp, setShowHelp] = useState(false);
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（日付欄の「今日（…）」の基準） */
@@ -330,9 +334,14 @@ function RecordForm({
 
       {/* 2. シートヘッダ（UI-SPEC §1.3-2） */}
       <View style={[styles.header, { borderBottomColor: colors.separator }]}>
-        <Pressable onPress={handleCancel} hitSlop={8} accessibilityRole="button">
-          <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={handleCancel} hitSlop={8} accessibilityRole="button">
+            <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+          </Pressable>
+          {/* 案 `20c`: このフォームにも「？」を置く。販売日を選べなかった直後に開くのが
+              いちばん役に立つので、シートは「日付のきまり」を先頭に出す */}
+          <HelpButton onPress={() => setShowHelp(true)} />
+        </View>
         {/* 見出しは**画面の中央**に置く。行の中に並べると自然幅で挟まれ、左右のボタンの
             幅の差の半分だけ寄る（「キャンセル」と「保存」で 22pt ずれていた）。
             重ねてもボタンを塞がないよう、当たり判定は持たせない */}
@@ -596,6 +605,10 @@ function RecordForm({
           onClose={() => setTagPickerOpen(false)}
         />
       )}
+
+      {/* ヘッダの「？」（案 `20c`）。このフォームはモーダルの上なので「最初から読む」は出さない
+          ── 設定タブへ push しても、このモーダルの下に隠れて見えない */}
+      {showHelp && <HelpSheet entry="recordForm" onClose={() => setShowHelp(false)} />}
     </KeyboardAvoidingView>
   );
 }
@@ -711,6 +724,11 @@ const styles = StyleSheet.create({
   },
   // 行の左右いっぱいに敷いて、その中で中央寄せ ── 端は header の padding より外側の
   // border box なので、ここでの中央が画面の中央と一致する
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   headerTitleSlot: {
     position: 'absolute',
     left: 0,
