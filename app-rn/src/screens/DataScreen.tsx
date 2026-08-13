@@ -45,6 +45,7 @@ import {
   cumulativeProfits,
   densifySeries,
   dualAxisBounds,
+  hasSeparateCumulativeAxis,
   formatChartLabel,
   formatPointDate,
   labelSlotIndices,
@@ -135,27 +136,19 @@ const EDGE_SPACING = 12;
 const MAX_BAR_WIDTH = 12;
 const BAR_WIDTH_RATIO = 0.6;
 /**
- * X 軸ラベルの枠幅。既定では**棒の幅**が枠になるので、日付の軸では棒が細くなったぶん
- * ラベルが「0…」に潰れる。日付 1 つぶん（"08/01"）が入る幅を明示する。
- *
- * ただし枠を広げると**ラベルが棒の右へずれる**。ライブラリは枠を
- * 「左端 = 棒の左端 − spacing/2、幅 = labelWidth + spacing」に置くので、
- * 枠の中央（＝文字の中央）は棒の左端 + labelWidth/2 に来る ── labelWidth が棒の幅と等しい
- * 既定でだけ棒の中央と一致する。広げたぶんは X_LABEL_SHIFT で左へ戻す。
+ * X 軸ラベルの枠幅。日付 1 つぶん（"08/01"）が入る幅。
+ * 枠の中央を棒の中央に合わせて置く（XAxisLabels）。
  */
 const X_LABEL_WIDTH = 36;
 /**
  * 末尾のラベルと直前のラベルの間に最低限空ける距離（中心どうし）。
- *
- * 枠は 36pt だが、**枠ぶんだけでは足りない** ── 負の棒ではライブラリがラベルの置き方を
- * 変えるので、枠の中で文字が寄る。実測では 52pt（2 スロット）で隣と地続きに見えた。
- * 枠 ＋ 余白で 60pt を要求し、足りなければ直前のラベルを落として場所を空ける
+ * 枠（36pt）に余白を足した 60pt を要求し、足りなければ直前のラベルを落として場所を空ける
  * （logic/analytics の labelSlotIndices）。
  */
 const X_LABEL_MIN_GAP = 60;
 
-/** ラベルの中央を棒の中央に戻す量（上記）。棒の幅ぶんだけ戻し過ぎないよう半分ずつで打ち消す */
-const xLabelShift = (barWidth: number) => (barWidth - X_LABEL_WIDTH) / 2;
+/** X 軸ラベルを 0 の線からどれだけ下げるか（XAxisLabels）。線に文字が乗らない最小限 */
+const X_LABEL_TOP_GAP = 6;
 /**
  * ライブラリが本体の**上**に足す余白の割合（`yAxisExtraHeight = containerHeight / 20`）。
  *
@@ -267,6 +260,22 @@ export function DataScreen() {
   );
   /** 選択中の点の位置。見出しの下の行に出す値を引くのに使う。未選択・範囲外は -1 */
   const selectedIndex = densePoints.findIndex((point) => point.key === selectedKey);
+
+  /**
+   * 凡例の「累計収支」を行の右端へ寄せるか（案 39b の続き）。
+   * **右に累計の目盛りが出ているときだけ**寄せる ── 2 軸の上限が一致する期間は
+   * 右に数字が出ない（hasSeparateCumulativeAxis）ので、寄せると何も無いところを指してしまう。
+   *
+   * dualAxisBounds をグラフ本体と 2 回通ることになるが、純粋な算術で入力もここで持っている
+   * 配列そのものなので、条件を 2 か所に書き写すより安い。
+   */
+  const cumulativeOnRight = useMemo(
+    () =>
+      hasSeparateCumulativeAxis(
+        dualAxisBounds(densePoints.map((point) => point.profit), cumulative),
+      ),
+    [densePoints, cumulative],
+  );
 
   /** 期間を変えると刻みも集計対象も変わるので、選択中の棒は外す */
   const changePeriod = useCallback(
@@ -387,6 +396,7 @@ export function DataScreen() {
             <ChartHeadRow
               unit={unit}
               showCumulative={showsCumulative(densePoints)}
+              cumulativeOnRight={cumulativeOnRight}
               selected={
                 selectedIndex < 0
                   ? null
@@ -489,10 +499,16 @@ function showsCumulative(points: ChartPoint[]): boolean {
 function ChartHeadRow({
   unit,
   showCumulative,
+  cumulativeOnRight,
   selected,
 }: {
   unit: ChartUnit;
   showCumulative: boolean;
+  /**
+   * 凡例の「累計収支」を右端へ寄せるか。右に累計の目盛りが出ている期間だけ true
+   * （呼び出し側の cumulativeOnRight を参照）。選択中の行には効かない。
+   */
+  cumulativeOnRight: boolean;
   /** 選択中の点と、その点までの累計。null = 未選択（凡例を出す） */
   selected: { point: ChartPoint; cumulative: number } | null;
 }) {
@@ -515,7 +531,12 @@ function ChartHeadRow({
           </Text>
         </View>
         {showCumulative && (
-          <View style={styles.legendItem}>
+          // **凡例だけ右端へ寄せる**（legendItemTrailing）。累計の目盛りは本体の右端に
+          // 藍で重なっている（YAxisTicks の showCumulativeTicks）ので、同じ色の凡例を
+          // その真上に置いて「右の数字が何の軸か」を位置でも示す。
+          // 左端から順に並べていた頃（案 37b）は右軸そのものが無く、寄せる先が無かった。
+          // 右に数字が出ない期間（2 軸の上限が一致）では寄せない ── cumulativeOnRight
+          <View style={[styles.legendItem, cumulativeOnRight && styles.legendItemTrailing]}>
             {lineSwatch}
             <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>
               {CUMULATIVE_PROFIT_LABEL}
@@ -623,21 +644,13 @@ function ChartView({
     return {
       // 空きスロットも同じ幅の枠として並べる（値 0 なので棒は描かれない）
       value: point.profit,
-      label: labeledIndices.has(index) ? formatChartLabel(point.date, unit) : '',
+      // label は渡さない。X 軸ラベルは自前で重ねる（XAxisLabels の冒頭を参照）
       // 選択中の棒だけ濃く（未選択のときは全点そのままの色）
       frontColor: selectedIndex < 0 || selectedIndex === index ? base : dim(base),
       // 押す判定は上に重ねた列（TapColumns）が持つ
       disablePress: true,
     };
   });
-
-  // 棒・折れ線・タップ列は同じ式（EDGE_SPACING + i × pitch）で並ぶが、X 軸ラベルだけは
-  // ライブラリが枠の中央に置くので、枠を広げたぶん右へずれる。ここで棒の中央へ戻す
-  const xAxisLabelStyle = {
-    color: colors.secondaryLabel,
-    fontSize: 10,
-    transform: [{ translateX: xLabelShift(barWidth) }],
-  };
 
 
   return (
@@ -663,8 +676,6 @@ function ChartView({
         // 線の位置で読むため。ほかの段は破線の薄い罫線のまま
         xAxisColor={colors.secondaryLabel}
         rulesColor={colors.separator}
-        xAxisLabelTextStyle={xAxisLabelStyle}
-        labelWidth={X_LABEL_WIDTH}
         initialSpacing={EDGE_SPACING}
         endSpacing={EDGE_SPACING}
         // アニメーション中は描画が追いつかないことがあるため切る
@@ -678,6 +689,15 @@ function ChartView({
 
       {/* 目盛りの数字を本体の内側に重ねる（案 37b）。軸のラベル列を外した代わり */}
       <YAxisTicks bounds={bounds} heights={heights} showCumulative={withCumulative} />
+
+      <XAxisLabels
+        points={points}
+        labeledIndices={labeledIndices}
+        unit={unit}
+        heights={heights}
+        pitch={pitch}
+        barWidth={barWidth}
+      />
 
       {withCumulative && (
         <CumulativeLine
@@ -736,7 +756,7 @@ function YAxisTicks({
    * **累計の目盛りは、棒と目盛りが違うときだけ右に出す。**
    * 同じなら左の数字がそのまま両方に当てはまるので、同じ数字を 2 列並べない。
    */
-  const showCumulativeTicks = showCumulative && bounds.cumulativeMax !== bounds.barMax;
+  const showCumulativeTicks = showCumulative && hasSeparateCumulativeAxis(bounds);
 
   // 下端（-sectionsBelow 段）から上端（sections 段）まで。0 の段も含む
   const levels = Array.from(
@@ -785,6 +805,66 @@ function YAxisTicks({
               {formatCompactYen(level * cumulativeStepValue)}
             </Text>
           ))}
+    </View>
+  );
+}
+
+/**
+ * X 軸の日付ラベル（UI-SPEC §1.5-4）。**ライブラリに描かせず、自前で重ねる。**
+ *
+ * ライブラリの X 軸ラベルは**負の棒のとき位置が 1 スロットぶんずれる** ──
+ * `RenderBars` が `value < 0` のラベルの入れ物に `rotate: '180deg'` を掛けるため、
+ * 枠の中でのラベルの寄り方が左右反転する。枠を日付 1 つぶんに広げてある（X_LABEL_WIDTH）
+ * ので、その反転がそのまま横のずれになって出る（実測: 24pt ＝ 赤字の棒が出た月で
+ * 「08/13」が 8/12 の棒の真下に来た）。ライブラリ側にこの回転を切る口は無い。
+ *
+ * 棒・折れ線・目盛り・タップ列はすべて自前で `EDGE_SPACING + i × pitch` に並べており、
+ * ラベルだけがライブラリの座標系に乗っていた。同じ式に載せ替えることで、
+ * **符号に関わらずラベルの中央が棒の中央に一致する**（ずれを補正する定数も要らなくなる）。
+ *
+ * 縦の位置は 0 の線のすぐ下。負の棒はこの下へ伸びるので、ラベルの上を横切る
+ * （ライブラリに描かせていたときと同じ見え方）。
+ */
+function XAxisLabels({
+  points,
+  labeledIndices,
+  unit,
+  heights,
+  pitch,
+  barWidth,
+}: {
+  points: ChartPoint[];
+  /** ラベルを出すスロットの位置（logic/analytics の labelSlotIndices が間引いた結果） */
+  labeledIndices: Set<number>;
+  unit: ChartUnit;
+  heights: ChartHeights;
+  pitch: number;
+  barWidth: number;
+}) {
+  const colors = useThemeColors();
+  /** 枠の左端。枠の中央（= 文字の中央）が棒の中央に来るように置く */
+  const leftOf = (index: number) =>
+    EDGE_SPACING + index * pitch + barWidth / 2 - X_LABEL_WIDTH / 2;
+
+  return (
+    <View style={styles.tickOverlay} pointerEvents="none">
+      {points.map((point, index) =>
+        labeledIndices.has(index) ? (
+          <Text
+            key={point.key}
+            numberOfLines={1}
+            style={[
+              styles.xAxisLabel,
+              {
+                color: colors.secondaryLabel,
+                left: leftOf(index),
+                top: heights.top + heights.above + X_LABEL_TOP_GAP,
+              },
+            ]}>
+            {formatChartLabel(point.date, unit)}
+          </Text>
+        ) : null,
+      )}
     </View>
   );
 }
@@ -983,7 +1063,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: HEAD_ROW_HEIGHT,
-    // 2 つで 1 組。左端から順に並べる（右軸が無くなり、右へ寄せる理由も消えた。案 37b）
+    // 選択中は「押した 1 点についての 2 つの値」なので左端から順に詰める（ChartHeadRow の表）。
+    // 凡例のときだけ 2 つ目を右端へ送る（legendItemTrailing）
     gap: 14,
   },
   // 押した点の日付。値より一段落として、金額のほうへ目が行くようにする
@@ -1000,6 +1081,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  /**
+   * 凡例の 2 つ目（累計収支）を行の右端へ送る。**凡例のときだけ**当てる ──
+   * 累計の目盛りは本体の右端に藍で重なっている（YAxisTicks）ので、同じ色の凡例を
+   * その真上に置くと「右の数字が何の軸か」が位置でも読める。
+   * 選択中の行は 1 点についての 2 つの値なので、こちらは離さない。
+   */
+  legendItemTrailing: {
+    marginLeft: 'auto',
   },
   // 見本は本体と同じ形にする（棒は縦長・折れ線は横線）
   legendBar: {
@@ -1043,6 +1133,13 @@ const styles = StyleSheet.create({
   tickLabelRight: {
     right: 0,
     textAlign: 'right',
+  },
+  // X 軸の日付。枠の中央を棒の中央に合わせて置く（XAxisLabels）
+  xAxisLabel: {
+    position: 'absolute',
+    width: X_LABEL_WIDTH,
+    fontSize: 10,
+    textAlign: 'center',
   },
   // グラフに重ねる透明な列。高さいっぱいなので縦方向は狙わなくてよい
   tapColumns: {

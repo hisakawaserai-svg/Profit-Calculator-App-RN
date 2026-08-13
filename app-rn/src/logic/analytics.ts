@@ -387,6 +387,19 @@ export function dualAxisBounds(
 }
 
 /**
+ * 右側に累計の目盛りを出すか（UI-SPEC §1.5-4）。**2 軸の上限が一致したら出さない** ──
+ * そのときは左の数字がそのまま両方に当てはまるので、同じ数字を 2 列並べない。
+ * 一致は珍しくない（棒の最大と累計の最大が同じ丸め幅に乗ると起きる。
+ * 大きな赤字が 1 つ入って両軸とも同じ範囲まで広がる場合など）。
+ *
+ * 目盛り（YAxisTicks）と凡例の寄せ（ChartHeadRow）が**同じ条件**を見るために関数にしてある ──
+ * 片方だけ直すと「右に何も無いのに凡例だけ右端にある」状態になる。
+ */
+export function hasSeparateCumulativeAxis(bounds: DualAxisBounds): boolean {
+  return bounds.cumulativeMax !== bounds.barMax;
+}
+
+/**
  * X 軸ラベル（Swift 版 AxisValueLabel の書式）。刻みと同じ粒度まで出す ──
  * 年ごとの軸に「2026/01」と出すと、その年の 1 月だけを指しているように読める。
  */
