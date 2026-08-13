@@ -20,7 +20,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { nextPeriodLabel, periodTitle, previousPeriodLabel } from '@/logic/labels';
+import {
+  nextPeriodLabel,
+  periodButtonAccessibilityLabel,
+  periodTitle,
+  previousPeriodLabel,
+} from '@/logic/labels';
 import { canShiftPeriod, shiftPeriod, type Period } from '@/logic/period';
 import { useThemeColors } from '@/theme';
 
@@ -88,7 +93,7 @@ export function MonthNavBar({
           style={styles.title}
           onPress={onPressTitle}
           accessibilityRole="button"
-          accessibilityLabel={`表示する期間: ${title}`}>
+          accessibilityLabel={periodButtonAccessibilityLabel(title)}>
           <Text style={[styles.titleLabel, { color: colors.label }]}>{title}</Text>
           <Ionicons name="chevron-down" size={14} color={colors.secondaryLabel} />
         </Pressable>

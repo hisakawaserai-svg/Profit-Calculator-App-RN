@@ -5,6 +5,8 @@ import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 
+import { copiedContentMessage, copiedMessage, copyFailedMessage } from '@/logic/labels';
+
 // 長押しでコピーする Pressable。コピー成功時に haptic とトーストを出す。
 // style は行の中に置くとき用（Pressable が中身の Text の代わりに flex の子になるので、
 // flexShrink などは包んだ側に渡さないと効かない）。
@@ -27,11 +29,11 @@ export function LongPressCopy({ label, text, style, children }: {label: string, 
 
         Toast.show({
           type: 'success',
-          text1: `${label}をコピーしました`,
-          text2: `コピー内容：${text}`,
+          text1: copiedMessage(label),
+          text2: copiedContentMessage(text),
         })
       } catch(error) {
-        console.error('Failed to copy sales price to clipboard:', error);
+        console.error('Failed to copy text to clipboard:', error);
 
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Error
@@ -39,7 +41,7 @@ export function LongPressCopy({ label, text, style, children }: {label: string, 
 
         Toast.show({
           type: "error",
-          text1: `${label}のコピーに失敗しました`,
+          text1: copyFailedMessage(label),
         })
       }
     }}>

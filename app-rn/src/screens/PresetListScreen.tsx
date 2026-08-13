@@ -34,13 +34,14 @@ import {
   PRESET_EDIT_MODE_DONE_LABEL,
   PRESET_EDIT_MODE_LABEL,
   PRESET_EMPTY_TITLE,
+  UNDO_LABEL,
+  deleteAccessibilityLabel,
   presetAddLabel,
   presetDeleteConfirmMessage,
   presetDeletedMessage,
   presetEmptyBody,
   presetListNote,
   presetTypeLabel,
-  UNDO_LABEL,
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
@@ -138,7 +139,7 @@ export function PresetListScreen({ type }: Props) {
                       onPress={() => requestDelete(preset)}
                       hitSlop={8}
                       accessibilityRole="button"
-                      accessibilityLabel={`${preset.name}を${DELETE_LABEL}`}
+                      accessibilityLabel={deleteAccessibilityLabel(preset.name)}
                       style={({ pressed }) => [styles.deleteButton, { opacity: pressed ? 0.5 : 1 }]}>
                       <Ionicons name="remove-circle" size={22} color={colors.red} />
                     </Pressable>

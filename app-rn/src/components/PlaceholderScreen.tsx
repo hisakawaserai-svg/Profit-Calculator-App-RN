@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { UNIMPLEMENTED_LABEL } from '@/logic/labels';
+
 type Props = {
   title: string;
 };
@@ -9,7 +11,7 @@ export function PlaceholderScreen({ title }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.note}>（未実装）</Text>
+      <Text style={styles.note}>{UNIMPLEMENTED_LABEL}</Text>
     </View>
   );
 }

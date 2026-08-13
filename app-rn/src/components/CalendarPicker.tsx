@@ -19,13 +19,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DateChips } from '@/components/DateChips';
 import { SheetModal } from '@/components/SheetModal';
-import { formatMonthTitle } from '@/logic/format';
+import { formatMonthCell, formatMonthTitle, formatYearTitle } from '@/logic/format';
 import {
   CHOOSE_MONTH_LABEL,
   CLOSE_LABEL,
   LISTED_DATE_FIELD_LABEL,
+  NEXT_MONTH_LABEL,
+  PREVIOUS_MONTH_LABEL,
   TODAY_MARKER_LABEL,
   WEEKDAY_LABELS,
+  calendarDayAccessibilityLabel,
 } from '@/logic/labels';
 import {
   MONTH_GRID_COLUMNS,
@@ -146,7 +149,7 @@ export function CalendarPicker({
             name="chevron-back"
             enabled={canShiftMonth(month, -1, range)}
             onPress={() => setMonth(shiftMonth(month, -1))}
-            accessibilityLabel="前の月"
+            accessibilityLabel={PREVIOUS_MONTH_LABEL}
             colors={colors}
           />
           {/* 見出し自体がボタン（§8.10.2 の 3）。◀ の連打を年月グリッドで置き換える */}
@@ -170,7 +173,7 @@ export function CalendarPicker({
             name="chevron-forward"
             enabled={canShiftMonth(month, 1, range)}
             onPress={() => setMonth(shiftMonth(month, 1))}
-            accessibilityLabel="次の月"
+            accessibilityLabel={NEXT_MONTH_LABEL}
             colors={colors}
           />
         </View>
@@ -180,7 +183,7 @@ export function CalendarPicker({
             {years.map((block) => (
               <View key={block.year} style={styles.yearBlock}>
                 <Text style={[styles.yearHeading, { color: colors.secondaryLabel }]}>
-                  {block.year}年
+                  {formatYearTitle(block.year)}
                 </Text>
                 <View style={styles.monthGrid}>
                   {block.months.map((cell) => (
@@ -287,7 +290,11 @@ function DayCell({
       disabled={!day.selectable}
       accessibilityRole="button"
       accessibilityState={{ disabled: !day.selectable, selected: day.isSelected }}
-      accessibilityLabel={marks === '' ? `${day.day}日` : `${day.day}日 ${marks}`}
+      accessibilityLabel={
+        marks === ''
+          ? calendarDayAccessibilityLabel(day.day)
+          : `${calendarDayAccessibilityLabel(day.day)} ${marks}`
+      }
       style={({ pressed }) => [styles.cell, { opacity: pressed && day.selectable ? 0.5 : 1 }]}>
       <View
         style={[
@@ -345,7 +352,7 @@ function MonthGridCell({
                 : colors.mutedLabel,
           },
         ]}>
-        {cell.month}月
+        {formatMonthCell(cell.month)}
       </Text>
     </Pressable>
   );

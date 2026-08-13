@@ -42,6 +42,9 @@ import { deleteRecord, useRecordList } from '@/db/useRecords';
 import { useRecordTags, useTagList } from '@/db/useTags';
 import { formatYenSymbol } from '@/logic/format';
 import {
+  ADD_RECORD_ACTION_LABEL,
+  CANCEL_LABEL,
+  DELETE_LABEL,
   EXPENSES_LABEL,
   FILTER_EMPTY_ACTION_LABEL,
   FILTER_EMPTY_TITLE,
@@ -49,9 +52,16 @@ import {
   LISTING_COUNT_LABEL,
   NO_RECORDS_EMPTY_BODY,
   NO_RECORDS_EMPTY_TITLE,
+  RECORDS_TAB_LABEL,
+  SEARCH_LABEL,
   SOLD_RECORDS_LABEL,
+  SORT_SHEET_TITLE,
   TOTAL_LISTING_PRICE_LABEL,
+  deleteAccessibilityLabel,
+  listedItemCountValue,
   periodProfitLabel,
+  recordCountValue,
+  recordDetailAccessibilityLabel,
 } from '@/logic/labels';
 import {
   activeFilterCount,
@@ -217,7 +227,7 @@ export function RecordListScreen() {
     : [
         {
           label: LISTING_COUNT_LABEL,
-          value: `${summary.recordCount} 点`,
+          value: listedItemCountValue(summary.recordCount),
           color: colors.orange,
         },
         {
@@ -244,25 +254,25 @@ export function RecordListScreen() {
             ),
             headerRight: () => (
               <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button">
-                <Text style={[styles.headerAction, { color: colors.blue }]}>キャンセル</Text>
+                <Text style={[styles.headerAction, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
               </Pressable>
             ),
           }
         : {
-            title: '記録',
+            title: RECORDS_TAB_LABEL,
             headerTitle: undefined,
             headerRight: () => (
               <View style={styles.headerButtons}>
                 <Pressable
                   onPress={() => setSearching(true)}
                   hitSlop={8}
-                  accessibilityLabel="検索">
+                  accessibilityLabel={SEARCH_LABEL}>
                   <Ionicons name="search" size={22} color={colors.blue} />
                 </Pressable>
                 <Pressable
                   onPress={() => setShowSortSheet(true)}
                   hitSlop={8}
-                  accessibilityLabel="並び替え">
+                  accessibilityLabel={SORT_SHEET_TITLE}>
                   <Ionicons name="swap-vertical" size={22} color={colors.blue} />
                 </Pressable>
                 {/* UI-SPEC §1.2-1: ⌕ ・ ⇅ ・ ？ の 3 つ。検索中は行ごと入れ替わるので出ない */}
@@ -319,7 +329,7 @@ export function RecordListScreen() {
           ListHeaderComponent={
             records.length === 0 || summaryText != null ? null : (
               <Text style={[styles.count, { color: colors.secondaryLabel }]}>
-                {records.length} 件
+                {recordCountValue(records.length)}
               </Text>
             )
           }
@@ -350,9 +360,9 @@ export function RecordListScreen() {
           style={[styles.addButton, { backgroundColor: colors.blue }]}
           onPress={openNewRecordForm}
           accessibilityRole="button"
-          accessibilityLabel="記録を追加">
+          accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
           <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.addLabel}>記録</Text>
+          <Text style={styles.addLabel}>{RECORDS_TAB_LABEL}</Text>
         </Pressable>
       </View>
 
@@ -371,7 +381,7 @@ export function RecordListScreen() {
           絞り込みシート（と解除バー）に一本化し、同じことをする経路を 2 つ作らない */}
       <SortSheet
         visible={showSortSheet}
-        title="並び替え"
+        title={SORT_SHEET_TITLE}
         rows={visibleSortRows}
         selectedValue={sortType}
         onSelect={setSortType}
@@ -458,8 +468,8 @@ function SwipeToDeleteRow({
           style={[styles.deleteAction, { backgroundColor: colors.red }]}
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel={`${record.itemName} を削除`}>
-          <Text style={styles.deleteLabel}>削除</Text>
+          accessibilityLabel={deleteAccessibilityLabel(record.itemName)}>
+          <Text style={styles.deleteLabel}>{DELETE_LABEL}</Text>
         </Pressable>
       )}>
       <Pressable
@@ -471,7 +481,7 @@ function SwipeToDeleteRow({
         ]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${record.itemName} の詳細`}>
+        accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
         <RecordRow record={record} isSoldMode={isSoldMode} today={today} tags={tags} />
       </Pressable>
     </ReanimatedSwipeable>

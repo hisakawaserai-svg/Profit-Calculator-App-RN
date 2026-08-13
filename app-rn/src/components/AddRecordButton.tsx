@@ -7,6 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable } from 'react-native';
 
+import { ADD_RECORD_ACTION_LABEL } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -17,7 +18,7 @@ export function AddRecordButton({ onPress }: Props) {
   const colors = useThemeColors();
 
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel="記録を追加">
+    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
       <Ionicons name="add" size={26} color={colors.blue} />
     </Pressable>
   );

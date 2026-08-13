@@ -59,6 +59,7 @@ import {
   calcRowSignLabel,
   calculatorBlockedNote,
   calculatorTitle,
+  deleteAccessibilityLabel,
 } from '@/logic/labels';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -348,7 +349,7 @@ function SwipeToDeleteMemoRow({
           style={[styles.deleteAction, { backgroundColor: colors.red }]}
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel={`${rowAccessibilityLabel(row)} を${DELETE_LABEL}`}>
+          accessibilityLabel={deleteAccessibilityLabel(rowAccessibilityLabel(row))}>
           <Text style={styles.deleteLabel}>{DELETE_LABEL}</Text>
         </Pressable>
       )}>

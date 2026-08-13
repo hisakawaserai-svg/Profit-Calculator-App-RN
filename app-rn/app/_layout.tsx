@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 
 import { initDatabase } from '@/db/client';
+import { DB_INIT_FAILED_MESSAGE } from '@/logic/labels';
 
 export default function RootLayout() {
   const [dbReady, setDbReady] = useState(false);
@@ -21,7 +22,7 @@ export default function RootLayout() {
   if (dbError) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text>データベースの初期化に失敗しました</Text>
+        <Text>{DB_INIT_FAILED_MESSAGE}</Text>
         <Text style={{ marginTop: 8, color: 'red' }}>{dbError.message}</Text>
       </View>
     );

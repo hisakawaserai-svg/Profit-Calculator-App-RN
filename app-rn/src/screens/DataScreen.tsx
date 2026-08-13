@@ -60,13 +60,16 @@ import {
   CHART_UNIT_NOTE,
   CLEAR_SELECTION_LABEL,
   CUMULATIVE_PROFIT_LABEL,
+  DATA_TAB_LABEL,
   EXPENSES_LABEL,
   FILTER_LABEL,
+  NO_SOLD_DATA_MESSAGE,
   PROFIT_TREND_LABEL,
   TOTAL_SALES_LABEL,
   chartBarLegendLabel,
   cumulativeValueLabel,
   periodProfitLabel,
+  recordDetailAccessibilityLabel,
   selectedPointTitle,
 } from '@/logic/labels';
 import {
@@ -346,7 +349,7 @@ export function DataScreen() {
   // UI-SPEC §1.5-1: ヘッダの右は「？」だけ
   const screenOptions = useMemo(
     () => ({
-      title: 'データ',
+      title: DATA_TAB_LABEL,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
     [],
@@ -460,7 +463,7 @@ function EmptyChart() {
   return (
     <View style={styles.emptyChart}>
       <Ionicons name="bar-chart-outline" size={40} color={colors.secondaryLabel} />
-      <Text style={{ color: colors.secondaryLabel }}>売却済みのデータがありません</Text>
+      <Text style={{ color: colors.secondaryLabel }}>{NO_SOLD_DATA_MESSAGE}</Text>
     </View>
   );
 }
@@ -1026,7 +1029,7 @@ function SelectedPointList({
           style={[styles.rowCard, { backgroundColor: colors.secondaryBackground }]}
           onPress={() => onPressRecord(record)}
           accessibilityRole="button"
-          accessibilityLabel={`${record.itemName} の詳細`}>
+          accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
           <RecordRow record={record} isSoldMode />
         </Pressable>
       ))}

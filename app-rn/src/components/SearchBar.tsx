@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { RECORD_SEARCH_PLACEHOLDER, SEARCH_CLEAR_LABEL } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -26,7 +27,7 @@ type Props = {
 export function SearchBar({
   value,
   onChangeValue,
-  placeholder = '商品名で検索',
+  placeholder = RECORD_SEARCH_PLACEHOLDER,
   style,
   autoFocus,
 }: Props) {
@@ -47,7 +48,7 @@ export function SearchBar({
         accessibilityLabel={placeholder}
       />
       {value !== '' && (
-        <Pressable onPress={() => onChangeValue('')} hitSlop={8} accessibilityLabel="検索を消去">
+        <Pressable onPress={() => onChangeValue('')} hitSlop={8} accessibilityLabel={SEARCH_CLEAR_LABEL}>
           <Ionicons name="close-circle" size={16} color={colors.secondaryLabel} />
         </Pressable>
       )}

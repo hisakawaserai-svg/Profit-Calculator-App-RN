@@ -16,7 +16,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FILTER_CLEAR_LABEL } from '@/logic/labels';
+import {
+  FILTER_CLEAR_ACTION_LABEL,
+  FILTER_CLEAR_LABEL,
+  FILTER_NOTICE_HINT,
+} from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 export type FilterNotice = {
@@ -40,7 +44,7 @@ export function FilterNoticeRow({
         onPress={onPressFilter}
         accessibilityRole="button"
         accessibilityLabel={text}
-        accessibilityHint="絞り込みの条件を変えます"
+        accessibilityHint={FILTER_NOTICE_HINT}
         style={({ pressed }) => [styles.main, { opacity: pressed ? 0.5 : 1 }]}>
         <Ionicons name="funnel" size={13} color={colors.blue} />
         <Text style={[styles.text, { color: colors.label }]} numberOfLines={1}>
@@ -51,7 +55,7 @@ export function FilterNoticeRow({
       <Pressable
         onPress={onClear}
         accessibilityRole="button"
-        accessibilityLabel={`${FILTER_CLEAR_LABEL}する`}
+        accessibilityLabel={FILTER_CLEAR_ACTION_LABEL}
         style={({ pressed }) => [styles.clear, { opacity: pressed ? 0.5 : 1 }]}>
         <Text style={[styles.clearLabel, { color: colors.blue }]}>{FILTER_CLEAR_LABEL}</Text>
       </Pressable>

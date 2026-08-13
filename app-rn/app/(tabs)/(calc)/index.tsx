@@ -57,9 +57,11 @@ import { sanitizeNumericInput } from '@/logic/input';
 import {
   BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
+  CALC_SCREEN_TITLE,
   CANCEL_LABEL,
   CLEAR_CONFIRM_MESSAGE,
   CLEAR_CONFIRM_TITLE,
+  CLEAR_INPUT_ACTION_LABEL,
   CLEAR_LABEL,
   DEDUCTED_LABEL,
   ENVELOPE_COST_LABEL,
@@ -191,7 +193,7 @@ export default function CalcScreen() {
   // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7 / §1.1-1）
   const screenOptions = useMemo(
     () => ({
-      headerTitle: '利益計算',
+      headerTitle: CALC_SCREEN_TITLE,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
     [],
@@ -219,7 +221,7 @@ export default function CalcScreen() {
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canClear }}
-                accessibilityLabel={`入力を${CLEAR_LABEL}`}
+                accessibilityLabel={CLEAR_INPUT_ACTION_LABEL}
                 style={({ pressed }) => ({ opacity: !canClear ? 0.3 : pressed ? 0.5 : 1 })}>
                 <Text style={[styles.clearLabel, { color: colors.blue }]}>{CLEAR_LABEL}</Text>
               </Pressable>

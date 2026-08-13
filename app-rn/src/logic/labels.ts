@@ -81,6 +81,18 @@ export const LISTING_STATUS_LABEL = '出品中';
 /** 出品中の件数（合計行の左の値 A。UI-SPEC §1.2）。状態名と同じ語 */
 export const LISTING_COUNT_LABEL = LISTING_STATUS_LABEL;
 
+/**
+ * 件数の値そのもの（UI-SPEC §1.2）。**単位が 2 つある** ──
+ * 出品中は「まだ手元にある品物」を数えるので「点」、一覧の上に出すのは
+ * 「いま並んでいる行」なので「件」。数えているものが違うので語も分ける。
+ */
+export function listedItemCountValue(count: number): string {
+  return `${count} 点`;
+}
+export function recordCountValue(count: number): string {
+  return `${count} 件`;
+}
+
 /** 一覧のメタ行に出す日付の意味づけ（UI-SPEC §1.2「{種別}　M/D 販売 / M/D 出品」） */
 export const SOLD_DATE_LABEL = '販売';
 export const LISTED_DATE_LABEL = '出品';
@@ -100,6 +112,100 @@ export const SORT_SMALLEST_LABEL = '少ない順';
  * 行の「売れたら 約◯円」と同じ**見込みの値**なので、確定した収支と同じ語で並べない。
  */
 export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
+
+// ---- 画面の名前とアイコンボタンの読み上げ語（UI-SPEC §1） ----
+
+/**
+ * タブバーと各タブのヘッダに出る画面の名前。**タブ名とヘッダの見出しは同じ語にする** ──
+ * 押したタブと開いた画面で名前が違うと、どこに居るのかを 2 度読み直すことになる。
+ *
+ * 計算タブだけヘッダが別語（「計算」/「利益計算」）なのは、タブ名の幅では
+ * **何の計算なのかを言えない**ため。ヘッダには幅があるので、そちらで補う。
+ */
+export const CALC_TAB_LABEL = '計算';
+export const CALC_SCREEN_TITLE = '利益計算';
+export const RECORDS_TAB_LABEL = '記録';
+export const DATA_TAB_LABEL = 'データ';
+export const SETTINGS_TAB_LABEL = '設定';
+
+/**
+ * アイコンだけのボタンの読み上げ語（UI-SPEC §1.2-1）。
+ * **見た目が記号 1 つのものは、ここでしか語を持てない。**
+ *
+ * 「＋ 記録」だけは語が画面にも出るが（RECORDS_TAB_LABEL）、それは名詞なので
+ * 何が起きるかを言えていない ── 読み上げには動詞まで入れる。
+ */
+export const ADD_RECORD_ACTION_LABEL = '記録を追加';
+export const SEARCH_LABEL = '検索';
+export const SEARCH_CLEAR_LABEL = '検索を消去';
+export const SORT_SHEET_TITLE = '並び替え';
+
+/** 記録の検索欄（UI-SPEC §5-10）。読み上げ語も同じ文を使う（欄の中に出ている語がそのまま名前） */
+export const RECORD_SEARCH_PLACEHOLDER = '商品名で検索';
+
+/** カレンダーの前後の月へ送るボタン（UI-SPEC §8.10）。矢印 1 つなので語は読み上げにしかない */
+export const PREVIOUS_MONTH_LABEL = '前の月';
+export const NEXT_MONTH_LABEL = '次の月';
+
+/** 月バーの期間ボタンの読み上げ（UI-SPEC §1.2）。押すと開くのが期間シートであることを言う */
+export function periodButtonAccessibilityLabel(title: string): string {
+  return `${PERIOD_SHEET_TITLE}: ${title}`;
+}
+
+/**
+ * 一覧の行の読み上げ（UI-SPEC §1.2）。行そのものは押すと詳細へ、
+ * 左スワイプで出るのは削除。**どちらも商品名を頭に置く** ── 読み上げは 1 行ずつ流れるので、
+ * 何に対する操作なのかが先に来ないと、聞いてから戻って確かめることになる。
+ */
+export function recordDetailAccessibilityLabel(itemName: string): string {
+  return `${itemName} の詳細`;
+}
+export function deleteAccessibilityLabel(name: string): string {
+  return `${name}を${DELETE_LABEL}`;
+}
+
+/** ± ボタンの読み上げ（UI-SPEC §1.3-9）。何を増減するのかは呼び出し側の欄名が入る */
+export function decreaseAccessibilityLabel(label: string): string {
+  return `${label}を減らす`;
+}
+export function increaseAccessibilityLabel(label: string): string {
+  return `${label}を増やす`;
+}
+
+/** 金額の欄の右の電卓ボタン（UI-SPEC §7.1）。どの欄の電卓かを言う */
+export function calculatorAccessibilityLabel(fieldLabel: string): string {
+  return `${fieldLabel}の電卓`;
+}
+
+/** カレンダーの日のマス（UI-SPEC §8.10）。印（今日・出品日）は呼び出し側が後ろに足す */
+export function calendarDayAccessibilityLabel(day: number): string {
+  return `${day}日`;
+}
+
+/**
+ * 長押しコピー（LongPressCopy）のトースト。
+ *
+ * **成功のときだけ内容まで出す** ── 何が入ったのかは貼るまで分からないので、
+ * 写した値をその場で見せる。失敗では入っていないので、出す値がない。
+ */
+export function copiedMessage(label: string): string {
+  return `${label}をコピーしました`;
+}
+export function copiedContentMessage(text: string): string {
+  return `コピー内容：${text}`;
+}
+export function copyFailedMessage(label: string): string {
+  return `${label}のコピーに失敗しました`;
+}
+
+/**
+ * データベースの初期化に失敗したとき（app/_layout.tsx）。
+ * ここだけは**アプリが起動しきる前**に出るので、他のどの画面の語にも寄りかかれない。
+ */
+export const DB_INIT_FAILED_MESSAGE = 'データベースの初期化に失敗しました';
+
+/** 未実装の画面の仮表示（PlaceholderScreen） */
+export const UNIMPLEMENTED_LABEL = '（未実装）';
 
 /** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
 export const ALL_PERIOD_LABEL = '全期間';
@@ -209,6 +315,9 @@ export const OPTIONAL_COSTS_LABEL = '梱包材・その他を入力';
 
 /** 結果カード右上のリセット（UI-SPEC §1.1-3a）。入力が空のときは無効（§5-8） */
 export const CLEAR_LABEL = 'クリア';
+
+/** その「クリア」の読み上げ（§1.1-3a）。ボタンの語だけでは、何が消えるのかを言えていない */
+export const CLEAR_INPUT_ACTION_LABEL = `入力を${CLEAR_LABEL}`;
 
 /**
  * クリアの確認（UI-SPEC §1.1-3a）。**押した時点で全部消える**操作なのに、
@@ -443,6 +552,13 @@ export function targetProfitLabel(kind: RecordKind): string {
 
 /** グラフカードの見出し（UI-SPEC §1.5-4）。指標が 1 つになったので固定文言 */
 export const PROFIT_TREND_LABEL = `${TOTAL_PROFIT_LABEL}の推移`;
+
+/**
+ * 集計の対象が 1 件も無いとき（UI-SPEC §1.5）。この画面は**売れた記録だけ**を見るので、
+ * 「記録がない」ではなく「売却済みが無い」と言う ── 出品中の記録は持っているのに
+ * 「記録がありません」と出ると、消えたのかと読める。
+ */
+export const NO_SOLD_DATA_MESSAGE = '売却済みのデータがありません';
 
 /**
  * 現在の刻み（UI-SPEC §1.5-4）。**表示のみで押せない** ──
@@ -1223,6 +1339,14 @@ export function tagDeleteConfirmMessage(usageCount: number): string {
 export const TAG_PICKER_OPEN_LABEL = 'タグを選ぶ';
 
 /**
+ * チップの「✕」の読み上げ（§3.1）。記号 1 つなので、外れるのが**このタグだけ**
+ * （記録は消えない）ことは語の側でしか言えない。
+ */
+export function tagRemoveAccessibilityLabel(tagName: string): string {
+  return `${tagName}を外す`;
+}
+
+/**
  * タグの節に 1 件も付いていないとき（§3.1 の改訂）。
  * 設定タブの「まだ登録がありません」（TAG_CARD_EMPTY_LABEL）とは**別の語** ──
  * あちらは「タグそのものが 1 つも無い」、こちらは「この記録に付いていない」で、
@@ -1295,6 +1419,15 @@ export const FILTER_CLEAR_ALL_LABEL = 'すべて解除';
 
 /** 解除バー右端（§4.3）。「すべて解除」と同じことをするが、1 行に収めるので短い語にする */
 export const FILTER_CLEAR_LABEL = '解除';
+
+/**
+ * 解除バーの本文を押したときの読み上げ（§4.3）。文そのものは条件の一覧なので、
+ * 押すと何が起きるかは**ヒントの側**でしか言えない（行き先は絞り込みページ）。
+ */
+export const FILTER_NOTICE_HINT = '絞り込みの条件を変えます';
+
+/** 解除の読み上げ（§4.3）。「解除」だけでは名詞に読めるので、動詞まで足す */
+export const FILTER_CLEAR_ACTION_LABEL = `${FILTER_CLEAR_LABEL}する`;
 
 /**
  * シート右上（§4.2-1）。条件は選んだ瞬間から効くので、これは確定ではなく**閉じる**ボタン
@@ -1467,6 +1600,26 @@ export function filterTagSearchEmptyBody(selectedNames: readonly string[]): stri
     selectedNames.length === 1 ? head : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
   return `選んでいるタグ（${names}）は、そのまま効いています。`;
 }
+
+// ---- UI-SPEC §1.6-1 使いかた / §1.6-2 記録群 ----
+
+/** 設定の先頭の 1 行カードと、その下の注記（UI-SPEC §1.6-1） */
+export const HELP_LINK_LABEL = '使いかた';
+export const HELP_LINK_NOTE = '各画面の右上の「？」からも、その画面の説明だけを開けます。';
+
+/**
+ * 記録まわりの設定の群（UI-SPEC §1.6-2）。見出しはタブ名と同じ語 ──
+ * どのタブに効く設定なのかを、見出しとタブバーで別の語にしない。
+ */
+export const RECORD_SETTINGS_SECTION_TITLE = RECORDS_TAB_LABEL;
+
+/**
+ * 新規作成時の種別（SPEC-V2 §3.4）。注記で**効く範囲**まで言う ──
+ * 「既定の種別」だけだと、保存済みの記録の種別まで変わると読めてしまう。
+ */
+export const DEFAULT_RECORD_KIND_LABEL = '新規作成時の種別';
+export const DEFAULT_RECORD_KIND_NOTE =
+  '新しく記録を追加するときに最初に選ばれている種別です。保存済みの記録の種別は変わりません。';
 
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
@@ -1774,6 +1927,11 @@ export const PHOTO_REPLACE_LABEL = '変更';
 
 /** 枠の右上の「✕」の読み上げ語（§3.1）。消えるのは記録ではなく写真 */
 export const PHOTO_REMOVE_LABEL = '削除';
+
+/** 「✕」に読ませる文（§3.1）。消えるのが写真だけであることは、記号からは読み取れない */
+export function photoRemoveAccessibilityLabel(): string {
+  return `${PHOTO_FIELD_LABEL}を${PHOTO_REMOVE_LABEL}`;
+}
 
 /**
  * 詳細画面で商品名の行の下に出す 1 行（§2.1）。**押せることを語で言う** ──

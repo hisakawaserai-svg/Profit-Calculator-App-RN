@@ -29,10 +29,16 @@ import { useTagList } from '@/db/useTags';
 import {
   CSV_EXPORT_LABEL,
   DATA_SECTION_TITLE,
+  DEFAULT_RECORD_KIND_LABEL,
+  DEFAULT_RECORD_KIND_NOTE,
+  HELP_LINK_LABEL,
+  HELP_LINK_NOTE,
   PRESET_SECTION_NOTE,
   PRESET_SECTION_TITLE,
   presetCountLabel,
   RECORD_COUNT_LABEL,
+  RECORD_SETTINGS_SECTION_TITLE,
+  SETTINGS_TAB_LABEL,
   TAG_CARD_EMPTY_LABEL,
   TAG_LABEL,
   TAG_SECTION_NOTE,
@@ -104,7 +110,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '設定' }} />
+      <Stack.Screen options={{ title: SETTINGS_TAB_LABEL }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}>
@@ -119,23 +125,23 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>使いかた</Text>
+              <Text style={[styles.label, { color: colors.label }]}>{HELP_LINK_LABEL}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </Pressable>
           </Link>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            各画面の右上の「？」からも、その画面の説明だけを開けます。
-          </Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{HELP_LINK_NOTE}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>記録</Text>
+          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+            {RECORD_SETTINGS_SECTION_TITLE}
+          </Text>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.label, { color: colors.label }]}>新規作成時の種別</Text>
+            <Text style={[styles.label, { color: colors.label }]}>{DEFAULT_RECORD_KIND_LABEL}</Text>
             <RecordKindSelector kind={defaultRecordKind} onChange={setDefaultRecordKind} />
             {/* SPEC-V2 §3.4: 設定が効くのはこれから作るレコードだけ。既存の種別は変わらない */}
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              新しく記録を追加するときに最初に選ばれている種別です。保存済みの記録の種別は変わりません。
+              {DEFAULT_RECORD_KIND_NOTE}
             </Text>
           </View>
         </View>

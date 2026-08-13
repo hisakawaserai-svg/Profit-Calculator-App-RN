@@ -22,6 +22,9 @@ import { MiniCalculator } from '@/components/MiniCalculator';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import type { PresetType } from '@/db/schema';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
+import {
+  calculatorAccessibilityLabel,
+} from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 /** UI-SPEC §1.1-5「行高 60px」 */
@@ -149,7 +152,7 @@ export function NumericField({
             }}
             disabled={disabled}
             hitSlop={8}
-            accessibilityLabel={`${calcLabel}の電卓`}
+            accessibilityLabel={calculatorAccessibilityLabel(calcLabel)}
             style={({ pressed }) => [
               styles.calcButton,
               { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },

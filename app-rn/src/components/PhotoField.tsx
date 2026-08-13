@@ -22,14 +22,13 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'r
 
 import {
   PHOTO_ADD_LABEL,
-  PHOTO_FIELD_LABEL,
   PHOTO_IMAGE_LABEL,
   PHOTO_OPEN_SETTINGS_LABEL,
   PHOTO_PERMISSION_DENIED_MESSAGE,
-  PHOTO_REMOVE_LABEL,
   PHOTO_REPLACE_LABEL,
   PHOTO_SAVE_FAILED_MESSAGE,
   PHOTO_SQUARE_LABEL,
+  photoRemoveAccessibilityLabel,
 } from '@/logic/labels';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { pickPhoto } from '@/media/photoPicker';
@@ -135,7 +134,7 @@ export function PhotoField({ fileName, onChange, children }: Props) {
               }}
               hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={`${PHOTO_FIELD_LABEL}を${PHOTO_REMOVE_LABEL}`}
+              accessibilityLabel={photoRemoveAccessibilityLabel()}
               style={({ pressed }) => [styles.removeBadge, { opacity: pressed ? 0.5 : 1 }]}>
               <Ionicons name="close" size={14} color="#FFFFFF" />
             </Pressable>

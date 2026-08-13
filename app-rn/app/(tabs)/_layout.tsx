@@ -3,6 +3,13 @@ import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import type { ColorValue } from 'react-native';
 
+import {
+  CALC_TAB_LABEL,
+  DATA_TAB_LABEL,
+  RECORDS_TAB_LABEL,
+  SETTINGS_TAB_LABEL,
+} from '@/logic/labels';
+
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 // UI-SPEC §2 / §6-8 の 4 タブ構成（計算・記録・データ・設定）。
@@ -36,7 +43,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(calc)"
         options={{
-          title: '計算',
+          title: CALC_TAB_LABEL,
           tabBarIcon: tabIcon('calculator', 'calculator-outline'),
           headerShown: false,
         }}
@@ -46,7 +53,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="records"
         options={{
-          title: '記録',
+          title: RECORDS_TAB_LABEL,
           tabBarIcon: tabIcon('receipt', 'receipt-outline'),
           headerShown: false,
         }}
@@ -54,7 +61,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="data"
         options={{
-          title: 'データ',
+          title: DATA_TAB_LABEL,
           tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline'),
           headerShown: false,
         }}
@@ -62,7 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: '設定',
+          title: SETTINGS_TAB_LABEL,
           tabBarIcon: tabIcon('settings', 'settings-outline'),
           headerShown: false,
         }}

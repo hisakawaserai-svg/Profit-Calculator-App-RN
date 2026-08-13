@@ -7,6 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import {
+  decreaseAccessibilityLabel,
+  increaseAccessibilityLabel,
+} from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 type ButtonsProps = {
@@ -82,7 +86,7 @@ export function StepperButtons({
       <Pressable
         onPress={() => clampedChange(-step)}
         disabled={!canDecrement}
-        accessibilityLabel={`${accessibilityLabel}を減らす`}
+        accessibilityLabel={decreaseAccessibilityLabel(accessibilityLabel)}
         style={({ pressed }) => [
           styles.button,
           { opacity: !canDecrement ? 0.3 : pressed ? 0.5 : 1 },
@@ -93,7 +97,7 @@ export function StepperButtons({
       <Pressable
         onPress={() => clampedChange(step)}
         disabled={!canIncrement}
-        accessibilityLabel={`${accessibilityLabel}を増やす`}
+        accessibilityLabel={increaseAccessibilityLabel(accessibilityLabel)}
         style={({ pressed }) => [
           styles.button,
           { opacity: !canIncrement ? 0.3 : pressed ? 0.5 : 1 },

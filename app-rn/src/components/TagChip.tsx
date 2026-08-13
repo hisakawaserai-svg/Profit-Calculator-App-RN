@@ -9,6 +9,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { tagRemoveAccessibilityLabel } from '@/logic/labels';
 import { normalizePresetColor } from '@/logic/preset';
 import { useThemeColors } from '@/theme';
 
@@ -91,7 +92,7 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: P
           onPress={onRemove}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={`${tag.name}を外す`}
+          accessibilityLabel={tagRemoveAccessibilityLabel(tag.name)}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <Ionicons name="close" size={14} color={colors.secondaryLabel} />
         </Pressable>
