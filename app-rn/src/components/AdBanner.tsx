@@ -22,25 +22,20 @@
 // 将来 SDK から消えたら、その時点で LARGE か INLINE_ADAPTIVE_BANNER（maxAdHeight で
 // 高さを抑えられる）へ移す。
 import { useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { BannerAd, BannerAdSize, useForeground } from 'react-native-google-mobile-ads';
 
-import { useAdsInitialized } from '@/ads/consent';
+import { anchoredBannerHeight } from '@/ads/bannerSize';
+import { useAdsInitialized, useNonPersonalizedAds } from '@/ads/consent';
 import { useThemeColors } from '@/theme';
 
 /**
- * 読み込みが終わるまで確保しておく高さ。
+ * 同意の状態が分からないときに渡すリクエスト設定（consent.ts の useNonPersonalizedAds）。
  *
- * ANCHORED_ADAPTIVE_BANNER の高さは**端末の幅と向きからネイティブ側が決める**ので
- * （画面の高さの 15% を超えない範囲）、アプリ側で正確な値は持てない。
- * ここは「読み込み中の仮の場所取り」に徹し、実寸が返ってきたらそちらに合わせる
- * （固定値のまま実寸を無視すると、背の高い広告がはみ出す／切れる ── 切れた広告の
- * インプレッションは無効トラフィックとして扱われ得る）。
- *
- * 縦画面のスマートフォンで返るのはほぼ 50dp なので、その値を置いてある。
- * **読み込みの前後で枠が動かない**のが狙いなので、実測とずれたら here を直すこと。
+ * **毎回作り直さない。** requestOptions が別物になると BannerAd は広告を要求し直すので、
+ * レンダーのたびに新しい object を渡すと読み込みが終わらなくなる。
  */
-const PLACEHOLDER_HEIGHT = 50;
+const NON_PERSONALIZED_REQUEST = { requestNonPersonalizedAdsOnly: true } as const;
 
 /**
  * 広告の上下に置く余白。
@@ -62,10 +57,22 @@ const AD_SPACING = 12;
 export function AdBanner({ unitId }: { unitId: string | null }) {
   const colors = useThemeColors();
   const initialized = useAdsInitialized();
+  const nonPersonalized = useNonPersonalizedAds();
   const bannerRef = useRef<BannerAd>(null);
   /** 実際に返ってきた広告の高さ。まだ読み込めていなければ null */
   const [loadedHeight, setLoadedHeight] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+
+  /**
+   * 読み込みが終わるまで確保しておく高さ。**幅から実寸を先に当てる**（bannerSize.ts）ので、
+   * 読み込みの前後で枠は動かない。向きを変えると幅が変わり、ここも追随する。
+   *
+   * 実際に返ってきた高さがあればそちらが優先 ── 予測が外れても、そこでズレが残らない
+   * （固定値のまま実寸を無視すると、背の高い広告がはみ出す／切れる。切れた広告の
+   * インプレッションは無効トラフィックとして扱われ得る）。
+   */
+  const { width } = useWindowDimensions();
+  const slotHeight = (loadedHeight ?? anchoredBannerHeight(width)) + AD_SPACING * 2;
 
   // iOS の WKWebView はアプリがサスペンドされている間に落ちることがあり、復帰すると
   // 空のバナーになる。復帰のたびに読み直す（公式の推奨。Android では不要）。
@@ -87,7 +94,7 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
       style={[
         styles.slot,
         {
-          height: (loadedHeight ?? PLACEHOLDER_HEIGHT) + AD_SPACING * 2,
+          height: slotHeight,
           backgroundColor: colors.background,
           borderTopColor: colors.separator,
         },
@@ -97,6 +104,9 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
         unitId={unitId}
         // 非推奨の定数をあえて使っている（理由は冒頭のコメント）
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+        // 同意が取れていれば指定しない ── パーソナライズの可否は UMP が端末に持つ
+        // 同意情報から SDK が判断する。分からないときだけ非パーソナライズに倒す
+        requestOptions={nonPersonalized ? NON_PERSONALIZED_REQUEST : undefined}
         // 高さは onAdLoaded と onSizeChange の両方から来る（向きを変えたときは後者だけ）。
         // 枠と中身は同じイベントで一緒に更新されるので、途中の 1 フレームでずれることはない
         onAdLoaded={({ height }) => setLoadedHeight(height)}

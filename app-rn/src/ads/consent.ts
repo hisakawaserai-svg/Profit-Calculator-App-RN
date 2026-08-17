@@ -7,6 +7,11 @@
 //      今回の通信に失敗しても「前に同意済み」なら広告は出せる。ここで諦めると、
 //      電波の悪い場所で一度失敗しただけで以降ずっと広告が出ないアプリになる
 //
+// 1 には**待ち時間の上限**を付けてある（CONSENT_TIMEOUT_MS）。gatherConsent は端末と
+// ネットワークの状態次第でいつまでも解決しないことがあり（シミュレータで再現）、
+// そのまま待つと 2 に進めないまま「広告リクエストが一度も出ないアプリ」になる。
+// 失敗として扱われないぶん、放置すると気付けない ── 上限を切って先へ進める。
+//
 // ATT（iOS のトラッキング許可）は**アプリ側から出さない**。AdMob の管理画面で IDFA メッセージを
 // 設定してあれば UMP のフォームが続けて出してくれるので、expo-tracking-transparency は要らない。
 // 文言（NSUserTrackingUsageDescription）は app.json の config plugin 側に置いてある。
@@ -16,6 +21,17 @@
 // 重なると、初回体験が「何を聞かれているか分からないダイアログ」から始まってしまう。
 import mobileAds, { AdsConsent, AdsConsentDebugGeography } from 'react-native-google-mobile-ads';
 import { create } from 'zustand';
+
+import { createConsentFlow } from './consentFlow';
+
+/**
+ * 同意取得を待つ上限。
+ *
+ * 通常は 1〜2 秒で返る（フォームを出す場合はその表示までの時間）。5 秒は「遅い回線でも
+ * 取れるが、止まっているなら見切れる」あたりの値。伸ばすと起動直後に広告が出ない時間が
+ * 延び、縮めると遅い回線で不要に非パーソナライズへ落ちる。
+ */
+const CONSENT_TIMEOUT_MS = 5000;
 
 /**
  * 同意フォームの動作確認用。**true にすると端末が EEA（欧州）にあるものとして扱われ**、
@@ -44,12 +60,14 @@ const TEST_DEVICE_IDENTIFIERS: string[] = [];
  */
 type AdsStore = {
   initialized: boolean;
-  markInitialized: () => void;
+  nonPersonalized: boolean;
+  markInitialized: (nonPersonalized: boolean) => void;
 };
 
 const useAdsStore = create<AdsStore>((set) => ({
   initialized: false,
-  markInitialized: () => set({ initialized: true }),
+  nonPersonalized: false,
+  markInitialized: (nonPersonalized) => set({ initialized: true, nonPersonalized }),
 }));
 
 /** 広告 SDK の初期化が終わっているか（AdBanner が購読する） */
@@ -58,58 +76,51 @@ export function useAdsInitialized(): boolean {
 }
 
 /**
- * mobileAds().initialize() を二重に呼ばないための番人。
+ * 非パーソナライズ広告として要求するか（AdBanner が購読する）。
  *
- * initializeAds() は「同意フローの完了後」と「その場で即時」の 2 経路から startAdsSdk() を
- * 呼ぶ（公式の例と同じ形）── 同意が要らない・前回すでに同意済みの端末で、フォームの
- * 往復を待たずに広告を出し始めるため。2 経路あるぶん、実際の初期化はここで 1 回に絞る。
+ * true になるのは**同意の状態が分からないまま広告を出しているとき**だけ ── 同意が取れて
+ * いれば（canRequestAds が true なら）パーソナライズの可否は UMP が端末に持つ同意情報から
+ * SDK が判断するので、こちらから指定することはない。
+ * 分からないときに既定（＝パーソナライズ）で出さないためのフラグ。
  */
-let sdkStartCalled = false;
+export function useNonPersonalizedAds(): boolean {
+  return useAdsStore((state) => state.nonPersonalized);
+}
 
 /**
- * 実行中の初期化。**同期に立つのはこちら**（sdkStartCalled が立つのは canRequestAds を
- * 待ったあとなので、2 経路が同時に来ると両方とも番人をすり抜ける）。
- * 走り終えたら null に戻すので、canRequestAds が false で戻った回は後からやり直せる。
+ * 同意フローと初期化の手順（consentFlow.ts）に、実物の依存を繋いだもの。
+ *
+ * 手順そのものは consentFlow.ts が持ち、ここは「AdsConsent / mobileAds / ストア」を
+ * 渡すだけ ── 時間と順番で決まる振る舞いを、実機を起動せずに固定できるようにするため。
  */
-let startInFlight: Promise<void> | null = null;
-
-function startAdsSdk(): Promise<void> {
-  if (sdkStartCalled) return Promise.resolve();
-  startInFlight ??= runStartAdsSdk().finally(() => {
-    startInFlight = null;
-  });
-  return startInFlight;
-}
-
-async function runStartAdsSdk(): Promise<void> {
-  const { canRequestAds } = await AdsConsent.getConsentInfo();
-  // 同意が必要なのにまだ取れていない状態。ここで広告を要求してはいけない
-  if (!canRequestAds) return;
-
-  sdkStartCalled = true;
-  await mobileAds().initialize();
-  useAdsStore.getState().markInitialized();
-}
+const flow = createConsentFlow({
+  gatherConsent: () =>
+    AdsConsent.gatherConsent({
+      ...(DEBUG_FORCE_EEA && __DEV__
+        ? {
+            debugGeography: AdsConsentDebugGeography.EEA,
+            testDeviceIdentifiers: TEST_DEVICE_IDENTIFIERS,
+          }
+        : null),
+    }),
+  getConsentInfo: () => AdsConsent.getConsentInfo(),
+  initializeSdk: async () => {
+    await mobileAds().initialize();
+  },
+  onInitialized: (nonPersonalized) => useAdsStore.getState().markInitialized(nonPersonalized),
+  onFailure: warnAdsFailure,
+  timeoutMs: CONSENT_TIMEOUT_MS,
+});
 
 /**
  * 同意を取り、広告 SDK を初期化する。**アプリの起動につき 1 回だけ呼ぶ。**
  * 失敗しても投げない（広告が出ないだけで、アプリの機能は何も損なわれないため）。
+ *
+ * 打ち切ったことは**どこにも保存しない**。手順が持つ状態はモジュールの寿命と同じなので、
+ * 次の起動では同意取得からやり直す ── 諦めた状態で固定しない。
  */
 export function initializeAds(): void {
-  AdsConsent.gatherConsent({
-    ...(DEBUG_FORCE_EEA && __DEV__
-      ? {
-          debugGeography: AdsConsentDebugGeography.EEA,
-          testDeviceIdentifiers: TEST_DEVICE_IDENTIFIERS,
-        }
-      : null),
-  })
-    .then(startAdsSdk)
-    .catch(warnAdsFailure);
-
-  // 同意フローの結果を待たずにもう一度試す。前回セッションの同意状態で canRequestAds が
-  // すでに true なら、フォームの往復を待たずに初期化できる（上の catch の受け皿も兼ねる）
-  startAdsSdk().catch(warnAdsFailure);
+  flow.start();
 }
 
 /** 失敗はログに残すだけ。広告は「出れば出る」もので、出ないことを利用者に見せる必要はない */
