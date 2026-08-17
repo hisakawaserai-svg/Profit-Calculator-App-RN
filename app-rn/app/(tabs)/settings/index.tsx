@@ -23,6 +23,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { TagDot } from '@/components/TagChip';
+import { requestOnboarding } from '@/components/onboardingBus';
 import { usePresetList } from '@/db/usePresets';
 import { useRecordCount } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
@@ -39,6 +40,7 @@ import {
   presetCountLabel,
   RECORD_COUNT_LABEL,
   RECORD_SETTINGS_SECTION_TITLE,
+  REPLAY_TUTORIAL_LABEL,
   SETTINGS_TAB_LABEL,
   TAG_CARD_EMPTY_LABEL,
   TAG_LABEL,
@@ -131,6 +133,23 @@ export default function SettingsScreen() {
             </Pressable>
           </Link>
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>{HELP_LINK_NOTE}</Text>
+        </View>
+
+        {/* 「使いかた」と同じ見出しなしの 1 行カード。押すと初回起動チュートリアルを
+            もう一度開く（app/_layout.tsx の OnboardingOverlay へ、achievementToastBus と
+            同じ配線の onboardingBus 経由で伝える）。この行を押しても既読の記録（tutorialSeen）
+            は戻さない ── 次回起動でまた自動的に出てしまうのは「もう一度見る」の意図とは違う */}
+        <View style={styles.section}>
+          <Pressable
+            onPress={requestOnboarding}
+            style={StyleSheet.flatten([
+              styles.linkRow,
+              { backgroundColor: colors.secondaryBackground },
+            ])}
+            accessibilityRole="button">
+            <Text style={[styles.label, { color: colors.label }]}>{REPLAY_TUTORIAL_LABEL}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+          </Pressable>
         </View>
 
         <View style={styles.section}>

@@ -8,8 +8,11 @@ import Toast, { BaseToast, type ToastConfig, type ToastConfigParams } from 'reac
 
 import { AchievementToastHost } from '@/components/AchievementToastHost';
 import { ACHIEVEMENT_TOAST_TYPE, type AchievementToastProps } from '@/components/achievementToastBus';
+import { OnboardingOverlay } from '@/components/OnboardingOverlay';
+import { registerOnboardingRequestListener } from '@/components/onboardingBus';
 import { initDatabase } from '@/db/client';
 import { DB_INIT_FAILED_MESSAGE } from '@/logic/labels';
+import { useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -120,6 +123,10 @@ export default function RootLayout() {
   const isDark = useColorScheme() === 'dark';
   const [dbReady, setDbReady] = useState(false);
   const [dbError, setDbError] = useState<Error | null>(null);
+  const { tutorialSeen, markTutorialSeen } = useSettings();
+  // 初回起動時にのみ自動表示。tutorialSeen は kv-store から同期に読めるので、
+  // ちらつき（一瞬出てすぐ消える／出ないのに一瞬揺れる）は起きない
+  const [onboardingVisible, setOnboardingVisible] = useState(() => !tutorialSeen);
 
   useEffect(() => {
     initDatabase().then(
@@ -127,6 +134,18 @@ export default function RootLayout() {
       (error: Error) => setDbError(error),
     );
   }, []);
+
+  // 設定タブ「チュートリアルをもう一度見る」からの要求（achievementToastBus と同じ配線）。
+  // 既読（tutorialSeen）を巻き戻さず、一時的に開くだけ
+  useEffect(() => {
+    registerOnboardingRequestListener(() => setOnboardingVisible(true));
+    return () => registerOnboardingRequestListener(null);
+  }, []);
+
+  const closeOnboarding = () => {
+    markTutorialSeen();
+    setOnboardingVisible(false);
+  };
 
   if (dbError) {
     return (
@@ -162,6 +181,9 @@ export default function RootLayout() {
       {/* 実績獲得トーストのタップ受け（AchievementDetailModal をモーダルだけで完結させる）。
           Toast 本体と同じ理由で Stack の外に常駐させる（achievementToastBus のコメント参照） */}
       <AchievementToastHost />
+      {/* 初回起動チュートリアル。Toast・AchievementToastHost と同じ理由で Stack の外に置く ──
+          どのタブが前面でも（設定タブからの再表示も）全画面で覆えるようにするため */}
+      <OnboardingOverlay visible={onboardingVisible} onDone={closeOnboarding} />
     </GestureHandlerRootView>
   );
 }

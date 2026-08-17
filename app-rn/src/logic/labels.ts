@@ -4091,3 +4091,62 @@ export const SOLD_DATE_REVERSED_LABEL = '記録した日より前に売れてい
 
 /** 逆転した日付を直す導線（記録編集フォームを開く） */
 export const FIX_DATE_LABEL = '日付を直す';
+
+// ---- 初回起動チュートリアル（オンボーディング） ----
+//
+// 4 ページ横スワイプ。文言は各ページの見出し・本文と、共通の操作（スキップ・はじめる）だけ。
+// 図の中の題材（金額・実績のジャンル）は onboardingContent.ts が持つ。
+
+export const ONBOARDING_SKIP_LABEL = 'スキップ';
+export const ONBOARDING_START_LABEL = 'はじめる';
+
+export const ONBOARDING_CALC_TITLE = '入れた分だけ、利益が見える';
+export const ONBOARDING_CALC_BODY =
+  '販売価格・送料・手数料を入れると、その場で純利益が計算されます。';
+
+export const ONBOARDING_TARGET_TITLE = '目標から逆算もできる';
+export const ONBOARDING_TARGET_BODY =
+  '欲しい利益を入れれば、必要な販売価格がわかります。そのまま記録にも残せます。';
+/** 逆算の図の末尾に出す、記録追加が成立したことを示す一言（記録フォームの保存とは別の、図の中だけの言葉） */
+export const ONBOARDING_RECORD_ADDED_LABEL = '記録に追加されました';
+
+export const ONBOARDING_SAVE_TITLE = '写真やタグも一緒に残せる';
+export const ONBOARDING_SAVE_BODY =
+  '商品名だけで保存できます。写真・タグ・種別もまとめて記録に残せます。';
+
+export const ONBOARDING_PRESET_TITLE = 'よく使う値はプリセットに';
+export const ONBOARDING_PRESET_BODY =
+  '送料・梱包材・販売サイトはプリセットから選べます。電卓からの入力もいつでも使えます。';
+
+export const ONBOARDING_SIMULATOR_TITLE = '出品中でも、値下げを試せる';
+export const ONBOARDING_SIMULATOR_BODY =
+  '今の価格から動かして、見込みの利益をその場で確認できます。動かしても記録は変わりません。';
+/** 目標利益ライン（帯グラフの目盛り）が条件つきで出ることの注記（PriceLine.tsx の
+ * priceLineTicks 参照。目標が無いときは目標の点を作らない仕様） */
+export const ONBOARDING_SIMULATOR_NOTE =
+  '目標利益のラインは、その記録に目標の純利益を入力しているときだけ表示されます。';
+
+export const ONBOARDING_PACKAGING_PRESET_TITLE = '梱包材はまとめ買いも自動計算';
+export const ONBOARDING_PACKAGING_PRESET_BODY =
+  '購入価格と入数を入れるだけで、1個あたりの単価を自動で計算します。プリセットに登録しておけば、次からは電卓の中からひと押しで呼び出せます。';
+
+export const ONBOARDING_DATA_TITLE = '3つの見方で販売を振り返る';
+export const ONBOARDING_DATA_BODY = '収支・タグ・実績。見たい角度でこれまでの販売がわかります。';
+
+export const ONBOARDING_ACHIEVEMENTS_TITLE = '続けるほど実績が増えていく';
+export const ONBOARDING_ACHIEVEMENTS_BODY =
+  '販売を重ねるごとに、新しい実績が解除されていきます。';
+export const ONBOARDING_ACHIEVEMENTS_NOTE =
+  '困ったときは各画面の「？」、または設定の「使いかた」からいつでも確認できます。';
+
+/** ページ右上の進み具合の読み上げ（achievementPageIndicatorText と同じ形） */
+export function onboardingPageIndicatorText(index: number, total: number): string {
+  return `${index + 1} / ${total}`;
+}
+
+/** 下端の戻る・次へ矢印の読み上げ語（ACHIEVEMENT_DETAIL_PREVIOUS/NEXT_LABEL と同じ形） */
+export const ONBOARDING_PREVIOUS_PAGE_LABEL = '前のページへ';
+export const ONBOARDING_NEXT_PAGE_LABEL = '次のページへ';
+
+/** 設定タブ「チュートリアルをもう一度見る」の行 */
+export const REPLAY_TUTORIAL_LABEL = 'チュートリアルをもう一度見る';

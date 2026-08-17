@@ -366,7 +366,11 @@ export function AchievementDetailModal({
   );
 }
 
-function AchievementPage({
+/**
+ * 実績 1 件ぶんの全画面表示（縦スクロールの器つき）。AchievementDetailModal
+ * （ページ送りのモーダル）の中身そのもの。
+ */
+export function AchievementPage({
   achievement,
   colors,
   bottomInset,
@@ -379,6 +383,58 @@ function AchievementPage({
   bottomInset: number;
   /** 「達成した記録」/ 進捗バーを画面の半分より下に置くための基準値 */
   screenHeight: number;
+  onPressRecord: (recordId: string) => void;
+  resolveTag: TagLookup;
+}) {
+  return (
+    <ScrollView
+      style={styles.page}
+      // 余白（styles.pageContent の paddingHorizontal/paddingTop・下端の bottomInset）は
+      // AchievementPageContent 側が自分の根の View に持つ（このコンポーネントを ScrollView なしで
+      // 埋め込む呼び出し元でも同じ余白になるようにするため。下のコメント参照）
+      // 「達成した記録」がアコーディオンで展開されると画面の高さを超えることがあるので、
+      // このページ自体を縦スクロールにする（外側はページ送りの横スクロール。向きが違うので競合しない）
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled>
+      <AchievementPageContent
+        achievement={achievement}
+        colors={colors}
+        screenHeight={screenHeight}
+        bottomInset={bottomInset}
+        onPressRecord={onPressRecord}
+        resolveTag={resolveTag}
+      />
+    </ScrollView>
+  );
+}
+
+/**
+ * AchievementPage の中身だけ（縦スクロールの器を持たない）。
+ *
+ * 初回起動チュートリアル（OnboardingFigure.OnboardingAchievementsFigure）が「実物の全画面表示を
+ * ページの中に埋め込む」形で再利用するため export してある。**ScrollView 抜きにしてあるのは**、
+ * 呼び出し側（オンボーディングのページ）自体がすでに縦スクロールの ScrollView で、
+ * その中にこの ScrollView をそのまま入れ子にすると、内側が確保する高さが実寸ではなく
+ * 潰れた値になり、外側で後に続く見出し・本文がその潰れた枠に重なって見切れる
+ * （縦方向どうしの入れ子 ScrollView は RN では高さの自己申告が信用できない）。
+ *
+ * 余白（styles.pageContent）はこのコンポーネント自身の根の View に持たせてある ──
+ * AchievementPage（ScrollView 越し）から使っても、ここから直接使っても同じ見た目になるように。
+ */
+export function AchievementPageContent({
+  achievement,
+  colors,
+  screenHeight,
+  bottomInset = 0,
+  onPressRecord,
+  resolveTag,
+}: {
+  achievement: Achievement;
+  colors: ThemeColors;
+  /** 「達成した記録」/ 進捗バーを画面の半分より下に置くための基準値 */
+  screenHeight: number;
+  /** 下端の余白の上乗せ分。ScrollView なしで埋め込む場合は省略でよい（既定 0） */
+  bottomInset?: number;
   onPressRecord: (recordId: string) => void;
   resolveTag: TagLookup;
 }) {
@@ -410,17 +466,7 @@ function AchievementPage({
   };
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={[
-        styles.pageContent,
-        { paddingBottom: bottomInset + 24 },
-      ]}
-      // 「達成した記録」がアコーディオンで展開されると画面の高さを超えることがあるので、
-      // このページ自体を縦スクロールにする（外側はページ送りの横スクロール。向きが違うので競合しない）
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled
-    >
+    <View style={[styles.pageContent, { paddingBottom: bottomInset + 24 }]}>
       {/*
         バッジ・実績名・説明・達成日を乗せる白背景のカード。minHeight で画面の半分を確保し、
         「達成した記録」/ 進捗バーは常にこの下（= 画面の半分以下の位置）から始まる。
@@ -502,7 +548,7 @@ function AchievementPage({
           </View>
         </View>
       )}
-    </ScrollView>
+    </View>
   );
 }
 

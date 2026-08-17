@@ -18,6 +18,7 @@ import type { RecordKind } from '@/db/schema';
 
 import { DEFAULT_RECORD_KIND_KEY, normalizeRecordKind } from './defaultRecordKind';
 import { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+import { normalizeTutorialSeen, TUTORIAL_SEEN_KEY } from './tutorialSeen';
 
 export {
   DEFAULT_RECORD_KIND_KEY,
@@ -25,6 +26,7 @@ export {
   normalizeRecordKind,
 } from './defaultRecordKind';
 export { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+export { normalizeTutorialSeen, TUTORIAL_SEEN_KEY } from './tutorialSeen';
 
 export type Settings = {
   /** 新規レコード・計算タブの初期種別（SPEC-V2 §1.4 / §3.1） */
@@ -36,17 +38,25 @@ export type Settings = {
    * 「いつ作ったか」はファイルの中身ではなく、この端末で起きたこと。
    */
   lastBackupAt: string | null;
+  /**
+   * 初回起動チュートリアルを見終えたか（スキップ・「はじめる」のどちらでも true）。
+   * true になったあとは false へ戻す口を持たない ── 再表示は onboardingBus 経由の
+   * 一時的な表示要求（設定タブ「チュートリアルをもう一度見る」）で行い、既読の記録はそのまま残す。
+   */
+  tutorialSeen: boolean;
 };
 
 type SettingsStore = Settings & {
   setDefaultRecordKind: (kind: RecordKind) => void;
   setLastBackupAt: (createdAt: string) => void;
+  markTutorialSeen: () => void;
 };
 
 const useSettingsStore = create<SettingsStore>((set) => ({
   // getItemSync なので初期値をその場で読める。不正値・未設定は 'used' に倒れる
   defaultRecordKind: normalizeRecordKind(Storage.getItemSync(DEFAULT_RECORD_KIND_KEY)),
   lastBackupAt: normalizeLastBackupAt(Storage.getItemSync(LAST_BACKUP_AT_KEY)),
+  tutorialSeen: normalizeTutorialSeen(Storage.getItemSync(TUTORIAL_SEEN_KEY)),
   setDefaultRecordKind: (kind) => {
     // 先に永続化してからストアを更新する。書き込みが失敗したら state も進めない
     Storage.setItemSync(DEFAULT_RECORD_KIND_KEY, kind);
@@ -55,6 +65,10 @@ const useSettingsStore = create<SettingsStore>((set) => ({
   setLastBackupAt: (createdAt) => {
     Storage.setItemSync(LAST_BACKUP_AT_KEY, createdAt);
     set({ lastBackupAt: createdAt });
+  },
+  markTutorialSeen: () => {
+    Storage.setItemSync(TUTORIAL_SEEN_KEY, '1');
+    set({ tutorialSeen: true });
   },
 }));
 
