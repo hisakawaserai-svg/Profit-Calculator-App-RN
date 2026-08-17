@@ -24,6 +24,9 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
+import { BANNER_UNIT_ID } from '@/ads/adUnits';
+import { AdBanner } from '@/components/AdBanner';
+import { AddRecordFab } from '@/components/AddRecordFab';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
@@ -38,6 +41,7 @@ import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { SiteNameRow } from '@/components/SiteNameRow';
 import { Stepper } from '@/components/Stepper';
+import { useKeyboardVisible } from '@/components/useKeyboardVisible';
 import type { Preset, RecordKind } from '@/db/schema';
 import {
   costBreakdown,
@@ -55,6 +59,7 @@ import {
 import { formatYen, formatYenSymbol } from '@/logic/format';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
+  ADD_RECORD_ACTION_LABEL,
   BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
   CALC_SCREEN_TITLE,
@@ -108,6 +113,8 @@ const FALLBACK_STICKY_HEIGHT = 88;
 export default function CalcScreen() {
   const colors = useThemeColors();
   const { defaultRecordKind } = useSettings();
+  /** 鍵盤が出ている間は広告を畳む（下の AdBanner のコメント参照） */
+  const keyboardVisible = useKeyboardVisible();
 
   const [values, setValues] = useState<CalcFormValues>(() => newCalcValues(defaultRecordKind));
   // 設定タブで既定種別を変えたときは、このタブに戻ったとき新しい既定種別に合わせる。
@@ -204,180 +211,184 @@ export default function CalcScreen() {
       <Stack.Screen options={screenOptions} />
 
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          onScroll={handleScroll}
-          scrollEventThrottle={16}>
-          {/* 3. 結果カード。先頭に 2 択セグメント（UI-SPEC §1.1-3） */}
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            {/* 「クリア」はカード右上に常設。入力が空のときだけ無効（UI-SPEC §5-8）。
-                セグメントの上に置いているのは、逆算モードの入力行と重ならない位置がここだけのため */}
-            <View style={styles.clearRow}>
-              <Pressable
-                onPress={clearAll}
-                disabled={!canClear}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: !canClear }}
-                accessibilityLabel={CLEAR_INPUT_ACTION_LABEL}
-                style={({ pressed }) => ({ opacity: !canClear ? 0.3 : pressed ? 0.5 : 1 })}>
-                <Text style={[styles.clearLabel, { color: colors.blue }]}>{CLEAR_LABEL}</Text>
-              </Pressable>
-            </View>
-
-            <SegmentedControl
-              options={[profitTabLabel(kind), TARGET_TAB_LABEL]}
-              selectedIndex={mode}
-              onChange={setMode}
-            />
-
-            {isTargetMode ? (
-              <TargetPanel
-                values={values}
-                colors={colors}
-                onChangeTargetProfit={(value) => update('targetProfit', value)}
-                expanded={targetBreakdownOpen}
-                onToggleBreakdown={() => setTargetBreakdownOpen((open) => !open)}
-              />
-            ) : (
-              <ProfitPanel
-                values={values}
-                kind={kind}
-                colors={colors}
-                profit={profit}
-                expanded={cardBreakdownOpen}
-                onToggleBreakdown={() => setCardBreakdownOpen((open) => !open)}
-              />
-            )}
-          </View>
-
-          {/* 4. 種別セレクタ。結果カードの下・入力カードの直上（UI-SPEC §5-1）。
-              仕入価格欄の直上なので、切替で欄が消えるのがその場で見える（SPEC-V2 §1.5） */}
-          <View style={styles.inputGroup}>
-            <RecordKindSelector kind={kind} onChange={(next) => update('kind', next)} />
-
-            {/* 5. 入力カード。行型の数値欄（UI-SPEC §1.1-5 / §3.2） */}
-            <View style={[styles.card, styles.inputCard, { backgroundColor: colors.secondaryBackground }]}>
-              <NumericField
-                label={SALES_PRICE_LABEL}
-                value={displayedSalesPrice}
-                onChangeValue={(value) => update('salesPrice', value)}
-                // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
-                disabled={isTargetMode}
-              />
-              <Divider colors={colors} />
-              {/* 不用品では仕入価格を出さない（値は 0 扱い。SPEC-V2 §1.3） */}
-              {kind === 'sourced' && (
-                <>
-                  <NumericField
-                    label={PURCHASE_PRICE_LABEL}
-                    value={values.purchasePrice}
-                    onChangeValue={(value) => update('purchasePrice', value)}
-                  />
-                  <Divider colors={colors} />
-                </>
-              )}
-              <NumericField
-                label={POSTAGE_LABEL}
-                value={values.postage}
-                onChangeValue={(value) => update('postage', value)}
-                // 送料はプリセットから選べる（SPEC-V3 §4.2）
-                presetType="shipping"
-              />
-              <Divider colors={colors} />
-              {/* 手数料はタグボタンをラベル（率を含む）の直後に置く（SPEC-V3 §4.4 / 設計案 29b）。
-                  ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
-              <View style={styles.stepperRow}>
-                <Stepper
-                  label={commissionFieldLabel(values.commission)}
-                  value={values.commission}
-                  minimumValue={MIN_COMMISSION}
-                  maximumValue={MAX_COMMISSION}
-                  onChangeValue={(value) => update('commission', value)}
-                  accessory={
-                    <PresetTagButton
-                      type="site"
-                      value={values.commission}
-                      // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
-                      selectedName={values.siteName}
-                      onSelect={selectSite}
-                      // SiteNameRow の「✕」と同じ処理。消えるのは名前だけで率は残る
-                      onClear={() => update('siteName', '')}
-                    />
-                  }
-                />
+        {/* 入力と FAB をひとまとめにして、その**下**に広告を置く（記録一覧と同じ形）。
+            この View が flex: 1 なので、広告が出るとスクロールできる高さが自動で縮む ──
+            末尾のカードが広告の裏に回り込むことがそもそも起きない。FAB は絶対配置なので、
+            ここで包まないと画面いちばん下（＝広告の上）を基準にして広告に重なる */}
+        <View style={styles.contentArea}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            onScroll={handleScroll}
+            scrollEventThrottle={16}>
+            {/* 3. 結果カード。先頭に 2 択セグメント（UI-SPEC §1.1-3） */}
+            <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+              {/* 「クリア」はカード右上に常設。入力が空のときだけ無効（UI-SPEC §5-8）。
+                  セグメントの上に置いているのは、逆算モードの入力行と重ならない位置がここだけのため */}
+              <View style={styles.clearRow}>
+                <Pressable
+                  onPress={clearAll}
+                  disabled={!canClear}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !canClear }}
+                  accessibilityLabel={CLEAR_INPUT_ACTION_LABEL}
+                  style={({ pressed }) => ({ opacity: !canClear ? 0.3 : pressed ? 0.5 : 1 })}>
+                  <Text style={[styles.clearLabel, { color: colors.blue }]}>{CLEAR_LABEL}</Text>
+                </Pressable>
               </View>
-              {/* 選んだ販売サイトの名前（§1.5.1）。未設定なら行ごと出ない。
-                  この画面では記録しないので、値は state に持つだけで「この内容で記録する」で引き継ぐ */}
-              <SiteNameRow
-                siteName={values.siteName}
-                onClear={() => update('siteName', '')}
+
+              <SegmentedControl
+                options={[profitTabLabel(kind), TARGET_TAB_LABEL]}
+                selectedIndex={mode}
+                onChange={setMode}
               />
-              <Divider colors={colors} />
 
-              {/* 6. 梱包材・その他は畳んでおく（UI-SPEC §1.1-6） */}
-              <CollapsibleSection
-                // 畳んだままでも中身が結果に効いていることが分かるよう、見出しに合計を添える。
-                // costs はモードで salesPrice だけが変わるので、この 2 項目はどちらでも同じ値
-                label={optionalCostsLabel(costs.envelopeCost + costs.othersCost)}
-                tone="link"
-                expanded={optionalCostsOpen}
-                onToggle={() => setOptionalCostsOpen((open) => !open)}>
-                <NumericField
-                  label={ENVELOPE_COST_LABEL}
-                  value={values.envelopeCost}
-                  onChangeValue={(value) => update('envelopeCost', value)}
-                  // 梱包材プリセットを積める先はこの欄だけ（§4.5。MiniCalculator 参照）
-                  canPickPackaging
+              {isTargetMode ? (
+                <TargetPanel
+                  values={values}
+                  colors={colors}
+                  onChangeTargetProfit={(value) => update('targetProfit', value)}
+                  expanded={targetBreakdownOpen}
+                  onToggleBreakdown={() => setTargetBreakdownOpen((open) => !open)}
                 />
-                <NumericField
-                  label={OTHERS_COST_LABEL}
-                  value={values.othersCost}
-                  onChangeValue={(value) => update('othersCost', value)}
+              ) : (
+                <ProfitPanel
+                  values={values}
+                  kind={kind}
+                  colors={colors}
+                  profit={profit}
+                  expanded={cardBreakdownOpen}
+                  onToggleBreakdown={() => setCardBreakdownOpen((open) => !open)}
                 />
-              </CollapsibleSection>
+              )}
             </View>
-          </View>
-        </ScrollView>
 
-        {/* 2. 固定バー。結果が画面外に流れている間だけ上端に出す（UI-SPEC §1.1-2） */}
-        <StickyResultBar
-          visible={stickyVisible}
-          colors={colors}
-          label={resultLabel}
-          amount={resultAmount}
-          amountColor={resultColor}
-          salesLabel={isTargetMode ? REQUIRED_SALES_LABEL : TOTAL_SALES_LABEL}
-          // 逆算モードでは「経費」と呼ばない。逆算パネルの説明文・式が経費を手数料抜きの額
-          // （765 円）で使っているので、手数料込みの totalExpenses（861 円）を同じ語で呼ぶと、
-          // スクロールでバーが出た瞬間に数字が食い違って見える。パネル側と同じ「引かれる分」に揃える
-          expensesLabel={isTargetMode ? DEDUCTED_LABEL : EXPENSES_LABEL}
-          costs={costs}
-          kind={kind}
-          expanded={stickyBreakdownOpen}
-          onToggleBreakdown={() => setStickyBreakdownOpen((open) => !open)}
-        />
+            {/* 4. 種別セレクタ。結果カードの下・入力カードの直上（UI-SPEC §5-1）。
+                仕入価格欄の直上なので、切替で欄が消えるのがその場で見える（SPEC-V2 §1.5） */}
+            <View style={styles.inputGroup}>
+              <RecordKindSelector kind={kind} onChange={(next) => update('kind', next)} />
 
-        {/* 7. 下端固定ボタン（UI-SPEC §1.1-7）。地色＋上境界線で入力カードから浮かせる
-            （設計案の「半透明地」を不透明にした理由は theme.ts の barBackground を参照） */}
-        <View
-          style={[
-            styles.bottomBar,
-            { backgroundColor: colors.barBackground, borderTopColor: colors.separator },
-          ]}>
-          <Pressable
+              {/* 5. 入力カード。行型の数値欄（UI-SPEC §1.1-5 / §3.2） */}
+              <View style={[styles.card, styles.inputCard, { backgroundColor: colors.secondaryBackground }]}>
+                <NumericField
+                  label={SALES_PRICE_LABEL}
+                  value={displayedSalesPrice}
+                  onChangeValue={(value) => update('salesPrice', value)}
+                  // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
+                  disabled={isTargetMode}
+                />
+                <Divider colors={colors} />
+                {/* 不用品では仕入価格を出さない（値は 0 扱い。SPEC-V2 §1.3） */}
+                {kind === 'sourced' && (
+                  <>
+                    <NumericField
+                      label={PURCHASE_PRICE_LABEL}
+                      value={values.purchasePrice}
+                      onChangeValue={(value) => update('purchasePrice', value)}
+                    />
+                    <Divider colors={colors} />
+                  </>
+                )}
+                <NumericField
+                  label={POSTAGE_LABEL}
+                  value={values.postage}
+                  onChangeValue={(value) => update('postage', value)}
+                  // 送料はプリセットから選べる（SPEC-V3 §4.2）
+                  presetType="shipping"
+                />
+                <Divider colors={colors} />
+                {/* 手数料はタグボタンをラベル（率を含む）の直後に置く（SPEC-V3 §4.4 / 設計案 29b）。
+                    ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
+                <View style={styles.stepperRow}>
+                  <Stepper
+                    label={commissionFieldLabel(values.commission)}
+                    value={values.commission}
+                    minimumValue={MIN_COMMISSION}
+                    maximumValue={MAX_COMMISSION}
+                    onChangeValue={(value) => update('commission', value)}
+                    accessory={
+                      <PresetTagButton
+                        type="site"
+                        value={values.commission}
+                        // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
+                        selectedName={values.siteName}
+                        onSelect={selectSite}
+                        // SiteNameRow の「✕」と同じ処理。消えるのは名前だけで率は残る
+                        onClear={() => update('siteName', '')}
+                      />
+                    }
+                  />
+                </View>
+                {/* 選んだ販売サイトの名前（§1.5.1）。未設定なら行ごと出ない。
+                    この画面では記録しないので、値は state に持つだけで「この内容で記録する」で引き継ぐ */}
+                <SiteNameRow
+                  siteName={values.siteName}
+                  onClear={() => update('siteName', '')}
+                />
+                <Divider colors={colors} />
+
+                {/* 6. 梱包材・その他は畳んでおく（UI-SPEC §1.1-6） */}
+                <CollapsibleSection
+                  // 畳んだままでも中身が結果に効いていることが分かるよう、見出しに合計を添える。
+                  // costs はモードで salesPrice だけが変わるので、この 2 項目はどちらでも同じ値
+                  label={optionalCostsLabel(costs.envelopeCost + costs.othersCost)}
+                  tone="link"
+                  expanded={optionalCostsOpen}
+                  onToggle={() => setOptionalCostsOpen((open) => !open)}>
+                  <NumericField
+                    label={ENVELOPE_COST_LABEL}
+                    value={values.envelopeCost}
+                    onChangeValue={(value) => update('envelopeCost', value)}
+                    // 梱包材プリセットを積める先はこの欄だけ（§4.5。MiniCalculator 参照）
+                    canPickPackaging
+                  />
+                  <NumericField
+                    label={OTHERS_COST_LABEL}
+                    value={values.othersCost}
+                    onChangeValue={(value) => update('othersCost', value)}
+                  />
+                </CollapsibleSection>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* 2. 固定バー。結果が画面外に流れている間だけ上端に出す（UI-SPEC §1.1-2） */}
+          <StickyResultBar
+            visible={stickyVisible}
+            colors={colors}
+            label={resultLabel}
+            amount={resultAmount}
+            amountColor={resultColor}
+            salesLabel={isTargetMode ? REQUIRED_SALES_LABEL : TOTAL_SALES_LABEL}
+            // 逆算モードでは「経費」と呼ばない。逆算パネルの説明文・式が経費を手数料抜きの額
+            // （765 円）で使っているので、手数料込みの totalExpenses（861 円）を同じ語で呼ぶと、
+            // スクロールでバーが出た瞬間に数字が食い違って見える。パネル側と同じ「引かれる分」に揃える
+            expensesLabel={isTargetMode ? DEDUCTED_LABEL : EXPENSES_LABEL}
+            costs={costs}
+            kind={kind}
+            expanded={stickyBreakdownOpen}
+            onToggleBreakdown={() => setStickyBreakdownOpen((open) => !open)}
+          />
+
+          {/* 7. 記録する FAB（UI-SPEC §1.1-7）。記録タブと**同じ部品・同じ位置**
+              （AddRecordFab）。全幅の帯だった頃は、同じ「記録を作る」操作なのに
+              タブによって形も置き場所も違っていた */}
+          <AddRecordFab
+            label={SAVE_AS_RECORD_LABEL}
             onPress={() => setShowForm(true)}
-            accessibilityRole="button"
-            accessibilityLabel={SAVE_AS_RECORD_LABEL}
-            style={({ pressed }) => [
-              styles.saveButton,
-              { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
-            ]}>
-            <Text style={styles.saveLabel}>{SAVE_AS_RECORD_LABEL}</Text>
-          </Pressable>
+            accessibilityLabel={ADD_RECORD_ACTION_LABEL}
+            style={styles.addButton}
+          />
         </View>
+
+        {/* バナー広告。contentArea の兄弟なので、出るとスクロール領域が縮む。
+            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む）。
+            **鍵盤が出ている間は出さない** ── iOS はウィンドウが縮まないので、広告は
+            鍵盤の裏に隠れたまま表示だけが数えられる。この画面は金額を打ち込む画面で、
+            鍵盤の出ている時間が長い */}
+        {!keyboardVisible && <AdBanner unitId={BANNER_UNIT_ID} />}
       </View>
 
       {/* 記録フォームには入力中の金額と種別を引き継ぐ（SPEC §3.2 / SPEC-V2 §1.4）。
@@ -733,10 +744,15 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  contentArea: {
+    flex: 1,
+  },
   scrollContent: {
     padding: 16,
-    // 下端固定ボタンのぶんだけ余白を足して、最後の行が隠れないようにする
-    paddingBottom: 110,
+    // FAB のぶんだけ余白を足して、最後の行が隠れないようにする。
+    // FAB は bottom: 24 に高さ約 43pt（15pt の字 + 上下 12pt）なので、下端から 67pt。
+    // 記録一覧の listContent（96）と揃えて、末尾まで送ったときの余りを同じにする
+    paddingBottom: 96,
     gap: 16,
   },
   card: {
@@ -886,25 +902,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingTop: 8,
   },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  saveButton: {
-    height: 54,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveLabel: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
+  addButton: {
+    // contentArea の下端が広告枠の上端なので、この値がそのまま**広告との距離**になる
+    // （広告の中身まではさらに AdBanner の AD_SPACING ぶん空く）。押し損ねた指が
+    // 広告に当たると無効トラフィックとして数えられるため、24 より詰めないこと。
+    // 広告が出ていないときは contentArea が画面下まで伸びるので、タブバーからの距離になる。
+    // 記録タブの addButton と同じ値（AddRecordFab のコメント参照）
+    bottom: 24,
   },
 });

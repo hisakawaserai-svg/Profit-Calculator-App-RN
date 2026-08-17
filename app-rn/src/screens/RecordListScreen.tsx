@@ -26,8 +26,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import { RECORD_LIST_BANNER_UNIT_ID } from '@/ads/adUnits';
+import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AdBanner } from '@/components/AdBanner';
+import { AddRecordFab } from '@/components/AddRecordFab';
 import { AddRecordMenuSheet } from '@/components/AddRecordMenuSheet';
 import { EmptyState } from '@/components/EmptyState';
 import { HelpButton } from '@/components/HelpButton';
@@ -388,20 +389,19 @@ export function RecordListScreen() {
             )}
           />
 
-          {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7） */}
-          <Pressable
-            style={[styles.addButton, { backgroundColor: colors.blue }]}
+          {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7）。
+              計算タブと同じ部品（AddRecordFab）。語だけが違う */}
+          <AddRecordFab
+            label={RECORDS_TAB_LABEL}
             onPress={openAddMenu}
-            accessibilityRole="button"
-            accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
-            <Ionicons name="add" size={18} color="#FFFFFF" />
-            <Text style={styles.addLabel}>{RECORDS_TAB_LABEL}</Text>
-          </Pressable>
+            accessibilityLabel={ADD_RECORD_ACTION_LABEL}
+            style={styles.addButton}
+          />
         </View>
 
         {/* バナー広告（Phase 1 の唯一の表示箇所）。タブバーの直上に固定する。
             同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む） */}
-        <AdBanner unitId={RECORD_LIST_BANNER_UNIT_ID} />
+        <AdBanner unitId={BANNER_UNIT_ID} />
       </View>
 
       {/* 期間シート（月バー中央タップ）。全期間か 1 か月のいずれかを選ぶ（§5-5）。
@@ -599,28 +599,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addButton: {
-    position: 'absolute',
-    left: 20,
     // listArea の下端が広告枠の上端なので、この値がそのまま**広告との距離**になる
     // （広告の中身まではさらに AdBanner の AD_SPACING ぶん空く）。押し損ねた指が
     // 広告に当たると無効トラフィックとして数えられるため、24 より詰めないこと。
     // 広告が出ていないときは listArea が画面下まで伸びるので、タブバーからの距離になる
     bottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 22,
-    shadowColor: '#000000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  addLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

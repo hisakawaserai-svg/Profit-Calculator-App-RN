@@ -28,7 +28,9 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { BarChart } from 'react-native-gifted-charts';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
+import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AchievementsSection, resolveTagFrom, resolveTagNameFrom } from '@/components/AchievementsSection';
+import { AdBanner } from '@/components/AdBanner';
 import { DataDetailsToggle, type DataDetailItem } from '@/components/DataDetailsToggle';
 import { DataModeTabs } from '@/components/DataModeTabs';
 import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
@@ -763,182 +765,190 @@ export function DataScreen() {
           />
         )}
 
-        {mode === DATA_MODE_PROFIT ? (
-          <>
-            {/* 集計段（案 36b）。**収支が主役**で、売上と経費は右に小さく積む。
-                種別セグメントは廃止し、種別は絞り込みページの 1 節に一本化した（§6） */}
-            <DataSummaryBar profit={profitValue} context={contextValues} />
+        {/* グラフ・実績と広告をひとまとめにする（記録一覧と同じ形）。この View が flex: 1 なので、
+            広告が出るとスクロールできる高さが自動で縮む ── 末尾のカードが広告の裏に回り込まない */}
+        <View style={styles.contentArea}>
+          {mode === DATA_MODE_PROFIT ? (
+            <>
+              {/* 集計段（案 36b）。**収支が主役**で、売上と経費は右に小さく積む。
+                  種別セグメントは廃止し、種別は絞り込みページの 1 節に一本化した（§6） */}
+              <DataSummaryBar profit={profitValue} context={contextValues} />
 
-            {/* 集計段の直下・独立した開閉行（案 1c）。ヘッダー自体には手を入れない */}
-            <DataDetailsToggle
-              expanded={detailsExpanded}
-              onToggle={() => setDetailsExpanded((expanded) => !expanded)}
-              toggleLabel={detailsToggleLabel(detailsExpanded)}
-              items={detailItems}
-            />
+              {/* 集計段の直下・独立した開閉行（案 1c）。ヘッダー自体には手を入れない */}
+              <DataDetailsToggle
+                expanded={detailsExpanded}
+                onToggle={() => setDetailsExpanded((expanded) => !expanded)}
+                toggleLabel={detailsToggleLabel(detailsExpanded)}
+                items={detailItems}
+              />
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-              <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
-                {/* 「収支」「タグ」「実績」の 3 択（計算タブの「利益を出す/目標から逆算」と同じ考え方）。
-                    カードの上端に置く ── 独立した行として挟むと、その分だけ縦に伸びる */}
-                <DataModeTabs
-                  options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
-                  selectedIndex={mode}
-                  onChange={setMode}
-                />
-
-                <Text style={[styles.chartTitle, { color: colors.label }]}>
-                  {PROFIT_TREND_LABEL}
-                </Text>
-                {/* 見出しの下の 1 行。**未選択なら凡例・選択中は押した点の値**（案 38b）。
-                    高さは選択の有無で変えない（伸び縮みするとカードの下が動く） */}
-                <ChartHeadRow
-                  unit={unit}
-                  showCumulative={showsCumulative(densePoints)}
-                  cumulativeOnRight={cumulativeOnRight}
-                  selected={
-                    selectedIndex < 0
-                      ? null
-                      : { point: densePoints[selectedIndex], cumulative: cumulative[selectedIndex] }
-                  }
-                />
-
-                {series.length === 0 ? (
-                  <EmptyChart />
-                ) : (
-                  <ChartView
-                    points={densePoints}
-                    cumulative={cumulative}
-                    unit={unit}
-                    selectedIndex={selectedIndex}
-                    onSelectIndex={selectNearest}
-                  />
-                )}
-              </View>
-
-              {selectedPoint && (
-                <SelectedPointList
-                  point={selectedPoint}
-                  unit={unit}
-                  details={details}
-                  strikeBadges={strikeBadges}
-                  onClear={() => setSelection(null)}
-                  onPressRecord={openDetail}
-                />
-              )}
-
-              <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
-
-              {/* 前期間比較（新規セクション）。全期間選択中は基準となる前期間が無いので comparison が
-                  null になり、そのままセクションごと出ない（logic/periodComparison.ts） */}
-              {comparison != null && (
-                <PeriodComparisonCard
-                  label={comparison.label}
-                  previousLabel={comparison.previousLabel}
-                  metrics={comparison.metrics}
-                />
-              )}
-            </ScrollView>
-          </>
-        ) : mode === DATA_MODE_TAG ? (
-          <>
-            <DataSummaryBar profit={profitValue} context={contextValues} />
-
-            <DataDetailsToggle
-              expanded={detailsExpanded}
-              onToggle={() => setDetailsExpanded((expanded) => !expanded)}
-              toggleLabel={detailsToggleLabel(detailsExpanded)}
-              items={detailItems}
-            />
-
-            {mode === DATA_MODE_TAG && (
               <ScrollView contentContainerStyle={styles.scrollContent}>
-                {/* 「グラフ」のときだけ、「収支の推移」カードと同じ位置・同じ仕様で出す。
-                    点タップの内訳（タグ別内訳）はこのカードの中に出る（採用案 1a） */}
-                {tagViewMode === TAG_VIEW_MODE_OVERLAY && (
-                  <TagProfitTrendCard
-                    candidates={allTagRanking}
-                    seriesByTag={tagTrendSeriesByTag}
-                    overlaySelected={tagTrendSelected}
-                    axisPoints={densePoints}
+                <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
+                  {/* 「収支」「タグ」「実績」の 3 択（計算タブの「利益を出す/目標から逆算」と同じ考え方）。
+                      カードの上端に置く ── 独立した行として挟むと、その分だけ縦に伸びる */}
+                  <DataModeTabs
+                    options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+                    selectedIndex={mode}
+                    onChange={setMode}
+                  />
+
+                  <Text style={[styles.chartTitle, { color: colors.label }]}>
+                    {PROFIT_TREND_LABEL}
+                  </Text>
+                  {/* 見出しの下の 1 行。**未選択なら凡例・選択中は押した点の値**（案 38b）。
+                      高さは選択の有無で変えない（伸び縮みするとカードの下が動く） */}
+                  <ChartHeadRow
                     unit={unit}
-                    selectedKey={tagChartSelectedKey}
-                    onSelectKey={selectTagChartDate}
-                    viewMode={tagViewMode}
-                    onChangeViewMode={setTagViewMode}
-                    breakdownItems={tagChartBreakdown}
-                    dataMode={mode}
-                    onChangeDataMode={setMode}
-                    selectedBreakdownTagId={tagChartSelectedBreakdownTagId}
-                    onSelectBreakdownTag={selectTagChartBreakdownTag}
-                  />
-                )}
-
-                {tagChartSelectedBreakdownTagId !== undefined && (
-                  <SelectedTagChartTagList
-                    dateText={formatPointDate(
-                      densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
-                      unit,
-                    )}
-                    tagName={
-                      tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
-                        ?.name ?? UNCLASSIFIED_TAG_LABEL
+                    showCumulative={showsCumulative(densePoints)}
+                    cumulativeOnRight={cumulativeOnRight}
+                    selected={
+                      selectedIndex < 0
+                        ? null
+                        : { point: densePoints[selectedIndex], cumulative: cumulative[selectedIndex] }
                     }
-                    details={tagChartTagDetails}
+                  />
+
+                  {series.length === 0 ? (
+                    <EmptyChart />
+                  ) : (
+                    <ChartView
+                      points={densePoints}
+                      cumulative={cumulative}
+                      unit={unit}
+                      selectedIndex={selectedIndex}
+                      onSelectIndex={selectNearest}
+                    />
+                  )}
+                </View>
+
+                {selectedPoint && (
+                  <SelectedPointList
+                    point={selectedPoint}
+                    unit={unit}
+                    details={details}
                     strikeBadges={strikeBadges}
-                    onClear={() => setTagChartTagSelection(null)}
+                    onClear={() => setSelection(null)}
                     onPressRecord={openDetail}
                   />
                 )}
 
-                <TagProfitSection
-                  items={allTagRanking}
-                  zeroRecordTags={zeroRecordTags}
-                  summary={summary}
-                  period={period}
-                  sparklineSeriesByTag={sparklineSeriesByTag}
-                  sparklineBounds={sparklineBounds}
-                  overlaySelected={tagTrendSelected}
-                  onToggleOverlay={toggleTagTrendSelected}
-                  viewMode={tagViewMode}
-                  onChangeViewMode={setTagViewMode}
-                  // 「収支 / タグ」タブはタグモードの最初のカードにだけ出す ──
-                  // 「グラフ」なら TagProfitTrendCard が先に出ているので、ここには渡さない
-                  dataMode={tagViewMode === TAG_VIEW_MODE_LIST ? mode : undefined}
-                  onChangeDataMode={tagViewMode === TAG_VIEW_MODE_LIST ? setMode : undefined}
-                  selectedTagId={selectedTagId}
-                  onSelectTag={selectTag}
-                />
+                <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
 
-                {selectedTagId !== undefined && (
-                  <SelectedTagList
-                    tagName={
-                      allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
-                      UNCLASSIFIED_TAG_LABEL
-                    }
-                    details={tagDetails}
-                    strikeBadges={strikeBadges}
-                    onClear={() => setTagSelection(null)}
-                    onPressRecord={openDetail}
+                {/* 前期間比較（新規セクション）。全期間選択中は基準となる前期間が無いので comparison が
+                    null になり、そのままセクションごと出ない（logic/periodComparison.ts） */}
+                {comparison != null && (
+                  <PeriodComparisonCard
+                    label={comparison.label}
+                    previousLabel={comparison.previousLabel}
+                    metrics={comparison.metrics}
                   />
                 )}
               </ScrollView>
-            )}
-          </>
-        ) : mode === DATA_MODE_ACHIEVEMENTS ? (
-          // 「実績」モード（案 3c）。月バー・絞り込みを一切見ない別の母集団なので、
-          // DataSummaryBar / DataDetailsToggle（収支/タグと共有の期間集計）はここに出さない
-          <AchievementsSection
-            totals={achievementsData.totals}
-            achievements={achievementsData.achievements}
-            nextAchievement={achievementsData.nextAchievement}
-            personalBests={achievementsData.personalBests}
-            resolveTagName={resolveTagName}
-            resolveTag={resolveTag}
-            dataMode={mode}
-            onChangeDataMode={setMode}
-          />
-        ) : null}
+            </>
+          ) : mode === DATA_MODE_TAG ? (
+            <>
+              <DataSummaryBar profit={profitValue} context={contextValues} />
+
+              <DataDetailsToggle
+                expanded={detailsExpanded}
+                onToggle={() => setDetailsExpanded((expanded) => !expanded)}
+                toggleLabel={detailsToggleLabel(detailsExpanded)}
+                items={detailItems}
+              />
+
+              {mode === DATA_MODE_TAG && (
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                  {/* 「グラフ」のときだけ、「収支の推移」カードと同じ位置・同じ仕様で出す。
+                      点タップの内訳（タグ別内訳）はこのカードの中に出る（採用案 1a） */}
+                  {tagViewMode === TAG_VIEW_MODE_OVERLAY && (
+                    <TagProfitTrendCard
+                      candidates={allTagRanking}
+                      seriesByTag={tagTrendSeriesByTag}
+                      overlaySelected={tagTrendSelected}
+                      axisPoints={densePoints}
+                      unit={unit}
+                      selectedKey={tagChartSelectedKey}
+                      onSelectKey={selectTagChartDate}
+                      viewMode={tagViewMode}
+                      onChangeViewMode={setTagViewMode}
+                      breakdownItems={tagChartBreakdown}
+                      dataMode={mode}
+                      onChangeDataMode={setMode}
+                      selectedBreakdownTagId={tagChartSelectedBreakdownTagId}
+                      onSelectBreakdownTag={selectTagChartBreakdownTag}
+                    />
+                  )}
+
+                  {tagChartSelectedBreakdownTagId !== undefined && (
+                    <SelectedTagChartTagList
+                      dateText={formatPointDate(
+                        densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
+                        unit,
+                      )}
+                      tagName={
+                        tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
+                          ?.name ?? UNCLASSIFIED_TAG_LABEL
+                      }
+                      details={tagChartTagDetails}
+                      strikeBadges={strikeBadges}
+                      onClear={() => setTagChartTagSelection(null)}
+                      onPressRecord={openDetail}
+                    />
+                  )}
+
+                  <TagProfitSection
+                    items={allTagRanking}
+                    zeroRecordTags={zeroRecordTags}
+                    summary={summary}
+                    period={period}
+                    sparklineSeriesByTag={sparklineSeriesByTag}
+                    sparklineBounds={sparklineBounds}
+                    overlaySelected={tagTrendSelected}
+                    onToggleOverlay={toggleTagTrendSelected}
+                    viewMode={tagViewMode}
+                    onChangeViewMode={setTagViewMode}
+                    // 「収支 / タグ」タブはタグモードの最初のカードにだけ出す ──
+                    // 「グラフ」なら TagProfitTrendCard が先に出ているので、ここには渡さない
+                    dataMode={tagViewMode === TAG_VIEW_MODE_LIST ? mode : undefined}
+                    onChangeDataMode={tagViewMode === TAG_VIEW_MODE_LIST ? setMode : undefined}
+                    selectedTagId={selectedTagId}
+                    onSelectTag={selectTag}
+                  />
+
+                  {selectedTagId !== undefined && (
+                    <SelectedTagList
+                      tagName={
+                        allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
+                        UNCLASSIFIED_TAG_LABEL
+                      }
+                      details={tagDetails}
+                      strikeBadges={strikeBadges}
+                      onClear={() => setTagSelection(null)}
+                      onPressRecord={openDetail}
+                    />
+                  )}
+                </ScrollView>
+              )}
+            </>
+          ) : mode === DATA_MODE_ACHIEVEMENTS ? (
+            // 「実績」モード（案 3c）。月バー・絞り込みを一切見ない別の母集団なので、
+            // DataSummaryBar / DataDetailsToggle（収支/タグと共有の期間集計）はここに出さない
+            <AchievementsSection
+              totals={achievementsData.totals}
+              achievements={achievementsData.achievements}
+              nextAchievement={achievementsData.nextAchievement}
+              personalBests={achievementsData.personalBests}
+              resolveTagName={resolveTagName}
+              resolveTag={resolveTag}
+              dataMode={mode}
+              onChangeDataMode={setMode}
+            />
+          ) : null}
+        </View>
+
+        {/* バナー広告。contentArea の兄弟なので、出るとスクロール領域が縮む。
+            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む） */}
+        <AdBanner unitId={BANNER_UNIT_ID} />
       </View>
 
       {/* 期間シート（月バー中央タップ）。記録タブと同じ部品（UI-SPEC §1.2） */}
@@ -1695,6 +1705,9 @@ function dim(color: string): string {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentArea: {
     flex: 1,
   },
   scrollContent: {

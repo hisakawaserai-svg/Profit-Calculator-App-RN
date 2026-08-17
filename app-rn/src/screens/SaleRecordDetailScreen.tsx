@@ -53,6 +53,8 @@ import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
 import { StrikeAchievementBadge } from '@/components/StrikeAchievementBadge';
 import { TagChip } from '@/components/TagChip';
 import { UndoBar } from '@/components/UndoBar';
+import { BANNER_UNIT_ID } from '@/ads/adUnits';
+import { AdBanner } from '@/components/AdBanner';
 import { showAchievementToast } from '@/components/achievementToastBus';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord, Tag } from '@/db/schema';
@@ -236,100 +238,110 @@ export function SaleRecordDetailScreen() {
     <>
       <Stack.Screen options={screenOptions} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={styles.content}>
-          {/* 2. メタ行（UI-SPEC §1.4-2）。状態バッジ＋「種別 ・ 出品 → 販売（N日）」 */}
-          <View style={styles.metaRow}>
-            <StatusBadge isSold={record.isSold} colors={colors} />
-            <Text style={[styles.metaText, { color: colors.secondaryLabel }]}>
-              {timelineText(record, today)}
-            </Text>
-          </View>
-
-          {/* 3. 見出しの塊（SPEC-V5 §2.1）。**左に写真・右に商品名とタグ。**
-              レシートカードの外側に置くのは、カードが金額の面だから（UI-SPEC §1.4）。
-              写真が無いときは左の正方形を出さず、塊の右端の破線の正方形
-              （編集フォームの空枠と同じ形）が足す口になる（§2.2 / 決定 §6-4） */}
-          <RecordHeaderBlock
-            record={record}
-            tags={recordTags}
-            strikeAchievement={strikeAchievement}
-            onAddPhoto={() => setShowForm(true)}
-          />
-
-          {/* 4. レシートカード。先頭に帯グラフが入る（出品中・売却済み共通）。
-              独立した凡例は置かず、レシートの各行のドットが帯の区画と色で対応する。
-              出品中・価格設定済みだけ、帯の直下に pricing 画面への結論行（O3 案）が付く
-              （RecordBreakdownBar が自分で判定・push する。売却済みでは出ない） */}
-          <ReceiptCard record={record} />
-
-          {/* 5. 状態カード。メタ行のバッジとは役割が違うので両方置く（UI-SPEC §5-13 / §8.7） */}
-          <SaleStatusCard
-            record={record}
-            today={today}
-            highlighted={highlightSoldDate}
-            onMarkSold={handleMarkSold}
-            onRevertToListing={handleRevertToListing}
-            onChangeSaleDate={handleChangeSaleDate}
-            // 直す場所へ自分でたどり着いたなら、指し示す下地はもう要らない（§8.3）
-            onPressSoldDate={() => setHighlightSoldDate(false)}
-          />
-
-          {/* 6. メモ */}
-          <View style={styles.memoSection}>
-            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{MEMO_LABEL}</Text>
-            <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-              <LongPressCopy label={MEMO_LABEL} text={record.memo}>
-                <Text
-                  style={[
-                    styles.memoText,
-                    { color: record.memo === '' ? colors.mutedLabel : colors.label },
-                  ]}>
-                  {record.memo === '' ? MEMO_EMPTY_LABEL : record.memo}
-                </Text>
-              </LongPressCopy>
+        {/* 内容と下端操作列をひとまとめにして、その**下**に広告を置く（記録一覧と同じ形）。
+            この View が flex: 1 なので、広告が出ると内容の高さが自動で縮む ── 操作列は
+            この中の絶対配置なので、広告に重なることがそもそも起きない */}
+        <View style={styles.contentArea}>
+          <ScrollView contentContainerStyle={styles.content}>
+            {/* 2. メタ行（UI-SPEC §1.4-2）。状態バッジ＋「種別 ・ 出品 → 販売（N日）」 */}
+            <View style={styles.metaRow}>
+              <StatusBadge isSold={record.isSold} colors={colors} />
+              <Text style={[styles.metaText, { color: colors.secondaryLabel }]}>
+                {timelineText(record, today)}
+              </Text>
             </View>
-          </View>
-        </ScrollView>
 
-        {/* 7. 下端操作列（UI-SPEC §1.4-7）。地色＋上境界線で内容から浮かせる */}
-        <View
-          style={[
-            styles.actionBar,
-            { backgroundColor: colors.barBackground, borderTopColor: colors.separator },
-          ]}>
-          <Pressable
-            onPress={() => setShowForm(true)}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.editButton,
-              { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
+            {/* 3. 見出しの塊（SPEC-V5 §2.1）。**左に写真・右に商品名とタグ。**
+                レシートカードの外側に置くのは、カードが金額の面だから（UI-SPEC §1.4）。
+                写真が無いときは左の正方形を出さず、塊の右端の破線の正方形
+                （編集フォームの空枠と同じ形）が足す口になる（§2.2 / 決定 §6-4） */}
+            <RecordHeaderBlock
+              record={record}
+              tags={recordTags}
+              strikeAchievement={strikeAchievement}
+              onAddPhoto={() => setShowForm(true)}
+            />
+
+            {/* 4. レシートカード。先頭に帯グラフが入る（出品中・売却済み共通）。
+                独立した凡例は置かず、レシートの各行のドットが帯の区画と色で対応する。
+                出品中・価格設定済みだけ、帯の直下に pricing 画面への結論行（O3 案）が付く
+                （RecordBreakdownBar が自分で判定・push する。売却済みでは出ない） */}
+            <ReceiptCard record={record} />
+
+            {/* 5. 状態カード。メタ行のバッジとは役割が違うので両方置く（UI-SPEC §5-13 / §8.7） */}
+            <SaleStatusCard
+              record={record}
+              today={today}
+              highlighted={highlightSoldDate}
+              onMarkSold={handleMarkSold}
+              onRevertToListing={handleRevertToListing}
+              onChangeSaleDate={handleChangeSaleDate}
+              // 直す場所へ自分でたどり着いたなら、指し示す下地はもう要らない（§8.3）
+              onPressSoldDate={() => setHighlightSoldDate(false)}
+            />
+
+            {/* 6. メモ */}
+            <View style={styles.memoSection}>
+              <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{MEMO_LABEL}</Text>
+              <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+                <LongPressCopy label={MEMO_LABEL} text={record.memo}>
+                  <Text
+                    style={[
+                      styles.memoText,
+                      { color: record.memo === '' ? colors.mutedLabel : colors.label },
+                    ]}>
+                    {record.memo === '' ? MEMO_EMPTY_LABEL : record.memo}
+                  </Text>
+                </LongPressCopy>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* 7. 下端操作列（UI-SPEC §1.4-7）。地色＋上境界線で内容から浮かせる */}
+          <View
+            style={[
+              styles.actionBar,
+              { backgroundColor: colors.barBackground, borderTopColor: colors.separator },
             ]}>
-            <Text style={styles.editLabel}>{EDIT_RECORD_LABEL}</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleDelete}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.deleteButton,
-              { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
-            ]}>
-            <Text style={[styles.deleteLabel, { color: colors.red }]}>{DELETE_LABEL}</Text>
-          </Pressable>
+            <Pressable
+              onPress={() => setShowForm(true)}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.editButton,
+                { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Text style={styles.editLabel}>{EDIT_RECORD_LABEL}</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleDelete}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.deleteButton,
+                { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Text style={[styles.deleteLabel, { color: colors.red }]}>{DELETE_LABEL}</Text>
+            </Pressable>
+          </View>
+
+          {/* 「売れた」を押した直後だけ出る取り消しの口（UI-SPEC §8.3）。
+              数秒で消えるが、訂正口（売れた日の行）は残る。下端の操作列の上に重ねる */}
+          {showUndo && (
+            <UndoBar
+              message={MARKED_AS_SOLD_MESSAGE}
+              actionLabel={UNDO_LABEL}
+              onAction={handleUndoMarkSold}
+              onHide={hideFeedback}
+              bottomOffset={ACTION_BAR_HEIGHT + 8}
+            />
+          )}
         </View>
 
-        {/* 「売れた」を押した直後だけ出る取り消しの口（UI-SPEC §8.3）。
-            数秒で消えるが、訂正口（売れた日の行）は残る。下端の操作列の上に重ねる */}
-        {showUndo && (
-          <UndoBar
-            message={MARKED_AS_SOLD_MESSAGE}
-            actionLabel={UNDO_LABEL}
-            onAction={handleUndoMarkSold}
-            onHide={hideFeedback}
-            bottomOffset={ACTION_BAR_HEIGHT + 8}
-          />
-        )}
+        {/* バナー広告。contentArea の兄弟なので、出ると内容が縮む。
+            操作列は `bottom: 0` の全幅の帯なので、既定より広い余白を上に取って離す
+            （AdBanner の gapTop 参照）。広告が畳まれれば操作列はタブバーの上に戻る */}
+        <AdBanner unitId={BANNER_UNIT_ID} gapTop={ACTION_BAR_AD_GAP} />
       </View>
 
       <RecordFormSheet
@@ -521,6 +533,15 @@ function StatusBadge({ isSold, colors }: { isSold: boolean; colors: ThemeColors 
 const ACTION_BAR_HEIGHT = 88;
 
 /**
+ * 操作列と広告の間に取る余白（AdBanner の gapTop へ渡す）。
+ *
+ * 操作列は `bottom: 0` の全幅の帯なので、広告の既定の余白（12）のままだと帯の下端と
+ * 広告が接する。押せるものとの距離は帯自身の `paddingBottom: 24` で既に取れているが、
+ * 地色の帯と広告が地続きに見えるので、ここで離して 2 つの層に見せる。
+ */
+const ACTION_BAR_AD_GAP = 24;
+
+/**
  * 写真の一辺（SPEC-V5 §2.1）。一覧の枠（56pt）・フォームの枠（72pt）より大きい ──
  * この画面がいちばん 1 件を見る面なので、3 つの中では最大にする。
  */
@@ -531,6 +552,9 @@ const PHOTO_PLACEHOLDER_SIZE = 72;
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentArea: {
     flex: 1,
   },
   content: {

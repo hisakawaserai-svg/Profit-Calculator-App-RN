@@ -14,23 +14,27 @@ import { Platform } from 'react-native';
 import { TestIds } from 'react-native-google-mobile-ads';
 
 /**
- * 記録一覧タブのバナーの本番ユニット ID（AdMob 管理画面の `uritsumi-list-banner` 系）。
+ * バナーの本番ユニット ID（AdMob 管理画面の `uritsumi-list-banner` 系）。
+ *
+ * **4 画面（計算・記録一覧・データ・記録詳細）が同じ ID を共有する。** 画面ごとに
+ * ユニットを分けると管理画面で成績を分けて見られるが、分けたぶんだけ 1 ユニットあたりの
+ * 表示回数が減り、最適化の効きも遅くなる。分けるかどうかは成績を見てから判断する。
  *
  * 型を `string | null` のままにしてあるのは、web など想定外のプラットフォームで
  * Platform.select が default に落ちるため。BannerAd は空文字の unitId で例外を投げる
  * （BaseAd の `"BannerAd: 'unitId' expected a valid string unit ID."`）ので、
  * 「無い」は空文字ではなく不在として持ち、描画するかどうかの判断に使う。
  */
-const PRODUCTION_RECORD_LIST_BANNER: string | null = Platform.select({
+const PRODUCTION_BANNER: string | null = Platform.select({
   ios: 'ca-app-pub-3194046005390900/6090387277',
   android: 'ca-app-pub-3194046005390900/1049863912',
   default: null,
 });
 
 /**
- * 記録一覧タブの最下部に出すバナーのユニット ID。
+ * バナーのユニット ID。**広告を出す画面はすべてこれを使う。**
  * 開発ビルドは公式のテスト ID（アンカー型アダプティブ用）、本番ビルドは上の本番 ID。
  */
-export const RECORD_LIST_BANNER_UNIT_ID: string | null = __DEV__
+export const BANNER_UNIT_ID: string | null = __DEV__
   ? TestIds.ADAPTIVE_BANNER
-  : PRODUCTION_RECORD_LIST_BANNER;
+  : PRODUCTION_BANNER;

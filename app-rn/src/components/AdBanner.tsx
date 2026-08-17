@@ -40,10 +40,10 @@ const NON_PERSONALIZED_REQUEST = { requestNonPersonalizedAdsOnly: true } as cons
 /**
  * 広告の上下に置く余白。
  *
- * 上側は**追加ボタン（FAB）との距離**を稼ぐぶん。FAB は一覧側（listArea）の中で
- * `bottom: 24` に絶対配置されていて、listArea の下端がこの枠の上端なので、
- * FAB の下端から広告の中身までは `24 + AD_SPACING` になる。押し損ねた指が広告に
- * 当たると無効トラフィックとして数えられるため、ここは詰めないこと。
+ * 上側は**画面の中の押せるものとの距離**を稼ぐぶん。計算タブ・記録一覧では FAB が
+ * 内容側のコンテナの中で `bottom: 24` に絶対配置されていて、そのコンテナの下端が
+ * この枠の上端なので、FAB の下端から広告の中身までは `24 + AD_SPACING` になる。
+ * 押し損ねた指が広告に当たると無効トラフィックとして数えられるため、ここは詰めないこと。
  *
  * 下側はタブバーとの間隔。0 にすると広告がタブバーに貼り付いて、タブを押すつもりの
  * 指が広告に当たる（上と同じ理由で避ける）。
@@ -53,8 +53,19 @@ const AD_SPACING = 12;
 /**
  * @param unitId 広告ユニット ID（src/ads/adUnits.ts）。**null なら何も描画しない** ──
  *   本番 ID が未取得の Phase 1 では、本番ビルドで広告枠そのものを出さない
+ * @param gapTop 上側の余白（省略時 AD_SPACING）。**下端に貼り付いた帯を持つ画面用。**
+ *   記録詳細の操作列は `bottom: 0` の全幅の帯なので、既定のままだと帯の下端と広告が
+ *   接する。押せるものとの距離だけなら帯自身の `paddingBottom` で足りるが、
+ *   帯の地色と広告が地続きに見えるのを避けるため、ここで離す。
+ *   広告が畳まれればこの余白ごと消えるので、帯の位置は元に戻る
  */
-export function AdBanner({ unitId }: { unitId: string | null }) {
+export function AdBanner({
+  unitId,
+  gapTop = AD_SPACING,
+}: {
+  unitId: string | null;
+  gapTop?: number;
+}) {
   const colors = useThemeColors();
   const initialized = useAdsInitialized();
   const nonPersonalized = useNonPersonalizedAds();
@@ -72,7 +83,7 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
    * インプレッションは無効トラフィックとして扱われ得る）。
    */
   const { width } = useWindowDimensions();
-  const slotHeight = (loadedHeight ?? anchoredBannerHeight(width)) + AD_SPACING * 2;
+  const slotHeight = (loadedHeight ?? anchoredBannerHeight(width)) + gapTop + AD_SPACING;
 
   // iOS の WKWebView はアプリがサスペンドされている間に落ちることがあり、復帰すると
   // 空のバナーになる。復帰のたびに読み直す（公式の推奨。Android では不要）。
@@ -95,6 +106,9 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
         styles.slot,
         {
           height: slotHeight,
+          // 上下で余白が違いうるので、中央寄せではなく padding で位置を決める
+          paddingTop: gapTop,
+          paddingBottom: AD_SPACING,
           backgroundColor: colors.background,
           borderTopColor: colors.separator,
         },
@@ -119,7 +133,6 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
 
 const styles = StyleSheet.create({
   slot: {
-    justifyContent: 'center',
     alignItems: 'center',
     // 一覧の続きに見えないよう、上端に区切り線を引いて内容から切り離す。
     // 下端には引かない ── タブバーが自前の上罫線を持っていて、二重線になる
