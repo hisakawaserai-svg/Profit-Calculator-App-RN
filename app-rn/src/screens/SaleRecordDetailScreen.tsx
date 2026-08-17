@@ -1,10 +1,13 @@
 // レコード詳細（UI-SPEC §1.4 / 採用案 3d）。SaleRecordDetailView.swift の後継。
 // 記録タブの一覧・データタブの内訳の行タップからプッシュ遷移してくる。
 //
-// 3d のねらいは「金額の流れを 1 枚のレシートで見せ、編集・削除を下端の操作列にまとめる」。
+// 3d のねらいは「金額の流れを 1 枚のレシートで見せ、編集・削除を下端にまとめる」。
 // 商品情報カード＋費用内訳カードの 2 枚（旧構成）を 1 枚のレシートに畳み、
 // 種別と日付はカードの外のメタ行に出す。ヘッダのペン・ゴミ箱アイコンは下端の
 // 「編集する」「削除」に置き換えた（何をする操作なのかを語で読めるようにする）。
+//
+// 下端の 2 つは**全幅の帯から浮いた FAB へ移した**（components/Fab.tsx）── 計算タブ・
+// 記録一覧の「記録する」と同じ形にして、どの画面でも押す口を同じ場所に置くため。
 //
 // - 状態はメタ行のバッジ（表示）と状態カード（変更）の両方を置く（§5-13。役割が違う）。
 // - 写真は商品名の直後・**レシートカードの外側**（SPEC-V5 §2.1）。カードは金額の面なので、
@@ -55,6 +58,7 @@ import { TagChip } from '@/components/TagChip';
 import { UndoBar } from '@/components/UndoBar';
 import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AdBanner } from '@/components/AdBanner';
+import { Fab, FAB_HEIGHT } from '@/components/Fab';
 import { showAchievementToast } from '@/components/achievementToastBus';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord, Tag } from '@/db/schema';
@@ -297,51 +301,44 @@ export function SaleRecordDetailScreen() {
             </View>
           </ScrollView>
 
-          {/* 7. 下端操作列（UI-SPEC §1.4-7）。地色＋上境界線で内容から浮かせる */}
-          <View
-            style={[
-              styles.actionBar,
-              { backgroundColor: colors.barBackground, borderTopColor: colors.separator },
-            ]}>
-            <Pressable
-              onPress={() => setShowForm(true)}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.editButton,
-                { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Text style={styles.editLabel}>{EDIT_RECORD_LABEL}</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleDelete}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.deleteButton,
-                { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Text style={[styles.deleteLabel, { color: colors.red }]}>{DELETE_LABEL}</Text>
-            </Pressable>
-          </View>
+          {/* 7. 下端の操作（UI-SPEC §1.4-7）。**他の画面と同じ浮いた FAB**（Fab）。
+              全幅の帯だった頃は、画面ごとに押す口の形も置き場所も違っていた。
+              編集は左（他の画面の＋と同じ位置）、削除は右に離す ── 消えると戻せない
+              操作なので、いちばん押しやすい位置には置かない */}
+          <Fab
+            icon="pencil"
+            label={EDIT_RECORD_LABEL}
+            onPress={() => setShowForm(true)}
+            backgroundColor={colors.blue}
+            style={styles.editFab}
+          />
+          <Fab
+            icon="trash-outline"
+            label={DELETE_LABEL}
+            onPress={handleDelete}
+            // 帯だった頃と同じ主従（編集が塗り、削除は地に赤い字）。塗りつぶしの赤にすると、
+            // 画面でいちばん強い色が「消す」になってしまう
+            backgroundColor={colors.secondaryBackground}
+            foregroundColor={colors.red}
+            style={styles.deleteFab}
+          />
 
           {/* 「売れた」を押した直後だけ出る取り消しの口（UI-SPEC §8.3）。
-              数秒で消えるが、訂正口（売れた日の行）は残る。下端の操作列の上に重ねる */}
+              数秒で消えるが、訂正口（売れた日の行）は残る。下端の FAB の上に重ねる */}
           {showUndo && (
             <UndoBar
               message={MARKED_AS_SOLD_MESSAGE}
               actionLabel={UNDO_LABEL}
               onAction={handleUndoMarkSold}
               onHide={hideFeedback}
-              bottomOffset={ACTION_BAR_HEIGHT + 8}
+              bottomOffset={FAB_BOTTOM + FAB_HEIGHT + 8}
             />
           )}
         </View>
 
         {/* バナー広告。contentArea の兄弟なので、出ると内容が縮む。
-            操作列は `bottom: 0` の全幅の帯なので、既定より広い余白を上に取って離す
-            （AdBanner の gapTop 参照）。広告が畳まれれば操作列はタブバーの上に戻る */}
-        <AdBanner unitId={BANNER_UNIT_ID} gapTop={ACTION_BAR_AD_GAP} />
+            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む） */}
+        <AdBanner unitId={BANNER_UNIT_ID} />
       </View>
 
       <RecordFormSheet
@@ -530,16 +527,9 @@ function StatusBadge({ isSold, colors }: { isSold: boolean; colors: ThemeColors 
 }
 
 /** 下端の操作列の高さ（余白込み）。undo バーはこの上に重ねる（UI-SPEC §8.3） */
-const ACTION_BAR_HEIGHT = 88;
+/** FAB の下端からの距離。他の画面の addButton と同値（Fab の冒頭コメント参照） */
+const FAB_BOTTOM = 24;
 
-/**
- * 操作列と広告の間に取る余白（AdBanner の gapTop へ渡す）。
- *
- * 操作列は `bottom: 0` の全幅の帯なので、広告の既定の余白（12）のままだと帯の下端と
- * 広告が接する。押せるものとの距離は帯自身の `paddingBottom: 24` で既に取れているが、
- * 地色の帯と広告が地続きに見えるので、ここで離して 2 つの層に見せる。
- */
-const ACTION_BAR_AD_GAP = 24;
 
 /**
  * 写真の一辺（SPEC-V5 §2.1）。一覧の枠（56pt）・フォームの枠（72pt）より大きい ──
@@ -559,7 +549,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    // 下端の操作列に隠れないぶんの余白
+    // 下端の FAB に隠れないぶんの余白（記録一覧の listContent と同値）
     paddingBottom: 96,
     gap: 12,
   },
@@ -653,37 +643,16 @@ const styles = StyleSheet.create({
   memoText: {
     fontSize: 15,
   },
-  actionBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  // FAB は 2 つとも contentArea の下端から同じ高さ。contentArea の下端が広告枠の
+  // 上端なので、この値がそのまま**広告との距離**になる（広告の中身まではさらに
+  // AdBanner の AD_SPACING ぶん空く）。押し損ねた指が広告に当たると無効トラフィックとして
+  // 数えられるため、24 より詰めないこと。広告が出ていないときはタブバーからの距離になる
+  editFab: {
+    left: 20,
+    bottom: FAB_BOTTOM,
   },
-  actionButton: {
-    height: 54,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButton: {
-    flex: 1,
-  },
-  editLabel: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  deleteButton: {
-    width: 104,
-  },
-  deleteLabel: {
-    fontSize: 17,
-    fontWeight: '600',
+  deleteFab: {
+    right: 20,
+    bottom: FAB_BOTTOM,
   },
 });
