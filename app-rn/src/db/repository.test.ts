@@ -1756,18 +1756,6 @@ describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
     expect(row).toEqual({ value: 450, materialCost: 0 });
   });
 
-  it('初期プリセット（0002 の seed）も送料はそのまま・資材費 0 円', () => {
-    const rows = migrateWithRows()
-      .prepare(
-        `SELECT value, material_cost AS materialCost FROM presets
-         WHERE type = 'shipping' AND id LIKE 'seed-%'`,
-      )
-      .all() as { value: number; materialCost: number }[];
-
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) expect(row.materialCost).toBe(0);
-  });
-
   it('既存の記録の金額は 1 円も動かない（送料も書き換えない。§1 の制約）', () => {
     const row = migrateWithRows().prepare('SELECT * FROM sale_records').get() as Record<
       string,

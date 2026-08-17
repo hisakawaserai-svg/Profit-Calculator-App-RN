@@ -78,6 +78,13 @@
       "when": 1786604656874,
       "tag": "0010_preset_calc_method",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1786604657874,
+      "tag": "0011_remove_seed_presets",
+      "breakpoints": true
     }
   ]
 }

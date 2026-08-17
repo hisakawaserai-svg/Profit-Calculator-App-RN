@@ -1,5 +1,5 @@
 // SPEC-V3 §6.3 のテスト方針のうち、DB の側。
-// - マイグレーション（0002）後に §2 の初期値 17 件が入っていること
+// - 初期プリセットが出荷されないこと（0002 が入れた 17 件を 0011 が消す）
 // - presets の CRUD と sortOrder の採番（§3.4）
 // - sale_records.site_name の保存・取得と、既存行が空文字になること（§1.5.1）
 //
@@ -19,7 +19,6 @@ import { PRESET_COLOR_HEXES, presetColorKeyOf } from '../logic/preset';
 import { createPresetRepository, type PresetRepository } from './presets';
 import { createRepository, type Repository, type SaveRecordInput } from './repository';
 import * as schema from './schema';
-import type { PresetType } from './schema';
 
 /**
  * repository の依存（SPEC-V5 §1.5 で写真ファイルを消す口が増えた）。
@@ -47,114 +46,78 @@ function newDatabase(throughIdx = journal.entries.length - 1) {
   return sqlite;
 }
 
+/**
+ * 全マイグレーション後の DB に、**かつての初期プリセット 17 件を入れ直した**もの。
+ *
+ * 初期値は 0011 で出荷しなくなった（多言語化のため。理由はそのマイグレーションの冒頭）が、
+ * 「既に何件か登録されている状態」を土台にしたいテストはまだある ── CRUD の並び・採番や、
+ * 列を足すマイグレーションが既存行に触れないこと。当時の 17 件をそのまま雛形に使うのは、
+ * id が内容の読める固定値で、テストから名指しできるため。
+ *
+ * 0007（色キー → hex）を流し直しているのは、0002 の INSERT が色を**キー名**で書いており、
+ * そのままだと今の形（hex）と食い違うため。`WHERE color_key NOT LIKE '#%'` が付いた
+ * 条件付き UPDATE なので、何度流しても既に hex の行には触れない。
+ */
+function newDatabaseWithLegacyPresets() {
+  const sqlite = newDatabase();
+  for (const statement of migrationSql('0002_dusty_blink')) {
+    if (statement.includes('INSERT INTO `presets`')) sqlite.exec(statement);
+  }
+  for (const statement of migrationSql('0007_preset_color_hex')) sqlite.exec(statement);
+  return sqlite;
+}
+
 /** 0002（presets と site_name を足すマイグレーション）の idx */
 const PRESETS_MIGRATION_IDX = 2;
+
+/** 0011（初期プリセットを消すマイグレーション）の idx */
+const SEED_REMOVAL_IDX = journal.entries.findIndex(
+  (entry) => entry.tag === '0011_remove_seed_presets',
+);
 
 /** 0003（まとめ買いの 2 列を足すマイグレーション。§2.6.4）の idx */
 const PACK_MIGRATION_IDX = 3;
 
-type SeedRow = { id: string; name: string; colorKey: string; initial: string; value: number; sortOrder: number };
+describe('§1.6 / §2 / 0011 初期プリセットは出荷しない', () => {
+  // SPEC-V3 §2 の初期値 17 件は 0002 が入れていたが、**0011 で消すようにした**
+  // （多言語化。`手数料 10%` のような日本語が DB の行として焼き付いていて訳せないため）。
+  // マイグレーションは追記だけで進めるので 0002 の INSERT はそのまま残してあり、
+  // 新規インストールは「入れてから消す」経路で既存の端末と同じ状態に着地する。
 
-function seedRows(sqlite: ReturnType<typeof newDatabase>, type: PresetType): SeedRow[] {
-  return sqlite
-    .prepare(
-      `SELECT id, name, color_key AS colorKey, initial, value, sort_order AS sortOrder
-       FROM presets WHERE type = ? ORDER BY sort_order`,
-    )
-    .all(type) as SeedRow[];
-}
+  it('マイグレーションを流し終えた状態にプリセットは 1 件もない', () => {
+    const sqlite = newDatabase();
+    const { count } = sqlite.prepare('SELECT count(*) AS count FROM presets').get() as {
+      count: number;
+    };
 
-describe('§1.6 / §2 マイグレーション: 初期値 17 件が入る', () => {
-  let sqlite: ReturnType<typeof newDatabase>;
-
-  beforeEach(() => {
-    sqlite = newDatabase();
+    expect(count).toBe(0);
   });
 
-  it('マイグレーション後の合計は 17 件（4 + 7 + 6）', () => {
+  it('0011 の 1 つ手前までは 0002 の 17 件が入っている（履歴は書き換えていない）', () => {
+    const sqlite = newDatabase(SEED_REMOVAL_IDX - 1);
     const { count } = sqlite.prepare('SELECT count(*) AS count FROM presets').get() as {
       count: number;
     };
 
     expect(count).toBe(17);
-    expect(seedRows(sqlite, 'site')).toHaveLength(4);
-    expect(seedRows(sqlite, 'shipping')).toHaveLength(7);
-    expect(seedRows(sqlite, 'packaging')).toHaveLength(6);
   });
 
-  it('販売サイトは §2.2 の 4 件（サービス名を持たず「手数料 N%」の形）', () => {
-    expect(seedRows(sqlite, 'site')).toEqual([
-      // 色は 0007 で hex に移した（SPEC-V7 §2.1）。**同じ色**のまま形だけが変わっている
-      { id: 'seed-site-10', name: '手数料 10%', colorKey: PRESET_COLOR_HEXES.red, initial: '10', value: 10, sortOrder: 1 },
-      { id: 'seed-site-6', name: '手数料 6%', colorKey: PRESET_COLOR_HEXES.orange, initial: '6', value: 6, sortOrder: 2 },
-      { id: 'seed-site-5', name: '手数料 5%', colorKey: PRESET_COLOR_HEXES.blue, initial: '5', value: 5, sortOrder: 3 },
-      { id: 'seed-site-none', name: '手数料なし（直接取引）', colorKey: PRESET_COLOR_HEXES.green, initial: '0', value: 0, sortOrder: 4 },
-    ]);
-  });
+  it('消えるのは seed- の行だけで、利用者が作った行は残る（§2.5）', () => {
+    const sqlite = newDatabase(SEED_REMOVAL_IDX - 1);
+    sqlite
+      .prepare(
+        `INSERT INTO presets (id, type, name, color_key, initial, value, sort_order)
+         VALUES ('mine', 'packaging', 'エアキャップ', '#FFCC00', 'エ', 30, 7)`,
+      )
+      .run();
+    for (const statement of migrationSql(journal.entries[SEED_REMOVAL_IDX].tag)) {
+      sqlite.exec(statement);
+    }
 
-  it('送料は §2.3 の 7 件（名前に金額を含めない）', () => {
-    const rows = seedRows(sqlite, 'shipping');
-
-    expect(rows.map((row) => [row.name, row.value])).toEqual([
-      ['A4・厚さ3cm以内', 210],
-      ['A4・厚さ2cm以内', 185],
-      ['専用箱（小）', 450],
-      ['宅配 60サイズ', 750],
-      ['宅配 80サイズ', 850],
-      ['宅配 100サイズ', 1050],
-      ['送料込み・手渡し', 0],
-    ]);
-    // 名前の中に金額を書かない（改定したとき数字が取り残されるため。§2.3）
-    for (const row of rows) expect(row.name).not.toMatch(/\d{3}円|\d+円/);
-  });
-
-  it('「宅配 100サイズ」だけ頭文字が空（3 文字は上限を超える。§2.3）', () => {
-    const rows = seedRows(sqlite, 'shipping');
-    const hundred = rows.find((row) => row.id === 'seed-shipping-100');
-
-    expect(hundred?.initial).toBe('');
-    // 他の 6 件は頭文字を持っている
-    expect(rows.filter((row) => row.initial === '')).toHaveLength(1);
-  });
-
-  it('梱包材は §2.4 の 6 件', () => {
-    expect(seedRows(sqlite, 'packaging').map((row) => [row.name, row.value, row.initial])).toEqual([
-      ['封筒（A4）', 15, '封'],
-      ['クッション封筒', 40, 'ク'],
-      ['宅配ビニール袋', 20, '袋'],
-      ['段ボール（小）', 60, '小'],
-      ['段ボール（中）', 100, '中'],
-      ['緩衝材・テープ', 10, '緩'],
-    ]);
-  });
-
-  it('id は内容が読める固定 ID で、全件ユニーク（§2.4）', () => {
     const ids = (sqlite.prepare('SELECT id FROM presets').all() as { id: string }[]).map(
       (row) => row.id,
     );
-
-    expect(new Set(ids).size).toBe(17);
-    for (const id of ids) expect(id).toMatch(/^seed-(site|shipping|packaging)-/);
-  });
-
-  it('sort_order は種類ごとに 1 から連番（§2.4。10 刻みにしない）', () => {
-    for (const [type, count] of [['site', 4], ['shipping', 7], ['packaging', 6]] as const) {
-      expect(seedRows(sqlite, type).map((row) => row.sortOrder)).toEqual(
-        Array.from({ length: count }, (_, i) => i + 1),
-      );
-    }
-  });
-
-  it('色は固定パレットの hex になっている（§1.3 / SPEC-V7 §2.1）', () => {
-    const rows = sqlite.prepare('SELECT color_key AS colorKey FROM presets').all() as {
-      colorKey: string;
-    }[];
-
-    for (const row of rows) {
-      // 0007 のあと、初期値はすべて「固定色として選ばれた」形（hex）で入っている
-      expect(presetColorKeyOf(row.colorKey)).not.toBeNull();
-      expect(row.colorKey).toMatch(/^#[0-9A-F]{6}$/);
-    }
+    expect(ids).toEqual(['mine']);
   });
 
   it('マイグレーションを 0001 で止めると presets はまだ存在しない', () => {
@@ -172,7 +135,7 @@ describe('§2.6.4 マイグレーション 0003: まとめ買いの 2 列', () =
   });
 
   it('既存 6 件の梱包材は「1 個ずつ」のまま（バックフィルなし。§2.6.5）', () => {
-    const sqlite = newDatabase();
+    const sqlite = newDatabaseWithLegacyPresets();
     const rows = sqlite
       .prepare(
         `SELECT id, value, pack_quantity AS packQuantity, pack_price AS packPrice
@@ -377,7 +340,7 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
 
   it('プリセットを消しても記録の site_name は残る（§1.5。確認文の「記録は残る」の裏付け）', () => {
     // 同じ DB の上に 2 つの repository を載せる（アプリ本体と同じ構成。client.ts）
-    const db = drizzle(newDatabase(), { schema });
+    const db = drizzle(newDatabaseWithLegacyPresets(), { schema });
     const records = createRepository(db, recordDeps());
     const presetRepo = createPresetRepository(db, { generateId: randomUUID });
 
@@ -394,7 +357,8 @@ describe('§3 presets repository: CRUD と sortOrder の採番', () => {
   let presetRepo: PresetRepository;
 
   beforeEach(() => {
-    presetRepo = createPresetRepository(drizzle(newDatabase(), { schema }), {
+    // 初期値は出荷しなくなったので（0011）、土台はテスト側で用意する
+    presetRepo = createPresetRepository(drizzle(newDatabaseWithLegacyPresets(), { schema }), {
       generateId: randomUUID,
     });
   });
@@ -772,7 +736,7 @@ describe('SPEC-V10 §1 マイグレーション 0010: 単価の計算方式', ()
   });
 
   it('初期プリセットは「個数から」のまま（バックフィルなし）', () => {
-    const sqlite = newDatabase();
+    const sqlite = newDatabaseWithLegacyPresets();
     const rows = sqlite
       .prepare(
         `SELECT id, value, calc_method AS calcMethod, pack_height AS packHeight,

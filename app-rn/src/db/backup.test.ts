@@ -176,9 +176,19 @@ describe('§3.4 バックアップと復元', () => {
     expect(records[0].itemName).toBe('のこす');
   });
 
-  it('初期プリセット（seed-*）も全置換の対象になる', () => {
-    // マイグレーション 0002 が入れた固定 id のプリセットが最初からある
-    expect(presetRepository.listByType('site').some((p) => p.id.startsWith('seed-'))).toBe(true);
+  it('登録済みのプリセットも全置換の対象になる', () => {
+    // 初期プリセットは出荷しなくなった（0011）ので、置き換えられる側はここで作る
+    presetRepository.create({
+      type: 'site',
+      name: '手数料 10%',
+      colorKey: '#FF3B30',
+      initial: '10',
+      value: 10,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 0,
+    });
+    expect(presetRepository.listByType('site')).toHaveLength(1);
 
     backup.restore({ records: [], presets: [], tags: [], recordTags: [] });
 
