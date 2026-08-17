@@ -197,7 +197,7 @@ function TagRow({
           <TagChip tag={tag} />
         </View>
         <Text style={[styles.usageCount, { color: colors.secondaryLabel }]}>
-          {presetCountLabel(usageCount)}
+          {presetCountLabel('ja', usageCount)}
         </Text>
         <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
       </Pressable>

@@ -75,9 +75,9 @@ export function BackupResultView({
         {/* 件数は**DB から数え直したもの**（§5.6）。入ったことを数で確かめられるようにする */}
         <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
           {[
-            { label: BACKUP_COUNT_RECORDS_LABEL, value: presetCountLabel(counts.records) },
-            { label: BACKUP_COUNT_TAGS_LABEL, value: presetCountLabel(counts.tags) },
-            { label: BACKUP_COUNT_PRESETS_LABEL, value: presetCountLabel(counts.presets) },
+            { label: BACKUP_COUNT_RECORDS_LABEL, value: presetCountLabel('ja', counts.records) },
+            { label: BACKUP_COUNT_TAGS_LABEL, value: presetCountLabel('ja', counts.tags) },
+            { label: BACKUP_COUNT_PRESETS_LABEL, value: presetCountLabel('ja', counts.presets) },
             {
               label: BACKUP_COUNT_PHOTOS_LABEL,
               value: backupRestoredPhotoValue(photos, missingPhotos),

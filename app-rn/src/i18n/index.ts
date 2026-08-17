@@ -7,8 +7,19 @@
 // **フックなし・React の外**でできる必要がある。i18n-js の `t()` は素の関数なので、
 // 735 個の export の型と呼び出し側をそのまま保てる。
 //
-// **再描画はこのモジュールの担当ではない。** `i18n.locale` を書き換えても React は気付かない。
-// 言語を購読するのは settings ストア（zustand）で、画面は `useLocale()` を呼んで購読する。
+// ## なぜ locale を引数で受け取るのか（React Compiler）
+//
+// **表示中の言語をモジュール変数に持たせてはいけない。** このアプリは React Compiler を
+// 有効にしている（app.json の `experiments.reactCompiler`）。コンパイラは
+// **引数を取らない関数呼び出しを「依存なし＝定数」と見なして初回の値で固定する**
+// （生成コードに `Symbol.for("react.memo_cache_sentinel")` が入る）。
+// つまり `helpLinkLabel()` のような形にすると、言語を切り替えて再描画させても
+// 初回の文字列が返り続ける ── 実際にそれで一度壊した。
+//
+// locale を引数で渡せば、コンパイラは `if ($[0] !== locale)` という依存付きのキャッシュを
+// 出すので正しく引き直される。渡し忘れは**型エラーになる**ので、静かに古い文字列が
+// 残ることがない。この理由から、labels.ts の表示語の関数は
+// **locale を第 1 引数に取る**という規約で統一する。
 
 import { I18n } from 'i18n-js';
 
@@ -45,43 +56,19 @@ export type TranslationKey = DottedKeys<Translations>;
 type TranslateParams = Readonly<Record<string, string | number>>;
 
 /**
- * 既定は日本語。`enableFallback` は英語に訳し漏れたキーを日本語で埋める保険で、
- * 通常は効かない ── en.ts は `Translations` に従うので、キーの欠落は型チェックで落ちる。
+ * `enableFallback` は英語に訳し漏れたキーを日本語で埋める保険で、通常は効かない ──
+ * en.ts は `Translations` に従うので、キーの欠落は型チェックで落ちる。
  *
- * 初期値を 'ja' にしてあるのは、端末の言語を読む前（settings ストアの初期化前）に
- * うっかり `t()` が呼ばれても、翻訳なしの目印ではなく日本語が出るようにするため。
+ * **`locale` は設定しない。** 引くたびに呼び出し側から渡す（上のコメント参照）ので、
+ * このインスタンスは可変の状態を持たない。
  */
-const i18n = new I18n(
-  { ja, en },
-  { defaultLocale: 'ja', locale: 'ja', enableFallback: true },
-);
-
-/** 表示語をひく。labels.ts 以外からは呼ばない */
-export function t(key: TranslationKey, params?: TranslateParams): string {
-  return i18n.t(key, params);
-}
+const i18n = new I18n({ ja, en }, { defaultLocale: 'ja', enableFallback: true });
 
 /**
- * いまの言語に関わらず**日本語で**ひく。
+ * 表示語をひく。labels.ts 以外からは呼ばない。
  *
- * 移行の途中でだけ要る。labels.ts の定数（`export const X = '...'`）は import 時に
- * 一度きり評価されるので言語の切り替えに追従できず、関数に変えるしかない。
- * だが 1 つの定数を関数にすると、まだ移していない画面の呼び出し側まで巻き込む。
- *
- * そこで**移行の済んでいない画面が参照している定数だけ**は定数のまま残し、
- * 値をこの関数から取る ── こうすれば日本語の文言はどれも辞書 1 か所にあり、
- * 定数と関数で文が食い違うことがない。**ステップ 2 で呼び出し側を関数に移し終えたら、
- * この関数ごと消える。**
+ * `locale` が第 1 引数なのは、labels.ts の全ての表示語の関数で位置をそろえるため。
  */
-export function tJa(key: TranslationKey, params?: TranslateParams): string {
-  return i18n.t(key, { ...params, locale: 'ja' });
-}
-
-/**
- * 表示言語を切り替える。**呼ぶのは settings ストアだけ** ──
- * ここだけを書き換えても購読している画面は再描画されないので、
- * ストア側が state の更新とセットで呼ぶ（src/settings/index.ts）。
- */
-export function setI18nLocale(locale: Locale): void {
-  i18n.locale = locale;
+export function t(key: TranslationKey, locale: Locale, params?: TranslateParams): string {
+  return i18n.t(key, { ...params, locale });
 }

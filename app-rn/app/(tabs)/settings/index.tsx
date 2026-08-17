@@ -86,9 +86,10 @@ const TAG_DOT_PREVIEW_SIZE = 10;
 
 export default function SettingsScreen() {
   const colors = useThemeColors();
-  // useSettings() はストア全体を購読するので、言語を変えるとこの画面も再描画される
-  // （表示語は下の各関数が呼ばれた時点の言語で決まる）
-  const { defaultRecordKind, setDefaultRecordKind, language, setLanguage } = useSettings();
+  // useSettings() はストア全体を購読するので、言語を変えるとこの画面も再描画される。
+  // **表示語の関数には locale を渡すこと** ── 渡さないと React Compiler が
+  // 「依存なし」と見なして初回の文字列で固定してしまう（src/i18n/index.ts の冒頭）
+  const { defaultRecordKind, setDefaultRecordKind, language, setLanguage, locale } = useSettings();
   // 3 種ぶん個別に引く。フックの数は固定なので、配列を回して呼んでいるわけではない
   const sitePresets = usePresetList('site');
   const shippingPresets = usePresetList('shipping');
@@ -122,7 +123,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: settingsTabLabel() }} />
+      <Stack.Screen options={{ title: settingsTabLabel(locale) }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}>
@@ -137,11 +138,11 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{helpLinkLabel()}</Text>
+              <Text style={[styles.label, { color: colors.label }]}>{helpLinkLabel(locale)}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </Pressable>
           </Link>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{helpLinkNote()}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{helpLinkNote(locale)}</Text>
         </View>
 
         {/* 「使いかた」と同じ見出しなしの 1 行カード。押すと初回起動チュートリアルを
@@ -156,7 +157,7 @@ export default function SettingsScreen() {
               { backgroundColor: colors.secondaryBackground },
             ])}
             accessibilityRole="button">
-            <Text style={[styles.label, { color: colors.label }]}>{replayTutorialLabel()}</Text>
+            <Text style={[styles.label, { color: colors.label }]}>{replayTutorialLabel(locale)}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </Pressable>
         </View>
@@ -166,26 +167,26 @@ export default function SettingsScreen() {
             カードの作りは「記録の既定値」と同じ（見出し・セグメント・注記）*/}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {languageSectionTitle()}
+            {languageSectionTitle(locale)}
           </Text>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <LanguageSelector language={language} onChange={setLanguage} />
+            <LanguageSelector language={language} locale={locale} onChange={setLanguage} />
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              {languageSectionNote()}
+              {languageSectionNote(locale)}
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {recordSettingsSectionTitle()}
+            {recordSettingsSectionTitle(locale)}
           </Text>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.label, { color: colors.label }]}>{defaultRecordKindLabel()}</Text>
+            <Text style={[styles.label, { color: colors.label }]}>{defaultRecordKindLabel(locale)}</Text>
             <RecordKindSelector kind={defaultRecordKind} onChange={setDefaultRecordKind} />
             {/* SPEC-V2 §3.4: 設定が効くのはこれから作るレコードだけ。既存の種別は変わらない */}
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              {defaultRecordKindNote()}
+              {defaultRecordKindNote(locale)}
             </Text>
           </View>
         </View>
@@ -193,13 +194,13 @@ export default function SettingsScreen() {
         {/* SPEC-V3 §3.1 / 設計案 24a: 3 種を 3 枚のカードで。追加の口はここに置かない */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {presetSectionTitle()}
+            {presetSectionTitle(locale)}
           </Text>
           {PRESET_TYPES.map((type) => (
             <PresetSummaryCard key={type} type={type} presets={presetsByType[type]} />
           ))}
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {presetSectionNote()}
+            {presetSectionNote(locale)}
           </Text>
         </View>
 
@@ -209,7 +210,7 @@ export default function SettingsScreen() {
             群 3 と群 5 の間なのは、設定を「入力 → 記録 → 出力」の順に読ませるため */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {tagSectionTitle()}
+            {tagSectionTitle(locale)}
           </Text>
           <Link href="/settings/tags" asChild>
             <Pressable
@@ -220,13 +221,13 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link"
-              accessibilityLabel={`${tagLabel()} ${presetCountLabel(tags.length)}`}>
+              accessibilityLabel={`${tagLabel(locale)} ${presetCountLabel(locale, tags.length)}`}>
               <View style={styles.tagHeader}>
                 <Text style={[styles.label, styles.tagTitle, { color: colors.label }]}>
-                  {tagLabel()}
+                  {tagLabel(locale)}
                 </Text>
                 <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
-                  {presetCountLabel(tags.length)}
+                  {presetCountLabel(locale, tags.length)}
                 </Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </View>
@@ -235,7 +236,7 @@ export default function SettingsScreen() {
                   「その 3 件が特別」と読めるため。点だけなら全部を 1 行に収められる */}
               {tags.length === 0 ? (
                 <Text style={[styles.empty, { color: colors.mutedLabel }]}>
-                  {tagCardEmptyLabel()}
+                  {tagCardEmptyLabel(locale)}
                 </Text>
               ) : (
                 <View style={styles.tagDots}>
@@ -246,13 +247,13 @@ export default function SettingsScreen() {
               )}
             </Pressable>
           </Link>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{tagSectionNote()}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{tagSectionNote(locale)}</Text>
         </View>
 
         {/* UI-SPEC §1.6-4: データ群。書き出しは SPEC-V3 §5.7 で実装済み（活性） */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {dataSectionTitle()}
+            {dataSectionTitle(locale)}
           </Text>
           <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
             {/* SPEC-V3 §5.7 で活性化した（「準備中」が外れた）。押すとモーダルの
@@ -262,7 +263,7 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{csvExportLabel()}</Text>
+                <Text style={[styles.label, { color: colors.label }]}>{csvExportLabel(locale)}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
@@ -275,15 +276,15 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{backupLabel()}</Text>
+                <Text style={[styles.label, { color: colors.label }]}>{backupLabel(locale)}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <View style={styles.row}>
-              <Text style={[styles.label, { color: colors.label }]}>{recordCountLabel()}</Text>
+              <Text style={[styles.label, { color: colors.label }]}>{recordCountLabel(locale)}</Text>
               <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
-                {presetCountLabel(recordCount.count)}
+                {presetCountLabel(locale, recordCount.count)}
               </Text>
             </View>
           </View>
@@ -296,7 +297,7 @@ export default function SettingsScreen() {
         {/* UI-SPEC §1.6-5: フッタ。中央・上に余白 */}
         {APP_VERSION != null && (
           <Text style={[styles.version, { color: colors.secondaryLabel }]}>
-            {versionLabel(APP_VERSION)}
+            {versionLabel(locale, APP_VERSION)}
           </Text>
         )}
       </ScrollView>

@@ -14,18 +14,26 @@
 // 日英の二言語対応を段階的に入れている。**このファイルが画面から見た唯一の入口である点は
 // 変わらない** ── 変わるのは中の実装だけで、リテラルの代わりに辞書（src/i18n/）を `t()` でひく。
 //
-// 移した語は `export const X = '...'` から `export function x(): string` になる。
+// 移した語は `export const X = '...'` から `export function x(locale): string` になる。
 // 定数は import 時に一度きり評価されるので、言語を切り替えても値が固まったままだから。
 // 命名はこのファイルの既存の慣習どおり（SCREAMING_CASE = 定数、camelCase() = 関数）。
 //
+// **表示語の関数は locale を第 1 引数に取る。引数なしにしてはいけない。**
+// このアプリは React Compiler を有効にしており（app.json の `experiments.reactCompiler`）、
+// **引数を取らない呼び出しは「依存なし＝定数」と見なされ、初回の値で固定される**。
+// 引数で渡せばコンパイラが依存として追ってくれるうえ、渡し忘れが型エラーになるので、
+// 静かに古い言語の文字列が残ることがない。理由の詳細は src/i18n/index.ts の冒頭。
+// 既に引数を持つ関数（`presetCountLabel` など）も locale を**先頭**に足して位置をそろえる。
+//
 // **まだ移していない画面が参照している定数は、定数のまま残してある。** それらは
-// `tJa('...')` で辞書から日本語を取るので、同じ文が 2 か所に書かれることはない
+// `t('...', 'ja')` で辞書から日本語を取るので、同じ文が 2 か所に書かれることはない
 // （食い違いようがない）。呼び出し側を関数に移し終えた時点で定数ごと消える。
 //
 // ステップ 1 で移したのは**タブ名と設定タブの一覧画面**だけ。それ以外はリテラルのまま。
 
 import type { PresetType, RecordKind } from '@/db/schema';
-import { t, tJa } from '@/i18n';
+import { t } from '@/i18n';
+import type { Locale } from '@/settings/language';
 
 import {
   LONG_BATTLE_DAYS_THRESHOLD,
@@ -174,18 +182,18 @@ export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
  * 計算タブだけヘッダが別語（「計算」/「利益計算」）なのは、タブ名の幅では
  * **何の計算なのかを言えない**ため。ヘッダには幅があるので、そちらで補う。
  */
-export function calcTabLabel(): string {
-  return t('tabs.calc');
+export function calcTabLabel(locale: Locale): string {
+  return t('tabs.calc', locale);
 }
 export const CALC_SCREEN_TITLE = '利益計算';
-export function recordsTabLabel(): string {
-  return t('tabs.records');
+export function recordsTabLabel(locale: Locale): string {
+  return t('tabs.records', locale);
 }
-export function dataTabLabel(): string {
-  return t('tabs.data');
+export function dataTabLabel(locale: Locale): string {
+  return t('tabs.data', locale);
 }
-export function settingsTabLabel(): string {
-  return t('tabs.settings');
+export function settingsTabLabel(locale: Locale): string {
+  return t('tabs.settings', locale);
 }
 
 /**
@@ -194,8 +202,8 @@ export function settingsTabLabel(): string {
  * （どれもステップ 1 の対象外）。
  * 詳しくはファイル冒頭の「多言語化の途中経過」を参照。
  */
-export const RECORDS_TAB_LABEL = tJa('tabs.records');
-export const DATA_TAB_LABEL = tJa('tabs.data');
+export const RECORDS_TAB_LABEL = t('tabs.records', 'ja');
+export const DATA_TAB_LABEL = t('tabs.data', 'ja');
 
 /**
  * アイコンだけのボタンの読み上げ語（UI-SPEC §1.2-1）。
@@ -1824,27 +1832,27 @@ export function shippingMaterialRowNote(
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
 
 /** 群の見出し（§3.1）。UI-SPEC §1.6-3 の「（今後）」を外した形 */
-export function presetSectionTitle(): string {
-  return t('settings.preset.title');
+export function presetSectionTitle(locale: Locale): string {
+  return t('settings.preset.title', locale);
 }
 
 /**
  * **移行前の呼び出し用（日本語固定）。** 一覧の空表示とチュートリアルの本文が、
  * この語を文の中に埋め込んで参照している（どちらもステップ 1 の対象外）。
  */
-export const PRESET_SECTION_TITLE = tJa('settings.preset.title');
+export const PRESET_SECTION_TITLE = t('settings.preset.title', 'ja');
 
 /** 群の下の注記 1 行（§3.1） */
-export function presetSectionNote(): string {
-  return t('settings.preset.note');
+export function presetSectionNote(locale: Locale): string {
+  return t('settings.preset.note', locale);
 }
 
 /**
  * 登録件数（§3.1）。カードの中に収まりきらないぶんの数でもある（presetOverflowLabel）。
  * 英語だけ 1 件と 2 件で語形が変わるので、辞書側で複数形を持たせている。
  */
-export function presetCountLabel(count: number): string {
-  return t('common.count', { count });
+export function presetCountLabel(locale: Locale, count: number): string {
+  return t('common.count', locale, { count });
 }
 
 /**
@@ -1852,7 +1860,7 @@ export function presetCountLabel(count: number): string {
  * 「＋3」ではなく件数として読める語にする ── カードの中の他の文字（金額）と並ぶため。
  */
 export function presetOverflowLabel(count: number): string {
-  return `ほか${presetCountLabel(count)}`;
+  return `ほか${presetCountLabel('ja', count)}`;
 }
 
 /**
@@ -1862,7 +1870,7 @@ export function presetOverflowLabel(count: number): string {
  * （設定タブの一覧に載るカードだが、部品そのものの移行はステップ 2）。
  * 設定タブのタグのカードは同じ語を `tagCardEmptyLabel()` から取る。
  */
-export const PRESET_CARD_EMPTY_LABEL = tJa('common.notRegistered');
+export const PRESET_CARD_EMPTY_LABEL = t('common.notRegistered', 'ja');
 
 // ---- SPEC-V3 §3.2 一覧画面 ----
 
@@ -2218,7 +2226,7 @@ export function presetDeleteConfirmMessage(
   type: PresetType,
   usageCount: number,
 ): string {
-  return `この${presetTypeLabel(type)}を使った記録が${presetCountLabel(usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
+  return `この${presetTypeLabel(type)}を使った記録が${presetCountLabel('ja', usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
 }
 
 /** 削除したあとの取り消しバー（§3.2）。プリセットは手で作った資産なので記録と同じ扱いにする */
@@ -2299,24 +2307,24 @@ export function presetTagClearLabel(name: string): string {
 // 件数の「N件」だけは presetCountLabel をそのまま使う ── 数え方の表記まで分ける理由はない。
 
 /** タグそのものの表示名（§2.1 のカード・§2.2 の見出し）。設定タブ・一覧・シートで共通 */
-export function tagLabel(): string {
-  return t('common.tag');
+export function tagLabel(locale: Locale): string {
+  return t('common.tag', locale);
 }
 
 /**
  * **移行前の呼び出し用（日本語固定）。** タグ一覧・タグ編集・記録フォーム・選択シート・
  * 使いかたの図・CSV など 9 ファイルがまだ参照している（どれもステップ 1 の対象外）。
  */
-export const TAG_LABEL = tJa('common.tag');
+export const TAG_LABEL = t('common.tag', 'ja');
 
 /** 群の見出し（§2.1）。「入力を減らす」とは別の群にする */
-export function tagSectionTitle(): string {
-  return t('settings.tag.title');
+export function tagSectionTitle(locale: Locale): string {
+  return t('settings.tag.title', locale);
 }
 
 /** 群の下の注記 1 行（§2.1）。プリセットの注記（選ぶと欄に入る）と混ざらないようにする */
-export function tagSectionNote(): string {
-  return t('settings.tag.note');
+export function tagSectionNote(locale: Locale): string {
+  return t('settings.tag.note', locale);
 }
 
 /**
@@ -2325,8 +2333,8 @@ export function tagSectionNote(): string {
  * 群ごとに違う言い方で説明しない（PRESET_PICKER_EMPTY_TITLE と同じ扱い）。
  * 辞書でも同じキー（common.notRegistered）を指すので、その関係は保たれている。
  */
-export function tagCardEmptyLabel(): string {
-  return t('common.notRegistered');
+export function tagCardEmptyLabel(locale: Locale): string {
+  return t('common.notRegistered', locale);
 }
 
 /**
@@ -2362,7 +2370,7 @@ export function tagDeletedMessage(name: string, usageCount: number): string {
   const head = `『${name}』を削除しました`;
   return usageCount === 0
     ? head
-    : `${head}（${presetCountLabel(usageCount)}の記録から外れました）`;
+    : `${head}（${presetCountLabel('ja', usageCount)}の記録から外れました）`;
 }
 
 // ---- SPEC-V4 §2.3 追加・編集シート ----
@@ -2416,7 +2424,7 @@ export const TAG_DELETE_LABEL = `この${TAG_LABEL}を削除`;
  * 言うのは tagDeletedMessage と同じ 2 つ ── 記録は残ること、外れるのはタグだけであること。
  */
 export function tagDeleteConfirmMessage(usageCount: number): string {
-  return `このタグが付いた記録が${presetCountLabel(usageCount)}あります。記録は残り、このタグだけが外れます。`;
+  return `このタグが付いた記録が${presetCountLabel('ja', usageCount)}あります。記録は残り、このタグだけが外れます。`;
 }
 
 // ---- SPEC-V4 §3 入力（記録フォームのタグの節・選択シート） ----
@@ -2556,7 +2564,7 @@ export function filterTagPartLabel(name: string, extraCount: number): string {
  * 同じ数を 2 か所に出さないため。条件の並べ方は変えていない（filterSummaryText のまま）。
  */
 export function filterSummaryLabel(parts: string[], count: number): string {
-  return `${parts.join('・')}の${presetCountLabel(count)}だけ`;
+  return `${parts.join('・')}の${presetCountLabel('ja', count)}だけ`;
 }
 
 /**
@@ -2577,7 +2585,7 @@ export function matchingRecordLabel(isSoldMode: boolean): string {
 }
 
 export function matchingRecordCountValue(count: number): string {
-  return presetCountLabel(count);
+  return presetCountLabel('ja', count);
 }
 
 /**
@@ -2662,7 +2670,7 @@ export const FILTER_TAG_SEARCH_CANCEL_LABEL = 'キャンセル';
 export function filterTagSectionLabel(totalCount: number): string {
   return totalCount === 0
     ? FILTER_TAG_SECTION_LABEL
-    : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel(totalCount)}）`;
+    : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel('ja', totalCount)}）`;
 }
 
 /**
@@ -2673,7 +2681,7 @@ export function filterTagSearchResultLabel(
   totalCount: number,
   matchedCount: number,
 ): string {
-  return `${presetCountLabel(totalCount)}のうち${presetCountLabel(matchedCount)}が該当`;
+  return `${presetCountLabel('ja', totalCount)}のうち${presetCountLabel('ja', matchedCount)}が該当`;
 }
 
 /**
@@ -2706,11 +2714,11 @@ export function filterTagSearchEmptyBody(
 // ---- UI-SPEC §1.6-1 使いかた / §1.6-2 記録群 ----
 
 /** 設定の先頭の 1 行カードと、その下の注記（UI-SPEC §1.6-1） */
-export function helpLinkLabel(): string {
-  return t('settings.help.label');
+export function helpLinkLabel(locale: Locale): string {
+  return t('settings.help.label', locale);
 }
-export function helpLinkNote(): string {
-  return t('settings.help.note');
+export function helpLinkNote(locale: Locale): string {
+  return t('settings.help.note', locale);
 }
 
 /**
@@ -2718,19 +2726,19 @@ export function helpLinkNote(): string {
  * どのタブに効く設定なのかを、見出しとタブバーで別の語にしない。
  * 辞書でもタブ名と同じキー（tabs.records）をひくので、その関係は保たれている。
  */
-export function recordSettingsSectionTitle(): string {
-  return t('tabs.records');
+export function recordSettingsSectionTitle(locale: Locale): string {
+  return t('tabs.records', locale);
 }
 
 /**
  * 新規作成時の種別（SPEC-V2 §3.4）。注記で**効く範囲**まで言う ──
  * 「既定の種別」だけだと、保存済みの記録の種別まで変わると読めてしまう。
  */
-export function defaultRecordKindLabel(): string {
-  return t('settings.recordKind.label');
+export function defaultRecordKindLabel(locale: Locale): string {
+  return t('settings.recordKind.label', locale);
 }
-export function defaultRecordKindNote(): string {
-  return t('settings.recordKind.note');
+export function defaultRecordKindNote(locale: Locale): string {
+  return t('settings.recordKind.note', locale);
 }
 
 /**
@@ -2741,47 +2749,47 @@ export function defaultRecordKindNote(): string {
  * 並べるのが通例なので、下の 2 つはどちらの言語でも同じ固定値にする。
  * 「システム」だけは決め方の説明なので、表示中の言語で出す。
  */
-export function languageSectionTitle(): string {
-  return t('settings.language.title');
+export function languageSectionTitle(locale: Locale): string {
+  return t('settings.language.title', locale);
 }
-export function languageSectionNote(): string {
-  return t('settings.language.note');
+export function languageSectionNote(locale: Locale): string {
+  return t('settings.language.note', locale);
 }
-export function languageSystemLabel(): string {
-  return t('settings.language.system');
+export function languageSystemLabel(locale: Locale): string {
+  return t('settings.language.system', locale);
 }
 export const LANGUAGE_JA_LABEL = '日本語';
 export const LANGUAGE_EN_LABEL = 'English';
 
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
-export function dataSectionTitle(): string {
-  return t('settings.data.title');
+export function dataSectionTitle(locale: Locale): string {
+  return t('settings.data.title', locale);
 }
 
 /**
  * CSV 書き出し（SPEC-V3 §5.6）。**Step 6 で活性化した**ので「準備中」は付かない。
  * 定数そのものは残す ── 他に「準備中」で置いてある行が出たときに語が割れないようにする。
  */
-export function csvExportLabel(): string {
-  return t('settings.data.csvExport');
+export function csvExportLabel(locale: Locale): string {
+  return t('settings.data.csvExport', locale);
 }
 
 /**
  * **移行前の呼び出し用（日本語固定）。**
  * 書き出しシートの見出しと共有ダイアログの題（どちらもステップ 1 の対象外）が参照している。
  */
-export const CSV_EXPORT_LABEL = tJa('settings.data.csvExport');
+export const CSV_EXPORT_LABEL = t('settings.data.csvExport', 'ja');
 export const PREPARING_LABEL = '準備中';
 
 /** 記録の件数（UI-SPEC §1.6-4）。値は presetCountLabel と同じ「N件」 */
-export function recordCountLabel(): string {
-  return t('settings.data.recordCount');
+export function recordCountLabel(locale: Locale): string {
+  return t('settings.data.recordCount', locale);
 }
 
 /** 設定タブ最下部のバージョン表記（UI-SPEC §1.6-5） */
-export function versionLabel(version: string): string {
-  return t('settings.version', { version });
+export function versionLabel(locale: Locale, version: string): string {
+  return t('settings.version', locale, { version });
 }
 
 // ---- SPEC-V3 §5 CSV 書き出し ----
@@ -3010,7 +3018,7 @@ export function exportCountLabel(
   recordCount: number,
   rowCount: number,
 ): string {
-  const count = presetCountLabel(recordCount);
+  const count = presetCountLabel('ja', recordCount);
   return rowCount === recordCount ? count : `${count}（${rowCount}行）`;
 }
 
@@ -3024,7 +3032,7 @@ export function exportCountLabel(
 export function exportEmptyNote(listingCount: number): string {
   const head = 'この期間に対象の記録がありません。';
   if (listingCount === 0) return head;
-  return `${head}${LISTING_STATUS_LABEL}の記録は${presetCountLabel(listingCount)}あります。`;
+  return `${head}${LISTING_STATUS_LABEL}の記録は${presetCountLabel('ja', listingCount)}あります。`;
 }
 
 /**
@@ -3385,15 +3393,15 @@ export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
 // 「どちらを押せば機種変更で困らないか」が読めなくなる。
 
 /** 設定タブ「データ」群の 3 行目（§5.1）。書き出し（CSV）の下に並ぶ */
-export function backupLabel(): string {
-  return t('settings.data.backup');
+export function backupLabel(locale: Locale): string {
+  return t('settings.data.backup', locale);
 }
 
 /**
  * **移行前の呼び出し用（日本語固定）。**
  * バックアップ画面の見出し（BACKUP_SCREEN_TITLE）が参照している（ステップ 1 の対象外）。
  */
-export const BACKUP_LABEL = tJa('settings.data.backup');
+export const BACKUP_LABEL = t('settings.data.backup', 'ja');
 
 /** バックアップ画面の見出し（§5.2） */
 export const BACKUP_SCREEN_TITLE = BACKUP_LABEL;
@@ -3428,7 +3436,7 @@ export const BACKUP_COUNT_PHOTOS_LABEL = '写真';
 
 /** 「記録 53件」（帯の 1 つ）。ラベルと数の間は半角空き 1 つ */
 export function backupCountChipLabel(label: string, count: number): string {
-  return `${label} ${presetCountLabel(count)}`;
+  return `${label} ${presetCountLabel('ja', count)}`;
 }
 
 /** 写真の枚数（「31枚」）。件（記録・タグ・プリセット）とは単位を変える */
@@ -3674,7 +3682,7 @@ export function backupNewestRecordNote(date: string, itemName: string): string {
  */
 export function backupLargeDecreaseNote(current: number, next: number): string {
   return (
-    `記録が${presetCountLabel(current)}から${presetCountLabel(next)}に減ります。` +
+    `記録が${presetCountLabel('ja', current)}から${presetCountLabel('ja', next)}に減ります。` +
     `古いバックアップを選んでいないか確かめてください。`
   );
 }
@@ -3693,7 +3701,7 @@ export function backupNoPhotoInFileBody(devicePhotos: number): string {
 /** 赤いボタンの上に置く警告（案 53f）。**取り消せないことを最後に言う** */
 export function backupReplaceWarning(records: number): string {
   return (
-    `今あるデータ（記録${presetCountLabel(records)}）はすべて消えて、` +
+    `今あるデータ（記録${presetCountLabel('ja', records)}）はすべて消えて、` +
     `ファイルの中身に置き換わります。元には戻せません。`
   );
 }
@@ -3732,7 +3740,7 @@ export function backupRestoredPhotoValue(
 export function backupMissingPhotoNote(missing: number): string {
   return (
     `写真${photoCountLabel(missing)}はファイルの中に無いか壊れていたため、` +
-    `その${presetCountLabel(missing)}は写真なしの記録として入りました。金額や日付は入っています。`
+    `その${presetCountLabel('ja', missing)}は写真なしの記録として入りました。金額や日付は入っています。`
   );
 }
 
@@ -3740,7 +3748,7 @@ export const BACKUP_RESULT_OPEN_RECORDS_LABEL = '記録を見る';
 
 /** 欠けた写真があるときだけ出す 2 つ目の口（案 53k） */
 export function backupMissingPhotoRecordsLabel(missing: number): string {
-  return `写真がなかった${presetCountLabel(missing)}を見る`;
+  return `写真がなかった${presetCountLabel('ja', missing)}を見る`;
 }
 
 /** 欠けた記録の一覧（上の口を押したときに開く）の見出し */
@@ -4481,6 +4489,6 @@ export const ONBOARDING_PREVIOUS_PAGE_LABEL = '前のページへ';
 export const ONBOARDING_NEXT_PAGE_LABEL = '次のページへ';
 
 /** 設定タブ「チュートリアルをもう一度見る」の行 */
-export function replayTutorialLabel(): string {
-  return t('settings.replayTutorial.label');
+export function replayTutorialLabel(locale: Locale): string {
+  return t('settings.replayTutorial.label', locale);
 }

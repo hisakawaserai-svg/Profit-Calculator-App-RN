@@ -16,7 +16,6 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 
 import type { RecordKind } from '@/db/schema';
-import { setI18nLocale } from '@/i18n';
 
 import { DEFAULT_RECORD_KIND_KEY, normalizeRecordKind } from './defaultRecordKind';
 import {
@@ -93,14 +92,9 @@ type SettingsStore = Settings & {
   markTutorialSeen: () => void;
 };
 
-/**
- * 起動時の言語。**ストアを作る前に i18n 側へも反映しておく** ── ストアの初期化は
- * このモジュールが最初に import された時点（app/_layout.tsx）で走るので、
- * どの画面が描画されるより前に `t()` が正しい言語を返すようになる。
- */
+// 起動時の言語。kv-store は同期に読めるので、初期値をその場で決められる
 const initialLanguage = normalizeLanguage(Storage.getItemSync(LANGUAGE_KEY));
 const initialLocale = resolveLocale(initialLanguage, deviceLanguages());
-setI18nLocale(initialLocale);
 
 const useSettingsStore = create<SettingsStore>((set) => ({
   // getItemSync なので初期値をその場で読める。不正値・未設定は 'used' に倒れる
@@ -117,11 +111,9 @@ const useSettingsStore = create<SettingsStore>((set) => ({
   setLanguage: (language) => {
     // 他の設定と同じく、先に永続化してからストアを更新する
     Storage.setItemSync(LANGUAGE_KEY, language);
-    const locale = resolveLocale(language, deviceLanguages());
-    // labels.ts が読む先（i18n-js）と、購読している画面（zustand）の両方を動かす。
-    // 片方だけだと「文字列は変わったのに再描画されない」「再描画されたが文字列が古い」になる
-    setI18nLocale(locale);
-    set({ language, locale });
+    // 表示語は locale を引数に取るので（src/i18n/index.ts）、
+    // ここで state を進めれば購読している画面の再描画と文字列の引き直しが同時に起きる
+    set({ language, locale: resolveLocale(language, deviceLanguages()) });
   },
   setLastBackupAt: (createdAt) => {
     Storage.setItemSync(LAST_BACKUP_AT_KEY, createdAt);
@@ -144,10 +136,9 @@ export function useSettings(): SettingsStore {
 /**
  * いま表示している言語を購読する。
  *
- * **表示語を出す画面はこれを呼ぶ。** labels.ts の各関数は呼ばれた時点の言語で文字列を返すが、
- * 言語が変わったことを React に伝えるのはこの購読だけ ── 呼んでいない画面は、
- * 次に他の理由で再描画されるまで前の言語のまま残る。
- * 返り値そのものを使う必要はない（購読が目的）。
+ * **表示語を出す画面はこれを呼び、返り値を labels.ts の各関数へ渡す。**
+ * 引数として渡すことが必須なのは React Compiler のため（src/i18n/index.ts の冒頭）── 
+ * 渡し忘れは型エラーになるので、購読だけして渡し忘れる、ということが起きない。
  */
 export function useLocale(): Locale {
   return useSettingsStore((state) => state.locale);

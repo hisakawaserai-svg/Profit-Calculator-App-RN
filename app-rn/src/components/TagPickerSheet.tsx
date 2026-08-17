@@ -265,8 +265,9 @@ function TagRow({
       <View style={styles.rowName}>
         <TagChip tag={tag} />
       </View>
+      {/* このシートはまだ多言語化していない（ステップ 2）ので、件数も日本語で出す */}
       <Text style={[styles.usageCount, { color: colors.secondaryLabel }]}>
-        {presetCountLabel(usageCount)}
+        {presetCountLabel('ja', usageCount)}
       </Text>
     </Pressable>
   );

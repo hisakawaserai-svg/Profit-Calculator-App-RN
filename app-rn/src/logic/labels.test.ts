@@ -646,7 +646,7 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
   });
 
   it('設定タブのカードは件数と「ほかN件」で数に戻す（§3.1 / 設計案 24a）', () => {
-    expect(presetCountLabel(4)).toBe('4件');
+    expect(presetCountLabel('ja', 4)).toBe('4件');
     expect(presetOverflowLabel(2)).toBe('ほか2件');
   });
 
@@ -691,7 +691,7 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
   });
 
   it('バージョン表記（UI-SPEC §1.6-5）', () => {
-    expect(versionLabel('1.0.0')).toBe('バージョン 1.0.0');
+    expect(versionLabel('ja', '1.0.0')).toBe('バージョン 1.0.0');
   });
 });
 
@@ -699,8 +699,8 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
 
 describe('SPEC-V4 §2 タグの表示語', () => {
   it('群はプリセットと別の見出しになる（§2.1。目的が違うので同じ群に入れない）', () => {
-    expect(tagSectionTitle()).toBe('記録を分類する');
-    expect(tagSectionTitle()).not.toBe(presetSectionTitle());
+    expect(tagSectionTitle('ja')).toBe('記録を分類する');
+    expect(tagSectionTitle('ja')).not.toBe(presetSectionTitle('ja'));
   });
 
   it('追加の口の「＋」は additionLabel の字を使う（半角に振れない）', () => {

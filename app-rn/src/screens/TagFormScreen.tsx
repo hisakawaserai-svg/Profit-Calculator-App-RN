@@ -188,7 +188,7 @@ export function TagFormScreen({ tag }: Props) {
           <View
             style={[styles.card, styles.previewCard, { backgroundColor: colors.secondaryBackground }]}
             accessible
-            accessibilityLabel={`${TAG_PREVIEW_LABEL}: ${name.trim() || TAG_NAME_PLACEHOLDER} ${presetCountLabel(usageCount)}`}>
+            accessibilityLabel={`${TAG_PREVIEW_LABEL}: ${name.trim() || TAG_NAME_PLACEHOLDER} ${presetCountLabel('ja', usageCount)}`}>
             <Text style={[styles.previewLabel, { color: colors.secondaryLabel }]}>
               {TAG_PREVIEW_LABEL}
             </Text>
@@ -203,7 +203,7 @@ export function TagFormScreen({ tag }: Props) {
                 style={styles.previewChip}
               />
               <Text style={[styles.previewCount, { color: colors.secondaryLabel }]}>
-                {presetCountLabel(usageCount)}
+                {presetCountLabel('ja', usageCount)}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </View>

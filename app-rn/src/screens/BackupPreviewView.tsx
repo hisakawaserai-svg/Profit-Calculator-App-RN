@@ -178,7 +178,7 @@ export function BackupPreviewView({
 function DiffRow({ row }: { row: BackupDiffRow }) {
   const colors = useThemeColors();
   const value = (count: number) =>
-    row.unit === 'photo' ? photoCountLabel(count) : presetCountLabel(count);
+    row.unit === 'photo' ? photoCountLabel(count) : presetCountLabel('ja', count);
 
   return (
     <View style={[styles.diffRow, { borderTopColor: colors.separator }]}>

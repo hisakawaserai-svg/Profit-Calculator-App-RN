@@ -55,11 +55,14 @@ export function PresetSummaryCard({ type, presets }: Props) {
           { backgroundColor: colors.secondaryBackground },
         ])}
         accessibilityRole="link"
-        accessibilityLabel={`${presetTypeLabel(type)} ${presetCountLabel(presets.length)}`}>
+        accessibilityLabel={`${presetTypeLabel(type)} ${presetCountLabel('ja', presets.length)}`}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel(type)}</Text>
+          {/* この部品はまだ多言語化していない（ステップ 2）。カードの他の語（種類名・
+              「まだ登録がありません」）が日本語のままなので、件数だけ訳すと
+              1 枚の中で言語が混ざる。移すときに locale を props で受け取る形へ変える */}
           <Text style={[styles.count, { color: colors.secondaryLabel }]}>
-            {presetCountLabel(presets.length)}
+            {presetCountLabel('ja', presets.length)}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
         </View>

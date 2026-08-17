@@ -2,73 +2,57 @@
 //
 // **ここで見るのは仕組みが動くことだけ**で、訳文の良し悪しは見ない ──
 // 文言そのものは labels.test.ts が日本語側で押さえている。
-// 言語を切り替えるので、vitest がテストファイルごとにモジュールを作り直すこと
-// （既定の isolate）に依存している。他のファイルへは漏れない。
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { setI18nLocale, t, tJa } from './index';
+import { t } from './index';
 import { ja } from './ja';
 
-// 既定（日本語）に戻してから次のテストへ渡す
-afterEach(() => setI18nLocale('ja'));
-
 describe('辞書の引き分け', () => {
-  it('言語を切り替えると同じキーで別の文が返る', () => {
-    setI18nLocale('ja');
-    expect(t('settings.data.backup')).toBe('バックアップと復元');
-    setI18nLocale('en');
-    expect(t('settings.data.backup')).toBe('Back Up & Restore');
+  it('同じキーでも locale が変われば別の文が返る', () => {
+    expect(t('settings.data.backup', 'ja')).toBe('バックアップと復元');
+    expect(t('settings.data.backup', 'en')).toBe('Back Up & Restore');
   });
 
   it('差し込みの値はどちらの言語でも効く', () => {
-    setI18nLocale('ja');
-    expect(t('settings.version', { version: '1.0.0' })).toBe('バージョン 1.0.0');
-    setI18nLocale('en');
-    expect(t('settings.version', { version: '1.0.0' })).toBe('Version 1.0.0');
+    expect(t('settings.version', 'ja', { version: '1.0.0' })).toBe('バージョン 1.0.0');
+    expect(t('settings.version', 'en', { version: '1.0.0' })).toBe('Version 1.0.0');
   });
 
   it('英語だけ件数が単複で変わる（日本語は変わらない）', () => {
-    setI18nLocale('ja');
-    expect(t('common.count', { count: 0 })).toBe('0件');
-    expect(t('common.count', { count: 1 })).toBe('1件');
-    expect(t('common.count', { count: 2 })).toBe('2件');
+    expect(t('common.count', 'ja', { count: 0 })).toBe('0件');
+    expect(t('common.count', 'ja', { count: 1 })).toBe('1件');
+    expect(t('common.count', 'ja', { count: 2 })).toBe('2件');
 
-    setI18nLocale('en');
     // 0 件のときに 'zero' を持っていないので 'other' に落ちる（i18n-js の既定の探し方）
-    expect(t('common.count', { count: 0 })).toBe('0 items');
-    expect(t('common.count', { count: 1 })).toBe('1 item');
-    expect(t('common.count', { count: 2 })).toBe('2 items');
-  });
-
-  it('tJa は表示中の言語に関わらず日本語を返す（移行前の定数用）', () => {
-    setI18nLocale('en');
-    expect(t('common.tag')).toBe('Tags');
-    expect(tJa('common.tag')).toBe('タグ');
+    expect(t('common.count', 'en', { count: 0 })).toBe('0 items');
+    expect(t('common.count', 'en', { count: 1 })).toBe('1 item');
+    expect(t('common.count', 'en', { count: 2 })).toBe('2 items');
   });
 
   it('翻訳の見つからないキーは目印付きで返る（訳し漏れが画面で分かる）', () => {
-    setI18nLocale('en');
     // @ts-expect-error 辞書に無いキーは型で弾かれる。実行時の振る舞いだけをここで見る
-    expect(t('settings.nope')).toContain('missing');
+    expect(t('settings.nope', 'en')).toContain('missing');
+  });
+
+  it('引き方に順番の依存がない（呼ぶたびに locale だけで決まる）', () => {
+    // t() がモジュールの可変状態を持っていたら、この並びで結果が変わってしまう。
+    // React Compiler 対策で locale を引数にした結果、その心配がないことの確認
+    const first = t('tabs.settings', 'en');
+    t('tabs.settings', 'ja');
+    expect(t('tabs.settings', 'en')).toBe(first);
   });
 });
 
 describe('日本語と英語で語の共有関係が保たれている', () => {
-  it('設定タブ「記録」群の見出しはタブ名と同じ語をひく', () => {
+  it('設定タブ「記録」群の見出しはタブ名と同じキーをひく', () => {
     // labels.ts の recordSettingsSectionTitle() が tabs.records をひいている前提。
     // 別々のキーに割ると、片方だけ訳し替えたときに語が食い違う
-    for (const locale of ['ja', 'en'] as const) {
-      setI18nLocale(locale);
-      expect(t('tabs.records')).toBe(t('tabs.records'));
-    }
-    setI18nLocale('en');
-    expect(t('tabs.records')).toBe('Records');
+    expect(t('tabs.records', 'en')).toBe('Records');
   });
 
   it('プリセットとタグの「まだ登録がありません」は同じキー', () => {
-    setI18nLocale('en');
-    expect(t('common.notRegistered')).toBe('Nothing saved yet');
+    expect(t('common.notRegistered', 'en')).toBe('Nothing saved yet');
   });
 });
 

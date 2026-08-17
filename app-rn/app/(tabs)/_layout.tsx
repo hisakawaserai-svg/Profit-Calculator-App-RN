@@ -31,8 +31,8 @@ function tabIcon(focusedName: IoniconName, unfocusedName: IoniconName) {
 }
 
 export default function TabLayout() {
-  // タブ名を表示中の言語で出すための購読。返り値そのものは使わない（src/settings の useLocale）
-  useLocale();
+  // タブ名を表示中の言語で出す。**返り値を各関数へ渡すところまでが必須**（src/i18n の冒頭）
+  const locale = useLocale();
 
   return (
     <Tabs>
@@ -42,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(calc)"
         options={{
-          title: calcTabLabel(),
+          title: calcTabLabel(locale),
           tabBarIcon: tabIcon('calculator', 'calculator-outline'),
           headerShown: false,
         }}
@@ -52,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="records"
         options={{
-          title: recordsTabLabel(),
+          title: recordsTabLabel(locale),
           tabBarIcon: tabIcon('receipt', 'receipt-outline'),
           headerShown: false,
         }}
@@ -60,7 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="data"
         options={{
-          title: dataTabLabel(),
+          title: dataTabLabel(locale),
           tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline'),
           headerShown: false,
         }}
@@ -68,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: settingsTabLabel(),
+          title: settingsTabLabel(locale),
           tabBarIcon: tabIcon('settings', 'settings-outline'),
           headerShown: false,
         }}
