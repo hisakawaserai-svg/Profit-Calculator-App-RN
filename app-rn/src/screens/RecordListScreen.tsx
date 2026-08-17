@@ -601,6 +601,10 @@ const styles = StyleSheet.create({
   addButton: {
     position: 'absolute',
     left: 20,
+    // listArea の下端が広告枠の上端なので、この値がそのまま**広告との距離**になる
+    // （広告の中身まではさらに AdBanner の AD_SPACING ぶん空く）。押し損ねた指が
+    // 広告に当たると無効トラフィックとして数えられるため、24 より詰めないこと。
+    // 広告が出ていないときは listArea が画面下まで伸びるので、タブバーからの距離になる
     bottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
