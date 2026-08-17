@@ -59,7 +59,6 @@ import {
 import { formatYen, formatYenSymbol } from '@/logic/format';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
-  ADD_RECORD_ACTION_LABEL,
   BREAKDOWN_AND_METHOD_LABEL,
   BREAKDOWN_LABEL,
   CALC_SCREEN_TITLE,
@@ -78,7 +77,6 @@ import {
   REQUIRED_SALES_LABEL,
   REQUIRED_SALES_PRICE_LABEL,
   SALES_PRICE_LABEL,
-  SAVE_AS_RECORD_LABEL,
   TARGET_TAB_LABEL,
   TOTAL_SALES_AMOUNT_LABEL,
   TOTAL_SALES_LABEL,
@@ -375,12 +373,7 @@ export default function CalcScreen() {
           {/* 7. 記録する FAB（UI-SPEC §1.1-7）。記録タブと**同じ部品・同じ位置**
               （AddRecordFab）。全幅の帯だった頃は、同じ「記録を作る」操作なのに
               タブによって形も置き場所も違っていた */}
-          <AddRecordFab
-            label={SAVE_AS_RECORD_LABEL}
-            onPress={() => setShowForm(true)}
-            accessibilityLabel={ADD_RECORD_ACTION_LABEL}
-            style={styles.addButton}
-          />
+          <AddRecordFab onPress={() => setShowForm(true)} style={styles.addButton} />
         </View>
 
         {/* バナー広告。contentArea の兄弟なので、出るとスクロール領域が縮む。

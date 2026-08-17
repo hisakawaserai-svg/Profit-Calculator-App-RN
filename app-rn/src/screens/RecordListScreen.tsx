@@ -47,7 +47,6 @@ import { useRecordTags, useTagList } from '@/db/useTags';
 import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  ADD_RECORD_ACTION_LABEL,
   CANCEL_LABEL,
   DELETE_LABEL,
   EXPENSES_LABEL,
@@ -390,13 +389,8 @@ export function RecordListScreen() {
           />
 
           {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7）。
-              計算タブと同じ部品（AddRecordFab）。語だけが違う */}
-          <AddRecordFab
-            label={RECORDS_TAB_LABEL}
-            onPress={openAddMenu}
-            accessibilityLabel={ADD_RECORD_ACTION_LABEL}
-            style={styles.addButton}
-          />
+              計算タブと同じ部品（AddRecordFab）。語も置き場所も同じ */}
+          <AddRecordFab onPress={openAddMenu} style={styles.addButton} />
         </View>
 
         {/* バナー広告（Phase 1 の唯一の表示箇所）。タブバーの直上に固定する。

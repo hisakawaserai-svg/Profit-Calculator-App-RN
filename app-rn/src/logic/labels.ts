@@ -416,13 +416,14 @@ export const CLEAR_CONFIRM_MESSAGE =
   'すべての金額が空欄になり、種別も既定値に戻ります。';
 
 /**
- * 計算タブの FAB の語（UI-SPEC §1.1-7）。押すと記録フォームを開く。
+ * 記録を作る FAB の語（UI-SPEC §1.1-7 / §1.2-7）。**計算タブと記録一覧で同じ語。**
  *
- * 記録タブの FAB は「記録」（RECORDS_TAB_LABEL。タブ名と同じ語で、そのタブに足す意味）。
- * こちらは計算の結果を記録に移す動作なので、動詞にして「記録する」とする。
+ * 記録タブ側はタブ名と同じ「記録」だったが、同じ形・同じ位置のボタンで語だけが
+ * 違うと、タブを移った先で別の操作に見える。押した先ですることは両方とも同じ
+ * （記録フォームが開く）なので、動作を表す「記録する」に揃えた。
  * ＋は AddRecordFab が描くので、ここには入れない。
  */
-export const SAVE_AS_RECORD_LABEL = '記録する';
+export const ADD_RECORD_FAB_LABEL = '記録する';
 
 /** 逆算側の結果見出し（UI-SPEC §1.1-3b） */
 export const REQUIRED_PRICE_HEADLINE = 'この値段で出せばよい';

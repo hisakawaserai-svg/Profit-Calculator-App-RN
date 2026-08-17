@@ -57,7 +57,7 @@ import {
   profitTabLabel,
   REQUIRED_SALES_PRICE_LABEL,
   SALES_PRICE_LABEL,
-  SAVE_AS_RECORD_LABEL,
+  ADD_RECORD_FAB_LABEL,
   SAVE_LABEL,
   SHIPPING_ONLY_LABEL,
   simulatorProfitNote,
@@ -259,7 +259,7 @@ export function OnboardingTargetFigure() {
         <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
 
         <View style={[styles.saveButton, { backgroundColor: colors.blue }]}>
-          <Text style={styles.saveButtonLabel}>{SAVE_AS_RECORD_LABEL}</Text>
+          <Text style={styles.saveButtonLabel}>{ADD_RECORD_FAB_LABEL}</Text>
         </View>
       </View>
 
