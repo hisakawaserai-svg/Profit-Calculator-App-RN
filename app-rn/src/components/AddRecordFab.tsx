@@ -6,10 +6,11 @@
 // 直したときにずれる（実際、記録タブは「記録」、計算タブは「この内容で記録する」だった）。
 import { StyleProp, ViewStyle } from 'react-native';
 
-import { ADD_RECORD_ACTION_LABEL, ADD_RECORD_FAB_LABEL } from '@/logic/labels';
+import { addRecordActionLabel, addRecordFabLabel } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 
 import { Fab } from './Fab';
+import { useLocale } from '@/settings';
 
 type Props = {
   onPress: () => void;
@@ -18,15 +19,19 @@ type Props = {
 };
 
 export function AddRecordFab({ onPress, style }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <Fab
       icon="add"
-      label={ADD_RECORD_FAB_LABEL}
+      label={addRecordFabLabel(locale)}
       onPress={onPress}
       // 見た目の語が短いので、読み上げは動作が分かる形にする
-      accessibilityLabel={ADD_RECORD_ACTION_LABEL}
+      accessibilityLabel={addRecordActionLabel(locale)}
       backgroundColor={colors.blue}
       style={style}
     />

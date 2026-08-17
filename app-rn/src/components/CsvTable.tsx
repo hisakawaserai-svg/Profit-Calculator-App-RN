@@ -44,7 +44,7 @@ const WIDE_COLUMN_WIDTHS: Record<string, number> = {
   [SOLD_DATE_FIELD_LABEL]: 112,
   [LISTED_DATE_FIELD_LABEL]: 112,
   [ITEM_NAME_LABEL]: 150,
-  [presetTypeLabel('site')]: 120,
+  [presetTypeLabel('ja', 'site')]: 120,
   [TAG_LABEL]: 130,
   [MEMO_LABEL]: 170,
   [RECORD_ID_COLUMN]: 250,

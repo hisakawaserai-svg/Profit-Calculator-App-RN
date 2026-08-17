@@ -530,7 +530,7 @@ function PricingContent({
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <FooterRow
-          label={targetProfitLabel(record.kind)}
+          label={targetProfitLabel('ja', record.kind)}
           value={targetProfitRowValue(record.targetProfit)}
           muted={record.targetProfit == null}
           onPress={() => setShowTarget(true)}
@@ -747,7 +747,7 @@ function SoldContent({
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <FooterRow
-          label={targetProfitLabel(record.kind)}
+          label={targetProfitLabel('ja', record.kind)}
           value={targetProfitRowValue(record.targetProfit)}
           muted={record.targetProfit == null}
           onPress={() => setShowTarget(true)}

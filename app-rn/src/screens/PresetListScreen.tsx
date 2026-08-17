@@ -101,7 +101,7 @@ export function PresetListScreen({ type }: Props) {
     <>
       <Stack.Screen
         options={{
-          title: presetTypeLabel(type),
+          title: presetTypeLabel('ja', type),
           // 1 件も無いうちは編集するものが無いので出さない
           headerRight: () =>
             presets.length === 0 ? null : (
@@ -139,7 +139,7 @@ export function PresetListScreen({ type }: Props) {
                       onPress={() => requestDelete(preset)}
                       hitSlop={8}
                       accessibilityRole="button"
-                      accessibilityLabel={deleteAccessibilityLabel(preset.name)}
+                      accessibilityLabel={deleteAccessibilityLabel('ja', preset.name)}
                       style={({ pressed }) => [styles.deleteButton, { opacity: pressed ? 0.5 : 1 }]}>
                       <Ionicons name="remove-circle" size={22} color={colors.red} />
                     </Pressable>

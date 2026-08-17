@@ -86,7 +86,7 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
               </Pressable>
             </View>
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {presetPickerTitle(TYPE)}
+              {presetPickerTitle('ja', TYPE)}
             </Text>
             {/* 左と同じ幅を取り、見出しを画面の中央から動かさない（PresetPickerSheet と同じ） */}
             <View style={styles.headerSide} />

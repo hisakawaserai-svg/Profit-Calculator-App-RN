@@ -297,7 +297,7 @@ export function KindComparisonFigure() {
 
   return (
     <FigureFrame subtitle={helpFigureBothSoldSubtitle(yen(SALES_PRICE))}>
-      <Text style={[styles.rowTitle, { color: colors.label }]}>{recordKindLabel('used')}</Text>
+      <Text style={[styles.rowTitle, { color: colors.label }]}>{recordKindLabel('ja', 'used')}</Text>
       <HelpBar
         segments={[
           ...deductions,
@@ -305,7 +305,7 @@ export function KindComparisonFigure() {
             key: 'kept',
             amount: APP_AMOUNT,
             tone: 'kept',
-            label: `${profitLabel('used')} ${yen(APP_AMOUNT)}`,
+            label: `${profitLabel('ja', 'used')} ${yen(APP_AMOUNT)}`,
           },
         ]}
       />
@@ -333,7 +333,7 @@ export function KindComparisonFigure() {
             key: 'kept',
             amount: PURCHASED_AMOUNT,
             tone: 'kept',
-            label: `${profitLabel('sourced')} ${yen(PURCHASED_AMOUNT)}`,
+            label: `${profitLabel('ja', 'sourced')} ${yen(PURCHASED_AMOUNT)}`,
           },
         ]}
       />
@@ -357,12 +357,12 @@ export function TermsFigure() {
         <View style={styles.termsSingles}>
           <TermBox
             label={helpFigureSingleRecordLabel('used')}
-            value={profitLabel('used')}
+            value={profitLabel('ja', 'used')}
             valueColor={colors.green}
           />
           <TermBox
             label={helpFigureSingleRecordLabel('sourced')}
-            value={profitLabel('sourced')}
+            value={profitLabel('ja', 'sourced')}
             valueColor={colors.green}
           />
         </View>

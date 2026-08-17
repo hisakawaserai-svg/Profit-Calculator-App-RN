@@ -96,7 +96,7 @@ export function PresetPickerSheet({
           <View style={styles.header}>
             <View style={styles.headerSide} />
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {presetPickerTitle(type)}
+              {presetPickerTitle('ja', type)}
             </Text>
             <View style={[styles.headerSide, styles.headerSideEnd]}>
               <Pressable onPress={close} hitSlop={8} accessibilityRole="button">

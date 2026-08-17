@@ -93,22 +93,21 @@ import {
 } from './tag';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
-const RECORD_KIND_LABELS: Record<RecordKind, string> = {
-  used: '不用品',
-  sourced: '仕入品',
-};
+function recordKindKey(kind: RecordKind): 'record.kind.used' | 'record.kind.sourced' {
+  return kind === 'used' ? 'record.kind.used' : 'record.kind.sourced';
+}
 
 /** レコード 1 件の netProfit に付ける語（§5.3）。不用品は「手取り」ではなく「純利益」（§7-8） */
-const PROFIT_LABELS: Record<RecordKind, string> = {
-  used: '純利益',
-  sourced: '利益',
-};
+function profitKey(kind: RecordKind): 'record.profit.used' | 'record.profit.sourced' {
+  return kind === 'used' ? 'record.profit.used' : 'record.profit.sourced';
+}
 
 /** 計算タブの逆算入力に付ける語（§5.3） */
-const TARGET_PROFIT_LABELS: Record<RecordKind, string> = {
-  used: '目標の純利益',
-  sourced: '目標利益',
-};
+function targetProfitKey(
+  kind: RecordKind,
+): 'record.targetProfit.used' | 'record.targetProfit.sourced' {
+  return kind === 'used' ? 'record.targetProfit.used' : 'record.targetProfit.sourced';
+}
 
 /**
  * 複数レコードの Σ netProfit（月次カード / 下部累計 / データタブのサマリー・グラフ・ソート名）。
@@ -117,13 +116,19 @@ const TARGET_PROFIT_LABELS: Record<RecordKind, string> = {
 export const TOTAL_PROFIT_LABEL = '収支';
 
 /** totalExpenses。1 件でも合計でも種別で変えない（§5.3） */
-export const EXPENSES_LABEL = '経費';
+export function expensesLabel(locale: Locale): string {
+  return t('amount.expenses', locale);
+}
 
 /** salesPrice。レコードを指すときは「販売価格」（§5.3） */
-export const SALES_PRICE_LABEL = '販売価格';
+export function salesPriceLabel(locale: Locale): string {
+  return t('amount.salesPrice', locale);
+}
 
 /** Σ salesPrice。データタブの集計だけ「売上」（§5.3） */
-export const TOTAL_SALES_LABEL = '売上';
+export function totalSalesLabel(locale: Locale): string {
+  return t('amount.totalSales', locale);
+}
 
 /** 出品中レコード 1 件の salesPrice（UI-SPEC §6-3）。売れる前の値段なので「販売価格」とは呼ばない */
 export const LISTING_PRICE_LABEL = '出品価格';
@@ -185,7 +190,9 @@ export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
 export function calcTabLabel(locale: Locale): string {
   return t('tabs.calc', locale);
 }
-export const CALC_SCREEN_TITLE = '利益計算';
+export function calcScreenTitle(locale: Locale): string {
+  return t('calc.title', locale);
+}
 export function recordsTabLabel(locale: Locale): string {
   return t('tabs.records', locale);
 }
@@ -212,7 +219,9 @@ export const DATA_TAB_LABEL = t('tabs.data', 'ja');
  * 「＋ 記録」だけは語が画面にも出るが（RECORDS_TAB_LABEL）、それは名詞なので
  * 何が起きるかを言えていない ── 読み上げには動詞まで入れる。
  */
-export const ADD_RECORD_ACTION_LABEL = '記録を追加';
+export function addRecordActionLabel(locale: Locale): string {
+  return t('record.addAction', locale);
+}
 export const SEARCH_LABEL = '検索';
 export const SEARCH_CLEAR_LABEL = '検索を消去';
 export const SORT_SHEET_TITLE = '並び替え';
@@ -227,15 +236,25 @@ export const RECORD_SEARCH_PLACEHOLDER = '商品名で検索';
 // こちらが本命で、入口が見えないと使われないまま終わる。
 
 /** ＋のシートの見出し。何を選ぶ場面かを言う */
-export const ADD_RECORD_MENU_TITLE = '記録を作る';
+export function addRecordMenuTitle(locale: Locale): string {
+  return t('record.menu.title', locale);
+}
 
 /** 2 択の左（従来どおりの新規作成）。**先に置く** ── 増えたほうを既定にしない */
-export const NEW_RECORD_ACTION_LABEL = '新しく作る';
-export const NEW_RECORD_ACTION_NOTE = '空の記録から入力します';
+export function newRecordActionLabel(locale: Locale): string {
+  return t('record.menu.newLabel', locale);
+}
+export function newRecordActionNote(locale: Locale): string {
+  return t('record.menu.newNote', locale);
+}
 
 /** 2 択の右（複製）。行き先が「選ぶ画面」であることまで言う */
-export const DUPLICATE_RECORD_ACTION_LABEL = '過去の記録から複製';
-export const DUPLICATE_RECORD_ACTION_NOTE = '送料や手数料を引き継いで作ります';
+export function duplicateRecordActionLabel(locale: Locale): string {
+  return t('record.menu.duplicateLabel', locale);
+}
+export function duplicateRecordActionNote(locale: Locale): string {
+  return t('record.menu.duplicateNote', locale);
+}
 
 /** 複製元を選ぶ画面（DuplicateSourceScreen） */
 export const DUPLICATE_SCREEN_TITLE = '複製する記録を選ぶ';
@@ -285,21 +304,21 @@ export function periodButtonAccessibilityLabel(title: string): string {
 export function recordDetailAccessibilityLabel(itemName: string): string {
   return `${itemName} の詳細`;
 }
-export function deleteAccessibilityLabel(name: string): string {
-  return `${name}を${DELETE_LABEL}`;
+export function deleteAccessibilityLabel(locale: Locale, name: string): string {
+  return t('action.deleteNamed', locale, { name });
 }
 
 /** ± ボタンの読み上げ（UI-SPEC §1.3-9）。何を増減するのかは呼び出し側の欄名が入る */
-export function decreaseAccessibilityLabel(label: string): string {
-  return `${label}を減らす`;
+export function decreaseAccessibilityLabel(locale: Locale, label: string): string {
+  return t('action.decrease', locale, { label });
 }
-export function increaseAccessibilityLabel(label: string): string {
-  return `${label}を増やす`;
+export function increaseAccessibilityLabel(locale: Locale, label: string): string {
+  return t('action.increase', locale, { label });
 }
 
 /** 金額の欄の右の電卓ボタン（UI-SPEC §7.1）。どの欄の電卓かを言う */
-export function calculatorAccessibilityLabel(fieldLabel: string): string {
-  return `${fieldLabel}の電卓`;
+export function calculatorAccessibilityLabel(locale: Locale, fieldLabel: string): string {
+  return t('calculator.accessibility', locale, { field: fieldLabel });
 }
 
 /** カレンダーの日のマス（UI-SPEC §8.10）。印（今日・出品日）は呼び出し側が後ろに足す */
@@ -380,21 +399,35 @@ export const COMMISSION_LABEL = '販売手数料';
  * 1 文に金額が 3 つ入る場所では正式名だと文が読めなくなるので、入力欄の
  * commissionFieldLabel と同じ短縮形に合わせる。単独の行や一覧は COMMISSION_LABEL。
  */
-export const COMMISSION_SHORT_LABEL = '手数料';
+export function commissionShortLabel(locale: Locale): string {
+  return t('amount.commissionShort', locale);
+}
 
 /** 計算タブの逆算結果。種別で変えない（§5.3） */
-export const REQUIRED_SALES_PRICE_LABEL = '必要な販売価格';
+export function requiredSalesPriceLabel(locale: Locale): string {
+  return t('calc.requiredSalesPrice', locale);
+}
 
 /** purchasePrice。種別で変えない（§5.3 の表にはないが、欄名は 1 か所に集める） */
-export const PURCHASE_PRICE_LABEL = '仕入価格';
+export function purchasePriceLabel(locale: Locale): string {
+  return t('amount.purchasePrice', locale);
+}
 
 /** postage / envelopeCost / othersCost の欄名 */
-export const POSTAGE_LABEL = '送料';
-export const ENVELOPE_COST_LABEL = '梱包材';
-export const OTHERS_COST_LABEL = 'その他';
+export function postageLabel(locale: Locale): string {
+  return t('amount.postage', locale);
+}
+export function envelopeCostLabel(locale: Locale): string {
+  return t('amount.envelopeCost', locale);
+}
+export function othersCostLabel(locale: Locale): string {
+  return t('amount.othersCost', locale);
+}
 
 /** 内訳の 1 行目。入力欄の「販売価格」と区別して、計算に入った売上の総額を指す */
-export const TOTAL_SALES_AMOUNT_LABEL = '売上総額';
+export function totalSalesAmountLabel(locale: Locale): string {
+  return t('amount.totalSalesAmount', locale);
+}
 
 // 旧 ENVELOPE_AND_OTHERS_LABEL（「梱包・その他」）は削除した。
 // 計算タブの内訳が帯グラフと同じ一覧（costBreakdown.parts）を使うようになり、
@@ -402,19 +435,25 @@ export const TOTAL_SALES_AMOUNT_LABEL = '売上総額';
 // 伝票・レシートのまとめ行は ENVELOPE_AND_OTHERS_FIELD_LABEL のままで、こちらは残る。
 
 /** 結果カード・固定バーの折りたたみ見出し（UI-SPEC §1.1-2 / §1.1-3a） */
-export const BREAKDOWN_LABEL = '内訳';
+export function breakdownLabel(locale: Locale): string {
+  return t('amount.breakdown', locale);
+}
 
 /**
  * 逆算結果の折りたたみ見出し（採用案 12c）。
  * 結果側の「内訳」と違って金額の一覧だけでなく式も入るので、開く前にそれが分かる語にする。
  */
-export const BREAKDOWN_AND_METHOD_LABEL = '内訳と計算のしかた';
+export function breakdownAndMethodLabel(locale: Locale): string {
+  return t('amount.breakdownAndMethod', locale);
+}
 
 /** 逆算結果の一覧の 1 行目（緑の区画）。売れたあと売り手のものになる額 */
 export const KEPT_LABEL = '手元に残る';
 
 /** 帯の下の 2 値の左側。一覧の KEPT_LABEL と同じものを詰めて言う */
-export const KEPT_SHORT_LABEL = '手元';
+export function keptShortLabel(locale: Locale): string {
+  return t('amount.kept', locale);
+}
 
 /**
  * 帯の下の 2 値の右側（販売手数料 ＋ 経費 ＝ totalExpenses）。
@@ -426,23 +465,33 @@ export const KEPT_SHORT_LABEL = '手元';
  * バーとパネルで同じ額に違う語が付くと、スクロールした瞬間に数字が食い違って見える。
  * 通常モードのバーは逆算パネルと同時に出ないので EXPENSES_LABEL のまま。
  */
-export const DEDUCTED_LABEL = '引かれる分';
+export function deductedLabel(locale: Locale): string {
+  return t('amount.deducted', locale);
+}
 
 /**
  * 式の左辺に置く目標額の語（「目標100円 ＋ 経費765円」）。
  * 入力欄は targetProfitLabel（「目標の純利益」/「目標利益」）だが、式の中では
  * 項が長いほど式に見えなくなるので短くする。直上の入力欄に正式名が出ている。
  */
-export const FORMULA_TARGET_LABEL = '目標';
+export function formulaTargetLabel(locale: Locale): string {
+  return t('amount.formulaTarget', locale);
+}
 
 /** 計算タブの入力カードの折りたたみ見出し（UI-SPEC §1.1-6） */
-export const OPTIONAL_COSTS_LABEL = '梱包材・その他を入力';
+export function optionalCostsBaseLabel(locale: Locale): string {
+  return t('calc.optionalCosts', locale);
+}
 
 /** 結果カード右上のリセット（UI-SPEC §1.1-3a）。入力が空のときは無効（§5-8） */
-export const CLEAR_LABEL = 'クリア';
+export function clearLabel(locale: Locale): string {
+  return t('action.clear', locale);
+}
 
 /** その「クリア」の読み上げ（§1.1-3a）。ボタンの語だけでは、何が消えるのかを言えていない */
-export const CLEAR_INPUT_ACTION_LABEL = `入力を${CLEAR_LABEL}`;
+export function clearInputActionLabel(locale: Locale): string {
+  return t('calc.clearInputAction', locale);
+}
 
 /**
  * クリアの確認（UI-SPEC §1.1-3a）。**押した時点で全部消える**操作なのに、
@@ -452,9 +501,12 @@ export const CLEAR_INPUT_ACTION_LABEL = `入力を${CLEAR_LABEL}`;
  * ボタンの語（「クリア」）からは読めないため ── 消えるものを先に全部言う。
  * レコードの削除（DELETE_CONFIRM_TITLE）と違って本文があるのはそのため。
  */
-export const CLEAR_CONFIRM_TITLE = '入力をクリアしますか？';
-export const CLEAR_CONFIRM_MESSAGE =
-  'すべての金額が空欄になり、種別も既定値に戻ります。';
+export function clearConfirmTitle(locale: Locale): string {
+  return t('calc.clearConfirmTitle', locale);
+}
+export function clearConfirmMessage(locale: Locale): string {
+  return t('calc.clearConfirmMessage', locale);
+}
 
 /**
  * 記録を作る FAB の語（UI-SPEC §1.1-7 / §1.2-7）。**計算タブと記録一覧で同じ語。**
@@ -464,23 +516,31 @@ export const CLEAR_CONFIRM_MESSAGE =
  * （記録フォームが開く）なので、動作を表す「記録する」に揃えた。
  * ＋は AddRecordFab が描くので、ここには入れない。
  */
-export const ADD_RECORD_FAB_LABEL = '記録する';
+export function addRecordFabLabel(locale: Locale): string {
+  return t('record.addFab', locale);
+}
 
 /** 逆算側の結果見出し（UI-SPEC §1.1-3b） */
-export const REQUIRED_PRICE_HEADLINE = 'この値段で出せばよい';
+export function requiredPriceHeadline(locale: Locale): string {
+  return t('calc.requiredPriceHeadline', locale);
+}
 
 /**
  * 逆算モードのときの固定バーの売上側（UI-SPEC §1.1「挙動」）。
- * 通常モードは実績値なので TOTAL_SALES_LABEL、逆算モードはこれから必要になる額なので別語。
+ * 通常モードは実績値なので t('amount.totalSales', 'ja')、逆算モードはこれから必要になる額なので別語。
  */
-export const REQUIRED_SALES_LABEL = '必要な売上';
+export function requiredSalesLabel(locale: Locale): string {
+  return t('calc.requiredSales', locale);
+}
 
 /** 計算タブの逆算側セグメント名。種別で変えない（UI-SPEC §6-4） */
-export const TARGET_TAB_LABEL = '目標から逆算';
+export function targetTabLabel(locale: Locale): string {
+  return t('calc.targetTab', locale);
+}
 
 /** 入力カードの手数料行（UI-SPEC §1.1-5）: 「手数料 10%」 */
-export function commissionFieldLabel(rate: number): string {
-  return `手数料 ${rate}%`;
+export function commissionFieldLabel(locale: Locale, rate: number): string {
+  return t('amount.commissionField', locale, { rate });
 }
 
 /**
@@ -493,10 +553,10 @@ export function commissionFieldLabel(rate: number): string {
  * 入力がなければ金額を出さない（「（0円）」は畳んだままでよい欄をわざわざ主張する）。
  * 自動で開く形にしないのは、毎回開いた状態になると畳んでいる意味がなくなるため。
  */
-export function optionalCostsLabel(total: number): string {
+export function optionalCostsLabel(locale: Locale, total: number): string {
   return total === 0
-    ? OPTIONAL_COSTS_LABEL
-    : `${OPTIONAL_COSTS_LABEL}（${formatYenTight(total)}）`;
+    ? t('calc.optionalCosts', locale)
+    : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight(total) });
 }
 
 /** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
@@ -515,27 +575,35 @@ export function commissionItemLabel(rate: number): string {
  * 引かれる項が 0 のとき（経費なし・手数料 0%）に「引かれて」と言えないので、
  * 引かれるものの有無で文を分ける。
  */
-export function requiredPriceSummary(result: {
-  requiredPrice: number;
-  commissionAmount: number;
-  expenses: number;
-  kept: number;
-}): string {
+export function requiredPriceSummary(
+  locale: Locale,
+  result: {
+    requiredPrice: number;
+    commissionAmount: number;
+    expenses: number;
+    kept: number;
+  },
+): string {
   const deductions: string[] = [];
   if (result.commissionAmount !== 0) {
     deductions.push(
-      `${COMMISSION_SHORT_LABEL}${formatYenTight(result.commissionAmount)}`,
+      t('calc.deductionCommission', locale, { amount: formatYenTight(result.commissionAmount) }),
     );
   }
   if (result.expenses !== 0) {
-    deductions.push(`${EXPENSES_LABEL}${formatYenTight(result.expenses)}`);
+    deductions.push(t('calc.deductionExpenses', locale, { amount: formatYenTight(result.expenses) }));
   }
 
   const price = formatYenTight(result.requiredPrice);
   const kept = formatYenTight(result.kept);
+  // 引かれるものが無いときは別の文にする（「〜と〜が引かれて」の形が成り立たないため）
   return deductions.length === 0
-    ? `${price}で売ると、そのまま${kept}が残ります。`
-    : `${price}で売ると、${deductions.join('と')}が引かれて${kept}が残ります。`;
+    ? t('calc.summaryNoDeductions', locale, { price, kept })
+    : t('calc.summaryWithDeductions', locale, {
+        price,
+        kept,
+        deductions: deductions.join(t('calc.deductionSeparator', locale)),
+      });
 }
 
 /** 切り上げ前の値の表示「961.1...」。丸めずに切り捨てるのは、切り上げの話が続くため */
@@ -553,33 +621,46 @@ function formatExactPrice(exact: number): string {
  * 「なぜ目標＋手数料率ではなく割り算なのか」がこの 3 行の主題なので、経費や手数料が
  * ない場合はその行を落とす（「＋ 経費0円」「÷ 1」は説明にならない）。
  */
-export function requiredPriceFormulaLines(formula: {
-  targetProfit: number;
-  expenses: number;
-  subtotal: number;
-  commissionRate: number;
-  divisor: number;
-  exact: number;
-  requiredPrice: number;
-  roundedUp: boolean;
-}): string[] {
-  const target = `${FORMULA_TARGET_LABEL}${formatYenTight(formula.targetProfit)}`;
+export function requiredPriceFormulaLines(
+  locale: Locale,
+  formula: {
+    targetProfit: number;
+    expenses: number;
+    subtotal: number;
+    commissionRate: number;
+    divisor: number;
+    exact: number;
+    requiredPrice: number;
+    roundedUp: boolean;
+  },
+): string[] {
+  // 行ごとに 1 つのキーをひく。部品を連結すると、語順の違う言語で組み立て直せない
   const lines = [
     formula.expenses === 0
-      ? target
-      : `${target} ＋ ${EXPENSES_LABEL}${formatYenTight(formula.expenses)} ＝ ${formatYenTight(formula.subtotal)}`,
+      ? t('calc.formulaTargetOnly', locale, { target: formatYenTight(formula.targetProfit) })
+      : t('calc.formulaTargetAndExpenses', locale, {
+          target: formatYenTight(formula.targetProfit),
+          expenses: formatYenTight(formula.expenses),
+          subtotal: formatYenTight(formula.subtotal),
+        }),
   ];
 
   if (formula.commissionRate !== 0) {
     lines.push(
-      `${COMMISSION_SHORT_LABEL}${formula.commissionRate}%が引かれるので ÷ ${formula.divisor}`,
+      t('calc.formulaCommission', locale, {
+        rate: formula.commissionRate,
+        divisor: formula.divisor,
+      }),
     );
   }
 
   lines.push(
     formula.roundedUp
-      ? `→ ${formatExactPrice(formula.exact)} を切り上げて ${formatYenTight(formula.requiredPrice)}`
-      : `→ ${formatYenTight(formula.requiredPrice)}`,
+      ? t('calc.formulaResultRoundedUp', locale, {
+          exact: formatExactPrice(formula.exact),
+          price: formatYenTight(formula.requiredPrice),
+        })
+      : t('calc.formulaResult', locale, { price: formatYenTight(formula.requiredPrice) }),
   );
 
   return lines;
@@ -592,11 +673,14 @@ export function requiredPriceFormulaLines(formula: {
  * 1 つ下の値段を実際に置いたときいくらになるかを添える。何回出したかを数えて
  * 引っ込める仕掛けは持たない（表示条件は数字が成り立つかどうかだけ）。
  */
-export function lowerPriceWarning(example: {
-  price: number;
-  profit: number;
-}): string {
-  return `${formatYenTight(example.price)}では${formatYenTight(example.profit)}にしかならず、目標に届きません`;
+export function lowerPriceWarning(
+  locale: Locale,
+  example: { price: number; profit: number },
+): string {
+  return t('calc.lowerPriceWarning', locale, {
+    price: formatYenTight(example.price),
+    profit: formatYenTight(example.profit),
+  });
 }
 
 /**
@@ -659,21 +743,26 @@ export function expectedProfitText(approxAmount: string): string {
 }
 
 /** 種別の表示名（レコード詳細の「種別」行・種別セレクタ） */
-export function recordKindLabel(kind: RecordKind): string {
-  return RECORD_KIND_LABELS[kind];
+export function recordKindLabel(locale: Locale, kind: RecordKind): string {
+  return t(recordKindKey(kind), locale);
 }
 
 /** レコード 1 件の netProfit のラベル。**合計には使わない**（合計は TOTAL_PROFIT_LABEL） */
-export function profitLabel(kind: RecordKind): string {
-  return PROFIT_LABELS[kind];
+export function profitLabel(locale: Locale, kind: RecordKind): string {
+  return t(profitKey(kind), locale);
 }
 
 /**
  * 計算タブの結果側セグメント名（UI-SPEC §6-4）: 「純利益を出す」/「利益を出す」。
  * 逆算側は種別で変えない定数 TARGET_TAB_LABEL（種別語は直下の入力行に出るため）。
  */
-export function profitTabLabel(kind: RecordKind): string {
-  return `${profitLabel(kind)}を出す`;
+export function profitTabLabel(locale: Locale, kind: RecordKind): string {
+  // 文中に埋め込むので profitInline を使う（英語は見出し用の語だと語中で大文字になる）
+  const profit = t(
+    kind === 'used' ? 'record.profitInline.used' : 'record.profitInline.sourced',
+    locale,
+  );
+  return t('calc.profitTab', locale, { profit });
 }
 
 /**
@@ -681,8 +770,8 @@ export function profitTabLabel(kind: RecordKind): string {
  * 計算タブの逆算（UI-SPEC §1.1-3b）と記録フォームの目標欄（SPEC-V9 §2）で**同じ語**を使う ──
  * 同じものを指す欄なので、画面ごとに呼び名が変わると別の値に見える。
  */
-export function targetProfitLabel(kind: RecordKind): string {
-  return TARGET_PROFIT_LABELS[kind];
+export function targetProfitLabel(locale: Locale, kind: RecordKind): string {
+  return t(targetProfitKey(kind), locale);
 }
 
 /**
@@ -821,7 +910,7 @@ export function tagChartDaySummaryMetaText(
 }
 
 /**
- * 期間サマリー段（グラフ直下・新規）の項目名。売上・収支（TOTAL_SALES_LABEL /
+ * 期間サマリー段（グラフ直下・新規）の項目名。売上・収支（t('amount.totalSales', 'ja') /
  * TOTAL_PROFIT_LABEL）に続く 2 項目 ── どちらもこの画面にしかない値なのでここで定義する。
  */
 export const PROFIT_RATE_LABEL = '利益率';
@@ -1335,7 +1424,9 @@ export function bestTagOfTotalText(totalCount: number): string {
 /** 記録フォームのシートヘッダ（UI-SPEC §1.3-2）。中央の見出しは新規と編集で出し分ける */
 export const NEW_RECORD_TITLE = '新しい記録';
 export const EDIT_RECORD_TITLE = '記録を編集';
-export const CANCEL_LABEL = 'キャンセル';
+export function cancelLabel(locale: Locale): string {
+  return t('action.cancel', locale);
+}
 export const SAVE_LABEL = '保存';
 
 /**
@@ -1394,7 +1485,9 @@ export const WEEKDAY_LABELS = [
 export const TODAY_MARKER_LABEL = '今日';
 
 /** カレンダーを閉じる（日付は押した時点で入るので「決定」ではない） */
-export const CLOSE_LABEL = '閉じる';
+export function closeLabel(locale: Locale): string {
+  return t('action.close', locale);
+}
 
 /**
  * 日付行とカレンダーの上部に常設するチップ（UI-SPEC §8.10.1）。
@@ -1557,7 +1650,9 @@ export const LISTED_DATE_PICKER_NOTE = '今日より後は選べません';
 
 /** レコード詳細の下端操作列（UI-SPEC §1.4-7）と削除の確認アラート（SPEC §5.4） */
 export const EDIT_RECORD_LABEL = '編集する';
-export const DELETE_LABEL = '削除';
+export function deleteLabel(locale: Locale): string {
+  return t('action.delete', locale);
+}
 export const DELETE_CONFIRM_TITLE = '削除しますか？';
 
 /** 伝票の控除行の行名（UI-SPEC §1.3-7〜9 / §1.4-4）:「− 送料」 */
@@ -1566,8 +1661,8 @@ export function deductionLabel(name: string): string {
 }
 
 /** 伝票の加算行の行名（UI-SPEC §1.3-10）:「＋ 梱包材・その他」 */
-export function additionLabel(name: string): string {
-  return `＋ ${name}`;
+export function additionLabel(locale: Locale, name: string): string {
+  return t('action.addition', locale, { name });
 }
 
 /** レコード詳細のレシートの手数料行（UI-SPEC §1.4-4）:「販売手数料 (10%)」 */
@@ -1635,7 +1730,7 @@ export function recordTimelineText(timeline: {
   days: number;
 }): string {
   const listed = `${timeline.listedDate} ${LISTED_DATE_LABEL}`;
-  const head = `${recordKindLabel(timeline.kind)} ・ ${listed}`;
+  const head = `${recordKindLabel('ja', timeline.kind)} ・ ${listed}`;
 
   return timeline.soldDate == null
     ? `${head}（${formatElapsedDays(timeline.days)}）`
@@ -1645,27 +1740,35 @@ export function recordTimelineText(timeline: {
 // ---- UI-SPEC §7 電卓 ----
 
 /** 電卓シートの見出し（§7.1）。行き先の欄の名前をそのまま冠する */
-export function calculatorTitle(fieldLabel: string): string {
-  return `${fieldLabel}の計算`;
+export function calculatorTitle(locale: Locale, fieldLabel: string): string {
+  return t('calculator.title', locale, { field: fieldLabel });
 }
 
 /** 合計を欄へ書き戻すボタン（§7.1）。「OK」ではなく行き先が読める語にする */
-export const CALC_SUBMIT_LABEL = '入れる';
+export function calcSubmitLabel(locale: Locale): string {
+  return t('calculator.submit', locale);
+}
 
 /** 積み上げた行の合計（§7.1） */
-export const CALC_TOTAL_LABEL = '合計';
+export function calcTotalLabel(locale: Locale): string {
+  return t('calculator.total', locale);
+}
 
 /**
  * 積み上げの末尾（§7.1-4）。記録フォームの「＋ 梱包材・その他」と同じ形にするため、
  * 「＋ 」は additionLabel が付ける（半角の `+` に振れないよう字を 1 か所に持つ）。
  */
-export const CALC_ADD_ROW_LABEL = '行を足す';
+export function calcAddRowLabel(locale: Locale): string {
+  return t('calculator.addRow', locale);
+}
 
 /**
  * 積み上げの末尾の中央（SPEC-V3 §4.5 / 設計案 26c）。左「＋ 行を足す」と右「AC」の間。
  * 頭のタグ印はアイコンで出す（PresetTagButton と同じ `pricetag-outline`）ので、語だけを持つ。
  */
-export const CALC_PICK_PACKAGING_LABEL = '梱包材から選ぶ';
+export function calcPickPackagingLabel(locale: Locale): string {
+  return t('calculator.pickPackaging', locale);
+}
 
 /**
  * 複数選択シートのヘッダ左（§4.5 / 設計案 26c）。「キャンセル」ではなく**戻り先の名前**にする ──
@@ -1704,10 +1807,15 @@ export const CALC_KEY_CLEAR_ALL = 'AC';
 export const CALC_KEY_BACKSPACE = '⌫';
 
 /** `AC` `⌫` の読み上げ語。字だけでは何が起きるか読めないため */
-export const CALC_CLEAR_ALL_A11Y_LABEL = 'すべて消す';
-export const CALC_BACKSPACE_A11Y_LABEL = '1 文字消す';
+export function calcClearAllA11yLabel(locale: Locale): string {
+  return t('calculator.clearAllAccessibility', locale);
+}
+export function calcBackspaceA11yLabel(locale: Locale): string {
+  return t('calculator.backspaceAccessibility', locale);
+}
 
 /** 行頭の記号（§7.2）。1 行目にも `＋` を出す（列がそろう。派生決定） */
+// 記号そのものなので訳さない（CALC_KEY_* は定数のまま）
 export function calcRowSignLabel(sign: CalcRowSign): string {
   return sign === '-' ? CALC_KEY_MINUS : CALC_KEY_PLUS;
 }
@@ -1716,10 +1824,11 @@ export function calcRowSignLabel(sign: CalcRowSign): string {
  * 「入れる」が押せない理由を合計行の下に出す 1 行（§7.4）。
  * ボタンがグレーなだけでは理由が分からないため、無効の間だけ名指しする。
  */
-export function calculatorBlockedNote(reason: CalcSubmitBlockedReason): string {
-  return reason === 'negative'
-    ? `${CALC_TOTAL_LABEL}がマイナスのままでは入れられません`
-    : '数字を入れると合計が出ます';
+export function calculatorBlockedNote(
+  locale: Locale,
+  reason: CalcSubmitBlockedReason,
+): string {
+  return t(reason === 'negative' ? 'calculator.blockedNegative' : 'calculator.blockedEmpty', locale);
 }
 
 // ---- SPEC-V3 §1 プリセット ----
@@ -1729,14 +1838,9 @@ export function calculatorBlockedNote(reason: CalcSubmitBlockedReason): string {
 // （calculatorBlockedNote と同じ分担）。
 
 /** 種類そのものの表示名（§2.1 の見出し）。設定タブの行・一覧・選択シートで共通 */
-const PRESET_TYPE_LABELS: Record<PresetType, string> = {
-  site: '販売サイト',
-  shipping: POSTAGE_LABEL,
-  packaging: ENVELOPE_COST_LABEL,
-};
-
-export function presetTypeLabel(type: PresetType): string {
-  return PRESET_TYPE_LABELS[type];
+export function presetTypeLabel(locale: Locale, type: PresetType): string {
+  if (type === 'site') return t('preset.typeSite', locale);
+  return type === 'shipping' ? t('preset.typeShipping', locale) : t('preset.typePackaging', locale);
 }
 
 /**
@@ -1761,7 +1865,7 @@ export function presetBlockedNote(
       return `名前は${PRESET_NAME_MAX_LENGTH}文字までです`;
     case 'value-out-of-range':
       return isRatePreset(type)
-        ? `${COMMISSION_SHORT_LABEL}率は 0〜${PRESET_RATE_MAX} の範囲で入れてください`
+        ? `${t('amount.commissionShort', 'ja')}率は 0〜${PRESET_RATE_MAX} の範囲で入れてください`
         : '金額は 0 以上で入れてください';
     // まとめ買い（§2.6.6）。入数は空・0・上限超え・小数のどれも同じ 1 行で足りる ──
     // 直す先が 1 つの欄しかなく、どう間違えたかを言い分けても打ち直す手は変わらない
@@ -1826,7 +1930,7 @@ export function shippingMaterialRowNote(
   value: number,
   materialCost: number,
 ): string {
-  return `${POSTAGE_LABEL} ${formatUnitYen(value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}`;
+  return `${t('amount.postage', 'ja')} ${formatUnitYen(value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}`;
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -1876,13 +1980,13 @@ export const PRESET_CARD_EMPTY_LABEL = t('common.notRegistered', 'ja');
 
 /** カード末尾の追加行（§3.2-3）:「＋ 送料を追加」。「＋ 」は additionLabel が付ける */
 export function presetAddLabel(type: PresetType): string {
-  return additionLabel(`${presetTypeLabel(type)}を追加`);
+  return additionLabel('ja', `${presetTypeLabel('ja', type)}を追加`);
 }
 
 /** 空表示（§3.2-4）。EmptyState の見出しと本文 */
 export const PRESET_EMPTY_TITLE = '登録がありません';
 export function presetEmptyBody(type: PresetType): string {
-  return `よく使う${presetTypeLabel(type)}を登録すると、記録するときに選ぶだけで入ります。`;
+  return `よく使う${presetTypeLabel('ja', type)}を登録すると、記録するときに選ぶだけで入ります。`;
 }
 
 /** 一覧の下の注記（§3.5）。「保存済みの記録は変わらない」は販売サイトの行で 1 度だけ明示する */
@@ -1904,14 +2008,14 @@ export const PRESET_EDIT_MODE_DONE_LABEL = '完了';
 // ---- SPEC-V3 §3.3 追加・編集画面 ----
 
 export function presetFormTitle(type: PresetType, isNew: boolean): string {
-  return `${presetTypeLabel(type)}を${isNew ? '追加' : '編集'}`;
+  return `${presetTypeLabel('ja', type)}を${isNew ? '追加' : '編集'}`;
 }
 
 export const PRESET_NAME_FIELD_LABEL = '名前';
 
 /** 値の欄の見出し（§2.1）。site だけ率で、他は金額 */
 export function presetValueFieldLabel(type: PresetType): string {
-  return isRatePreset(type) ? `${COMMISSION_SHORT_LABEL}率（%）` : '金額';
+  return isRatePreset(type) ? `${t('amount.commissionShort', 'ja')}率（%）` : '金額';
 }
 
 // ---- SPEC-V3 §2.6 梱包材のまとめ買い（金額の入れ方） ----
@@ -2029,7 +2133,7 @@ function formatPresetSize(size: number): string {
 // ---- SPEC-V6 送料プリセットの専用資材 ----
 
 /**
- * 専用資材そのものを指す語（SPEC-V6 §1）。「梱包材」（ENVELOPE_COST_LABEL）とは**別のもの** ──
+ * 専用資材そのものを指す語（SPEC-V6 §1）。「梱包材」（t('amount.envelopeCost', 'ja')）とは**別のもの** ──
  * あちらは自分で選んで買う箱・封筒で、こちらは**その配送方法でしか使えない指定の資材**。
  * 語を分けるのは、記録の経費の内訳でも別の行（送料 / 梱包材）に入るため。
  */
@@ -2207,13 +2311,13 @@ export const PRESET_INITIAL_EDITING_HINT = `${PRESET_INITIAL_MAX_LENGTH}文字�
  */
 export function presetEditValueNote(type: PresetType): string {
   return isRatePreset(type)
-    ? `${COMMISSION_SHORT_LABEL}率を変えても、これまでの記録の${COMMISSION_SHORT_LABEL}はそのままです。`
+    ? `${t('amount.commissionShort', 'ja')}率を変えても、これまでの記録の${t('amount.commissionShort', 'ja')}はそのままです。`
     : '金額を変えても、これまでの記録の金額はそのままです。';
 }
 
 /** 編集画面の下端（設計案 25b）:「この送料を削除」 */
 export function presetDeleteLabel(type: PresetType): string {
-  return `この${presetTypeLabel(type)}を削除`;
+  return `この${presetTypeLabel('ja', type)}を削除`;
 }
 
 /**
@@ -2226,12 +2330,12 @@ export function presetDeleteConfirmMessage(
   type: PresetType,
   usageCount: number,
 ): string {
-  return `この${presetTypeLabel(type)}を使った記録が${presetCountLabel('ja', usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
+  return `この${presetTypeLabel('ja', type)}を使った記録が${presetCountLabel('ja', usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
 }
 
 /** 削除したあとの取り消しバー（§3.2）。プリセットは手で作った資産なので記録と同じ扱いにする */
 export function presetDeletedMessage(type: PresetType): string {
-  return `${presetTypeLabel(type)}を削除しました`;
+  return `${presetTypeLabel('ja', type)}を削除しました`;
 }
 
 // ---- SPEC-V3 §4 入力時の選択 ----
@@ -2241,8 +2345,8 @@ export function presetDeletedMessage(type: PresetType): string {
  * 行の右端のタグボタン（§4.1）の読み上げ語にも同じ語を使う ── 押すと開くシートの
  * 見出しがそのままボタンの名前になるので、語を分ける理由がない。
  */
-export function presetPickerTitle(type: PresetType): string {
-  return `${presetTypeLabel(type)}を選ぶ`;
+export function presetPickerTitle(locale: Locale, type: PresetType): string {
+  return t('preset.pickerTitle', locale, { type: presetTypeLabel(locale, type) });
 }
 
 /**
@@ -2253,11 +2357,12 @@ export function presetPickerTitle(type: PresetType): string {
  * そちらは変えずに、今どうなっているかは値として別に読ませる。
  */
 export function presetTagStateLabel(
+  locale: Locale,
   state: 'unselected' | 'selected' | 'rate-changed',
   name: string,
 ): string | undefined {
   if (state === 'unselected') return undefined;
-  return state === 'selected' ? name : `${name}（率は変更ずみ）`;
+  return state === 'selected' ? name : t('preset.tagRateChanged', locale, { name });
 }
 
 /**
@@ -2289,15 +2394,15 @@ export function presetPickerEmptyBodyWithoutLink(type: PresetType): string {
  * 伝票カードの販売サイト名の行の「✕」（§1.5.1）。
  * 消えるのは名前の写しだけで、率は残る ── 読み上げでもそれが分かるよう名前を主語にする。
  */
-export function siteNameClearLabel(name: string): string {
-  return `${name}を外す`;
+export function siteNameClearLabel(locale: Locale, name: string): string {
+  return t('action.removeNamed', locale, { name });
 }
 
 /**
  * タグボタンの「✕」（選択中のプリセットを外す）の読み上げ。文面は siteNameClearLabel と同じ形。
  */
-export function presetTagClearLabel(name: string): string {
-  return `${name}を外す`;
+export function presetTagClearLabel(locale: Locale, name: string): string {
+  return t('action.removeNamed', locale, { name });
 }
 
 // ---- SPEC-V4 §2 タグ（設定タブの管理画面） ----
@@ -2342,7 +2447,7 @@ export function tagCardEmptyLabel(locale: Locale): string {
  * プリセット（「＋ 送料を追加」）と違って種類名を冠さないのは、タグが 1 種類しかなく、
  * 画面の見出しが既に「タグ」だから。
  */
-export const TAG_ADD_LABEL = additionLabel('追加');
+export const TAG_ADD_LABEL = additionLabel('ja', '追加');
 
 /** 空表示（§2.2-4）。EmptyState の見出しと本文 */
 export const TAG_EMPTY_TITLE = 'タグがありません';
@@ -2356,7 +2461,7 @@ export const TAG_LIST_NOTE = 'タグを消しても、記録そのものは消�
 
 /** 一覧の行の削除の読み上げ語（§2.2）。スワイプで出る赤い「削除」に名前を添える */
 export function tagDeleteA11yLabel(name: string): string {
-  return `${name}を${DELETE_LABEL}`;
+  return `${name}を${t('action.delete', 'ja')}`;
 }
 
 /**
@@ -2535,7 +2640,7 @@ export const FILTER_DONE_LABEL = TAG_PICKER_DONE_LABEL;
 
 /** シートの節の見出し（§4.2-2〜4）。販売サイト・タグは既にある語をそのまま使う */
 export const FILTER_KIND_SECTION_LABEL = '種別';
-export const FILTER_SITE_SECTION_LABEL = presetTypeLabel('site');
+export const FILTER_SITE_SECTION_LABEL = presetTypeLabel('ja', 'site');
 export const FILTER_TAG_SECTION_LABEL = TAG_LABEL;
 
 /** 販売サイトを選んでいないときに節の右に出す語（§4.2-3）。種別の「すべて」と同じ語 */
@@ -2800,10 +2905,10 @@ export function versionLabel(locale: Locale, version: string): string {
 // だから下の 2 つの配列は**リテラルを並べず、上で定義済みの表示語を並べる**。
 
 /** 経費合計の列（§5.3-9）。単独の「経費」と区別が要るのは CSV だけなのでここに置く */
-export const TOTAL_EXPENSES_COLUMN = `${EXPENSES_LABEL}合計`;
+export const TOTAL_EXPENSES_COLUMN = `${t('amount.expenses', 'ja')}合計`;
 
 /** 手数料率の列（§5.3-11）。額の列（販売手数料）と紛れないよう単位を付ける */
-export const COMMISSION_RATE_COLUMN = `${COMMISSION_SHORT_LABEL}率(%)`;
+export const COMMISSION_RATE_COLUMN = `${t('amount.commissionShort', 'ja')}率(%)`;
 
 /** 種別の列（§5.3-13）。値は recordKindLabel */
 export const RECORD_KIND_COLUMN = '種別';
@@ -2837,17 +2942,17 @@ export const TARGET_PROFIT_COLUMN = '目標利益';
 export const CSV_BACKUP_COLUMNS: readonly string[] = [
   SOLD_DATE_FIELD_LABEL,
   ITEM_NAME_LABEL,
-  SALES_PRICE_LABEL,
-  PURCHASE_PRICE_LABEL,
-  POSTAGE_LABEL,
+  t('amount.salesPrice', 'ja'),
+  t('amount.purchasePrice', 'ja'),
+  t('amount.postage', 'ja'),
   COMMISSION_LABEL,
-  ENVELOPE_COST_LABEL,
-  OTHERS_COST_LABEL,
+  t('amount.envelopeCost', 'ja'),
+  t('amount.othersCost', 'ja'),
   TOTAL_EXPENSES_COLUMN,
   TOTAL_PROFIT_LABEL,
   TARGET_PROFIT_COLUMN,
   COMMISSION_RATE_COLUMN,
-  presetTypeLabel('site'),
+  presetTypeLabel('ja', 'site'),
   RECORD_KIND_COLUMN,
   TAG_LABEL,
   RECORD_STATUS_COLUMN,
@@ -2868,14 +2973,14 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
  */
 export const CSV_TAX_COLUMNS: readonly string[] = [
   SOLD_DATE_FIELD_LABEL,
-  presetTypeLabel('site'),
+  presetTypeLabel('ja', 'site'),
   ITEM_NAME_LABEL,
   RECORD_KIND_COLUMN,
-  SALES_PRICE_LABEL,
-  PURCHASE_PRICE_LABEL,
-  POSTAGE_LABEL,
-  ENVELOPE_COST_LABEL,
-  OTHERS_COST_LABEL,
+  t('amount.salesPrice', 'ja'),
+  t('amount.purchasePrice', 'ja'),
+  t('amount.postage', 'ja'),
+  t('amount.envelopeCost', 'ja'),
+  t('amount.othersCost', 'ja'),
   COMMISSION_LABEL,
   TOTAL_PROFIT_LABEL,
 ];
@@ -3295,7 +3400,7 @@ export const HELP_FIGURE_CSV_SITE_LABEL = '販売サイト・種別';
 export const HELP_FIGURE_CSV_BREAKDOWN_LABEL = '経費の内わけ';
 
 /** 5 つの経費それぞれの説明（名前の側は画面と同じ定数を使う） */
-export const HELP_FIGURE_PURCHASE_NOTE = `売るために買ったお金（${RECORD_KIND_LABELS.used}では出ません）`;
+export const HELP_FIGURE_PURCHASE_NOTE = `売るために買ったお金（${recordKindLabel('ja', 'used')}では出ません）`;
 export const HELP_FIGURE_POSTAGE_NOTE = '発送にかかったお金';
 export const HELP_FIGURE_COMMISSION_NOTE = '販売サイトに引かれるお金';
 export const HELP_FIGURE_ENVELOPE_NOTE = '箱・封筒・テープなど';
@@ -3303,7 +3408,7 @@ export const HELP_FIGURE_OTHERS_NOTE = '交通費など、上に当てはまら�
 
 /** 図の見出しのうち、題材の金額や語をそのまま含むもの（値は図が持つ） */
 export function helpFigureBothSoldSubtitle(price: string): string {
-  return `どちらも${SALES_PRICE_LABEL} ${price}で売れたとき`;
+  return `どちらも${t('amount.salesPrice', 'ja')} ${price}で売れたとき`;
 }
 /**
  * 目標と下げ幅の図の見出し（SPEC-V9 §1.2 / §4.3）。**同じ 1 件だと題で言う** ──
@@ -3316,19 +3421,19 @@ export function helpFigureTargetRoomSubtitle(price: string): string {
   return `同じ記録（今の価格 ${price}）で、目標だけを変えたとき`;
 }
 export function helpFigureSourcedRowTitle(purchasePrice: string): string {
-  return `${RECORD_KIND_LABELS.sourced}（${PURCHASE_PRICE_LABEL} ${purchasePrice}）`;
+  return `${recordKindLabel('ja', 'sourced')}（${t('amount.purchasePrice', 'ja')} ${purchasePrice}）`;
 }
 export function helpFigureSingleRecordLabel(kind: RecordKind): string {
-  return `${RECORD_KIND_LABELS[kind]} 1 件`;
+  return `${recordKindLabel('ja', kind)} 1 件`;
 }
 export function helpFigureSiteAmountMeasure(amount: string): string {
-  return `サイトの表示 ${amount}（${COMMISSION_SHORT_LABEL}と${POSTAGE_LABEL}まで）`;
+  return `サイトの表示 ${amount}（${t('amount.commissionShort', 'ja')}と${t('amount.postage', 'ja')}まで）`;
 }
 export function helpFigureAppAmountMeasure(amount: string): string {
-  return `このアプリ ${amount}（${ENVELOPE_COST_LABEL}ほかも引く）`;
+  return `このアプリ ${amount}（${t('amount.envelopeCost', 'ja')}ほかも引く）`;
 }
 export function helpFigureTotalPriceMeasure(price: string): string {
-  return `これが${SALES_PRICE_LABEL} ${price}`;
+  return `これが${t('amount.salesPrice', 'ja')} ${price}`;
 }
 export function helpFigureTagOrSubtitle(first: string, second: string): string {
   return `「${first}」と「${second}」を選ぶと`;
@@ -3965,7 +4070,7 @@ export function pricingConclusionText(
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): { headline: string; detail: string } {
-  const target = targetProfitLabel(kind);
+  const target = targetProfitLabel('ja', kind);
   const targetAmount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
 
@@ -4025,7 +4130,7 @@ export function recordDetailConclusionHeadline(
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): string {
-  const target = targetProfitLabel(kind);
+  const target = targetProfitLabel('ja', kind);
   const targetAmount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
 
@@ -4113,7 +4218,7 @@ export function simulationVerdictText(
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): string {
-  const target = targetProfitLabel(kind);
+  const target = targetProfitLabel('ja', kind);
   const targetAmount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
   const net = formatYenSymbol(Math.abs(verdict.simulation.netProfit));
@@ -4242,7 +4347,7 @@ export function targetProfitRowValue(targetProfit: number | null): string {
 
 /** シートの見出し。語は記録フォームの欄と同じ（§5.2） */
 export function targetProfitSheetTitle(kind: RecordKind): string {
-  return `${targetProfitLabel(kind)}を決める`;
+  return `${targetProfitLabel('ja', kind)}を決める`;
 }
 
 /**
@@ -4492,3 +4597,31 @@ export const ONBOARDING_NEXT_PAGE_LABEL = '次のページへ';
 export function replayTutorialLabel(locale: Locale): string {
   return t('settings.replayTutorial.label', locale);
 }
+
+// ---- 移行前の画面が参照する日本語固定の写し（多言語化ステップ 2 の途中経過） ----
+//
+// 計算タブの節は locale を取る関数に移したが、**まだ移していない画面が同じ語を
+// 定数として参照している**。値は辞書から日本語で取るので、文が 2 か所に割れることはない。
+// その画面を移した時点で、対応する行はここから消える。
+export const ADD_RECORD_ACTION_LABEL = t('record.addAction', 'ja');
+export const ADD_RECORD_FAB_LABEL = t('record.addFab', 'ja');
+export const KEPT_SHORT_LABEL = t('amount.kept', 'ja');
+export const ENVELOPE_COST_LABEL = t('amount.envelopeCost', 'ja');
+export const EXPENSES_LABEL = t('amount.expenses', 'ja');
+export const OTHERS_COST_LABEL = t('amount.othersCost', 'ja');
+export const POSTAGE_LABEL = t('amount.postage', 'ja');
+export const PURCHASE_PRICE_LABEL = t('amount.purchasePrice', 'ja');
+export const SALES_PRICE_LABEL = t('amount.salesPrice', 'ja');
+export const TOTAL_SALES_LABEL = t('amount.totalSales', 'ja');
+export const COMMISSION_SHORT_LABEL = t('amount.commissionShort', 'ja');
+export const FORMULA_TARGET_LABEL = t('amount.formulaTarget', 'ja');
+export const CALC_SCREEN_TITLE = t('calc.title', 'ja');
+export const TARGET_TAB_LABEL = t('calc.targetTab', 'ja');
+export const REQUIRED_SALES_PRICE_LABEL = t('calc.requiredSalesPrice', 'ja');
+export const CANCEL_LABEL = t('action.cancel', 'ja');
+export const CLOSE_LABEL = t('action.close', 'ja');
+export const DELETE_LABEL = t('action.delete', 'ja');
+export const CALC_ADD_ROW_LABEL = t('calculator.addRow', 'ja');
+export const CALC_PICK_PACKAGING_LABEL = t('calculator.pickPackaging', 'ja');
+export const CALC_SUBMIT_LABEL = t('calculator.submit', 'ja');
+export const CALC_TOTAL_LABEL = t('calculator.total', 'ja');

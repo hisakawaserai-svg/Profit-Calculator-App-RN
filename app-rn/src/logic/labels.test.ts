@@ -156,22 +156,22 @@ import {
 
 describe('§1.1 種別の表示名', () => {
   it('不用品 / 仕入品', () => {
-    expect(recordKindLabel('used')).toBe('不用品');
-    expect(recordKindLabel('sourced')).toBe('仕入品');
+    expect(recordKindLabel('ja', 'used')).toBe('不用品');
+    expect(recordKindLabel('ja', 'sourced')).toBe('仕入品');
   });
 });
 
 describe('§5.3 レコード 1 件の netProfit', () => {
   it('不用品は「純利益」', () => {
-    expect(profitLabel('used')).toBe('純利益');
+    expect(profitLabel('ja', 'used')).toBe('純利益');
   });
 
   it('仕入品は「利益」', () => {
-    expect(profitLabel('sourced')).toBe('利益');
+    expect(profitLabel('ja', 'sourced')).toBe('利益');
   });
 
   it('不用品を「手取り」とは呼ばない（§1.2 / §7-8）', () => {
-    expect(profitLabel('used')).not.toBe('手取り');
+    expect(profitLabel('ja', 'used')).not.toBe('手取り');
   });
 });
 
@@ -181,8 +181,8 @@ describe('§5.3 複数レコードの Σ netProfit', () => {
   });
 
   it('合計は種別語のどちらとも一致しない（案 D の動的ラベルは採らない。§5.2）', () => {
-    expect(TOTAL_PROFIT_LABEL).not.toBe(profitLabel('used'));
-    expect(TOTAL_PROFIT_LABEL).not.toBe(profitLabel('sourced'));
+    expect(TOTAL_PROFIT_LABEL).not.toBe(profitLabel('ja', 'used'));
+    expect(TOTAL_PROFIT_LABEL).not.toBe(profitLabel('ja', 'sourced'));
   });
 });
 
@@ -199,8 +199,8 @@ describe('§5.3 種別で変えない語', () => {
 
 describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
   it('結果側のセグメント名は種別で出し分ける', () => {
-    expect(profitTabLabel('used')).toBe('純利益を出す');
-    expect(profitTabLabel('sourced')).toBe('利益を出す');
+    expect(profitTabLabel('ja', 'used')).toBe('純利益を出す');
+    expect(profitTabLabel('ja', 'sourced')).toBe('利益を出す');
   });
 
   it('逆算側のセグメント名は種別で変えない', () => {
@@ -208,34 +208,34 @@ describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
   });
 
   it('逆算入力欄のラベル', () => {
-    expect(targetProfitLabel('used')).toBe('目標の純利益');
-    expect(targetProfitLabel('sourced')).toBe('目標利益');
+    expect(targetProfitLabel('ja', 'used')).toBe('目標の純利益');
+    expect(targetProfitLabel('ja', 'sourced')).toBe('目標利益');
   });
 
   it('手数料の入力行と逆算結果の一覧には率が入る', () => {
-    expect(commissionFieldLabel(10)).toBe('手数料 10%');
+    expect(commissionFieldLabel('ja', 10)).toBe('手数料 10%');
     expect(commissionItemLabel(10)).toBe('販売手数料10%');
   });
 });
 
 describe('UI-SPEC §1.1-6 梱包材・その他の折りたたみ見出し', () => {
   it('入力があれば合計を添える（畳んだままでも結果に効いていると分かるように）', () => {
-    expect(optionalCostsLabel(80)).toBe('梱包材・その他を入力（80円）');
+    expect(optionalCostsLabel('ja', 80)).toBe('梱包材・その他を入力（80円）');
   });
 
   it('合計 0 なら金額を出さない', () => {
-    expect(optionalCostsLabel(0)).toBe('梱包材・その他を入力');
+    expect(optionalCostsLabel('ja', 0)).toBe('梱包材・その他を入力');
   });
 
   it('端数は表示用に丸める', () => {
-    expect(optionalCostsLabel(80.4)).toBe('梱包材・その他を入力（80円）');
+    expect(optionalCostsLabel('ja', 80.4)).toBe('梱包材・その他を入力（80円）');
   });
 });
 
 describe('UI-SPEC §1.1-3b / 採用案 12c 逆算結果の説明文', () => {
   it('確定デザインの文をそのまま組み立てる', () => {
     expect(
-      requiredPriceSummary({
+      requiredPriceSummary('ja', {
         requiredPrice: 962,
         commissionAmount: 96,
         expenses: 765,
@@ -246,19 +246,19 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 逆算結果の説明文', () => {
 
   it('経費が 0 項目なら手数料だけを言う', () => {
     expect(
-      requiredPriceSummary({ requiredPrice: 112, commissionAmount: 11, expenses: 0, kept: 101 }),
+      requiredPriceSummary('ja', { requiredPrice: 112, commissionAmount: 11, expenses: 0, kept: 101 }),
     ).toBe('112円で売ると、手数料11円が引かれて101円が残ります。');
   });
 
   it('手数料 0% なら経費だけを言う', () => {
     expect(
-      requiredPriceSummary({ requiredPrice: 865, commissionAmount: 0, expenses: 765, kept: 100 }),
+      requiredPriceSummary('ja', { requiredPrice: 865, commissionAmount: 0, expenses: 765, kept: 100 }),
     ).toBe('865円で売ると、経費765円が引かれて100円が残ります。');
   });
 
   it('引かれるものが何もなければ「引かれて」と言わない', () => {
     expect(
-      requiredPriceSummary({ requiredPrice: 100, commissionAmount: 0, expenses: 0, kept: 100 }),
+      requiredPriceSummary('ja', { requiredPrice: 100, commissionAmount: 0, expenses: 0, kept: 100 }),
     ).toBe('100円で売ると、そのまま100円が残ります。');
   });
 });
@@ -276,7 +276,7 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
   };
 
   it('確定デザインの 3 行をそのまま組み立てる', () => {
-    expect(requiredPriceFormulaLines(designExample)).toEqual([
+    expect(requiredPriceFormulaLines('ja', designExample)).toEqual([
       '目標100円 ＋ 経費765円 ＝ 865円',
       '手数料10%が引かれるので ÷ 0.9',
       '→ 961.1... を切り上げて 962円',
@@ -284,13 +284,13 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
   });
 
   it('切り上げ前の値は切り捨てて出す（切り上げの話が続くため）', () => {
-    const lines = requiredPriceFormulaLines({ ...designExample, exact: 961.96 });
+    const lines = requiredPriceFormulaLines('ja', { ...designExample, exact: 961.96 });
     expect(lines[2]).toBe('→ 961.9... を切り上げて 962円');
   });
 
   it('経費が 0 項目なら足し算の行を出さない', () => {
     expect(
-      requiredPriceFormulaLines({
+      requiredPriceFormulaLines('ja', {
         ...designExample,
         targetProfit: 100,
         expenses: 0,
@@ -303,7 +303,7 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
 
   it('手数料 0% なら割り算の行を出さない', () => {
     expect(
-      requiredPriceFormulaLines({
+      requiredPriceFormulaLines('ja', {
         ...designExample,
         commissionRate: 0,
         divisor: 1,
@@ -315,7 +315,7 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
   });
 
   it('割り切れたときは「切り上げて」と言わない', () => {
-    const lines = requiredPriceFormulaLines({
+    const lines = requiredPriceFormulaLines('ja', {
       ...designExample,
       exact: 962,
       roundedUp: false,
@@ -326,7 +326,7 @@ describe('UI-SPEC §1.1-3b / 採用案 12c 計算のしかた', () => {
 
 describe('UI-SPEC §1.1-3b / 採用案 12c 1 つ下の価格の注意文', () => {
   it('確定デザインの文をそのまま組み立てる', () => {
-    expect(lowerPriceWarning({ price: 950, profit: 90 })).toBe(
+    expect(lowerPriceWarning('ja', { price: 950, profit: 90 })).toBe(
       '950円では90円にしかならず、目標に届きません',
     );
   });
@@ -408,7 +408,7 @@ describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
   });
 
   it('加算行（梱包材・その他）は ＋ を前置する', () => {
-    expect(additionLabel(ENVELOPE_AND_OTHERS_FIELD_LABEL)).toBe('＋ 梱包材・その他');
+    expect(additionLabel('ja', ENVELOPE_AND_OTHERS_FIELD_LABEL)).toBe('＋ 梱包材・その他');
   });
 
   it('レコード詳細の手数料行は率を括弧で添える', () => {
@@ -416,7 +416,7 @@ describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
   });
 
   it('記録フォームの手数料行は計算タブと同じ短縮形', () => {
-    expect(deductionLabel(commissionFieldLabel(10))).toBe('− 手数料 10%');
+    expect(deductionLabel(commissionFieldLabel('ja', 10))).toBe('− 手数料 10%');
   });
 });
 
@@ -563,10 +563,10 @@ describe('UI-SPEC §8.10.1 行のチップの「選べない理由」', () => {
 
 describe('UI-SPEC §7 電卓', () => {
   it('見出しは行き先を明示する（§7.1）', () => {
-    expect(calculatorTitle('梱包材')).toBe('梱包材の計算');
-    expect(calculatorTitle('送料')).toBe('送料の計算');
+    expect(calculatorTitle('ja', '梱包材')).toBe('梱包材の計算');
+    expect(calculatorTitle('ja', '送料')).toBe('送料の計算');
     // 逆算モードの入力欄も同じ規則で作る
-    expect(calculatorTitle('目標の純利益')).toBe('目標の純利益の計算');
+    expect(calculatorTitle('ja', '目標の純利益')).toBe('目標の純利益の計算');
   });
 
   it('書き戻しは「入れる」、合計行は「合計」（§7.1）', () => {
@@ -575,7 +575,7 @@ describe('UI-SPEC §7 電卓', () => {
   });
 
   it('積み上げの末尾は記録フォームと同じ「＋ …」の形（§7.1-4）', () => {
-    expect(additionLabel(CALC_ADD_ROW_LABEL)).toBe('＋ 行を足す');
+    expect(additionLabel('ja', CALC_ADD_ROW_LABEL)).toBe('＋ 行を足す');
   });
 
   it('記号は × ÷ で、`*` `/` は画面に出さない（§7.1）', () => {
@@ -598,12 +598,12 @@ describe('UI-SPEC §7 電卓', () => {
     expect(calcRowSignLabel('+')).toBe(CALC_KEY_PLUS);
     expect(calcRowSignLabel('-')).toBe(CALC_KEY_MINUS);
     // 積み上げ行の「＋」は additionLabel の「＋」と同じ字（半角に振れない）
-    expect(additionLabel('x').startsWith(calcRowSignLabel('+'))).toBe(true);
+    expect(additionLabel('ja', 'x').startsWith(calcRowSignLabel('+'))).toBe(true);
   });
 
   it('「入れる」が押せない理由を名指しする（§7.4。グレーなだけでは分からない）', () => {
-    expect(calculatorBlockedNote('negative')).toBe('合計がマイナスのままでは入れられません');
-    expect(calculatorBlockedNote('empty')).toBe('数字を入れると合計が出ます');
+    expect(calculatorBlockedNote('ja', 'negative')).toBe('合計がマイナスのままでは入れられません');
+    expect(calculatorBlockedNote('ja', 'empty')).toBe('数字を入れると合計が出ます');
   });
 });
 
@@ -704,7 +704,7 @@ describe('SPEC-V4 §2 タグの表示語', () => {
   });
 
   it('追加の口の「＋」は additionLabel の字を使う（半角に振れない）', () => {
-    expect(TAG_ADD_LABEL).toBe(additionLabel('追加'));
+    expect(TAG_ADD_LABEL).toBe(additionLabel('ja', '追加'));
   });
 
   it('シートの見出しは追加と編集で出し分ける（§2.3-1）', () => {

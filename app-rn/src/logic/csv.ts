@@ -241,7 +241,7 @@ export function groupRecordsByDay(records: readonly SaleRecord[]): CsvDayGroup[]
 function dayKindField(records: readonly SaleRecord[]): string {
   const kinds = new Set<RecordKind>(records.map((record) => record.kind));
   const [only] = [...kinds];
-  return kinds.size === 1 ? recordKindLabel(only) : CSV_KIND_MIXED_LABEL;
+  return kinds.size === 1 ? recordKindLabel('ja', only) : CSV_KIND_MIXED_LABEL;
 }
 
 // ---- 行の組み立て ----
@@ -272,7 +272,7 @@ function backupRow(record: SaleRecord, tagNames: readonly string[]): string[] {
     toTargetProfitField(record.targetProfit),
     toRateField(record.commission),
     record.siteName,
-    recordKindLabel(record.kind),
+    recordKindLabel('ja', record.kind),
     tagNames.join(CSV_TAG_SEPARATOR),
     record.isSold ? CSV_SOLD_STATUS_VALUE : CSV_LISTING_STATUS_VALUE,
     toDateField(record.saleStartDate),
@@ -288,7 +288,7 @@ function taxRow(record: SaleRecord): string[] {
     toDateField(record.saleDate),
     record.siteName,
     record.itemName,
-    recordKindLabel(record.kind),
+    recordKindLabel('ja', record.kind),
     toAmountField(amounts.salesPrice),
     toAmountField(amounts.purchasePrice),
     toAmountField(amounts.postage),

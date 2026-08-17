@@ -71,7 +71,7 @@ export function TargetProfitSheet({
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <NumericField
-              label={targetProfitLabel(kind)}
+              label={targetProfitLabel('ja', kind)}
               value={input}
               onChangeValue={setInput}
               // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は 0 ではない

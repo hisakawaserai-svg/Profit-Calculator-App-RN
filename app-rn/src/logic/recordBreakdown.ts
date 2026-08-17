@@ -173,7 +173,7 @@ export function recordBreakdown(record: SaleRecord): RecordBreakdown {
 
   const costTotal = costs.reduce((sum, cost) => sum + cost.amount, 0);
   const profit = salesPrice - costTotal;
-  const profitPart = { key: 'kept' as const, label: profitLabel(record.kind), amount: profit };
+  const profitPart = { key: 'kept' as const, label: profitLabel('ja', record.kind), amount: profit };
 
   // 帯の全長。黒字は販売価格（＝ 費用 ＋ 手元に残る額）、
   // 赤字はその「手元に残る額」を「足りなかった額」に置き換えた 費用 ＋ 不足額

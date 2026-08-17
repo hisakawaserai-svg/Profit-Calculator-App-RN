@@ -7,8 +7,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { BreakdownPart, BreakdownPartKey } from '@/logic/calcForm';
 import { formatYenTight } from '@/logic/format';
-import { DEDUCTED_LABEL, KEPT_SHORT_LABEL } from '@/logic/labels';
+import { deductedLabel, keptShortLabel } from '@/logic/labels';
 import { useThemeColors, type ThemeColors } from '@/theme';
+import { useLocale } from '@/settings';
 
 /**
  * 帯の区画と一覧の色見本に共通の色。
@@ -49,6 +50,10 @@ type Props = {
 };
 
 export function CostProportionBar({ parts, kept, deducted }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 0 円以下の区画は描かない。結果側では経費が販売価格を超えて手元がマイナスになりうるが、
   // 負の幅は帯にできないので、その場合は「引かれる分」だけが並ぶ帯になる（実額は下の 2 値）
@@ -75,11 +80,11 @@ export function CostProportionBar({ parts, kept, deducted }: Props) {
       {/* 帯だけでは割合しか読めないので、両側の実額を単位つきで置く */}
       <View style={styles.valueRow}>
         <Text style={[styles.value, { color: kept >= 0 ? colors.green : colors.red }]}>
-          {KEPT_SHORT_LABEL} {formatYenTight(kept)}
+          {keptShortLabel(locale)} {formatYenTight(kept)}
         </Text>
         <Text style={[styles.value, { color: colors.secondaryLabel }]}>／</Text>
         <Text style={[styles.value, { color: colors.label }]}>
-          {DEDUCTED_LABEL} {formatYenTight(deducted)}
+          {deductedLabel(locale)} {formatYenTight(deducted)}
         </Text>
       </View>
     </View>

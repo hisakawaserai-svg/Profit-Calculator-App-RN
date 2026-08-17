@@ -173,7 +173,7 @@ export function OnboardingCalcFigure() {
           （構成の指定） */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <SegmentedControl
-          options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+          options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
           selectedIndex={0}
           onChange={noop}
         />
@@ -182,7 +182,7 @@ export function OnboardingCalcFigure() {
           <FieldRow label={POSTAGE_LABEL} value={formatYenSymbol(postage)} colors={colors} />
           <FieldRow label={ENVELOPE_COST_LABEL} value={formatYenSymbol(envelopeCost)} colors={colors} />
           <FieldRow
-            label={commissionFieldLabel(commission)}
+            label={commissionFieldLabel('ja', commission)}
             value={formatYenSymbol(commissionCost(costs))}
             colors={colors}
           />
@@ -194,7 +194,7 @@ export function OnboardingCalcFigure() {
       {/* カード 2: 結果 */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <ResultBlock
-          label={profitLabel('used')}
+          label={profitLabel('ja', 'used')}
           amount={formatYenSymbol(profit)}
           amountColor={profit >= 0 ? colors.green : colors.red}
           colors={colors}
@@ -233,13 +233,13 @@ export function OnboardingTargetFigure() {
           読ませる（構成の指定） */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <SegmentedControl
-          options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+          options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
           selectedIndex={1}
           onChange={noop}
         />
         <View style={styles.rows}>
           <FieldRow
-            label={targetProfitLabel('used')}
+            label={targetProfitLabel('ja', 'used')}
             value={formatYenSymbol(ONBOARDING_TARGET_PROFIT_EXAMPLE)}
             colors={colors}
           />
@@ -396,7 +396,7 @@ export function OnboardingSaveFigure() {
         <FieldRow label={SALES_PRICE_LABEL} value={formatYenSymbol(salesPrice)} colors={colors} />
         <FieldRow label={POSTAGE_LABEL} value={formatYenSymbol(postage)} colors={colors} />
         <FieldRow
-          label={commissionFieldLabel(commission)}
+          label={commissionFieldLabel('ja', commission)}
           value={formatYenSymbol(commissionAmount)}
           colors={colors}
         />
@@ -728,7 +728,7 @@ export function OnboardingPackagingPresetFigure() {
             </Text>
           </View>
           <Text style={[styles.pickerTitle, { color: colors.label }]} numberOfLines={1}>
-            {presetPickerTitle('packaging')}
+            {presetPickerTitle('ja', 'packaging')}
           </Text>
           <View style={styles.pickerHeaderSide} />
         </View>

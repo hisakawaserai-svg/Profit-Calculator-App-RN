@@ -59,27 +59,27 @@ import {
 import { formatYen, formatYenSymbol } from '@/logic/format';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
-  BREAKDOWN_AND_METHOD_LABEL,
-  BREAKDOWN_LABEL,
-  CALC_SCREEN_TITLE,
-  CANCEL_LABEL,
-  CLEAR_CONFIRM_MESSAGE,
-  CLEAR_CONFIRM_TITLE,
-  CLEAR_INPUT_ACTION_LABEL,
-  CLEAR_LABEL,
-  DEDUCTED_LABEL,
-  ENVELOPE_COST_LABEL,
-  EXPENSES_LABEL,
-  OTHERS_COST_LABEL,
-  POSTAGE_LABEL,
-  PURCHASE_PRICE_LABEL,
-  REQUIRED_PRICE_HEADLINE,
-  REQUIRED_SALES_LABEL,
-  REQUIRED_SALES_PRICE_LABEL,
-  SALES_PRICE_LABEL,
-  TARGET_TAB_LABEL,
-  TOTAL_SALES_AMOUNT_LABEL,
-  TOTAL_SALES_LABEL,
+  breakdownAndMethodLabel,
+  breakdownLabel,
+  calcScreenTitle,
+  cancelLabel,
+  clearConfirmMessage,
+  clearConfirmTitle,
+  clearInputActionLabel,
+  clearLabel,
+  deductedLabel,
+  envelopeCostLabel,
+  expensesLabel,
+  othersCostLabel,
+  postageLabel,
+  purchasePriceLabel,
+  requiredPriceHeadline,
+  requiredSalesLabel,
+  requiredSalesPriceLabel,
+  salesPriceLabel,
+  targetTabLabel,
+  totalSalesAmountLabel,
+  totalSalesLabel,
   commissionFieldLabel,
   lowerPriceWarning,
   optionalCostsLabel,
@@ -92,7 +92,7 @@ import {
 import { netProfit, roundForDisplay, totalExpenses, type CostInput } from '@/logic/profit';
 import { MAX_COMMISSION, MIN_COMMISSION } from '@/logic/recordForm';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
-import { useSettings } from '@/settings';
+import { useSettings, useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 結果カード先頭の 2 択（UI-SPEC §1.1-3）。左が結果、右が逆算 */
@@ -109,6 +109,10 @@ const STICKY_DURATION = 180;
 const FALLBACK_STICKY_HEIGHT = 88;
 
 export default function CalcScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { defaultRecordKind } = useSettings();
   /** 鍵盤が出ている間は広告を畳む（下の AdBanner のコメント参照） */
@@ -154,15 +158,16 @@ export default function CalcScreen() {
   // 押した直後の「元に戻す」表示は実装していない（UI-SPEC §5-8）ので、
   // 消える前に確認を 1 枚挟む（レコード詳細の削除と同じ作法。SPEC §5.4）
   const clearAll = useCallback(() => {
-    Alert.alert(CLEAR_CONFIRM_TITLE, CLEAR_CONFIRM_MESSAGE, [
-      { text: CANCEL_LABEL, style: 'cancel' },
+    Alert.alert(clearConfirmTitle(locale), clearConfirmMessage(locale), [
+      { text: cancelLabel(locale), style: 'cancel' },
       {
-        text: CLEAR_LABEL,
+        text: clearLabel(locale),
         style: 'destructive',
         onPress: () => setValues(newCalcValues(defaultRecordKind)),
       },
     ]);
-  }, [defaultRecordKind]);
+    // locale を依存に入れる ── 抜かすと、言語を切り替えたあとも前の言語の確認文が出る
+  }, [defaultRecordKind, locale]);
 
   /**
    * 販売サイトのプリセットを選んだとき（SPEC-V3 §4.3 / §1.5.1）。
@@ -182,7 +187,7 @@ export default function CalcScreen() {
   const profit = netProfit(costs);
 
   // 固定バー・結果カードに出す 1 行（UI-SPEC §1.1-2「逆算モードでは見出しと色が変わる」）
-  const resultLabel = isTargetMode ? REQUIRED_SALES_PRICE_LABEL : profitLabel(kind);
+  const resultLabel = isTargetMode ? requiredSalesPriceLabel(locale) : profitLabel(locale, kind);
   const resultAmount = formatYen(isTargetMode ? costs.salesPrice : profit);
   const resultColor = isTargetMode ? colors.blue : profit >= 0 ? colors.green : colors.red;
 
@@ -198,10 +203,11 @@ export default function CalcScreen() {
   // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7 / §1.1-1）
   const screenOptions = useMemo(
     () => ({
-      headerTitle: CALC_SCREEN_TITLE,
+      headerTitle: calcScreenTitle(locale),
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
-    [],
+    // 見出しが locale で決まるので依存に入れる（抜かすとヘッダだけ前の言語で残る）
+    [locale],
   );
 
   return (
@@ -231,14 +237,14 @@ export default function CalcScreen() {
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !canClear }}
-                  accessibilityLabel={CLEAR_INPUT_ACTION_LABEL}
+                  accessibilityLabel={clearInputActionLabel(locale)}
                   style={({ pressed }) => ({ opacity: !canClear ? 0.3 : pressed ? 0.5 : 1 })}>
-                  <Text style={[styles.clearLabel, { color: colors.blue }]}>{CLEAR_LABEL}</Text>
+                  <Text style={[styles.clearLabel, { color: colors.blue }]}>{clearLabel(locale)}</Text>
                 </Pressable>
               </View>
 
               <SegmentedControl
-                options={[profitTabLabel(kind), TARGET_TAB_LABEL]}
+                options={[profitTabLabel(locale, kind), targetTabLabel(locale)]}
                 selectedIndex={mode}
                 onChange={setMode}
               />
@@ -271,7 +277,7 @@ export default function CalcScreen() {
               {/* 5. 入力カード。行型の数値欄（UI-SPEC §1.1-5 / §3.2） */}
               <View style={[styles.card, styles.inputCard, { backgroundColor: colors.secondaryBackground }]}>
                 <NumericField
-                  label={SALES_PRICE_LABEL}
+                  label={salesPriceLabel(locale)}
                   value={displayedSalesPrice}
                   onChangeValue={(value) => update('salesPrice', value)}
                   // 逆算モードでは販売価格が計算結果になるため無効化（UI-SPEC §1.1「挙動」）
@@ -282,7 +288,7 @@ export default function CalcScreen() {
                 {kind === 'sourced' && (
                   <>
                     <NumericField
-                      label={PURCHASE_PRICE_LABEL}
+                      label={purchasePriceLabel(locale)}
                       value={values.purchasePrice}
                       onChangeValue={(value) => update('purchasePrice', value)}
                     />
@@ -290,7 +296,7 @@ export default function CalcScreen() {
                   </>
                 )}
                 <NumericField
-                  label={POSTAGE_LABEL}
+                  label={postageLabel(locale)}
                   value={values.postage}
                   onChangeValue={(value) => update('postage', value)}
                   // 送料はプリセットから選べる（SPEC-V3 §4.2）
@@ -301,7 +307,7 @@ export default function CalcScreen() {
                     ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
                 <View style={styles.stepperRow}>
                   <Stepper
-                    label={commissionFieldLabel(values.commission)}
+                    label={commissionFieldLabel(locale, values.commission)}
                     value={values.commission}
                     minimumValue={MIN_COMMISSION}
                     maximumValue={MAX_COMMISSION}
@@ -331,19 +337,19 @@ export default function CalcScreen() {
                 <CollapsibleSection
                   // 畳んだままでも中身が結果に効いていることが分かるよう、見出しに合計を添える。
                   // costs はモードで salesPrice だけが変わるので、この 2 項目はどちらでも同じ値
-                  label={optionalCostsLabel(costs.envelopeCost + costs.othersCost)}
+                  label={optionalCostsLabel(locale, costs.envelopeCost + costs.othersCost)}
                   tone="link"
                   expanded={optionalCostsOpen}
                   onToggle={() => setOptionalCostsOpen((open) => !open)}>
                   <NumericField
-                    label={ENVELOPE_COST_LABEL}
+                    label={envelopeCostLabel(locale)}
                     value={values.envelopeCost}
                     onChangeValue={(value) => update('envelopeCost', value)}
                     // 梱包材プリセットを積める先はこの欄だけ（§4.5。MiniCalculator 参照）
                     canPickPackaging
                   />
                   <NumericField
-                    label={OTHERS_COST_LABEL}
+                    label={othersCostLabel(locale)}
                     value={values.othersCost}
                     onChangeValue={(value) => update('othersCost', value)}
                   />
@@ -359,11 +365,11 @@ export default function CalcScreen() {
             label={resultLabel}
             amount={resultAmount}
             amountColor={resultColor}
-            salesLabel={isTargetMode ? REQUIRED_SALES_LABEL : TOTAL_SALES_LABEL}
+            salesLabel={isTargetMode ? requiredSalesLabel(locale) : totalSalesLabel(locale)}
             // 逆算モードでは「経費」と呼ばない。逆算パネルの説明文・式が経費を手数料抜きの額
             // （765 円）で使っているので、手数料込みの totalExpenses（861 円）を同じ語で呼ぶと、
             // スクロールでバーが出た瞬間に数字が食い違って見える。パネル側と同じ「引かれる分」に揃える
-            expensesLabel={isTargetMode ? DEDUCTED_LABEL : EXPENSES_LABEL}
+            expensesLabel={isTargetMode ? deductedLabel(locale) : expensesLabel(locale)}
             costs={costs}
             kind={kind}
             expanded={stickyBreakdownOpen}
@@ -441,6 +447,10 @@ function StickyResultBar({
   expanded: boolean;
   onToggleBreakdown: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   // Animated.Value はマウント中ずっと同じインスタンスを使う。
   // useRef ではなく useState の初期化関数なのは、描画に使う値を ref から読まないため
   const [progress] = useState(() => new Animated.Value(0));
@@ -491,13 +501,13 @@ function StickyResultBar({
         style={({ pressed }) => [styles.stickyMetaRow, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={BREAKDOWN_LABEL}>
+        accessibilityLabel={breakdownLabel(locale)}>
         <Text style={[styles.stickyMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
           {salesLabel} {formatYenSymbol(costs.salesPrice)} ／ {expensesLabel}{' '}
           {formatYenSymbol(totalExpenses(costs))}
         </Text>
         <View style={styles.stickyBreakdownToggle}>
-          <Text style={[styles.stickyMeta, { color: colors.blue }]}>{BREAKDOWN_LABEL}</Text>
+          <Text style={[styles.stickyMeta, { color: colors.blue }]}>{breakdownLabel(locale)}</Text>
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={12}
@@ -544,6 +554,10 @@ function ProfitPanel({
   expanded: boolean;
   onToggleBreakdown: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const breakdown = profitBreakdown(values);
 
   return (
@@ -553,9 +567,9 @@ function ProfitPanel({
         style={({ pressed }) => [styles.resultBlock, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${profitLabel(kind)} ${formatYen(profit)}。押すと${BREAKDOWN_LABEL}を開く`}>
+        accessibilityLabel={`${profitLabel(locale, kind)} ${formatYen(profit)}。押すと${breakdownLabel(locale)}を開く`}>
         <Text style={[styles.resultCaption, { color: colors.secondaryLabel }]}>
-          {profitLabel(kind)}
+          {profitLabel(locale, kind)}
         </Text>
         <Text
           style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}
@@ -572,7 +586,7 @@ function ProfitPanel({
       />
 
       <CollapsibleSection
-        label={BREAKDOWN_LABEL}
+        label={breakdownLabel(locale)}
         expanded={expanded}
         onToggle={onToggleBreakdown}
         align="center">
@@ -605,7 +619,11 @@ function TargetPanel({
   expanded: boolean;
   onToggleBreakdown: () => void;
 }) {
-  const label = targetProfitLabel(values.kind);
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  const label = targetProfitLabel(locale, values.kind);
   const result = requiredPriceResult(values);
 
   return (
@@ -625,7 +643,7 @@ function TargetPanel({
 
       <View style={styles.resultBlock}>
         <Text style={[styles.resultCaption, { color: colors.secondaryLabel }]}>
-          {REQUIRED_PRICE_HEADLINE}
+          {requiredPriceHeadline(locale)}
         </Text>
         <Text
           style={[styles.resultAmount, { color: colors.blue }]}
@@ -638,11 +656,11 @@ function TargetPanel({
       <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
 
       <Text style={[styles.summary, { color: colors.label }]}>
-        {requiredPriceSummary(result)}
+        {requiredPriceSummary(locale, result)}
       </Text>
 
       <CollapsibleSection
-        label={BREAKDOWN_AND_METHOD_LABEL}
+        label={breakdownAndMethodLabel(locale)}
         tone="link"
         align="center"
         expanded={expanded}
@@ -665,9 +683,13 @@ function FormulaBlock({
   result: RequiredPriceResult;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   return (
     <View style={styles.formula}>
-      {requiredPriceFormulaLines(result.formula).map((line) => (
+      {requiredPriceFormulaLines(locale, result.formula).map((line) => (
         <Text key={line} style={[styles.formulaLine, { color: colors.label }]}>
           {line}
         </Text>
@@ -677,7 +699,7 @@ function FormulaBlock({
           丸めのせいで届いてしまう）だけ落ちる。回数を数えて引っ込める仕掛けは持たない */}
       {result.lowerPrice != null && (
         <Text style={[styles.lowerPriceWarning, { color: colors.red }]}>
-          {lowerPriceWarning(result.lowerPrice)}
+          {lowerPriceWarning(locale, result.lowerPrice)}
         </Text>
       )}
     </View>
@@ -705,6 +727,10 @@ function BreakdownPartList({
   /** 固定バーは 2 段目に売上を出しているので、内訳では繰り返さない（UI-SPEC §1.1-2） */
   showSalesRow?: boolean;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   return (
     <View style={styles.partList}>
       {showSalesRow && (
@@ -713,7 +739,7 @@ function BreakdownPartList({
               下の行と語頭を揃えるために幅だけ空ける */}
           <View style={styles.swatch} />
           <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>
-            {TOTAL_SALES_AMOUNT_LABEL}
+            {totalSalesAmountLabel(locale)}
           </Text>
           <Text style={[styles.partValue, { color: colors.label }]}>
             {formatYen(breakdown.salesPrice)}

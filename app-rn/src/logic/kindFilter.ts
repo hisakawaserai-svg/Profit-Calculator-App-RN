@@ -23,7 +23,7 @@ export const DEFAULT_KIND_FILTER: KindFilter = 'all';
 
 /** 選択肢の表示名。種別そのものの表示名は labels.ts の確定値を使う（§1.1） */
 export function kindFilterLabel(value: KindFilter): string {
-  return value === 'all' ? 'すべて' : recordKindLabel(value);
+  return value === 'all' ? 'すべて' : recordKindLabel('ja', value);
 }
 
 /** repository の RecordListFilter.kind / AnalyticsFilter.kind へ渡す値（§4.2） */

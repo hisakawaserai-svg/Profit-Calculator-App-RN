@@ -55,9 +55,9 @@ export function PresetSummaryCard({ type, presets }: Props) {
           { backgroundColor: colors.secondaryBackground },
         ])}
         accessibilityRole="link"
-        accessibilityLabel={`${presetTypeLabel(type)} ${presetCountLabel('ja', presets.length)}`}>
+        accessibilityLabel={`${presetTypeLabel('ja', type)} ${presetCountLabel('ja', presets.length)}`}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel(type)}</Text>
+          <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel('ja', type)}</Text>
           {/* この部品はまだ多言語化していない（ステップ 2）。カードの他の語（種類名・
               「まだ登録がありません」）が日本語のままなので、件数だけ訳すと
               1 枚の中で言語が混ざる。移すときに locale を props で受け取る形へ変える */}

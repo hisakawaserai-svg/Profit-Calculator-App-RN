@@ -31,6 +31,7 @@ import {
   calculatorAccessibilityLabel,
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
+import { useLocale } from '@/settings';
 
 /** UI-SPEC §1.1-5「行高 60px」 */
 const ROW_HEIGHT = 60;
@@ -124,6 +125,10 @@ export function NumericField({
   canOpenSettings = true,
   canPickPackaging = false,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
   const calcLabel = calculatorLabel ?? label;
@@ -193,7 +198,7 @@ export function NumericField({
             }}
             disabled={disabled}
             hitSlop={8}
-            accessibilityLabel={calculatorAccessibilityLabel(calcLabel)}
+            accessibilityLabel={calculatorAccessibilityLabel(locale, calcLabel)}
             style={({ pressed }) => [
               styles.calcButton,
               { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },

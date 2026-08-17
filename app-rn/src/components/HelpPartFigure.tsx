@@ -141,7 +141,7 @@ export function ModeProfitFigure() {
   return (
     <PartFrame note={HELP_FIGURE_MODE_PROFIT_NOTE}>
       <SegmentedControl
-        options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+        options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
         selectedIndex={0}
         onChange={noop}
       />
@@ -153,7 +153,7 @@ export function ModeTargetFigure() {
   return (
     <PartFrame note={HELP_FIGURE_MODE_TARGET_NOTE}>
       <SegmentedControl
-        options={[profitTabLabel('used'), TARGET_TAB_LABEL]}
+        options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
         selectedIndex={1}
         onChange={noop}
       />
@@ -187,7 +187,7 @@ export function CommissionFieldFigure() {
   return (
     <PartFrame note={HELP_FIGURE_COMMISSION_FIELD_NOTE}>
       <Stepper
-        label={commissionFieldLabel(DEFAULT_COMMISSION)}
+        label={commissionFieldLabel('ja', DEFAULT_COMMISSION)}
         value={DEFAULT_COMMISSION}
         minimumValue={MIN_COMMISSION}
         maximumValue={MAX_COMMISSION}
@@ -283,7 +283,7 @@ export function TargetFieldFigure() {
     <PartFrame note={HELP_FIGURE_TARGET_FIELD_NOTE}>
       <View style={styles.fieldRow}>
         <Text style={[styles.fieldLabel, { color: colors.label }]}>
-          {targetProfitLabel('used')}
+          {targetProfitLabel('ja', 'used')}
         </Text>
         <Text style={[styles.fieldValue, { color: colors.mutedLabel }]}>
           {TARGET_PROFIT_UNSET_LABEL}

@@ -36,6 +36,7 @@ import { presetPickerTitle, presetTagClearLabel, presetTagStateLabel } from '@/l
 import { resolvePresetTag } from '@/logic/preset';
 import type { ShippingMaterialChoice } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
+import { useLocale } from '@/settings';
 
 /** 行の中に収める大きさ。一覧の 28px より小さくして、数値と同じ行に並べても重くしない */
 const BADGE_SIZE = 24;
@@ -90,6 +91,10 @@ export function PresetTagButton({
   disabled = false,
   canOpenSettings = true,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
   const { presets } = usePresetList(type);
@@ -110,10 +115,10 @@ export function PresetTagButton({
           disabled={disabled}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={presetPickerTitle(type)}
+          accessibilityLabel={presetPickerTitle(locale, type)}
           // 見た目（バッジの濃さ・▾ の有無）で示している状態を読み上げにも乗せる
           accessibilityValue={{
-            text: presetTagStateLabel(
+            text: presetTagStateLabel(locale, 
               tag.kind,
               tag.kind === 'unselected' ? '' : tag.preset.name,
             ),
@@ -144,7 +149,7 @@ export function PresetTagButton({
             onPress={onClear}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={presetTagClearLabel(tag.preset.name)}
+            accessibilityLabel={presetTagClearLabel(locale, tag.preset.name)}
             style={({ pressed }) => [styles.clearButton, { opacity: pressed ? 0.5 : 1 }]}>
             <Ionicons name="close" size={CLEAR_ICON_SIZE} color={colors.secondaryLabel} />
           </Pressable>

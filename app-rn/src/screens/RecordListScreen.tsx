@@ -509,7 +509,7 @@ function SwipeToDeleteRow({
           style={[styles.deleteAction, { backgroundColor: colors.red }]}
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel={deleteAccessibilityLabel(record.itemName)}>
+          accessibilityLabel={deleteAccessibilityLabel('ja', record.itemName)}>
           <Text style={styles.deleteLabel}>{DELETE_LABEL}</Text>
         </Pressable>
       )}>

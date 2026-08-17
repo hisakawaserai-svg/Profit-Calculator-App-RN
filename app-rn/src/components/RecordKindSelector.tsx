@@ -6,10 +6,10 @@
 import { SegmentedControl } from '@/components/SegmentedControl';
 import type { RecordKind } from '@/db/schema';
 import { recordKindLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 /** セグメントの並び。既定種別の 'used' を左に置く */
 const KINDS: readonly RecordKind[] = ['used', 'sourced'];
-const LABELS = KINDS.map(recordKindLabel);
 
 type Props = {
   kind: RecordKind;
@@ -17,9 +17,15 @@ type Props = {
 };
 
 export function RecordKindSelector({ kind, onChange }: Props) {
+  // **表示名をモジュールスコープで畳まない。** かつては `const LABELS = KINDS.map(recordKindLabel)`
+  // だったが、それだと import 時の言語のまま固まって切り替わらない。
+  // 描画のたびに作り、locale を引数で渡す（React Compiler 対策。src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+  const labels = KINDS.map((value) => recordKindLabel(locale, value));
+
   return (
     <SegmentedControl
-      options={LABELS}
+      options={labels}
       selectedIndex={KINDS.indexOf(kind)}
       onChange={(index) => onChange(KINDS[index] ?? 'used')}
     />

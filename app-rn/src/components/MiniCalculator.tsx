@@ -40,9 +40,9 @@ import {
 } from '@/logic/calcMemo';
 import { formatCalcTotal } from '@/logic/format';
 import {
-  CALC_ADD_ROW_LABEL,
-  CALC_BACKSPACE_A11Y_LABEL,
-  CALC_CLEAR_ALL_A11Y_LABEL,
+  calcAddRowLabel,
+  calcBackspaceA11yLabel,
+  calcClearAllA11yLabel,
   CALC_KEY_BACKSPACE,
   CALC_KEY_CLEAR_ALL,
   CALC_KEY_DIVIDE,
@@ -50,11 +50,11 @@ import {
   CALC_KEY_MINUS,
   CALC_KEY_MULTIPLY,
   CALC_KEY_PLUS,
-  CALC_PICK_PACKAGING_LABEL,
-  CALC_SUBMIT_LABEL,
-  CALC_TOTAL_LABEL,
-  CLOSE_LABEL,
-  DELETE_LABEL,
+  calcPickPackagingLabel,
+  calcSubmitLabel,
+  calcTotalLabel,
+  closeLabel,
+  deleteLabel,
   additionLabel,
   calcRowSignLabel,
   calculatorBlockedNote,
@@ -62,6 +62,7 @@ import {
   deleteAccessibilityLabel,
 } from '@/logic/labels';
 import { useThemeColors, type ThemeColors } from '@/theme';
+import { useLocale } from '@/settings';
 
 /**
  * キーパッド（§7.1）。4 列 × 4 行と数字の位置は変えない。
@@ -141,6 +142,10 @@ export function MiniCalculator({
   canPickPackaging = false,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 「入れる」を押さずに閉じた分の積み上げは残らない（§7.4）。state はこの 1 つだけ
   const [memo, setMemo] = useState(() => initialMemo);
@@ -195,10 +200,10 @@ export function MiniCalculator({
           {/* 2. ヘッダ。左「閉じる」／中央「{行き先}の計算」／右「入れる」 */}
           <View style={[styles.header, { borderBottomColor: colors.separator }]}>
             <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
-              <Text style={[styles.headerButton, { color: colors.blue }]}>{CLOSE_LABEL}</Text>
+              <Text style={[styles.headerButton, { color: colors.blue }]}>{closeLabel(locale)}</Text>
             </Pressable>
             <Text style={[styles.headerTitle, { color: colors.label }]} numberOfLines={1}>
-              {calculatorTitle(fieldLabel)}
+              {calculatorTitle(locale, fieldLabel)}
             </Text>
             <Pressable
               onPress={() => handleSubmit(close)}
@@ -212,7 +217,7 @@ export function MiniCalculator({
                   styles.submitButton,
                   { color: blocked != null ? colors.gray : colors.blue },
                 ]}>
-                {CALC_SUBMIT_LABEL}
+                {calcSubmitLabel(locale)}
               </Text>
             </Pressable>
           </View>
@@ -251,7 +256,7 @@ export function MiniCalculator({
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
                   <Text style={[styles.addRowLabel, { color: colors.blue }]}>
-                    {additionLabel(CALC_ADD_ROW_LABEL)}
+                    {additionLabel(locale, calcAddRowLabel(locale))}
                   </Text>
                 </Pressable>
                 {/* 出さないときは詰め物も置かない。左「＋ 行を足す」と右「AC」の
@@ -268,14 +273,14 @@ export function MiniCalculator({
                     {/* タグ印はプリセットの入口の合図（行のタグボタンと同じ pricetag-outline） */}
                     <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
                     <Text style={[styles.addRowLabel, { color: colors.blue }]}>
-                      {CALC_PICK_PACKAGING_LABEL}
+                      {calcPickPackagingLabel(locale)}
                     </Text>
                   </Pressable>
                 )}
                 <Pressable
                   onPress={() => handleKey(CALC_KEY_CLEAR_ALL)}
                   accessibilityRole="button"
-                  accessibilityLabel={CALC_CLEAR_ALL_A11Y_LABEL}
+                  accessibilityLabel={calcClearAllA11yLabel(locale)}
                   style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
                   <Text style={[styles.clearAllLabel, { color: colors.gray }]}>
                     {CALC_KEY_CLEAR_ALL}
@@ -288,7 +293,7 @@ export function MiniCalculator({
           {/* 5. 合計行。負は赤（§7.4）。無効の理由はその下に 1 行で出す */}
           <View style={[styles.totalBlock, { borderTopColor: colors.separator }]}>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: colors.label }]}>{CALC_TOTAL_LABEL}</Text>
+              <Text style={[styles.totalLabel, { color: colors.label }]}>{calcTotalLabel(locale)}</Text>
               <Text
                 style={[styles.totalAmount, { color: total < 0 ? colors.red : colors.label }]}
                 numberOfLines={1}>
@@ -297,7 +302,7 @@ export function MiniCalculator({
             </View>
             {blocked != null && (
               <Text style={[styles.blockedNote, { color: colors.secondaryLabel }]}>
-                {calculatorBlockedNote(blocked)}
+                {calculatorBlockedNote(locale, blocked)}
               </Text>
             )}
           </View>
@@ -352,6 +357,10 @@ function SwipeToDeleteMemoRow({
   colors: ThemeColors;
   onDelete: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   return (
     <ReanimatedSwipeable
       friction={2}
@@ -362,8 +371,8 @@ function SwipeToDeleteMemoRow({
           style={[styles.deleteAction, { backgroundColor: colors.red }]}
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel={deleteAccessibilityLabel(rowAccessibilityLabel(row))}>
-          <Text style={styles.deleteLabel}>{DELETE_LABEL}</Text>
+          accessibilityLabel={deleteAccessibilityLabel(locale, rowAccessibilityLabel(row))}>
+          <Text style={styles.deleteLabel}>{deleteLabel(locale)}</Text>
         </Pressable>
       )}>
       <View style={[styles.rowSurface, { backgroundColor: colors.secondaryBackground }]}>
@@ -440,11 +449,15 @@ function CalcKey({
   colors: ThemeColors;
   onPress: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const isOperator = OPERATOR_KEYS.includes(label);
   const isMuted = MUTED_KEYS.includes(label);
 
   // 記号のままでは読み上げにならないキーだけ語を当てる（`AC` は積み上げの側へ移した）
-  const accessibilityLabel = label === CALC_KEY_BACKSPACE ? CALC_BACKSPACE_A11Y_LABEL : label;
+  const accessibilityLabel = label === CALC_KEY_BACKSPACE ? calcBackspaceA11yLabel(locale) : label;
 
   return (
     <Pressable

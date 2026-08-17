@@ -13,12 +13,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SheetModal } from '@/components/SheetModal';
 import {
-  ADD_RECORD_MENU_TITLE,
-  DUPLICATE_RECORD_ACTION_LABEL,
-  DUPLICATE_RECORD_ACTION_NOTE,
-  NEW_RECORD_ACTION_LABEL,
-  NEW_RECORD_ACTION_NOTE,
+  addRecordMenuTitle,
+  duplicateRecordActionLabel,
+  duplicateRecordActionNote,
+  newRecordActionLabel,
+  newRecordActionNote,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -37,6 +38,10 @@ export function AddRecordMenuSheet({
   onSelectDuplicate,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -51,19 +56,19 @@ export function AddRecordMenuSheet({
 
         return (
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            <Text style={[styles.title, { color: colors.label }]}>{ADD_RECORD_MENU_TITLE}</Text>
+            <Text style={[styles.title, { color: colors.label }]}>{addRecordMenuTitle(locale)}</Text>
             <View style={[styles.group, { backgroundColor: colors.secondaryBackground }]}>
               <MenuRow
                 icon="add-circle-outline"
-                label={NEW_RECORD_ACTION_LABEL}
-                note={NEW_RECORD_ACTION_NOTE}
+                label={newRecordActionLabel(locale)}
+                note={newRecordActionNote(locale)}
                 onPress={() => select(onSelectNew)}
               />
               <View style={[styles.separator, { backgroundColor: colors.separator }]} />
               <MenuRow
                 icon="copy-outline"
-                label={DUPLICATE_RECORD_ACTION_LABEL}
-                note={DUPLICATE_RECORD_ACTION_NOTE}
+                label={duplicateRecordActionLabel(locale)}
+                note={duplicateRecordActionNote(locale)}
                 onPress={() => select(onSelectDuplicate)}
               />
             </View>

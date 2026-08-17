@@ -540,7 +540,7 @@ export function PresetFormScreen({ type, preset }: Props) {
               // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
               // その色が上の群へ移ってしまわないように
               ownColor={preset?.colorKey}
-              entityLabel={presetTypeLabel(type)}
+              entityLabel={presetTypeLabel('ja', type)}
             />
           </View>
 

@@ -18,6 +18,7 @@ import { usePresetList } from '@/db/usePresets';
 import { siteNameClearLabel } from '@/logic/labels';
 import { findPresetByName } from '@/logic/preset';
 import { useThemeColors } from '@/theme';
+import { useLocale } from '@/settings';
 
 /** タグボタン（PresetTagButton）と同じ大きさ。同じ札を指しているので大きさも揃える */
 const BADGE_SIZE = 24;
@@ -30,6 +31,10 @@ type Props = {
 };
 
 export function SiteNameRow({ siteName, onClear }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { presets } = usePresetList('site');
 
@@ -47,7 +52,7 @@ export function SiteNameRow({ siteName, onClear }: Props) {
         onPress={onClear}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel={siteNameClearLabel(siteName)}
+        accessibilityLabel={siteNameClearLabel(locale, siteName)}
         style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
         <Ionicons name="close" size={16} color={colors.secondaryLabel} />
       </Pressable>

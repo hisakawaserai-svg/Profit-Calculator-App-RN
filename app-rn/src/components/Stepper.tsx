@@ -11,6 +11,7 @@ import {
   decreaseAccessibilityLabel,
   increaseAccessibilityLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type ButtonsProps = {
@@ -72,6 +73,10 @@ export function StepperButtons({
   onChangeValue,
   accessibilityLabel,
 }: ButtonsProps) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const canDecrement = value > minimumValue;
   const canIncrement = value < maximumValue;
@@ -86,7 +91,7 @@ export function StepperButtons({
       <Pressable
         onPress={() => clampedChange(-step)}
         disabled={!canDecrement}
-        accessibilityLabel={decreaseAccessibilityLabel(accessibilityLabel)}
+        accessibilityLabel={decreaseAccessibilityLabel(locale, accessibilityLabel)}
         style={({ pressed }) => [
           styles.button,
           { opacity: !canDecrement ? 0.3 : pressed ? 0.5 : 1 },
@@ -97,7 +102,7 @@ export function StepperButtons({
       <Pressable
         onPress={() => clampedChange(step)}
         disabled={!canIncrement}
-        accessibilityLabel={increaseAccessibilityLabel(accessibilityLabel)}
+        accessibilityLabel={increaseAccessibilityLabel(locale, accessibilityLabel)}
         style={({ pressed }) => [
           styles.button,
           { opacity: !canIncrement ? 0.3 : pressed ? 0.5 : 1 },

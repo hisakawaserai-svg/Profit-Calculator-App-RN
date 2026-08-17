@@ -170,10 +170,10 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
               （赤字のときは帯に緑の区画が無いのでグレーになる） */}
           <View style={[styles.dot, { backgroundColor: dotColor('kept') }]} />
           <Text style={[styles.resultLabel, { color: colors.label }]}>
-            {profitLabel(record.kind)}
+            {profitLabel('ja', record.kind)}
           </Text>
         </View>
-        <LongPressCopy label={profitLabel(record.kind)} text={profit.toString()}>
+        <LongPressCopy label={profitLabel('ja', record.kind)} text={profit.toString()}>
           <Text
             style={[
               styles.resultAmount,
