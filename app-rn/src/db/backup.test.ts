@@ -423,4 +423,65 @@ describe('§3.4 バックアップと復元', () => {
     // 全置換なので、復元前の記録は残らない
     expect(backup.counts().records).toBe(1);
   });
+
+  // ---- SPEC-V10 §1.6 梱包材の単価計算方式（往復と古いバックアップ） ----
+
+  it('面積方式の梱包材が方式・サイズごと往復する', () => {
+    presetRepository.create({
+      type: 'packaging',
+      name: 'エアキャップ',
+      colorKey: '#2E9E4F',
+      initial: 'エ',
+      value: 30,
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 30,
+      useWidth: 20,
+    });
+    const before = backup.dump();
+
+    backup.restore(roundTrip());
+
+    expect(backup.dump()).toEqual(before);
+    expect(
+      presetRepository.listByType('packaging').find((preset) => preset.name === 'エアキャップ'),
+    ).toMatchObject({
+      calcMethod: 'area',
+      value: 30,
+      packHeight: 100,
+      useWidth: 20,
+    });
+  });
+
+  it('**5 列が無い古いバックアップも復元でき、梱包材は個数方式のまま**（§1.6 の例外）', () => {
+    // SPEC-V10 より前の presets.csv（10 列）をそのまま組む
+    const legacyHeader =
+      'id,type,name,color_key,initial,value,pack_quantity,pack_price,material_cost,sort_order';
+    const legacyCsv =
+      `${legacyHeader}\r\n` + 'old-p,packaging,封筒（A4）,#FFCC00,封,8,100,800,0,1\r\n';
+
+    backup.restore({
+      records: [],
+      presets: parseBackupFile(BACKUP_PRESETS_FILE, legacyCsv),
+      tags: [],
+      recordTags: [],
+    });
+
+    // 単価も控えの 2 列も落ちず、方式だけが既定（個数から）で埋まる
+    expect(presetRepository.getById('old-p')).toMatchObject({
+      name: '封筒（A4）',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      calcMethod: 'individual',
+      packHeight: 0,
+      packWidth: 0,
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
 });

@@ -110,10 +110,43 @@ export const presets = sqliteTable('presets', {
   colorKey: text('color_key').notNull(),
   initial: text('initial').notNull().default(''), // 空 = name から導出（§1.2）
   value: real('value').notNull().default(0), // site = %, それ以外 = 円
+  /**
+   * 単価の計算方式（SPEC-V10 §1）。**梱包材だけが 3 通りを持つ**（他の 2 種は常に 'individual'）。
+   *
+   * - `individual` … 購入価格 ÷ 購入数量 → 1 個あたり（§2.6 の既存方式。**既定値**）
+   * - `area`       … 購入価格 ÷ 購入面積 → ¥/㎡。平均使用サイズがあれば 1 回あたりまで
+   * - `usage`      … 購入価格 ÷ 想定使用回数 → 1 回あたり
+   *
+   * **DEFAULT 'individual' が「既存データの互換」そのもの**（0010 の ADD COLUMN）──
+   * 既に登録されている梱包材はすべて個数方式の行で、列が増えても読み方が変わらない。
+   * colorKey と同じく drizzle の enum は付けず、読み出し側（logic/preset.presetCalcMethod）で
+   * 知らない値を 'individual' へ倒す。
+   */
+  calcMethod: text('calc_method').notNull().default('individual'),
   // SPEC-V3 §2.6。梱包材のまとめ買い（「100 枚で 800 円」）の材料。
   // value（1 個あたり）が唯一の真実で、この 2 列はそれを作り直すための控え。
-  packQuantity: integer('pack_quantity').notNull().default(0), // 入数。0 = 1 個ずつ（未設定）
+  //
+  // **pack_quantity は「購入価格を割る数」**（SPEC-V10 §1.2）── 個数方式では入数、
+  // 使用回数方式では想定使用回数が入る。列を分けないのは、どちらも
+  // 「この買い物が何回ぶんか」を表す同じ数で、割り算（presetUnitPrice）も同じ 1 本だから。
+  // どちらの意味かは calc_method が言う。
+  packQuantity: integer('pack_quantity').notNull().default(0), // 入数 / 想定使用回数。0 = 1 個ずつ（未設定）
   packPrice: real('pack_price').notNull().default(0), // 購入価格（円）
+  /**
+   * 面積方式の購入サイズ（cm。SPEC-V10 §1.2）。0 = 未設定。
+   * 縦 × 横 が購入面積で、購入価格をこれで割ると ¥/㎡ になる。
+   */
+  packHeight: real('pack_height').notNull().default(0),
+  packWidth: real('pack_width').notNull().default(0),
+  /**
+   * 面積方式の平均使用サイズ（cm。SPEC-V10 §1.2）。**任意入力で、0 = 未入力。**
+   *
+   * 入っていれば ¥/㎡ × 平均使用面積 が 1 回あたりの単価になり、それが value に入る。
+   * 未入力なら value は ¥/㎡ のまま（§1.3）── どちらが入っているかは
+   * この 2 列を見れば分かるので、value の意味を別の列で持つ必要はない。
+   */
+  useHeight: real('use_height').notNull().default(0),
+  useWidth: real('use_width').notNull().default(0),
   /**
    * 専用資材の代金（SPEC-V6 §1）。**送料プリセットだけが使う**（他の 2 種は常に 0）。
    *

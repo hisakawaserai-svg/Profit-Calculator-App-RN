@@ -846,3 +846,67 @@ describe('§4.4 サイズの表示', () => {
     expect(BACKUP_PHOTO_SIZE_LIMIT).toBe(50 * 1024 * 1024);
   });
 });
+
+describe('SPEC-V10 §1.6 計算方式の 5 列が無い古い presets.csv も読める', () => {
+  /**
+   * **この機能より前が実際に書き出していた 10 列**をそのまま書く
+   * （buildBackupFile は現在の 15 列で組むので、古いファイルの再現には使えない）。
+   */
+  const LEGACY_HEADER =
+    'id,type,name,color_key,initial,value,pack_quantity,pack_price,material_cost,sort_order';
+
+  const legacyPresets = (row = '') =>
+    `${LEGACY_HEADER}\r\n${row || 'p1,packaging,封筒（A4）,#FFCC00,封,8,100,800,0,1'}\r\n`;
+
+  it('**エラーにならず**、足りない 5 列は空欄として読める', () => {
+    const rows = parseBackupFile(BACKUP_PRESETS_FILE, legacyPresets());
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].calc_method).toBe('');
+    expect(rows[0].pack_height).toBe('');
+    expect(rows[0].use_width).toBe('');
+    // 10 列ぶんの値はそのまま入る（既存の梱包材が個数方式のまま戻ることの土台）
+    expect(rows[0].value).toBe('8');
+    expect(rows[0].pack_quantity).toBe('100');
+  });
+
+  it('5 ファイル揃った古いバックアップがそのまま復元の手前まで通る', () => {
+    const contents = readBackupContents(
+      goodFiles({ [BACKUP_PRESETS_FILE]: legacyPresets() }),
+    );
+
+    expect(contents.preview.counts.presets).toBe(1);
+    expect(contents.tables.presets[0].calc_method).toBe('');
+  });
+
+  it('10 列でも 15 列でもない中途半端な列数は今までどおりエラー', () => {
+    const broken = `${LEGACY_HEADER},calc_method\r\np1,packaging,封筒（A4）,#FFCC00,封,8,100,800,0,1,area\r\n`;
+
+    expect(() => readBackupContents(goodFiles({ [BACKUP_PRESETS_FILE]: broken }))).toThrow(
+      /presets\.csv の列の数が違います/,
+    );
+  });
+
+  it('新しい版は方式とサイズをそのまま往復させる', () => {
+    const rows = parseBackupFile(
+      BACKUP_PRESETS_FILE,
+      buildBackupFile(BACKUP_PRESETS_FILE, [
+        {
+          ...PRESET_ROW,
+          type: 'packaging',
+          calc_method: 'area',
+          pack_height: '100',
+          pack_width: '100',
+          use_height: '30',
+          use_width: '20',
+        },
+      ]),
+    );
+
+    expect(rows[0]).toMatchObject({
+      calc_method: 'area',
+      pack_height: '100',
+      use_width: '20',
+    });
+  });
+});

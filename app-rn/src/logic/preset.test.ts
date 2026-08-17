@@ -5,20 +5,31 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clampPresetInitial,
+  DEFAULT_PRESET_CALC_METHOD,
   DEFAULT_PRESET_COLOR_KEY,
   findPresetByName,
   findPresetByValue,
+  hasPresetUseSize,
   isPackBuy,
   isRatePreset,
+  normalizePresetCalcMethod,
   normalizePresetColor,
   packBuyTarget,
+  PRESET_CALC_METHODS,
   PRESET_COLOR_HEXES,
+  PRESET_UNIT_PRICE_MIN,
+  presetAreaUnitPrice,
+  presetAreaUsePrice,
+  presetCalcMethod,
   presetColorKeyOf,
   presetColorValue,
+  presetRowUnitPrice,
   resolvePresetTone,
   PRESET_COLOR_KEYS,
   PRESET_TYPES,
+  presetDraftAreaUnitPrice,
   presetDraftUnitPrice,
+  presetDraftUsePrice,
   presetInitial,
   presetUnitPrice,
   resolvePresetTag,
@@ -867,5 +878,414 @@ describe('SPEC-V7 §2 プリセットの色（hex 保存と自由色）', () => 
   it('固定色の hex は 11 色とも重複しない（識別子として使うため）', () => {
     const hexes = Object.values(PRESET_COLOR_HEXES);
     expect(new Set(hexes).size).toBe(hexes.length);
+  });
+});
+
+// ---- SPEC-V10 梱包材の単価計算方式（個数 / 面積 / 使用回数） ----
+
+describe('SPEC-V10 §1.1 計算方式の正規化', () => {
+  it('3 方式はそのまま読める（並びは編集画面の 3 択の並び）', () => {
+    expect(PRESET_CALC_METHODS).toEqual(['individual', 'area', 'usage']);
+    expect(normalizePresetCalcMethod('area')).toBe('area');
+    expect(normalizePresetCalcMethod('usage')).toBe('usage');
+  });
+
+  it('列を持たない行・知らない値は既存方式（個数から）に倒す', () => {
+    expect(normalizePresetCalcMethod(undefined)).toBe('individual');
+    expect(normalizePresetCalcMethod('')).toBe('individual');
+    expect(normalizePresetCalcMethod('nope')).toBe('individual');
+    expect(DEFAULT_PRESET_CALC_METHOD).toBe('individual');
+  });
+
+  it('梱包材以外は方式を持たない（値が紛れ込んでも個数から）', () => {
+    expect(presetCalcMethod({ type: 'packaging', calcMethod: 'area' })).toBe('area');
+    expect(presetCalcMethod({ type: 'shipping', calcMethod: 'area' })).toBe('individual');
+    expect(presetCalcMethod({ type: 'site', calcMethod: 'usage' })).toBe('individual');
+  });
+});
+
+describe('SPEC-V10 §1.2 面積からの単価', () => {
+  it('¥/㎡ は購入価格 ÷ 購入面積（100×100cm = 1㎡ なら購入価格そのもの）', () => {
+    expect(presetAreaUnitPrice(500, 100, 100)).toBe(500);
+    // 50×30cm = 1,500cm² = 0.15㎡ → 500 ÷ 0.15 = 3,333.33… → 3,333.3
+    expect(presetAreaUnitPrice(500, 50, 30)).toBe(3333.3);
+  });
+
+  it('サイズは小数でも扱える（21.5cm のような実寸）', () => {
+    // 21.5 × 30 = 645cm² → 1,000 ÷ 0.0645 = 15,503.87… → 15,503.9
+    expect(presetAreaUnitPrice(1000, 21.5, 30)).toBe(15503.9);
+  });
+
+  it('購入サイズが片方でも空・0 なら計算できないので null（0 除算をここで塞ぐ）', () => {
+    expect(presetAreaUnitPrice(500, 0, 100)).toBeNull();
+    expect(presetAreaUnitPrice(500, 100, 0)).toBeNull();
+    expect(presetAreaUnitPrice(500, -1, 100)).toBeNull();
+  });
+
+  it('1 回あたりは ¥/㎡ × 平均使用面積（500円の 1㎡ を 30×20cm 使うと 30円）', () => {
+    expect(presetAreaUsePrice(500, 100, 100, 30, 20)).toBe(30);
+    // 例:「この梱包材を 1 回使うと 18円」── 600円の 1㎡ を 30×10cm
+    expect(presetAreaUsePrice(600, 100, 100, 30, 10)).toBe(18);
+  });
+
+  it('丸めた ¥/㎡ からではなく購入価格から直に出す（小さな使用面積で誤差が効かない）', () => {
+    // ¥/㎡ は 3,333.3 に丸まるが、10×10cm ぶんは 3,333.33… × 0.01 = 33.3
+    expect(presetAreaUnitPrice(500, 50, 30)).toBe(3333.3);
+    expect(presetAreaUsePrice(500, 50, 30, 10, 10)).toBe(33.3);
+  });
+
+  it('平均使用サイズが片方でも空・0 なら 1 回あたりは出せない（null）', () => {
+    expect(presetAreaUsePrice(500, 100, 100, 0, 20)).toBeNull();
+    expect(presetAreaUsePrice(500, 100, 100, 30, 0)).toBeNull();
+    expect(presetAreaUsePrice(500, 100, 100, 0, 0)).toBeNull();
+  });
+
+  it('丸めて 0 円になるときは 0.1 円に上げる（個数からと同じ規則。決定 §2.6.8-4）', () => {
+    // 1㎡ 100円のシートを 1×1cm だけ使う → 0.01円
+    expect(presetAreaUsePrice(100, 100, 100, 1, 1)).toBe(PRESET_UNIT_PRICE_MIN);
+  });
+
+  it('もらい物（購入価格 0）は 0 円のまま押し上げない', () => {
+    expect(presetAreaUnitPrice(0, 100, 100)).toBe(0);
+    expect(presetAreaUsePrice(0, 100, 100, 30, 20)).toBe(0);
+  });
+});
+
+describe('SPEC-V10 §1.2 使用回数からの単価（個数からと同じ割り算）', () => {
+  it('購入価格 ÷ 想定使用回数（1,000円のテープを 50 回で 20円）', () => {
+    expect(presetUnitPrice(1000, 50)).toBe(20);
+  });
+
+  it('端数の扱いも個数からと同じ（四捨五入して小数第 1 位まで）', () => {
+    expect(presetUnitPrice(1000, 30)).toBe(33.3);
+  });
+});
+
+describe('SPEC-V10 §1.4 検証: 使用回数から', () => {
+  const draft = (packQuantity: string, packPrice: string): PresetDraft => ({
+    type: 'packaging',
+    name: 'テープ',
+    initial: '',
+    value: '',
+    packBuy: true,
+    calcMethod: 'usage',
+    packQuantity,
+    packPrice,
+  });
+
+  it('想定使用回数と購入価格から 1 回あたりを確定して返す', () => {
+    expect(validatePreset(draft('50', '1000'))).toEqual({
+      valid: true,
+      name: 'テープ',
+      initial: '',
+      value: 20,
+      // 割る数は個数からと同じ列に入る（§1.2）
+      packQuantity: 50,
+      packPrice: 1000,
+      materialCost: 0,
+      calcMethod: 'usage',
+      packHeight: 0,
+      packWidth: 0,
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
+
+  it('想定使用回数が空・0・小数・上限超えなら保存できない（個数からと同じ理由コード）', () => {
+    expect(validatePreset(draft('', '1000'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+    expect(validatePreset(draft('0', '1000'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+    expect(validatePreset(draft('10.5', '1000'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+    expect(validatePreset(draft('10000', '1000'))).toEqual({
+      valid: false,
+      reason: 'pack-quantity-required',
+    });
+  });
+
+  it('購入価格の規則も個数からと同じ（0〜999,999 の整数）', () => {
+    expect(validatePreset(draft('50', '0')).valid).toBe(true);
+    expect(validatePreset(draft('50', '1000000'))).toEqual({
+      valid: false,
+      reason: 'pack-price-out-of-range',
+    });
+  });
+});
+
+describe('SPEC-V10 §1.4 検証: 面積から', () => {
+  const draft = (overrides: Partial<PresetDraft> = {}): PresetDraft => ({
+    type: 'packaging',
+    name: 'エアキャップ',
+    initial: '',
+    value: '',
+    packBuy: true,
+    calcMethod: 'area',
+    packHeight: '100',
+    packWidth: '100',
+    packPrice: '500',
+    useHeight: '30',
+    useWidth: '20',
+    ...overrides,
+  });
+
+  it('購入サイズ・購入価格・平均使用サイズから 1 回あたりを確定して返す', () => {
+    expect(validatePreset(draft())).toEqual({
+      valid: true,
+      name: 'エアキャップ',
+      initial: '',
+      value: 30,
+      // 面積方式は割る数を持たない（列は個数・使用回数のためのもの）
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 30,
+      useWidth: 20,
+    });
+  });
+
+  it('平均使用サイズが未入力なら ¥/㎡ が登録額（1 回あたりは出せない。§1.3）', () => {
+    const result = validatePreset(draft({ useHeight: '', useWidth: '' }));
+
+    expect(result).toEqual({
+      valid: true,
+      name: 'エアキャップ',
+      initial: '',
+      // 500円 ÷ 1㎡ = 500円/㎡ がそのまま経費に入る額になる
+      value: 500,
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      // 未入力は 0 で保存（あとから足せる）
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
+
+  it('平均使用サイズが片方だけなら弾く（0 と読むと 0 円の梱包材になってしまう）', () => {
+    expect(validatePreset(draft({ useWidth: '' }))).toEqual({
+      valid: false,
+      reason: 'use-size-invalid',
+    });
+    expect(validatePreset(draft({ useHeight: '' }))).toEqual({
+      valid: false,
+      reason: 'use-size-invalid',
+    });
+  });
+
+  it('購入サイズは縦・横とも必須（片方でも空・0 なら ¥/㎡ が出せない）', () => {
+    expect(validatePreset(draft({ packHeight: '' }))).toEqual({
+      valid: false,
+      reason: 'pack-size-required',
+    });
+    expect(validatePreset(draft({ packWidth: '0' }))).toEqual({
+      valid: false,
+      reason: 'pack-size-required',
+    });
+  });
+
+  it('サイズは 9,999cm まで・小数第 1 位まで', () => {
+    expect(validatePreset(draft({ packHeight: '9999' })).valid).toBe(true);
+    expect(validatePreset(draft({ packHeight: '21.5' })).valid).toBe(true);
+    expect(validatePreset(draft({ packHeight: '10000' }))).toEqual({
+      valid: false,
+      reason: 'pack-size-required',
+    });
+    expect(validatePreset(draft({ packHeight: '21.55' }))).toEqual({
+      valid: false,
+      reason: 'pack-size-required',
+    });
+    expect(validatePreset(draft({ useHeight: '10000' }))).toEqual({
+      valid: false,
+      reason: 'use-size-invalid',
+    });
+  });
+
+  it('金額欄の値は見ない（面積と購入価格だけが単価を決める）', () => {
+    expect(validatePreset(draft({ value: '999999' })).valid).toBe(true);
+    const result = validatePreset(draft({ value: '999999' }));
+    expect(result.valid && result.value).toBe(30);
+  });
+
+  it('「1 個ずつ」に戻すと方式もサイズも捨てる（決定 §2.6.8-3 と同じ扱い）', () => {
+    expect(validatePreset(draft({ packBuy: false, value: '30' }))).toEqual({
+      valid: true,
+      name: 'エアキャップ',
+      initial: '',
+      value: 30,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 0,
+    });
+  });
+
+  it('梱包材以外では面積方式にならない（送料は従来どおり入数と購入価格）', () => {
+    expect(
+      validatePreset(draft({ type: 'shipping', value: '450', packQuantity: '100', packPrice: '800' })),
+    ).toEqual({
+      valid: true,
+      name: 'エアキャップ',
+      initial: '',
+      value: 450,
+      packQuantity: 100,
+      packPrice: 800,
+      materialCost: 8,
+    });
+  });
+});
+
+describe('SPEC-V10 §1.3 下書きの計算結果（帯に出る値と登録額）', () => {
+  const areaDraft = (overrides: Partial<PresetDraft> = {}): PresetDraft => ({
+    type: 'packaging',
+    name: 'エアキャップ',
+    initial: '',
+    value: '',
+    packBuy: true,
+    calcMethod: 'area',
+    packHeight: '100',
+    packWidth: '100',
+    packPrice: '500',
+    ...overrides,
+  });
+
+  it('面積方式は ¥/㎡ と 1 回あたりの 2 つが別々に出る', () => {
+    const draft = areaDraft({ useHeight: '30', useWidth: '20' });
+
+    expect(presetDraftAreaUnitPrice(draft)).toBe(500);
+    expect(presetDraftUsePrice(draft)).toBe(30);
+    expect(presetDraftUnitPrice(draft)).toBe(30);
+  });
+
+  it('平均使用サイズが未入力なら 1 回あたりは「—」で、登録額は ¥/㎡（§1.3）', () => {
+    const draft = areaDraft();
+
+    expect(presetDraftAreaUnitPrice(draft)).toBe(500);
+    expect(presetDraftUsePrice(draft)).toBeNull();
+    expect(presetDraftUnitPrice(draft)).toBe(500);
+  });
+
+  it('購入サイズが空のあいだは 2 つとも「—」', () => {
+    const draft = areaDraft({ packHeight: '', useHeight: '30', useWidth: '20' });
+
+    expect(presetDraftAreaUnitPrice(draft)).toBeNull();
+    expect(presetDraftUsePrice(draft)).toBeNull();
+    expect(presetDraftUnitPrice(draft)).toBeNull();
+  });
+
+  it('個数・使用回数方式では ¥/㎡ の帯そのものが出ない（null）', () => {
+    const usage: PresetDraft = {
+      type: 'packaging',
+      name: 'テープ',
+      initial: '',
+      value: '',
+      packBuy: true,
+      calcMethod: 'usage',
+      packQuantity: '50',
+      packPrice: '1000',
+    };
+
+    expect(presetDraftAreaUnitPrice(usage)).toBeNull();
+    expect(presetDraftUsePrice(usage)).toBe(20);
+    expect(presetDraftUnitPrice(usage)).toBe(20);
+  });
+});
+
+describe('SPEC-V10 §1.5 既存プリセット（個数から）が変わらず動くこと', () => {
+  /** 0010 のマイグレーション直後の既存行（calc_method は既定、サイズは 0） */
+  const existing = {
+    type: 'packaging' as const,
+    calcMethod: 'individual',
+    value: 8,
+    packQuantity: 100,
+    packPrice: 800,
+    packHeight: 0,
+    packWidth: 0,
+    useHeight: 0,
+    useWidth: 0,
+  };
+
+  it('方式は「個数から」として読める', () => {
+    expect(presetCalcMethod(existing)).toBe('individual');
+  });
+
+  it('まとめ買いの判定は入数のまま（列が増えても見る先が変わらない）', () => {
+    expect(isPackBuy(existing)).toBe(true);
+    expect(isPackBuy({ ...existing, packQuantity: 0 })).toBe(false);
+  });
+
+  it('単価も従来どおり購入価格 ÷ 入数（value と一致する）', () => {
+    expect(presetRowUnitPrice(existing)).toBe(existing.value);
+  });
+
+  it('列そのものが無い行（マイグレーション前の形）でも同じに読める', () => {
+    const legacy = { type: 'packaging' as const, value: 8, packQuantity: 100, packPrice: 800 };
+
+    expect(presetCalcMethod(legacy)).toBe('individual');
+    expect(isPackBuy(legacy)).toBe(true);
+    expect(presetRowUnitPrice(legacy)).toBe(8);
+    expect(hasPresetUseSize(legacy)).toBe(false);
+  });
+
+  it('手で金額を入れた行（1 個ずつ）はまとめ買いではない', () => {
+    const manual = { ...existing, packQuantity: 0, packPrice: 0, value: 15 };
+
+    expect(isPackBuy(manual)).toBe(false);
+    expect(presetRowUnitPrice(manual)).toBeNull();
+  });
+});
+
+describe('SPEC-V10 §1.3 保存済みの行から単価を作り直す', () => {
+  const area = {
+    type: 'packaging' as const,
+    calcMethod: 'area',
+    value: 30,
+    packQuantity: 0,
+    packPrice: 500,
+    packHeight: 100,
+    packWidth: 100,
+    useHeight: 30,
+    useWidth: 20,
+  };
+
+  it('面積方式（平均使用サイズあり）は 1 回あたりに戻る', () => {
+    expect(presetRowUnitPrice(area)).toBe(area.value);
+    expect(hasPresetUseSize(area)).toBe(true);
+    expect(isPackBuy(area)).toBe(true);
+  });
+
+  it('面積方式（平均使用サイズなし）は ¥/㎡ に戻る', () => {
+    const row = { ...area, value: 500, useHeight: 0, useWidth: 0 };
+
+    expect(presetRowUnitPrice(row)).toBe(row.value);
+    expect(hasPresetUseSize(row)).toBe(false);
+  });
+
+  it('使用回数方式は購入価格 ÷ 想定使用回数に戻る', () => {
+    const row = {
+      type: 'packaging' as const,
+      calcMethod: 'usage',
+      value: 20,
+      packQuantity: 50,
+      packPrice: 1000,
+    };
+
+    expect(presetRowUnitPrice(row)).toBe(row.value);
+    expect(isPackBuy(row)).toBe(true);
+  });
+
+  it('購入サイズの無い面積方式の行はまとめ買いではない（材料が無い）', () => {
+    expect(isPackBuy({ ...area, packHeight: 0, packWidth: 0 })).toBe(false);
   });
 });

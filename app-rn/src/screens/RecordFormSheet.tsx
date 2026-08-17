@@ -134,13 +134,31 @@ type Props = {
   record?: SaleRecord | null;
   /** 新規追加時の初期値。計算タブの＋から入力中の金額を引き継ぐ（SPEC §3.2 prepareNewRecord 相当） */
   initialAmounts?: InitialAmounts;
+  /**
+   * 新規追加時の初期値を**まるごと**渡す（「過去の記録から複製」。logic/duplicateRecord.ts）。
+   *
+   * `initialAmounts` と分けてあるのは持てるものが違うから ── あちらは計算タブが持ち得る
+   * 金額だけの `Pick` で、商品名・タグ・資材費の控えを持たない。複製はそれらも写すので、
+   * 欄をあちらに足すと「計算タブから渡ってくることは無いのに型にはある」ものが増える。
+   *
+   * **これが渡されたときは `initialAmounts` を見ない**（同時に渡す呼び出し側は無い）。
+   * 編集（`record` あり）が優先されるのも従来どおり。
+   */
+  initialValues?: RecordFormValues;
   /** キャンセル・保存後に閉じる */
   onClose: () => void;
   /** 保存が成立したときだけ呼ばれる。呼び出し側でリストを再取得する */
   onSaved?: () => void;
 };
 
-export function RecordFormSheet({ visible, record, initialAmounts, onClose, onSaved }: Props) {
+export function RecordFormSheet({
+  visible,
+  record,
+  initialAmounts,
+  initialValues,
+  onClose,
+  onSaved,
+}: Props) {
   return (
     <Modal
       visible={visible}
@@ -153,6 +171,7 @@ export function RecordFormSheet({ visible, record, initialAmounts, onClose, onSa
         <RecordForm
           record={record ?? null}
           initialAmounts={initialAmounts}
+          initialValues={initialValues}
           onClose={onClose}
           onSaved={onSaved}
         />
@@ -164,11 +183,13 @@ export function RecordFormSheet({ visible, record, initialAmounts, onClose, onSa
 function RecordForm({
   record,
   initialAmounts,
+  initialValues,
   onClose,
   onSaved,
 }: {
   record: SaleRecord | null;
   initialAmounts?: InitialAmounts;
+  initialValues?: RecordFormValues;
   onClose: () => void;
   onSaved?: () => void;
 }) {
@@ -181,10 +202,13 @@ function RecordForm({
   const { tagIds: savedTagIds } = useRecordTagIds(record?.id);
 
   // 新規の種別は設定の既定値。ただし計算タブから開いたときは initialAmounts.kind が優先される
-  // （SPEC-V2 §1.4）。開いている間だけマウントされるので、ここで一度読めばよい
+  // （SPEC-V2 §1.4）。開いている間だけマウントされるので、ここで一度読めばよい。
+  //
+  // 複製（initialValues）は**組み立て済みの値をそのまま採る** ── 種別も既定値ではなく
+  // 複製元のものになっているので、ここで getDefaultRecordKind() を混ぜない
   const [values, setValues] = useState<RecordFormValues>(() =>
     record == null
-      ? newFormValues(getDefaultRecordKind(), initialAmounts)
+      ? (initialValues ?? newFormValues(getDefaultRecordKind(), initialAmounts))
       : recordToFormValues(record, undefined, savedTagIds),
   );
   /**
@@ -288,6 +312,19 @@ function RecordForm({
    */
   const selectShipping = (preset: Preset, choice: ShippingMaterialChoice) => {
     setValues((current) => ({ ...current, ...selectShippingPreset(preset, choice) }));
+  };
+
+  /**
+   * 送料タグの「✕」（選択解除）。値だけでなく、選んだプリセットが置いた資材費の控えも
+   * 一緒に戻す ── 送料欄だけ空にしても、資材費が残っていると伝票の合計が食い違う。
+   */
+  const clearShipping = () => {
+    setValues((current) => ({
+      ...current,
+      postage: '',
+      shippingMaterialCost: 0,
+      excludesShippingMaterial: false,
+    }));
   };
 
   /**
@@ -473,6 +510,8 @@ function RecordForm({
             // **選んだ行そのものを受け取る**（SPEC-V6 §3）── 欄に入るのは送料と専用資材の
             // 合計で、資材費の控えも記録に持つ必要があるため、値の書き戻しだけでは足りない
             onSelectPreset={selectShipping}
+            // 「✕」も同じ理由で専用の処理に差し替える（値を空にするだけでは資材費の控えが残る）
+            onClearPreset={clearShipping}
             // このフォームは RN の Modal なので、設定タブへ遷移してもその裏に積まれる。
             // 押しても何も起きないように見えるリンクは出さない（PresetPickerSheet 参照）
             canOpenSettings={false}
@@ -491,6 +530,8 @@ function RecordForm({
               // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
               selectedName={values.siteName}
               onSelect={selectSite}
+              // SiteNameRow の「✕」と同じ処理。消えるのは名前だけで率は残る
+              onClear={() => update('siteName', '')}
               canOpenSettings={false}
             />
             <StepperButtons
@@ -532,6 +573,8 @@ function RecordForm({
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.red }]}
               canOpenSettings={false}
+              // 梱包材プリセットを積める先はこの欄だけ（§4.5。MiniCalculator 参照）
+              canPickPackaging
             />
             <NumericField
               label={OTHERS_COST_LABEL}

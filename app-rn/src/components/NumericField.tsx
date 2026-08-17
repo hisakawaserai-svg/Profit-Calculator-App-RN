@@ -21,6 +21,7 @@ import {
 import { MiniCalculator } from '@/components/MiniCalculator';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import type { Preset, PresetType } from '@/db/schema';
+import { createMemo, type CalcMemo } from '@/logic/calcMemo';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import {
   shippingAmountFor,
@@ -91,11 +92,18 @@ type Props = {
    * 選ばれた側を呼び出し側へ渡す。欄への書き戻しは受け取った側の責任になる。
    */
   onSelectPreset?: (preset: Preset, choice: ShippingMaterialChoice) => void;
+  /**
+   * バッジ横の「✕」で選択を外すときの処理（PresetTagButton 参照）。
+   * 既定は欄を空にするだけ（送料の既定の書き戻し先と同じ）。
+   * onSelectPreset を差し替えている行（記録フォームの送料。資材費の控えも持つ）は、
+   * その控えも一緒に戻す必要があるので、呼び出し側から差し替える。
+   */
+  onClearPreset?: () => void;
   /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
   canOpenSettings?: boolean;
   /**
    * 電卓の中に「🏷 梱包材から選ぶ」を出すか（SPEC-V3 §4.5）。
-   * **プリセット編集画面の値の欄からは false**（§4.2。MiniCalculator 参照）。
+   * **梱包材の欄だけ true**（既定は false。MiniCalculator 参照）。
    */
   canPickPackaging?: boolean;
 };
@@ -112,12 +120,26 @@ export function NumericField({
   valueStyle,
   presetType,
   onSelectPreset,
+  onClearPreset,
   canOpenSettings = true,
-  canPickPackaging = true,
+  canPickPackaging = false,
 }: Props) {
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
   const calcLabel = calculatorLabel ?? label;
+
+  /**
+   * 前回「入れる」で確定した積み上げ（内訳）。**欄の値がその確定値のままの間だけ有効**。
+   * 電卓は開閉のたびにアンマウントされるので、内訳はここ（NumericField）で持ち回す ──
+   * 欄の値が確定値と一致していれば、次に開いたときも同じ内訳から続けられる。
+   * 手で打ち直す・プリセットで上書きするなど、確定値からずれた時点で内訳は使わなくなる
+   * （createMemo(value) が 1 行だけの状態を作る。MiniCalculator 参照）。
+   */
+  const [committedMemo, setCommittedMemo] = useState<{ value: string; memo: CalcMemo } | null>(
+    null,
+  );
+  const initialMemo =
+    committedMemo != null && committedMemo.value === value ? committedMemo.memo : createMemo(value);
 
   // 無効は文字色だけで示す（UI-SPEC §1.1「挙動」）。
   //
@@ -146,6 +168,7 @@ export function NumericField({
                 : // 既定の経路（計算タブ・プリセット編集画面）。送料では選ばれた側の額が入る
                   onChangeValue(sanitizeNumericInput(String(shippingAmountFor(preset, choice))))
             }
+            onClear={onClearPreset ?? (() => onChangeValue(''))}
             disabled={disabled}
             canOpenSettings={canOpenSettings}
           />
@@ -187,9 +210,14 @@ export function NumericField({
       {showCalculator && showCalc ? (
         <MiniCalculator
           fieldLabel={calcLabel}
-          targetText={value}
-          // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
-          onSubmit={(result) => onChangeValue(sanitizeNumericInput(result))}
+          initialMemo={initialMemo}
+          onSubmit={(result, memo) => {
+            // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
+            const sanitized = sanitizeNumericInput(result);
+            onChangeValue(sanitized);
+            // 次に開いたときの内訳の復元先。欄の値がこの sanitized のままなら memo を使う
+            setCommittedMemo({ value: sanitized, memo });
+          }}
           // 電卓の中の梱包材シートも設定タブへ遷移できるかは同じ条件（SPEC-V3 §4.5）
           canOpenSettings={canOpenSettings}
           canPickPackaging={canPickPackaging}

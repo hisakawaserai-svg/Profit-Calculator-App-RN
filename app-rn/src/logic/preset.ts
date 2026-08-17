@@ -144,6 +144,56 @@ export const PRESET_PACK_QUANTITY_MAX = 9_999;
 export const PRESET_UNIT_PRICE_MIN = 0.1;
 
 /**
+ * サイズの上限（cm。SPEC-V10 §1.4）。入数（PRESET_PACK_QUANTITY_MAX）と同じ桁にしてある ──
+ * 4 桁あればロール状の梱包材（50m = 5,000cm）まで入り、これ以上の値は打ち間違いの方が疑わしい。
+ */
+export const PRESET_SIZE_MAX = 9_999;
+
+/**
+ * 単価の計算方式（SPEC-V10 §1.1）。**梱包材だけが 3 通りを持つ。**
+ *
+ * - `individual` … 購入価格 ÷ 購入数量 → 1 個あたり（§2.6 の既存方式）
+ * - `area`       … 購入価格 ÷ 購入面積 → ¥/㎡。平均使用サイズがあれば 1 回あたりまで
+ * - `usage`      … 購入価格 ÷ 想定使用回数 → 1 回あたり
+ *
+ * 並びはそのまま編集画面の 3 択の並び（既定の `individual` が先頭）。
+ */
+export const PRESET_CALC_METHODS = ['individual', 'area', 'usage'] as const;
+
+export type PresetCalcMethod = (typeof PRESET_CALC_METHODS)[number];
+
+/**
+ * 方式を持たない行・知らない値の倒し先（SPEC-V10 §1.1）。
+ * **0010 以前に登録された梱包材はすべてこれ**（列の DEFAULT もこの値）。
+ */
+export const DEFAULT_PRESET_CALC_METHOD: PresetCalcMethod = 'individual';
+
+/**
+ * 保存値を方式に倒す（§1.6 の normalizePresetColor と同じ役目）。
+ * calc_method に drizzle の enum を付けていないので、読み出しは必ずここを通す。
+ */
+export function normalizePresetCalcMethod(value: string | undefined): PresetCalcMethod {
+  return (PRESET_CALC_METHODS as readonly string[]).includes(value ?? '')
+    ? (value as PresetCalcMethod)
+    : DEFAULT_PRESET_CALC_METHOD;
+}
+
+/**
+ * 行（または下書き）の計算方式（SPEC-V10 §1.1）。**梱包材以外は常に `individual`。**
+ *
+ * 種類で打ち止めるのは、送料・販売サイトに面積も使用回数も意味がないため ──
+ * 画面が 3 択を出さないだけでなく、値が紛れ込んでも読み方が変わらないようにしておく
+ * （packBuyTarget が種類でまとめ買いの行き先を振り分けるのと同じ考え方）。
+ */
+export function presetCalcMethod(preset: {
+  type: PresetType;
+  calcMethod?: string;
+}): PresetCalcMethod {
+  if (preset.type !== 'packaging') return DEFAULT_PRESET_CALC_METHOD;
+  return normalizePresetCalcMethod(preset.calcMethod);
+}
+
+/**
  * 書記素の配列。`length` で数えないのは、絵文字・サロゲートペアで
  * 2 文字判定が壊れるため（§1.2）。
  */
@@ -287,30 +337,157 @@ export function resolvePresetTag<T extends { name: string; value: number }>(
 }
 
 /**
- * まとめ買いで登録された行か（§2.6.4）。**モードの列は持たない** ──
- * `priceMode` を別に持つと「まとめ買いなのに入数が 0」のような不整合な行が作れてしまうので、
- * 判定はこの 1 本に閉じる。
+ * まとめ買い（＝単価を計算して登録した行）か（§2.6.4 / SPEC-V10 §1.2）。
+ * **モードの列は持たない** ── `priceMode` を別に持つと「まとめ買いなのに入数が 0」のような
+ * 不整合な行が作れてしまうので、判定は材料が入っているかどうかに閉じる。
+ *
+ * 方式が増えても考え方は同じで、見る列だけが方式で変わる:
+ * 個数・使用回数は割る数（packQuantity）、面積は購入サイズ。
+ * `calcMethod` は**どの列を見るか**を言うだけで、これ単独でまとめ買いを名乗ることはない。
  */
-export function isPackBuy(preset: { packQuantity: number }): boolean {
+export function isPackBuy(preset: {
+  type?: PresetType;
+  calcMethod?: string;
+  packQuantity: number;
+  packHeight?: number;
+  packWidth?: number;
+}): boolean {
+  const method = presetCalcMethod({ type: preset.type ?? 'packaging', calcMethod: preset.calcMethod });
+  if (method === 'area') return (preset.packHeight ?? 0) > 0 && (preset.packWidth ?? 0) > 0;
   return preset.packQuantity > 0;
 }
 
 /**
- * まとめ買いの単価（§2.6）。入数が 0 以下なら計算できないので null。
- * 小数第 1 位まで四捨五入し、0 に落ちたときだけ 0.1 に上げる（購入価格が 0 のときを除く）。
+ * 小数第 1 位までに丸めた単価（§2.6.3）。**引数は単価そのものではなく 10 倍した値。**
  *
- * 割る前に 10 倍するのは、`Math.round(x * 10) / 10` が浮動小数の誤差を持ち込むため
+ * 10 倍してから割るのは、`Math.round(x * 10) / 10` が浮動小数の誤差を持ち込むため
  * （§2.6.3）── `985 / 100 = 9.85` は二進で 9.8499… になり、10 倍してから丸めると 9.8 に落ちる。
- * 購入価格・入数はどちらも整数（§2.6.6 の検証）なので、`packPrice * 10` は誤差なく作れる。
+ * 割る前に 10 倍した値を受け取ることで、呼び出し側がその順序を守れる。
+ *
+ * `basePrice`（購入価格）を別に受けるのは、**丸めで 0 円に落ちた分だけを押し上げる**ため
+ * （決定 §2.6.8-4）── もらい物（購入価格 0）は 0 円のままにする。
+ */
+function roundUnitPrice(scaledPrice: number, basePrice: number): number | null {
+  const rounded = Math.round(scaledPrice) / 10;
+  if (!Number.isFinite(rounded)) return null;
+  // もらい物・在庫の使い回し（購入価格 0）は 0 円のまま。押し上げるのは丸めで消えた分だけ
+  if (rounded === 0 && basePrice > 0) return PRESET_UNIT_PRICE_MIN;
+  return rounded;
+}
+
+/**
+ * 「個数から」「使用回数から」の単価（§2.6 / SPEC-V10 §1.2）。
+ * **2 方式で同じ 1 本**を使う ── 割る数が入数か想定使用回数かが違うだけで、
+ * 購入価格 ÷ その数という割り算そのものは同じ。
+ *
+ * 割る数が 0 以下なら計算できないので null。
  */
 export function presetUnitPrice(packPrice: number, packQuantity: number): number | null {
   if (!(packQuantity > 0)) return null;
+  return roundUnitPrice((packPrice * 10) / packQuantity, packPrice);
+}
 
-  const rounded = Math.round((packPrice * 10) / packQuantity) / 10;
-  if (!Number.isFinite(rounded)) return null;
-  // もらい物・在庫の使い回し（購入価格 0）は 0 円のまま。押し上げるのは丸めで消えた分だけ
-  if (rounded === 0 && packPrice > 0) return PRESET_UNIT_PRICE_MIN;
-  return rounded;
+/** 1 ㎡ の cm²（面積方式の換算。10,000 cm² = 1 ㎡） */
+const CM2_PER_M2 = 10_000;
+
+/** 縦 × 横（cm²）。どちらかが 0 以下なら面積として使えないので null（SPEC-V10 §1.2） */
+function presetAreaCm2(heightCm: number, widthCm: number): number | null {
+  if (!(heightCm > 0) || !(widthCm > 0)) return null;
+  const area = heightCm * widthCm;
+  return Number.isFinite(area) ? area : null;
+}
+
+/**
+ * 面積方式の ¥/㎡（SPEC-V10 §1.2）。購入価格 ÷ 購入面積(㎡)。
+ * 購入サイズが片方でも空・0 なら null（1 ㎡あたりの行は「—」のまま）。
+ *
+ * 10 倍（丸めのため）と 10,000 倍（cm² → ㎡）をまとめて先に掛けてから割る ──
+ * 個数方式と同じ「割る前に整数倍する」順序で、100cm × 100cm のような素直な入力では誤差が出ない。
+ */
+export function presetAreaUnitPrice(
+  packPrice: number,
+  packHeightCm: number,
+  packWidthCm: number,
+): number | null {
+  const packArea = presetAreaCm2(packHeightCm, packWidthCm);
+  if (packArea == null) return null;
+  return roundUnitPrice((packPrice * 10 * CM2_PER_M2) / packArea, packPrice);
+}
+
+/**
+ * 面積方式の 1 回あたり（SPEC-V10 §1.2）:「¥/㎡ × 平均使用面積」。
+ * 購入サイズか平均使用サイズのどちらかが空・0 なら null（＝ 1 回あたりは出せない。§1.3）。
+ *
+ * **丸めた ¥/㎡ からではなく購入価格から直に出す** ── ¥/㎡ を丸めてから掛けると、
+ * 小さな使用面積では丸め誤差がそのまま単価の何割にもなる（0.05 円の丸めが 100 倍される）。
+ * 式としては同じ「購入価格 × 使用面積 ÷ 購入面積」なので、㎡ の換算は約分されて消える。
+ */
+export function presetAreaUsePrice(
+  packPrice: number,
+  packHeightCm: number,
+  packWidthCm: number,
+  useHeightCm: number,
+  useWidthCm: number,
+): number | null {
+  const packArea = presetAreaCm2(packHeightCm, packWidthCm);
+  const useArea = presetAreaCm2(useHeightCm, useWidthCm);
+  if (packArea == null || useArea == null) return null;
+  return roundUnitPrice((packPrice * 10 * useArea) / packArea, packPrice);
+}
+
+/**
+ * 保存済みの行の「1 回（1 個・1 ㎡）あたり」を計算し直す（SPEC-V10 §1.3）。
+ *
+ * **value と同じ値が返る**（保存時に確定して書いてあるため）。あくまで
+ * 「控えの列から value を作り直せる」ことを保つための 1 本で、記録に入るのは value そのもの。
+ * 方式ごとの割り算がどこか 1 か所に閉じていないと、編集画面と保存値が食い違い得る。
+ */
+export function presetRowUnitPrice(preset: {
+  type: PresetType;
+  calcMethod?: string;
+  value: number;
+  packQuantity: number;
+  packPrice: number;
+  packHeight?: number;
+  packWidth?: number;
+  useHeight?: number;
+  useWidth?: number;
+}): number | null {
+  if (!isPackBuy(preset)) return null;
+
+  switch (presetCalcMethod(preset)) {
+    case 'area': {
+      const packHeight = preset.packHeight ?? 0;
+      const packWidth = preset.packWidth ?? 0;
+      return (
+        presetAreaUsePrice(
+          preset.packPrice,
+          packHeight,
+          packWidth,
+          preset.useHeight ?? 0,
+          preset.useWidth ?? 0,
+        ) ?? presetAreaUnitPrice(preset.packPrice, packHeight, packWidth)
+      );
+    }
+    // 個数・使用回数は割る数が違うだけ（§1.2）
+    default:
+      return presetUnitPrice(preset.packPrice, preset.packQuantity);
+  }
+}
+
+/**
+ * 面積方式で「1 回あたり」まで出せる行か（SPEC-V10 §1.3）。
+ * **平均使用サイズが両方入っているとき**だけ true ── false のとき value は ¥/㎡ で、
+ * 一覧の行も「1 ㎡あたり」と言う（labels.presetUnitNote）。
+ */
+export function hasPresetUseSize(preset: {
+  type: PresetType;
+  calcMethod?: string;
+  useHeight?: number;
+  useWidth?: number;
+}): boolean {
+  if (presetCalcMethod(preset) !== 'area') return false;
+  return (preset.useHeight ?? 0) > 0 && (preset.useWidth ?? 0) > 0;
 }
 
 /**
@@ -322,8 +499,12 @@ export type PresetInvalidReason =
   | 'name-too-long'
   | 'value-out-of-range'
   | 'material-cost-out-of-range'
+  // 割る数（個数方式 = 入数 / 使用回数方式 = 想定使用回数）。文言は方式で言い分ける
   | 'pack-quantity-required'
-  | 'pack-price-out-of-range';
+  | 'pack-price-out-of-range'
+  // 面積方式（SPEC-V10 §1.4）
+  | 'pack-size-required'
+  | 'use-size-invalid';
 
 /** 編集シートが持つ入力そのまま（§3.3）。value は NumericField の生の文字列 */
 export type PresetDraft = {
@@ -338,10 +519,24 @@ export type PresetDraft = {
    * 入力途中は入数が空でもまとめ買いのままでいる必要があるので、下書きだけがこれを持つ。
    */
   packBuy?: boolean;
-  /** sanitizeNumericInput 済みの入数（まとめ買いのときだけ見る） */
+  /**
+   * 単価の計算方式（SPEC-V10 §1.1）。**省略 = `individual`（既存方式）。**
+   * まとめ買いのときだけ見る（梱包材以外では presetCalcMethod が種類で打ち止める）。
+   */
+  calcMethod?: PresetCalcMethod;
+  /**
+   * sanitizeNumericInput 済みの**割る数**（まとめ買いのときだけ見る）。
+   * 個数方式では入数、使用回数方式では想定使用回数（§1.2。列も欄も 1 本で兼ねる）。
+   */
   packQuantity?: string;
-  /** sanitizeNumericInput 済みの購入価格（まとめ買いのときだけ見る） */
+  /** sanitizeNumericInput 済みの購入価格（まとめ買いのときだけ見る。3 方式に共通） */
   packPrice?: string;
+  /** sanitizeNumericInput 済みの購入サイズ（cm。面積方式のときだけ見る） */
+  packHeight?: string;
+  packWidth?: string;
+  /** sanitizeNumericInput 済みの平均使用サイズ（cm。面積方式の**任意入力**） */
+  useHeight?: string;
+  useWidth?: string;
   /**
    * sanitizeNumericInput 済みの専用資材の代金（SPEC-V6 §2。送料のときだけ見る）。
    * まとめ買いのときはこの欄を見ず、入数と購入価格から確定する。
@@ -358,12 +553,23 @@ export type PresetValidation =
       initial: string;
       /** 1 個あたり。まとめ買いなら presetUnitPrice を確定して書く（§2.6.4） */
       value: number;
-      /** 入数。1 個ずつ・送料・販売サイトでは 0（§2.6.4 / 決定 §2.6.8-3） */
+      /** 入数 / 想定使用回数。1 個ずつ・送料・販売サイトでは 0（§2.6.4 / 決定 §2.6.8-3） */
       packQuantity: number;
       /** 購入価格。同上 */
       packPrice: number;
       /** 専用資材の代金（SPEC-V6 §1）。送料以外は 0 */
       materialCost: number;
+      /**
+       * 面積・使用回数方式の保存値（SPEC-V10 §1.2）。**既存方式（個数から）では入らない。**
+       *
+       * 省略と 0 / 'individual' は同じ意味で、書き込み側（db/presets.ts）が既定値へ倒す ──
+       * 既存方式の下書きから既存と同じ形の結果が返ることを、型の側でも見えるようにしてある。
+       */
+      calcMethod?: PresetCalcMethod;
+      packHeight?: number;
+      packWidth?: number;
+      useHeight?: number;
+      useWidth?: number;
     }
   | { valid: false; reason: PresetInvalidReason };
 
@@ -406,16 +612,64 @@ export function isPackBuyDraft(draft: PresetDraft): boolean {
   return packBuyTarget(draft.type) != null && draft.packBuy === true;
 }
 
+/** 下書きの計算方式（SPEC-V10 §1.1）。梱包材以外・省略時は既存方式 */
+export function presetDraftCalcMethod(draft: PresetDraft): PresetCalcMethod {
+  return presetCalcMethod({ type: draft.type, calcMethod: draft.calcMethod });
+}
+
 /**
- * 下書きの「1 個あたり」（§2.6.2 の青字の行）。入数が空・0 のあいだは null（行は — のまま）。
- * 検証を通る前でも呼べる ── 表示は入力に追従させ、保存できない理由は下の 1 行が言う。
+ * 下書きの ¥/㎡（SPEC-V10 §1.3 の 1 枚目の帯）。**面積方式のときだけ値が入る。**
+ * 購入サイズが片方でも空・0 のあいだは null（行は — のまま）。
+ */
+export function presetDraftAreaUnitPrice(draft: PresetDraft): number | null {
+  if (!isPackBuyDraft(draft) || presetDraftCalcMethod(draft) !== 'area') return null;
+  return presetAreaUnitPrice(
+    parseDraftNumber(draft.packPrice ?? ''),
+    parseDraftNumber(draft.packHeight ?? ''),
+    parseDraftNumber(draft.packWidth ?? ''),
+  );
+}
+
+/**
+ * 下書きの「1 回（1 個）あたり」（§2.6.2 の青字の行 / SPEC-V10 §1.3）。
+ * **画面の帯に出るのはこの値**で、材料が揃っていないあいだは null（行は — のまま）。
+ *
+ * 面積方式で**平均使用サイズが未入力のときも null** ── ¥/㎡ は出せても
+ * 「1 回でいくらか」はまだ言えないため（§1.3）。登録額は
+ * presetDraftUnitPrice が ¥/㎡ に倒す。
+ */
+export function presetDraftUsePrice(draft: PresetDraft): number | null {
+  if (!isPackBuyDraft(draft)) return null;
+
+  switch (presetDraftCalcMethod(draft)) {
+    case 'area':
+      return presetAreaUsePrice(
+        parseDraftNumber(draft.packPrice ?? ''),
+        parseDraftNumber(draft.packHeight ?? ''),
+        parseDraftNumber(draft.packWidth ?? ''),
+        parseDraftNumber(draft.useHeight ?? ''),
+        parseDraftNumber(draft.useWidth ?? ''),
+      );
+    // 個数・使用回数は割る数が違うだけで同じ割り算（§1.2）
+    default:
+      return presetUnitPrice(
+        parseDraftNumber(draft.packPrice ?? ''),
+        parseDraftNumber(draft.packQuantity ?? ''),
+      );
+  }
+}
+
+/**
+ * 下書きから決まる**登録額**（§2.6.2 / SPEC-V10 §1.3）。保存すると value に入る値そのもので、
+ * 「1 個ずつ」へ戻したときに金額欄へ残るのもこれ。検証を通る前でも呼べる。
+ *
+ * 面積方式で平均使用サイズが未入力のときだけ、1 回あたりの代わりに **¥/㎡** が返る ──
+ * 記録に計上されるのも ¥/㎡（＝ 1 ㎡使ったときの額）で、一覧の行がその単位を明示する
+ * （labels.presetUnitNote）。ここで null に倒すと、面積と価格を入れただけでは
+ * 保存できないプリセットになってしまい、あとから使用サイズを足す使い方ができない。
  */
 export function presetDraftUnitPrice(draft: PresetDraft): number | null {
-  if (!isPackBuyDraft(draft)) return null;
-  return presetUnitPrice(
-    parseDraftNumber(draft.packPrice ?? ''),
-    parseDraftNumber(draft.packQuantity ?? ''),
-  );
+  return presetDraftUsePrice(draft) ?? presetDraftAreaUnitPrice(draft);
 }
 
 /**
@@ -471,23 +725,48 @@ export function validatePreset(draft: PresetDraft): PresetValidation {
     // 残すと「1 個ずつなのに入数がある」不整合な行ができ、isPackBuy の判定と食い違う
     packQuantity: pack?.valid ? pack.packQuantity : 0,
     packPrice: pack?.valid ? pack.packPrice : 0,
+    // 面積・使用回数方式のときだけ足す（SPEC-V10 §1.2）。既存方式の結果は従来と同じ形のまま ──
+    // 書き込み側が既定値（'individual' / 0）へ倒すので、無い＝既定と読める
+    ...(pack?.valid ? pack.calc : undefined),
   };
 }
 
-/** まとめ買いの 3 つ（入数・購入価格・そこから出る単価）。1 個ずつのときは null */
+/**
+ * まとめ買いの控え（割る数・購入価格）と、そこから出る単価。1 個ずつのときは null。
+ *
+ * `calc` は**面積・使用回数方式のときだけ**入る（SPEC-V10 §1.2）── 既存方式では
+ * 保存する列が増えないので、そのまま validatePreset の結果へ展開できる。
+ */
 type PackBuyValidation =
-  | { valid: true; packQuantity: number; packPrice: number; value: number }
+  | {
+      valid: true;
+      packQuantity: number;
+      packPrice: number;
+      value: number;
+      calc?: {
+        calcMethod: PresetCalcMethod;
+        packHeight: number;
+        packWidth: number;
+        useHeight: number;
+        useWidth: number;
+      };
+    }
   | { valid: false; reason: PresetInvalidReason };
 
 /**
- * まとめ買いの欄（§2.6.6）。1 個ずつの下書きでは見るものが無いので null を返す。
+ * まとめ買いの欄（§2.6.6 / SPEC-V10 §1.4）。1 個ずつの下書きでは見るものが無いので null を返す。
  * 単価が何になるか（登録額 / 資材費）は呼び出し側が packBuyTarget で振り分ける。
+ *
+ * 面積方式だけ別の関数に分けてある ── 見る欄が 5 つ（購入サイズ 2・購入価格・平均使用サイズ 2）で、
+ * 割る数を持たないため。個数と使用回数は**同じ検証**（割る数の意味が違うだけ。§1.2）。
  */
 function validatePackBuy(draft: PresetDraft): PackBuyValidation | null {
   if (!isPackBuyDraft(draft)) return null;
+  const method = presetDraftCalcMethod(draft);
+  if (method === 'area') return validateAreaPackBuy(draft);
 
   const packQuantity = parseDraftNumber(draft.packQuantity ?? '');
-  // 入数が空・0 のときは保存できない（§2.6.6）。1 個ずつに倒したり 1 とみなしたりしない ──
+  // 割る数が空・0 のときは保存できない（§2.6.6）。1 個ずつに倒したり 1 とみなしたりしない ──
   // 黙って別の意味で保存されると、次に開いたときモードが戻っていて理由が分からない
   if (
     isPackQuantityBlank(draft) ||
@@ -497,13 +776,84 @@ function validatePackBuy(draft: PresetDraft): PackBuyValidation | null {
     return { valid: false, reason: 'pack-quantity-required' };
   }
 
-  const packPrice = parseDraftNumber(draft.packPrice ?? '');
-  if (decimalPlaces(draft.packPrice ?? '') > 0 || packPrice < 0 || packPrice > PRESET_AMOUNT_MAX) {
-    return { valid: false, reason: 'pack-price-out-of-range' };
+  const packPrice = validatePackPrice(draft);
+  if (packPrice == null) return { valid: false, reason: 'pack-price-out-of-range' };
+
+  return {
+    valid: true,
+    packQuantity,
+    packPrice,
+    // 割る数が 1 以上あることは上で確かめてあるので null にはならない（保険として 0 に倒す）
+    value: presetUnitPrice(packPrice, packQuantity) ?? 0,
+    // 使用回数方式は方式だけを控える（サイズは持たない）。個数方式は従来どおり何も足さない
+    ...(method === 'usage'
+      ? { calc: { calcMethod: method, packHeight: 0, packWidth: 0, useHeight: 0, useWidth: 0 } }
+      : undefined),
+  };
+}
+
+/**
+ * 面積方式の欄（SPEC-V10 §1.4）。
+ *
+ * - **購入サイズ（縦・横）は必須**。片方でも空・0 なら ¥/㎡ が出せない
+ * - **平均使用サイズは任意**。両方空なら「未入力」で、登録額は ¥/㎡ のまま（§1.3）
+ * - **片方だけ入っているのは弾く** ── 0 と読んで面積 0 にすると単価が 0 円になり、
+ *   打ち終わっていないだけの状態が「無料の梱包材」として保存されてしまう
+ *
+ * サイズは小数第 1 位まで（21.5cm のような実寸が入る）。割る数（packQuantity）はこの方式では
+ * 使わないので、保存値は 0 に倒す（呼び出し側が packQuantity: 0 を書く）。
+ */
+function validateAreaPackBuy(draft: PresetDraft): PackBuyValidation {
+  const packHeight = validateSize(draft.packHeight);
+  const packWidth = validateSize(draft.packWidth);
+  if (packHeight == null || packWidth == null || packHeight === 0 || packWidth === 0) {
+    return { valid: false, reason: 'pack-size-required' };
   }
 
-  // 入数が 1 以上あることは上で確かめてあるので null にはならない（保険として 0 に倒す）
-  return { valid: true, packQuantity, packPrice, value: presetUnitPrice(packPrice, packQuantity) ?? 0 };
+  const packPrice = validatePackPrice(draft);
+  if (packPrice == null) return { valid: false, reason: 'pack-price-out-of-range' };
+
+  const useHeight = validateSize(draft.useHeight);
+  const useWidth = validateSize(draft.useWidth);
+  if (useHeight == null || useWidth == null) return { valid: false, reason: 'use-size-invalid' };
+  // 片方だけ空（＝ 0）は打ちかけ。両方空なら未入力として通す（§1.3）
+  const useBlank = useHeight === 0;
+  if (useBlank !== (useWidth === 0)) return { valid: false, reason: 'use-size-invalid' };
+
+  const usePrice = presetAreaUsePrice(packPrice, packHeight, packWidth, useHeight, useWidth);
+  const areaUnitPrice = presetAreaUnitPrice(packPrice, packHeight, packWidth);
+
+  return {
+    valid: true,
+    // 面積方式は割る数を持たない（列は個数・使用回数のためのもの。§1.2）
+    packQuantity: 0,
+    packPrice,
+    // 平均使用サイズが未入力なら ¥/㎡ が登録額（§1.3）。購入サイズは上で 0 を弾いてあるので、
+    // どちらかは必ず値を返す（保険として 0 に倒す）
+    value: usePrice ?? areaUnitPrice ?? 0,
+    calc: { calcMethod: 'area', packHeight, packWidth, useHeight, useWidth },
+  };
+}
+
+/** 購入価格（3 方式に共通。§2.6.6）。範囲外・小数のときだけ null */
+function validatePackPrice(draft: PresetDraft): number | null {
+  const text = draft.packPrice ?? '';
+  const parsed = parseDraftNumber(text);
+  if (decimalPlaces(text) > 0 || parsed < 0 || parsed > PRESET_AMOUNT_MAX) return null;
+  return parsed;
+}
+
+/**
+ * サイズ 1 つぶん（cm。SPEC-V10 §1.4）。**空欄は 0（＝未入力）として返す** ──
+ * 必須かどうかは呼び出し側が決める（購入サイズは必須、平均使用サイズは任意）。
+ * 範囲外・小数第 2 位以下のときだけ null。
+ */
+function validateSize(text: string | undefined): number | null {
+  const value = text ?? '';
+  if (decimalPlaces(value) > 1) return null;
+  const parsed = parseDraftNumber(value);
+  if (parsed < 0 || parsed > PRESET_SIZE_MAX) return null;
+  return parsed;
 }
 
 /**

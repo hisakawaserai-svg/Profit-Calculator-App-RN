@@ -28,7 +28,6 @@ import {
   backspace,
   clearAll,
   commitRow,
-  createMemo,
   evaluateDraft,
   memoRows,
   memoTotal,
@@ -36,6 +35,7 @@ import {
   removeRow,
   rowResultText,
   submitBlockedReason,
+  type CalcMemo,
   type CalcMemoRow,
 } from '@/logic/calcMemo';
 import { formatCalcTotal } from '@/logic/format';
@@ -97,23 +97,36 @@ type Props = {
    */
   fieldLabel: string;
   /**
-   * 親の入力欄の値。マウント時の初期表示にのみ使う（開いている間の親側の変化は反映しない）。
-   * 空 or `0` なら行なしで始まる（§7.2「開いたときの状態」）。
+   * 開いたときの積み上げ（§7.2「開いたときの状態」）。マウント時の初期表示にのみ使う
+   * （開いている間の親側の変化は反映しない）。
+   *
+   * **前回「入れる」で確定した積み上げを、呼び出し側（NumericField）が欄の今の値と
+   * 突き合わせて渡す** ── 欄の値が前回の確定値のままなら内訳ごと復元し、そうでなければ
+   * （手で打ち直された・プリセットで上書きされた等）今の値 1 行だけの状態を渡す。
+   * ここでは判定しない（NumericField 参照）。
    */
-  targetText: string;
-  /** 「入れる」で親の入力欄へ書き戻す。渡すのは**合計だけ**（§7.4） */
-  onSubmit: (value: string) => void;
+  initialMemo: CalcMemo;
+  /**
+   * 「入れる」で親の入力欄へ書き戻す。書き戻す値は**合計だけ**（§7.4）だが、
+   * 次に開いたときに内訳を復元できるよう、確定した積み上げ（memo）も一緒に返す。
+   */
+  onSubmit: (value: string, memo: CalcMemo) => void;
   /**
    * 梱包材シート末尾の「設定で編集する ▸」を出すか（既定 true）。
    * 記録フォームからは false（PresetPickerSheet と同じ理由。モーダルの裏に遷移するため）。
    */
   canOpenSettings?: boolean;
   /**
-   * 「🏷 梱包材から選ぶ」を出すか（既定 true。SPEC-V3 §4.5）。
+   * 「🏷 梱包材から選ぶ」を出すか（**既定 false**。SPEC-V3 §4.5）。
    *
-   * **プリセット編集画面の値の欄からは false**（§4.2 の「プリセットからプリセットを選ぶ経路は
-   * 作らない」）。梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに
-   * 「封筒」を選べてしまう。電卓そのものは残す ──「1000 ÷ 30」の単価計算に使うため（§3.3）。
+   * 出すのは**梱包材の欄から開いた電卓だけ**。シートの中身は元々どの欄から開いても同じだが、
+   * 梱包材プリセットを積める先は梱包材の欄しかないので、販売価格や送料の電卓に置くと
+   * 「この欄でも使うのか」と読ませてしまう。ヘルプ（helpContent の「入力を減らす」）も
+   * 梱包材の欄からの導線としてだけ説明している。
+   *
+   * 梱包材のプリセットを**登録する**画面（PresetFormScreen / PackBuyFields）でも出ない。
+   * 「封筒」を登録するのに「封筒」を選べる経路は作らない（§4.2）。ただし電卓そのものは残す
+   * ──「1000 ÷ 30」の単価計算に使うため（§3.3）。
    */
   canPickPackaging?: boolean;
   onClose: () => void;
@@ -122,15 +135,15 @@ type Props = {
 /** 開いている間だけマウントする前提のコンポーネント（初期表示を state の初期値で決めるため）。 */
 export function MiniCalculator({
   fieldLabel,
-  targetText,
+  initialMemo,
   onSubmit,
   canOpenSettings = true,
-  canPickPackaging = true,
+  canPickPackaging = false,
   onClose,
 }: Props) {
   const colors = useThemeColors();
-  // 積み上げは保存しない。シートを閉じれば消える（§7.4）ので、state はこの 1 つだけ
-  const [memo, setMemo] = useState(() => createMemo(targetText));
+  // 「入れる」を押さずに閉じた分の積み上げは残らない（§7.4）。state はこの 1 つだけ
+  const [memo, setMemo] = useState(() => initialMemo);
   const [showPacking, setShowPacking] = useState(false);
   const rowsRef = useRef<ScrollView>(null);
 
@@ -162,7 +175,7 @@ export function MiniCalculator({
   /** 書き戻し（§7.4）。シートが下がり切ってから親へ返す（close 経由） */
   const handleSubmit = (close: () => void) => {
     if (blocked != null) return;
-    onSubmit(memoTotalText(memo));
+    onSubmit(memoTotalText(memo), memo);
     close();
   };
 

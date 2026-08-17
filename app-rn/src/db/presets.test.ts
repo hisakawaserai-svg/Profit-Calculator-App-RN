@@ -759,3 +759,233 @@ describe('SPEC-V7 §2.1 マイグレーション: 色キー → hex（0007 / 000
     ).toBe(PRESET_COLOR_HEXES.blue);
   });
 });
+
+describe('SPEC-V10 §1 マイグレーション 0010: 単価の計算方式', () => {
+  /** 0010（計算方式とサイズの 5 列を足すマイグレーション）の idx */
+  const CALC_METHOD_MIGRATION_IDX = 10;
+
+  it('0009 で止めると calc_method / サイズの列はまだ存在しない', () => {
+    const older = newDatabase(CALC_METHOD_MIGRATION_IDX - 1);
+
+    expect(() => older.prepare('SELECT calc_method FROM presets').all()).toThrow();
+    expect(() => older.prepare('SELECT pack_height FROM presets').all()).toThrow();
+  });
+
+  it('初期プリセットは「個数から」のまま（バックフィルなし）', () => {
+    const sqlite = newDatabase();
+    const rows = sqlite
+      .prepare(
+        `SELECT id, value, calc_method AS calcMethod, pack_height AS packHeight,
+                pack_width AS packWidth, use_height AS useHeight, use_width AS useWidth
+         FROM presets WHERE type = 'packaging' ORDER BY sort_order`,
+      )
+      .all() as {
+      id: string;
+      value: number;
+      calcMethod: string;
+      packHeight: number;
+      packWidth: number;
+      useHeight: number;
+      useWidth: number;
+    }[];
+
+    expect(rows).toHaveLength(6);
+    expect(rows.every((row) => row.calcMethod === 'individual')).toBe(true);
+    expect(
+      rows.every(
+        (row) =>
+          row.packHeight === 0 && row.packWidth === 0 && row.useHeight === 0 && row.useWidth === 0,
+      ),
+    ).toBe(true);
+    // 金額は §2.4 のまま
+    expect(rows.find((row) => row.id === 'seed-packaging-box-s')?.value).toBe(60);
+  });
+
+  it('利用者が作った既存行（まとめ買い）も個数方式のまま開く（0009 までで入れた行に 0010 を流す）', () => {
+    const sqlite = newDatabase(CALC_METHOD_MIGRATION_IDX - 1);
+    sqlite
+      .prepare(
+        `INSERT INTO presets (id, type, name, color_key, initial, value, pack_quantity, pack_price, sort_order)
+         VALUES ('mine', 'packaging', '封筒（A4）', '#FFCC00', '封', 8, 100, 800, 7)`,
+      )
+      .run();
+    for (const statement of migrationSql(journal.entries[CALC_METHOD_MIGRATION_IDX].tag)) {
+      sqlite.exec(statement);
+    }
+
+    const row = sqlite
+      .prepare(
+        `SELECT value, pack_quantity AS packQuantity, pack_price AS packPrice,
+                calc_method AS calcMethod, pack_height AS packHeight, pack_width AS packWidth,
+                use_height AS useHeight, use_width AS useWidth
+         FROM presets WHERE id = 'mine'`,
+      )
+      .get();
+
+    // 単価（value）も控えの 2 列も動かず、方式だけが既定で埋まる
+    expect(row).toEqual({
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      calcMethod: 'individual',
+      packHeight: 0,
+      packWidth: 0,
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
+});
+
+describe('SPEC-V10 §1.2 プリセットの保存: 計算方式とサイズ', () => {
+  let sqlite: ReturnType<typeof newDatabase>;
+  let presetRepo: PresetRepository;
+
+  beforeEach(() => {
+    sqlite = newDatabase();
+    presetRepo = createPresetRepository(drizzle(sqlite, { schema }), { generateId: randomUUID });
+  });
+
+  it('方式を渡さない追加は「個数から」で入る（既存の呼び出しがそのまま動く）', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: '封筒（A4）',
+      colorKey: '#FFCC00',
+      initial: '封',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      materialCost: 0,
+    });
+
+    expect(created.calcMethod).toBe('individual');
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      calcMethod: 'individual',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      packHeight: 0,
+      packWidth: 0,
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
+
+  it('面積方式は 1 回あたりの単価と、元の入力（サイズ 4 つ・購入価格）が両方残る', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: 'エアキャップ',
+      colorKey: '#2E9E4F',
+      initial: 'エ',
+      // 500円 / 1㎡ を 30×20cm 使う → 30円
+      value: 30,
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 30,
+      useWidth: 20,
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      calcMethod: 'area',
+      value: 30,
+      packPrice: 500,
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 30,
+      useWidth: 20,
+    });
+  });
+
+  it('使用回数方式は割る数を pack_quantity に持つ（列を増やさない。§1.2）', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: 'テープ',
+      colorKey: '#FF3B30',
+      initial: 'テ',
+      value: 20,
+      packQuantity: 50,
+      packPrice: 1000,
+      materialCost: 0,
+      calcMethod: 'usage',
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      calcMethod: 'usage',
+      value: 20,
+      packQuantity: 50,
+      packPrice: 1000,
+      packHeight: 0,
+    });
+  });
+
+  it('面積方式から個数方式へ戻すとサイズは消える（不整合な行を残さない）', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: 'エアキャップ',
+      colorKey: '#2E9E4F',
+      initial: 'エ',
+      value: 30,
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 30,
+      useWidth: 20,
+    });
+
+    presetRepo.update(created.id, {
+      type: 'packaging',
+      name: 'エアキャップ',
+      colorKey: '#2E9E4F',
+      initial: 'エ',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      materialCost: 0,
+    });
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      calcMethod: 'individual',
+      value: 8,
+      packQuantity: 100,
+      packPrice: 800,
+      packHeight: 0,
+      packWidth: 0,
+      useHeight: 0,
+      useWidth: 0,
+    });
+  });
+
+  it('削除の取り消しは方式とサイズごと書き戻す', () => {
+    const created = presetRepo.create({
+      type: 'packaging',
+      name: 'エアキャップ',
+      colorKey: '#2E9E4F',
+      initial: 'エ',
+      value: 500,
+      packQuantity: 0,
+      packPrice: 500,
+      materialCost: 0,
+      calcMethod: 'area',
+      packHeight: 100,
+      packWidth: 100,
+      useHeight: 0,
+      useWidth: 0,
+    });
+
+    presetRepo.remove(created.id);
+    presetRepo.restore(created);
+
+    expect(presetRepo.getById(created.id)).toMatchObject({
+      calcMethod: 'area',
+      value: 500,
+      packHeight: 100,
+      packWidth: 100,
+    });
+  });
+});

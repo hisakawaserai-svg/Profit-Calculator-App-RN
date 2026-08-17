@@ -31,8 +31,10 @@ import { PriceLine } from '@/components/PriceLine';
 import { PriceSlider } from '@/components/PriceSlider';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { Stepper } from '@/components/Stepper';
 import { TagChip } from '@/components/TagChip';
 import type { BreakdownPartKey } from '@/logic/calcForm';
+import { DEFAULT_COMMISSION, MAX_COMMISSION, MIN_COMMISSION } from '@/logic/recordForm';
 import { formatMonthKeyTitle, formatUnitYen, formatYenSymbol } from '@/logic/format';
 import {
   PRICING_EXAMPLE,
@@ -55,6 +57,7 @@ import {
   HELP_FIGURE_ADD_RECORD_NOTE,
   HELP_FIGURE_BREAKDOWN_NOTE,
   HELP_FIGURE_CALCULATOR_NOTE,
+  HELP_FIGURE_COMMISSION_FIELD_NOTE,
   HELP_FIGURE_COLOR_GROUPS_NOTE,
   HELP_FIGURE_DATA_MODES_NOTE,
   HELP_FIGURE_EXPORT_PREVIEW_NOTE,
@@ -101,6 +104,7 @@ import {
   TARGET_TAB_LABEL,
   backupPhotoIncludeDetail,
   colorUserLabel,
+  commissionFieldLabel,
   exportPreviewMetaLabel,
   pricingHeroAmount,
   profitTabLabel,
@@ -168,6 +172,27 @@ export function CalculatorButtonFigure() {
         <Text style={[styles.fieldValue, { color: colors.label }]}>215</Text>
         <Ionicons name="calculator" size={22} color={colors.blue} />
       </View>
+    </PartFrame>
+  );
+}
+
+/**
+ * 手数料の行（実物の Stepper）。
+ *
+ * **金額の欄（CalculatorButtonFigure）と同じ形で並べる**のが要点 ── この項目で詰まるのは
+ * 「ほかの欄には青い電卓があるのに、ここには無い」ことなので、行そのものを見せれば
+ * 説明する前に読める。± は実物と同じ 1% 刻みで、押しても動かない（noop）。
+ */
+export function CommissionFieldFigure() {
+  return (
+    <PartFrame note={HELP_FIGURE_COMMISSION_FIELD_NOTE}>
+      <Stepper
+        label={commissionFieldLabel(DEFAULT_COMMISSION)}
+        value={DEFAULT_COMMISSION}
+        minimumValue={MIN_COMMISSION}
+        maximumValue={MAX_COMMISSION}
+        onChangeValue={noop}
+      />
     </PartFrame>
   );
 }

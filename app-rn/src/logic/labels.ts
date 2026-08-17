@@ -48,12 +48,17 @@ import type {
 } from './pricing';
 import { roundForDisplay } from './profit';
 import {
+  DEFAULT_PRESET_CALC_METHOD,
+  hasPresetUseSize,
+  isPackBuy,
   isRatePreset,
+  presetCalcMethod,
   presetColorKeyOf,
   PRESET_COLOR_KEYS,
   PRESET_INITIAL_MAX_LENGTH,
   PRESET_NAME_MAX_LENGTH,
   PRESET_RATE_MAX,
+  type PresetCalcMethod,
   type PresetColorKey,
   type PresetInvalidReason,
 } from './preset';
@@ -173,6 +178,54 @@ export const SORT_SHEET_TITLE = '並び替え';
 
 /** 記録の検索欄（UI-SPEC §5-10）。読み上げ語も同じ文を使う（欄の中に出ている語がそのまま名前） */
 export const RECORD_SEARCH_PLACEHOLDER = '商品名で検索';
+
+// ---- 「過去の記録から複製」（記録タブの＋のメニュー） ----
+//
+// **＋を押しても、すぐにフォームは開かない**（2 択のシートが出る）。1 タップ増えるが、
+// 複製を「知っている人だけが辿り着く隠し操作」にしないための形 ── 同じ物を何度も出す人には
+// こちらが本命で、入口が見えないと使われないまま終わる。
+
+/** ＋のシートの見出し。何を選ぶ場面かを言う */
+export const ADD_RECORD_MENU_TITLE = '記録を作る';
+
+/** 2 択の左（従来どおりの新規作成）。**先に置く** ── 増えたほうを既定にしない */
+export const NEW_RECORD_ACTION_LABEL = '新しく作る';
+export const NEW_RECORD_ACTION_NOTE = '空の記録から入力します';
+
+/** 2 択の右（複製）。行き先が「選ぶ画面」であることまで言う */
+export const DUPLICATE_RECORD_ACTION_LABEL = '過去の記録から複製';
+export const DUPLICATE_RECORD_ACTION_NOTE = '送料や手数料を引き継いで作ります';
+
+/** 複製元を選ぶ画面（DuplicateSourceScreen） */
+export const DUPLICATE_SCREEN_TITLE = '複製する記録を選ぶ';
+
+/**
+ * 画面の先頭に置く 1 行。**写らないものを先に言う。**
+ *
+ * 「複製」の語からは全部が写ると読めるので、そのまま保存すると前の販売価格が
+ * 入った記録ができると思われかねない ── 実際は空で始まる（logic/duplicateRecord.ts）。
+ */
+export const DUPLICATE_SCREEN_NOTE =
+  '商品名・種別・経費・タグ・目標を引き継ぎます。販売価格・写真・メモ・日付は引き継ぎません。';
+
+/** 直近の記録の見出し（絞り込んでいないときだけ出る） */
+export const DUPLICATE_RECENT_SECTION_LABEL = '最近の記録';
+
+/** その下の行。押すと全件に切り替わる */
+export const DUPLICATE_SHOW_ALL_LABEL = 'すべての記録を見る';
+
+/** 全件に切り替えたあとの見出し */
+export const DUPLICATE_ALL_SECTION_LABEL = 'すべての記録';
+
+/** 記録が 1 件も無いとき（複製元が作れない） */
+export const DUPLICATE_EMPTY_TITLE = '複製できる記録がありません';
+export const DUPLICATE_EMPTY_BODY = '記録を 1 件でも作ると、次からここに出ます。';
+
+/** 検索・タグで絞った結果が 0 件のとき。解除の口は絞り込みの行そのものなので出さない */
+export const DUPLICATE_NO_MATCH_TITLE = '条件に合う記録がありません';
+
+/** タグで絞る行の見出し（複製元を選ぶ画面） */
+export const DUPLICATE_TAG_FILTER_LABEL = 'タグで絞る';
 
 /** カレンダーの前後の月へ送るボタン（UI-SPEC §8.10）。矢印 1 つなので語は読み上げにしかない */
 export const PREVIOUS_MONTH_LABEL = '前の月';
@@ -1647,6 +1700,11 @@ export function presetTypeLabel(type: PresetType): string {
 export function presetBlockedNote(
   reason: PresetInvalidReason,
   type: PresetType,
+  /**
+   * 単価の計算方式（SPEC-V10 §1.4）。**割る数の欄の名前が方式で変わる**ので、
+   * 同じ理由コードでも指す欄が読み取れるようにここまで渡す。既定は既存方式。
+   */
+  method: PresetCalcMethod = DEFAULT_PRESET_CALC_METHOD,
 ): string {
   switch (reason) {
     case 'name-required':
@@ -1660,9 +1718,14 @@ export function presetBlockedNote(
     // まとめ買い（§2.6.6）。入数は空・0・上限超え・小数のどれも同じ 1 行で足りる ──
     // 直す先が 1 つの欄しかなく、どう間違えたかを言い分けても打ち直す手は変わらない
     case 'pack-quantity-required':
-      return '入数を入れてください';
+      return method === 'usage' ? '想定使用回数を入れてください' : '入数を入れてください';
     case 'pack-price-out-of-range':
       return '購入価格は 0 以上で入れてください';
+    // 面積方式（SPEC-V10 §1.4）。購入サイズは必須、平均使用サイズは「両方か、両方空か」
+    case 'pack-size-required':
+      return '購入サイズの縦・横を入れてください';
+    case 'use-size-invalid':
+      return '平均使用サイズは縦・横の両方を入れてください';
     // 専用資材の代金（SPEC-V6 §2）。0 円を許すので「入れてください」ではない ──
     // 咎めるのは範囲の外だけで、空欄はそのまま 0 円として保存できる
     case 'material-cost-out-of-range':
@@ -1808,6 +1871,93 @@ export const PRESET_UNIT_PRICE_LABEL = '1個あたり';
  */
 export function presetUnitPriceText(unitPrice: number | null): string {
   return unitPrice == null ? '—' : formatUnitYen(unitPrice);
+}
+
+// ---- SPEC-V10 梱包材の単価計算方式（個数 / 面積 / 使用回数） ----
+
+/** 3 択の見出し（§1.1）。「金額の入れ方」で**まとめ買い**を選んだときだけ出る */
+export const PRESET_CALC_METHOD_LABEL = '計算方式';
+
+/**
+ * 3 択の中身（§1.1）。並びは PRESET_CALC_METHODS そのもの（既定の「個数から」が先頭）。
+ * 「〜から」で揃えているのは、どれも**何を割るか**を選んでいるため。
+ */
+export const PRESET_CALC_METHOD_OPTIONS = ['個数から', '面積から', '使用回数から'];
+
+/**
+ * 割る数の欄の見出し（§1.2）。**個数方式と使用回数方式で同じ欄**の名前が変わる ──
+ * 入れる数の意味が違うので、単位（個 / 回）まで含めて言い分ける。
+ */
+export function presetPackQuantityFieldLabel(method: PresetCalcMethod): string {
+  return method === 'usage' ? PRESET_USAGE_COUNT_FIELD_LABEL : PRESET_PACK_QUANTITY_FIELD_LABEL;
+}
+
+/** 想定使用回数の欄（§1.2）。「何回ぶん使えるか」を人が見積もって入れる */
+export const PRESET_USAGE_COUNT_FIELD_LABEL = '想定使用回数（回）';
+
+/** 購入サイズの欄（§1.2）。cm で入れる（㎡ への換算は presetAreaUnitPrice がする） */
+export const PRESET_PACK_HEIGHT_FIELD_LABEL = '購入サイズ 縦（cm）';
+export const PRESET_PACK_WIDTH_FIELD_LABEL = '購入サイズ 横（cm）';
+
+/** 平均使用サイズの欄（§1.2）。**任意入力**で、入れると 1 回あたりまで出る */
+export const PRESET_USE_HEIGHT_FIELD_LABEL = '平均使用サイズ 縦（cm）';
+export const PRESET_USE_WIDTH_FIELD_LABEL = '平均使用サイズ 横（cm）';
+
+/** ¥/㎡ の帯（§1.3）。面積方式の 1 枚目の計算結果 */
+export const PRESET_AREA_UNIT_PRICE_LABEL = '1㎡あたり';
+
+/** 1 回あたりの帯（§1.3）。面積・使用回数方式の計算結果 */
+export const PRESET_USE_PRICE_LABEL = '1回あたり';
+
+/**
+ * 計算結果の帯の見出し（§1.3）。方式で数える単位が変わる:
+ * 個数から = 1 個あたり / 面積・使用回数から = 1 回あたり。
+ */
+export function presetUnitPriceRowLabel(method: PresetCalcMethod): string {
+  return method === 'individual' ? PRESET_UNIT_PRICE_LABEL : PRESET_USE_PRICE_LABEL;
+}
+
+/**
+ * 平均使用サイズのカードの下の 1 行（§1.3）。**任意入力であることと、
+ * 入れなかったときに何が登録されるか**を先に言う ── 空のまま保存できてしまう欄なので、
+ * 保存したあとに「1 回いくらが出ていない」と気づく形にはしない。
+ */
+export const PRESET_USE_SIZE_NOTE =
+  '任意です。入れると1回あたりの金額まで出ます。空のままなら1㎡あたりの金額が経費に入ります。';
+
+/**
+ * 一覧・選択シートの行で、右端の金額が**何あたりの額か**を言う 1 行（§1.5）。
+ * 計算して登録した梱包材だけに出る（手で金額を入れた行は「1 回ぶんの額」そのものなので出さない）。
+ *
+ * 面積方式で平均使用サイズを入れていない行だけ単位が「1 ㎡」になる ──
+ * ここを言わないと、同じ「◯◯円」の並びの中で 1 行だけ桁の違う額が理由なく混ざる。
+ */
+export function presetUnitNote(preset: {
+  type: PresetType;
+  calcMethod?: string;
+  packQuantity: number;
+  packHeight?: number;
+  packWidth?: number;
+  useHeight?: number;
+  useWidth?: number;
+}): string | null {
+  if (preset.type !== 'packaging' || !isPackBuy(preset)) return null;
+
+  switch (presetCalcMethod(preset)) {
+    case 'area':
+      return hasPresetUseSize(preset)
+        ? `${PRESET_USE_PRICE_LABEL}（${formatPresetSize(preset.useHeight ?? 0)}×${formatPresetSize(preset.useWidth ?? 0)}cm）`
+        : PRESET_AREA_UNIT_PRICE_LABEL;
+    case 'usage':
+      return PRESET_USE_PRICE_LABEL;
+    default:
+      return PRESET_UNIT_PRICE_LABEL;
+  }
+}
+
+/** サイズの表示（cm）。末尾の `.0` は出さない（金額の formatUnitYen と同じ扱い） */
+function formatPresetSize(size: number): string {
+  return String(Number(size.toFixed(1)));
 }
 
 // ---- SPEC-V6 送料プリセットの専用資材 ----
@@ -2074,6 +2224,13 @@ export function presetPickerEmptyBodyWithoutLink(type: PresetType): string {
  * 消えるのは名前の写しだけで、率は残る ── 読み上げでもそれが分かるよう名前を主語にする。
  */
 export function siteNameClearLabel(name: string): string {
+  return `${name}を外す`;
+}
+
+/**
+ * タグボタンの「✕」（選択中のプリセットを外す）の読み上げ。文面は siteNameClearLabel と同じ形。
+ */
+export function presetTagClearLabel(name: string): string {
   return `${name}を外す`;
 }
 
@@ -2911,6 +3068,9 @@ export const HELP_FIGURE_MODE_PROFIT_NOTE = 'この 2 つで切り替えます';
 export const HELP_FIGURE_MODE_TARGET_NOTE =
   'こちらに切り替えると、ほしい利益から販売価格を出します';
 export const HELP_FIGURE_CALCULATOR_NOTE = '青いボタンを押すと電卓が開きます';
+/** 手数料の行だけ電卓ボタンが無いこと（金額の欄と並べて読む） */
+export const HELP_FIGURE_COMMISSION_FIELD_NOTE =
+  'ここだけ電卓が出ません。「−」「＋」で 1% ずつ動かします';
 export const HELP_FIGURE_BREAKDOWN_NOTE =
   '「内訳」を押すと、この帯と項目ごとの金額が出ます';
 export const HELP_FIGURE_PRESET_TAG_NOTE =
@@ -3053,14 +3213,35 @@ export function helpFigureTagOrSubtitle(first: string, second: string): string {
   return `「${first}」と「${second}」を選ぶと`;
 }
 
+/**
+ * 図: 複製で写るもの・写らないもの（記録ページ）。
+ * 欄の名前は画面の表示語をそのまま使い、ここでは**群の見出しと、値が変わる 2 つ**だけ持つ。
+ */
+export const HELP_FIGURE_DUPLICATE_SUBTITLE = '複製元から新しい記録へ';
+export const HELP_FIGURE_DUPLICATE_COPIED_LABEL = '写る';
+export const HELP_FIGURE_DUPLICATE_SKIPPED_LABEL = '写らない';
+export const HELP_FIGURE_DUPLICATE_DATE_LABEL = '日付（今日から）';
+export const HELP_FIGURE_DUPLICATE_STATUS_LABEL = `状態（${LISTING_STATUS_LABEL}から）`;
+
+/**
+ * 図: 機種変更の 1 往復（残すページ）。
+ * **端末どうしが直接つながらない**ことを、間にファイルを挟んだ形で見せる。
+ */
+export const HELP_FIGURE_MIGRATE_SUBTITLE = 'ファイルを 1 往復させる';
+export const HELP_FIGURE_MIGRATE_OLD_LABEL = '古い端末';
+export const HELP_FIGURE_MIGRATE_NEW_LABEL = '新しい端末';
+
 /** 図の中だけで使う短縮形・補助の語 */
 export const HELP_FIGURE_TOTAL_CAPTION = '2 件以上をまとめた金額';
 export const HELP_FIGURE_PURCHASE_SHORT_LABEL = '仕入';
 export const HELP_FIGURE_PACK_QUANTITY_LABEL = '入数';
-export const HELP_FIGURE_PACK_SUBTITLE = '100 枚で 800 円の封筒を登録すると';
+export const HELP_FIGURE_PACK_SUBTITLE = '購入価格を何で割るかだけが違う';
+/** 面積方式の 2 段目（1㎡ あたり → 1 回あたり）。cm の 2 値は掛けたあとの ㎡ で見せる */
+export const HELP_FIGURE_PACK_AREA_LABEL = '購入サイズ';
+export const HELP_FIGURE_PACK_USE_LABEL = '平均使用サイズ';
+export const HELP_FIGURE_PACK_USAGE_LABEL = '想定使用回数';
 export const HELP_FIGURE_ONE_BY_ONE_LABEL = '1 件ずつ';
 export const HELP_FIGURE_GROUPED_LABEL = '日ごとにまとめる';
-export const HELP_FIGURE_NO_ITEM_NAME_LABEL = '（商品名は入りません）';
 export const HELP_FIGURE_ROUNDING_SUBTITLE = '10.4 円と 10.4 円の 2 件なら';
 export const HELP_FIGURE_ROUND_FIRST_LABEL = '10 ＋ 10（先に丸める）';
 export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
@@ -3069,6 +3250,14 @@ export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
  * 図 8（書き出しの 2 種類）の見出し（案 `20a`）。**列数は実際の列の並びから数える** ──
  * 図に「19 列」と書いておくと、列を 1 つ足したときに図だけが古くなる。
  */
+/**
+ * 図 12（梱包材の 3 方式）の 2 段目。面積方式だけは 1㎡ あたりのあとに **1 回あたり**が続くので、
+ * 表の下に 1 行だけ添える。**語を組み立てるのはここ**（図の側で文を作らない）。
+ */
+export function helpFigurePackUseNote(size: string, price: string): string {
+  return `${HELP_FIGURE_PACK_USE_LABEL} ${size} を入れると ${PRESET_USE_PRICE_LABEL} ${price}`;
+}
+
 export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
   const columns = kind === 'backup' ? CSV_BACKUP_COLUMNS : CSV_TAX_COLUMNS;
   const label =
@@ -4102,7 +4291,7 @@ export const ONBOARDING_START_LABEL = 'はじめる';
 
 export const ONBOARDING_CALC_TITLE = '入れた分だけ、利益が見える';
 export const ONBOARDING_CALC_BODY =
-  '販売価格・送料・手数料を入れると、その場で純利益が計算されます。';
+  '販売価格・送料・手数料を入れると、その場で手元に残る金額が計算されます。';
 
 export const ONBOARDING_TARGET_TITLE = '目標から逆算もできる';
 export const ONBOARDING_TARGET_BODY =
@@ -4116,7 +4305,7 @@ export const ONBOARDING_SAVE_BODY =
 
 export const ONBOARDING_PRESET_TITLE = 'よく使う値はプリセットに';
 export const ONBOARDING_PRESET_BODY =
-  '販売サイト・送料・梱包材はプリセットから選べます。電卓からの入力もいつでも使えます。';
+  '販売サイト・送料は欄の横の印から、梱包材は電卓の中から選べます。電卓からの入力もいつでも使えます。';
 
 export const ONBOARDING_SIMULATOR_TITLE = '出品中でも、値下げを試せる';
 export const ONBOARDING_SIMULATOR_BODY =
@@ -4128,9 +4317,9 @@ export const ONBOARDING_SIMULATOR_BODY =
  * 強調して見せるため（構成の指定）── EMPHASIS だけ色・太さを変えて描く。
  * 3 つをこの順でつなぐと ONBOARDING_SIMULATOR_NOTE と同じ 1 文になる。
  */
-export const ONBOARDING_SIMULATOR_NOTE_PREFIX = '目標利益のラインは、その記録に';
-export const ONBOARDING_SIMULATOR_NOTE_EMPHASIS = '目標の純利益を入力';
-export const ONBOARDING_SIMULATOR_NOTE_SUFFIX = 'しているときだけ表示されます。';
+export const ONBOARDING_SIMULATOR_NOTE_PREFIX = '目標のラインは、その記録に';
+export const ONBOARDING_SIMULATOR_NOTE_EMPHASIS = '目標の純利益（仕入品では「目標利益」）を入力';
+export const ONBOARDING_SIMULATOR_NOTE_SUFFIX = 'しているときだけ出ます。';
 export const ONBOARDING_SIMULATOR_NOTE =
   ONBOARDING_SIMULATOR_NOTE_PREFIX + ONBOARDING_SIMULATOR_NOTE_EMPHASIS + ONBOARDING_SIMULATOR_NOTE_SUFFIX;
 
@@ -4144,7 +4333,7 @@ export const ONBOARDING_PACKAGING_PRESET_TITLE = '梱包材はまとめ買いも
  * ため（構成の指定「設定・入力することが書かれていないため勘違いしそう」）。文言は
  * presetPickerEmptyBodyWithoutLink と同じ「設定タブの「入力を減らす」」の言い回しに揃えてある。
  */
-export const ONBOARDING_PACKAGING_PRESET_BODY_PREFIX = `設定タブの「${PRESET_SECTION_TITLE}」で購入価格と入数を登録しておくだけで、1個あたりの単価を自動で計算します。次からは`;
+export const ONBOARDING_PACKAGING_PRESET_BODY_PREFIX = `設定タブの「${PRESET_SECTION_TITLE}」で入数と購入価格を登録しておくだけで、1個あたりの金額を自動で計算します。次からは`;
 export const ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS = '電卓の中から';
 export const ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX = '選んで呼び出せます。';
 export const ONBOARDING_PACKAGING_PRESET_BODY =
@@ -4152,7 +4341,7 @@ export const ONBOARDING_PACKAGING_PRESET_BODY =
   ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS +
   ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX;
 
-export const ONBOARDING_DATA_TITLE = '3つの見方で販売を振り返る';
+export const ONBOARDING_DATA_TITLE = '3つの見かたで販売を振り返る';
 export const ONBOARDING_DATA_BODY = '収支・タグ・実績。見たい角度でこれまでの販売がわかります。';
 
 export const ONBOARDING_ACHIEVEMENTS_TITLE = '続けるほど実績が増えていく';

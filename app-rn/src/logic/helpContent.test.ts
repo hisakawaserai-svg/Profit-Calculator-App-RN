@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HELP_ALL_PAGES,
   HELP_ENTRIES,
+  HELP_FIGURE_IDS,
   HELP_PAGES,
   HELP_TERMS_PAGE,
   helpItemsOf,
@@ -92,6 +93,27 @@ describe('項目', () => {
     for (const item of ALL_ITEMS) {
       if (item.link == null) continue;
       expect(pageIds.has(item.link.to), `${item.id} の行き先 ${item.link.to} が無い`).toBe(true);
+    }
+  });
+
+  // leadItemId と同じ理由でこれも型では守れない。指した項目が消えると、リンクは
+  // 行き先ページの先頭に落ちる ── ラベルで期待を作っておいて 22 項目を自力で探させる形になる
+  it('link の itemId は、行き先のページの中に実在する', () => {
+    for (const item of ALL_ITEMS) {
+      if (item.link?.itemId == null) continue;
+      const ids = helpItemsOf(helpPageOf(item.link.to)).map((candidate) => candidate.id);
+      expect(ids, `${item.id} のリンク先 ${item.link.itemId} が ${item.link.to} に無い`).toContain(
+        item.link.itemId,
+      );
+    }
+  });
+
+  // 図は作ったあと項目に付け忘れても型は通る（FIGURES の Record が埋まっていれば通る）。
+  // 付け忘れた図は誰にも出ないまま残り、次に読む人には「どこかで使われている」ように見える
+  it('用意した図はすべて、どれかの項目から使われている', () => {
+    const used = new Set(ALL_ITEMS.map((item) => item.figure).filter((id) => id != null));
+    for (const id of HELP_FIGURE_IDS) {
+      expect(used.has(id), `図 ${id} がどの項目からも使われていない`).toBe(true);
     }
   });
 

@@ -24,6 +24,7 @@
 import { inArray, sql } from 'drizzle-orm';
 
 import type { BackupRow, BackupTables } from '@/logic/backup';
+import { normalizePresetCalcMethod } from '@/logic/preset';
 
 import type { Database } from './repository';
 import { presets, recordTags, saleRecords, tags } from './schema';
@@ -136,6 +137,13 @@ export function createBackupRepository(db: Database) {
           pack_price: numberField(row.packPrice),
           material_cost: numberField(row.materialCost),
           sort_order: numberField(row.sortOrder),
+          // 単価の計算方式と面積方式のサイズ（SPEC-V10 §1.6）。保存値をそのまま出す ──
+          // 既存方式の行は 'individual' と 0 が並ぶだけで、読み戻しても同じ行になる
+          calc_method: row.calcMethod,
+          pack_height: numberField(row.packHeight),
+          pack_width: numberField(row.packWidth),
+          use_height: numberField(row.useHeight),
+          use_width: numberField(row.useWidth),
         })),
         tags: tagRows.map((row) => ({
           id: row.id,
@@ -299,7 +307,21 @@ function toPresetRow(row: BackupRow) {
     packPrice: Number(row.pack_price),
     materialCost: Number(row.material_cost),
     sortOrder: Number(row.sort_order),
+    // SPEC-V10 §1.6。**古いバックアップではこの 5 列が空文字**（logic/backup.ts の
+    // PRESET_COLUMNS_LEGACY が埋める）ので、既定の計算方式とサイズ 0 に倒す ──
+    // 空文字を Number() に通すと 0 になるが、方式だけは文字列なので正規化を通す
+    calcMethod: normalizePresetCalcMethod(row.calc_method),
+    packHeight: emptyToZero(row.pack_height),
+    packWidth: emptyToZero(row.pack_width),
+    useHeight: emptyToZero(row.use_height),
+    useWidth: emptyToZero(row.use_width),
   };
+}
+
+/** 空欄（古いバックアップに無かった列）は 0（SPEC-V10 §1.6） */
+function emptyToZero(value: string | undefined): number {
+  const text = emptyToNull(value);
+  return text == null ? 0 : Number(text);
 }
 
 function toTagRow(row: BackupRow) {

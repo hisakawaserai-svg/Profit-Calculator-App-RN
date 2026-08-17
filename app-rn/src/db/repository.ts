@@ -693,6 +693,50 @@ export function createRepository(
       return new Map(rows.map((row) => [row.tagId, row.count]));
     },
 
+    /**
+     * 「過去の記録から複製」の複製元の候補。
+     *
+     * **`buildWhere` を通さない理由は 1 つだけ ── 売却済みと出品中を混ぜて返すため。**
+     * `RecordListFilter.isSoldMode` は必須の boolean で、`buildWhere` は必ず
+     * `is_sold = ?` を積む（記録タブが「売れた記録」「出品中」を切り替える画面だから）。
+     * 複製元にその区別は要らない ── 写すのは経費・タグ・目標で、どれも売れたかどうかと
+     * 無関係（logic/duplicateRecord.ts）。「前に売れた物の同型をまた出す」も
+     * 「出品中の物をもう 1 つ出す」も同じ操作になる。
+     *
+     * **条件の中身は一覧と同じものを使い回す。** 商品名の部分一致は同じ `likePattern`
+     * （`% _ \` のエスケープ込み）、タグの OR は同じ `tagExistsSql`（EXISTS。行を増やさない）。
+     * 新しい検索規則をここで書かないので、片方だけ直る事故は起きない。
+     *
+     * 並びは**出品日の新しい順**。このアプリに「作成日時」の列は無く（schema.ts）、
+     * 記録が生まれた日にいちばん近いのが出品日 ── 売却済みの記録を販売日で並べると、
+     * 古く出品して最近売れた物が「最近の記録」の先頭に来て、直前に作った記録が下へ落ちる。
+     *
+     * @param limit 上限。省略 = 全件（「すべての記録を見る」側）
+     */
+    duplicateSources(
+      filter: { searchText?: string; tagIds?: readonly string[] } = {},
+      limit?: number,
+    ): SaleRecord[] {
+      const conditions: SQL[] = [];
+      const search = filter.searchText?.trim();
+      if (search) {
+        conditions.push(sql`${saleRecords.itemName} LIKE ${likePattern(search)} ESCAPE '\\'`);
+      }
+      if (filter.tagIds != null && filter.tagIds.length > 0) {
+        conditions.push(tagExistsSql(filter.tagIds));
+      }
+
+      const query = db
+        .select()
+        .from(saleRecords)
+        // 条件が 1 つも無いとき（絞り込み無しの「最近の記録」）は WHERE ごと付けない
+        .where(conditions.length === 0 ? undefined : sql.join(conditions, sql` AND `))
+        // 第 2 キーに id を置いて、同じ日の記録の並びが引くたびに入れ替わらないようにする
+        .orderBy(desc(saleRecords.saleStartDate), desc(saleRecords.id));
+
+      return limit == null ? query.all() : query.limit(limit).all();
+    },
+
     // ---- 検索・絞り込み・月次グループ化（SPEC §4.1 filteredAndGrouped 相当） ----
 
     filteredAndGrouped(

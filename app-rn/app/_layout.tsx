@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Toast, { BaseToast, type ToastConfig, type ToastConfigParams } from 'react-native-toast-message';
 
+import { initializeAds } from '@/ads/consent';
 import { AchievementToastHost } from '@/components/AchievementToastHost';
 import { ACHIEVEMENT_TOAST_TYPE, type AchievementToastProps } from '@/components/achievementToastBus';
 import { OnboardingOverlay } from '@/components/OnboardingOverlay';
@@ -141,6 +142,19 @@ export default function RootLayout() {
     registerOnboardingRequestListener(() => setOnboardingVisible(true));
     return () => registerOnboardingRequestListener(null);
   }, []);
+
+  /**
+   * 広告の初期化（同意フローを含む）。**チュートリアルが出ている間は始めない** ──
+   * 同意ダイアログはチュートリアルの上に重なって出るので、初回起動がいきなり
+   * 「何を聞かれているか分からないダイアログ」から始まってしまう。
+   *
+   * initializeAds() 側が二重呼び出しを弾くので、設定タブからチュートリアルを開き直して
+   * 閉じたときにもう一度ここへ来ても、初期化が走り直すことはない。
+   */
+  useEffect(() => {
+    if (onboardingVisible) return;
+    initializeAds();
+  }, [onboardingVisible]);
 
   const closeOnboarding = () => {
     markTutorialSeen();

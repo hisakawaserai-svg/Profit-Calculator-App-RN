@@ -261,6 +261,47 @@ export function useRecord(id: string): RecordData {
   return { record, refresh };
 }
 
+/** 複製元の候補。refreshToken を引数に取る理由は query() のコメントを参照 */
+function queryDuplicateSources(
+  searchText: string,
+  tagIds: readonly string[],
+  limit: number | undefined,
+  refreshToken: object,
+): SaleRecord[] {
+  void refreshToken;
+  return repository.duplicateSources({ searchText, tagIds }, limit);
+}
+
+/**
+ * 「過去の記録から複製」の複製元の候補（DuplicateSourceScreen）。
+ *
+ * 売却済み・出品中の両方が出品日の新しい順で返る（repository.duplicateSources）。
+ * 検索語とタグは呼び出し側の state で、打つたびに引き直す ── 同期クエリなので
+ * 記録タブの検索（useRecordList）と同じ扱いでよい。
+ *
+ * @param limit 「最近の記録」の上限。undefined = 全件（「すべての記録を見る」）
+ */
+export function useDuplicateSources(
+  searchText: string,
+  tagIds: readonly string[],
+  limit: number | undefined,
+): SaleRecord[] {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  // 複製元を選ぶ間に記録が増減する経路は無いが、フォームで保存して戻ったときのために
+  // 画面復帰では引き直す（他のフックと同じ扱い）
+  useFocusEffect(refresh);
+
+  // 配列をそのまま依存に置くと毎描画で作り直されるので、キーは文字列にして比べる
+  const tagKey = tagIds.join(',');
+
+  return useMemo(
+    () => queryDuplicateSources(searchText, tagKey === '' ? [] : tagKey.split(','), limit, refreshToken),
+    [searchText, tagKey, limit, refreshToken],
+  );
+}
+
 /** 記録の総件数。refreshToken を引数に取る理由は query() のコメントを参照 */
 function queryTotalCount(refreshToken: object): number {
   void refreshToken;

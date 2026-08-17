@@ -26,6 +26,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
+import { RECORD_LIST_BANNER_UNIT_ID } from '@/ads/adUnits';
+import { AdBanner } from '@/components/AdBanner';
+import { AddRecordMenuSheet } from '@/components/AddRecordMenuSheet';
 import { EmptyState } from '@/components/EmptyState';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
@@ -85,6 +88,9 @@ const STATUS_SEGMENTS = [SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL];
 /** レコード詳細のルート。月別詳細を廃止して 1 系統に統一した（UI-SPEC §2 / §6-9） */
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 
+/** 「過去の記録から複製」の複製元を選ぶ画面（記録タブの Stack に積む） */
+const DUPLICATE_PATHNAME = '/records/duplicate' as const;
+
 /** 絞り込みページのルート（SPEC-V4 §4.2 / 採用案 33c）。記録タブの Stack に積む */
 const RECORD_FILTER_PATHNAME = '/records/filter' as const;
 
@@ -118,6 +124,8 @@ export function RecordListScreen() {
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  /** ＋のメニュー（新しく作る / 過去の記録から複製） */
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
@@ -200,7 +208,16 @@ export function RecordListScreen() {
     [router],
   );
 
+  /**
+   * ＋を押したときに開く 2 択（AddRecordMenuSheet）。**フォームは直接開かない。**
+   * 「過去の記録から複製」の入口をここに置くため（複製が見えない操作にならないように）。
+   */
+  const openAddMenu = useCallback(() => setShowAddMenu(true), []);
   const openNewRecordForm = useCallback(() => setShowForm(true), []);
+  const openDuplicatePicker = useCallback(
+    () => router.push(DUPLICATE_PATHNAME),
+    [router],
+  );
 
   /**
    * 状態（売れた記録 / 出品中）の切り替え（採用案 22b）。
@@ -328,53 +345,63 @@ export function RecordListScreen() {
           }}
         />
 
-        <FlatList
-          data={records}
-          keyExtractor={(record) => record.id}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          // 件数は**交代制**（案 34a-D）。絞り込み中は青い行の「N件だけ」が担うので、
-          // ここには出さない ── 同じ数を 2 か所に出さない
-          ListHeaderComponent={
-            records.length === 0 || summaryText != null ? null : (
-              <Text style={[styles.count, { color: colors.secondaryLabel }]}>
-                {recordCountValue(records.length)}
-              </Text>
-            )
-          }
-          ListEmptyComponent={
-            <ListEmpty
-              filtering={filterCount > 0 || searchText !== ''}
-              canClearFilter={filterCount > 0}
-              onClearFilter={clearRecordFilter}
-            />
-          }
-          ItemSeparatorComponent={() => (
-            <View style={[styles.rowSeparator, { backgroundColor: colors.separator }]} />
-          )}
-          renderItem={({ item }) => (
-            <SwipeToDeleteRow
-              record={item}
-              isSoldMode={isSoldMode}
-              today={today}
-              tags={tagsByRecord.get(item.id) ?? []}
-              strikeAchievement={strikeBadges.get(item.id) ?? null}
-              onPress={() => openDetail(item)}
-              onDelete={() => handleDelete(item.id)}
-            />
-          )}
-        />
+        {/* 一覧と追加ボタンをひとまとめにして、その**下**に広告を置く（下の AdBanner）。
+            広告を一覧の兄弟にすると、一覧の高さが広告のぶん自動で縮む ── 末尾の行が
+            広告の裏に回り込むことがそもそも起きない。追加ボタンは絶対配置なので、
+            ここで包まないと画面いちばん下（＝広告の上）を基準にして広告に重なる */}
+        <View style={styles.listArea}>
+          <FlatList
+            data={records}
+            keyExtractor={(record) => record.id}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            // 件数は**交代制**（案 34a-D）。絞り込み中は青い行の「N件だけ」が担うので、
+            // ここには出さない ── 同じ数を 2 か所に出さない
+            ListHeaderComponent={
+              records.length === 0 || summaryText != null ? null : (
+                <Text style={[styles.count, { color: colors.secondaryLabel }]}>
+                  {recordCountValue(records.length)}
+                </Text>
+              )
+            }
+            ListEmptyComponent={
+              <ListEmpty
+                filtering={filterCount > 0 || searchText !== ''}
+                canClearFilter={filterCount > 0}
+                onClearFilter={clearRecordFilter}
+              />
+            }
+            ItemSeparatorComponent={() => (
+              <View style={[styles.rowSeparator, { backgroundColor: colors.separator }]} />
+            )}
+            renderItem={({ item }) => (
+              <SwipeToDeleteRow
+                record={item}
+                isSoldMode={isSoldMode}
+                today={today}
+                tags={tagsByRecord.get(item.id) ?? []}
+                strikeAchievement={strikeBadges.get(item.id) ?? null}
+                onPress={() => openDetail(item)}
+                onDelete={() => handleDelete(item.id)}
+              />
+            )}
+          />
 
-        {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7） */}
-        <Pressable
-          style={[styles.addButton, { backgroundColor: colors.blue }]}
-          onPress={openNewRecordForm}
-          accessibilityRole="button"
-          accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.addLabel}>{RECORDS_TAB_LABEL}</Text>
-        </Pressable>
+          {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7） */}
+          <Pressable
+            style={[styles.addButton, { backgroundColor: colors.blue }]}
+            onPress={openAddMenu}
+            accessibilityRole="button"
+            accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Text style={styles.addLabel}>{RECORDS_TAB_LABEL}</Text>
+          </Pressable>
+        </View>
+
+        {/* バナー広告（Phase 1 の唯一の表示箇所）。タブバーの直上に固定する。
+            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む） */}
+        <AdBanner unitId={RECORD_LIST_BANNER_UNIT_ID} />
       </View>
 
       {/* 期間シート（月バー中央タップ）。全期間か 1 か月のいずれかを選ぶ（§5-5）。
@@ -397,6 +424,13 @@ export function RecordListScreen() {
         selectedValue={sortType}
         onSelect={setSortType}
         onClose={() => setShowSortSheet(false)}
+      />
+      {/* ＋の 2 択。複製を選ぶと複製元を選ぶ画面へ push する（フォームはあちらが開く） */}
+      <AddRecordMenuSheet
+        visible={showAddMenu}
+        onSelectNew={openNewRecordForm}
+        onSelectDuplicate={openDuplicatePicker}
+        onClose={() => setShowAddMenu(false)}
       />
       <RecordFormSheet visible={showForm} onClose={() => setShowForm(false)} onSaved={refresh} />
 
@@ -509,6 +543,10 @@ function SwipeToDeleteRow({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // 一覧＋追加ボタンの領域。残りの高さを全部取るので、下に広告が入ればそのぶん縮む
+  listArea: {
     flex: 1,
   },
   headerButtons: {

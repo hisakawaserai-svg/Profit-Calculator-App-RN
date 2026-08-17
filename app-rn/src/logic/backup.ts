@@ -167,7 +167,17 @@ const RECORD_COLUMNS_LEGACY: readonly ColumnSpec[] = RECORD_COLUMNS.slice(
   RECORD_COLUMNS.length - 2,
 );
 
-/** presets.csv の 10 列（§2.1） */
+/**
+ * presets.csv の 15 列（§2.1 ＋ SPEC-V10 §1.6）。
+ *
+ * **新しい列は必ず末尾に足す**（records.csv と同じ理由）── 途中に挿すと、
+ * 古いファイルを「先頭 n 列が一致するか」で読む道が塞がる。
+ *
+ * `calc_method` を `enum` にしないのは、古いファイルに**この列そのものが無い**ため ──
+ * 足りない列は空文字で埋まる（withMissingColumns）ので、enum の候補には入らない。
+ * 知らない値を既定（'individual'）へ倒すのは読み出し側（logic/preset.presetCalcMethod）で、
+ * これは DB の color_key と同じ扱い。
+ */
 const PRESET_COLUMNS: readonly ColumnSpec[] = [
   { name: 'id', type: 'text', required: true, label: 'プリセットID' },
   { name: 'type', type: 'enum', values: ['site', 'shipping', 'packaging'], label: '種類' },
@@ -179,7 +189,26 @@ const PRESET_COLUMNS: readonly ColumnSpec[] = [
   { name: 'pack_price', type: 'number', label: '購入価格' },
   { name: 'material_cost', type: 'number', label: '専用資材の代金' },
   { name: 'sort_order', type: 'number', label: '並び順' },
+  // SPEC-V10 §1.6: 梱包材の単価計算方式と、面積方式の 4 つのサイズ（cm）
+  { name: 'calc_method', type: 'text', label: '計算方式' },
+  { name: 'pack_height', type: 'numberOrEmpty', label: '購入サイズ（縦）' },
+  { name: 'pack_width', type: 'numberOrEmpty', label: '購入サイズ（横）' },
+  { name: 'use_height', type: 'numberOrEmpty', label: '平均使用サイズ（縦）' },
+  { name: 'use_width', type: 'numberOrEmpty', label: '平均使用サイズ（横）' },
 ];
+
+/**
+ * SPEC-V10 §1.6 より前の presets.csv（10 列）。**復元の互換のためだけに残す。**
+ * 理由も作り方も RECORD_COLUMNS_LEGACY と同じ（末尾を削るだけで作る）。
+ *
+ * 足りない 5 列は空文字で埋まり、読み込み側（db/backup.ts）が
+ * 既定の計算方式（個数から）とサイズ 0 に倒す ── **既存のバックアップから戻した梱包材は、
+ * 保存したときと同じ「個数から」の行になる。**
+ */
+const PRESET_COLUMNS_LEGACY: readonly ColumnSpec[] = PRESET_COLUMNS.slice(
+  0,
+  PRESET_COLUMNS.length - 5,
+);
 
 /** tags.csv の 4 列（§2.1） */
 const TAG_COLUMNS: readonly ColumnSpec[] = [
@@ -244,6 +273,7 @@ const COLUMNS_BY_FILE: Record<string, readonly ColumnSpec[]> = {
  */
 const LEGACY_COLUMNS_BY_FILE: Record<string, readonly ColumnSpec[] | undefined> = {
   [BACKUP_RECORDS_FILE]: RECORD_COLUMNS_LEGACY,
+  [BACKUP_PRESETS_FILE]: PRESET_COLUMNS_LEGACY,
 };
 
 /** ZIP に必ず入っている 5 ファイル（§1.1）。1 つでも欠けたら読まない */

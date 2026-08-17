@@ -44,7 +44,24 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3194046005390900~7315839036",
+          "iosAppId": "ca-app-pub-3194046005390900~3791526997",
+          "userTrackingUsageDescription": "広告の表示を最適化するために使用します。許可しない場合も広告は表示されます。"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.3.0"
+          }
+        }
+      ],
+      "./plugins/withKotlinGradlePlugin"
     ],
     "experiments": {
       "typedRoutes": true,

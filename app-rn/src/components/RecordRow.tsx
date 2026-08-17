@@ -64,6 +64,25 @@ type Props = {
    * 結果を、行ごとに Map から引いて渡すだけ（評価をここで N 回繰り返さないため）。
    */
   strikeAchievement?: Achievement | null;
+  /**
+   * 3 段（商品名・日付と金額・タグ）の**縦の間隔**（既定 `'compact'`）。
+   *
+   * 既定を詰めてあるのは、記録タブとデータタブが**眺める一覧**だから ── 1 画面に入る
+   * 件数が多いほうがよく、行の高さも 82pt に揃えてある（SPEC-V5 §2.3 / 採用案 41a）。
+   *
+   * `'comfortable'` は**選ぶための一覧**（複製元を選ぶ画面）用。1 件ずつ読み比べて押す面では、
+   * 件数より 1 行の読みやすさが要る。**既定を変えずに選べるようにした**のは、
+   * この部品を使う 3 画面のうち 2 つは今の詰め方のままが正しいため。
+   */
+  density?: RecordRowDensity;
+};
+
+export type RecordRowDensity = 'compact' | 'comfortable';
+
+/** 3 段の間隔。`body` の gap にそのまま渡す */
+const DENSITY_GAP: Record<RecordRowDensity, number> = {
+  compact: 4,
+  comfortable: 10,
 };
 
 export function RecordRow({
@@ -72,6 +91,7 @@ export function RecordRow({
   today,
   tags = [],
   strikeAchievement = null,
+  density = 'compact',
 }: Props) {
   const colors = useThemeColors();
   const profit = netProfit(record);
@@ -89,7 +109,7 @@ export function RecordRow({
       <PhotoThumbnail fileName={record.photoFileName} />
 
       {/* 写真の右側。1 段目・メタ行・タグ行はここに積む */}
-      <View style={styles.body}>
+      <View style={[styles.body, { gap: DENSITY_GAP[density] }]}>
         <View style={styles.mainLine}>
           <View style={styles.nameAndBadge}>
             <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
@@ -170,10 +190,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
   },
-  // 写真の右側。1 段目・メタ行・タグ行はここに積む
+  // 写真の右側。1 段目・メタ行・タグ行はここに積む（gap は density で決まる）
   body: {
     flex: 1,
-    gap: 4,
     // 枠（56pt）より中身が短いときも行の高さを揃える
     minHeight: PHOTO_THUMBNAIL_SIZE,
     justifyContent: 'center',

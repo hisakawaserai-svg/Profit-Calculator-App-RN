@@ -1796,3 +1796,174 @@ describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
     expect(netProfit(record!)).toBeCloseTo(400);
   });
 });
+
+describe('「過去の記録から複製」の複製元の候補（duplicateSources）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let dishes: schema.Tag;
+
+  /** 出品日だけを変えて作る（並び順の基準になる列） */
+  const listedOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    dishes = tagRepo.create({ name: '食器', colorKey: 'blue' });
+  });
+
+  const add = (over: Partial<SaveRecordInput>) =>
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, ...over });
+
+  it('売却済みと出品中の**両方**が候補になる（記録タブの一覧と違う点）', () => {
+    add({ itemName: '売れた服', isSold: true, saleDate: listedOn(9), saleStartDate: listedOn(1) });
+    add({ itemName: '出品中の服', isSold: false, saleStartDate: listedOn(2) });
+
+    expect(repo.duplicateSources().map((record) => record.itemName)).toEqual([
+      '出品中の服',
+      '売れた服',
+    ]);
+  });
+
+  describe('並び順', () => {
+    it('出品日の新しい順', () => {
+      add({ itemName: '古い', saleStartDate: listedOn(1) });
+      add({ itemName: '新しい', saleStartDate: listedOn(20) });
+      add({ itemName: '中くらい', saleStartDate: listedOn(10) });
+
+      expect(repo.duplicateSources().map((record) => record.itemName)).toEqual([
+        '新しい',
+        '中くらい',
+        '古い',
+      ]);
+    });
+
+    // 売却済みを販売日で並べると、古く出品して最近売れた物が「最近の記録」の先頭に来る
+    it('売却済みでも並ぶのは出品日（販売日ではない）', () => {
+      add({
+        itemName: '去年出して昨日売れた',
+        isSold: true,
+        saleStartDate: listedOn(1),
+        saleDate: listedOn(28),
+      });
+      add({ itemName: 'きのう出した', saleStartDate: listedOn(16) });
+
+      expect(repo.duplicateSources().map((record) => record.itemName)).toEqual([
+        'きのう出した',
+        '去年出して昨日売れた',
+      ]);
+    });
+  });
+
+  describe('上限（「最近の記録」と「すべての記録」の違い）', () => {
+    beforeEach(() => {
+      for (let day = 1; day <= 12; day += 1) add({ itemName: `商品${day}`, saleStartDate: listedOn(day) });
+    });
+
+    it('limit を渡すとその件数まで（新しいほうから）', () => {
+      expect(repo.duplicateSources({}, 8).map((record) => record.itemName)).toEqual([
+        '商品12', '商品11', '商品10', '商品9', '商品8', '商品7', '商品6', '商品5',
+      ]);
+    });
+
+    it('limit を渡さなければ全件', () => {
+      expect(repo.duplicateSources()).toHaveLength(12);
+    });
+  });
+
+  describe('検索（商品名の部分一致）', () => {
+    beforeEach(() => {
+      add({ itemName: '白いワンピース', saleStartDate: listedOn(3) });
+      add({ itemName: 'ワンピース（黒）', saleStartDate: listedOn(2) });
+      add({ itemName: 'マグカップ', saleStartDate: listedOn(1) });
+    });
+
+    it('真ん中に含まれていても出る（前方一致ではない）', () => {
+      expect(repo.duplicateSources({ searchText: 'ワンピース' }).map((r) => r.itemName)).toEqual([
+        '白いワンピース',
+        'ワンピース（黒）',
+      ]);
+    });
+
+    it('1 文字でも絞れる', () => {
+      expect(repo.duplicateSources({ searchText: 'カップ' }).map((r) => r.itemName)).toEqual([
+        'マグカップ',
+      ]);
+    });
+
+    it('絞った結果にも並び順が効く（出品日の新しい順）', () => {
+      const names = repo.duplicateSources({ searchText: 'ワンピース' }).map((r) => r.itemName);
+      expect(names[0]).toBe('白いワンピース');
+    });
+
+    it('空文字・空白だけの検索語は無条件（全件）', () => {
+      expect(repo.duplicateSources({ searchText: '' })).toHaveLength(3);
+      expect(repo.duplicateSources({ searchText: '   ' })).toHaveLength(3);
+    });
+
+    // LIKE のワイルドカードをそのまま通すと「%」で全件が出る（likePattern のエスケープ）
+    it('「%」「_」は文字として扱う', () => {
+      add({ itemName: '20%オフ', saleStartDate: listedOn(4) });
+
+      expect(repo.duplicateSources({ searchText: '%' }).map((r) => r.itemName)).toEqual(['20%オフ']);
+      expect(repo.duplicateSources({ searchText: '_' })).toHaveLength(0);
+    });
+
+    it('検索は上限と一緒に効く', () => {
+      expect(repo.duplicateSources({ searchText: 'ワンピース' }, 1).map((r) => r.itemName)).toEqual([
+        '白いワンピース',
+      ]);
+    });
+  });
+
+  describe('タグでの絞り込み', () => {
+    beforeEach(() => {
+      add({ itemName: '服だけ', saleStartDate: listedOn(3), tagIds: [clothes.id] });
+      add({ itemName: '食器だけ', saleStartDate: listedOn(2), tagIds: [dishes.id] });
+      add({ itemName: '両方', saleStartDate: listedOn(1), tagIds: [clothes.id, dishes.id] });
+      add({ itemName: 'タグなし', saleStartDate: listedOn(4) });
+    });
+
+    it('選んだタグが付いた記録だけになる', () => {
+      expect(repo.duplicateSources({ tagIds: [clothes.id] }).map((r) => r.itemName)).toEqual([
+        '服だけ',
+        '両方',
+      ]);
+    });
+
+    // 記録タブの絞り込みと同じ OR（SPEC-V4 §4.4）
+    it('2 つ選ぶと「どちらかが付いている」記録が出る', () => {
+      expect(repo.duplicateSources({ tagIds: [clothes.id, dishes.id] }).map((r) => r.itemName)).toEqual([
+        '服だけ',
+        '食器だけ',
+        '両方',
+      ]);
+    });
+
+    it('2 つのタグが付いた記録が二重に出ない（EXISTS で書いているため）', () => {
+      const both = repo
+        .duplicateSources({ tagIds: [clothes.id, dishes.id] })
+        .filter((record) => record.itemName === '両方');
+
+      expect(both).toHaveLength(1);
+    });
+
+    it('空配列は無条件（全件）', () => {
+      expect(repo.duplicateSources({ tagIds: [] })).toHaveLength(4);
+    });
+
+    it('検索とタグは同時に効く（AND）', () => {
+      const names = repo
+        .duplicateSources({ searchText: 'だけ', tagIds: [clothes.id] })
+        .map((r) => r.itemName);
+
+      expect(names).toEqual(['服だけ']);
+    });
+  });
+
+  it('記録が 1 件も無ければ空配列', () => {
+    expect(repo.duplicateSources()).toEqual([]);
+  });
+});

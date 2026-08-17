@@ -26,13 +26,13 @@
 // 登録が 0 件でもボタンは出す（§4.1）。出したり消したりすると、機能があること自体に気付けない。
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Keyboard, Pressable, StyleSheet } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
 
 import { PresetBadge } from '@/components/PresetBadge';
 import { PresetPickerSheet } from '@/components/PresetPickerSheet';
 import type { Preset, PresetType } from '@/db/schema';
 import { usePresetList } from '@/db/usePresets';
-import { presetPickerTitle, presetTagStateLabel } from '@/logic/labels';
+import { presetPickerTitle, presetTagClearLabel, presetTagStateLabel } from '@/logic/labels';
 import { resolvePresetTag } from '@/logic/preset';
 import type { ShippingMaterialChoice } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
@@ -42,6 +42,9 @@ const BADGE_SIZE = 24;
 
 /** アイコンの大きさは電卓ボタン（NumericField）と同じ */
 const ICON_SIZE = 22;
+
+/** ✕（選択解除）の大きさ。SiteNameRow の「✕」と同じ */
+const CLEAR_ICON_SIZE = 16;
 
 type Props = {
   type: PresetType;
@@ -58,6 +61,15 @@ type Props = {
    * 常に `'with-material'` ── 呼び出し側は送料のときだけ見ればよい。
    */
   onSelect: (preset: Preset, choice: ShippingMaterialChoice) => void;
+  /**
+   * バッジの右に出す「✕」（選択解除）の処理。渡したときだけ、選択中（`selected` /
+   * `rate-changed`）の間だけ出す ── 未選択のときは外すものがないので出さない。
+   *
+   * SiteNameRow の「✕」と同じ役目を、シートを開かずに済む場所（バッジの真横）にも置く。
+   * 呼び出し側の責務は欄の値を消す（または元の状態に戻す）ことだけで、
+   * この部品自身は消えたあとの状態を判定しない（シートを開くたびに tag を作り直すだけ）。
+   */
+  onClear?: () => void;
   disabled?: boolean;
   /**
    * シート末尾の「設定で編集する ▸」を出すか（既定 true）。
@@ -74,6 +86,7 @@ export function PresetTagButton({
   value,
   selectedName,
   onSelect,
+  onClear,
   disabled = false,
   canOpenSettings = true,
 }: Props) {
@@ -82,46 +95,61 @@ export function PresetTagButton({
   const { presets } = usePresetList(type);
 
   const tag = resolvePresetTag(presets, value, selectedName);
+  const showClear = onClear != null && tag.kind !== 'unselected' && !disabled;
 
   return (
     <>
-      <Pressable
-        onPress={() => {
-          // シートはキーボードと同じ側から出るので、欄を編集中に押されたときは引っ込めてから開く
-          // （電卓ボタンと同じ扱い。NumericField 参照）
-          Keyboard.dismiss();
-          setShowPicker(true);
-        }}
-        disabled={disabled}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={presetPickerTitle(type)}
-        // 見た目（バッジの濃さ・▾ の有無）で示している状態を読み上げにも乗せる
-        accessibilityValue={{
-          text: presetTagStateLabel(
-            tag.kind,
-            tag.kind === 'unselected' ? '' : tag.preset.name,
-          ),
-        }}
-        style={({ pressed }) => [
-          styles.button,
-          { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },
-        ]}>
-        {tag.kind === 'unselected' ? (
-          <Ionicons name="pricetag-outline" size={ICON_SIZE} color={colors.blue} />
-        ) : (
-          <PresetBadge
-            preset={tag.preset}
-            size={BADGE_SIZE}
-            muted={tag.kind === 'rate-changed'}
-          />
+      <View style={styles.wrapper}>
+        <Pressable
+          onPress={() => {
+            // シートはキーボードと同じ側から出るので、欄を編集中に押されたときは引っ込めてから開く
+            // （電卓ボタンと同じ扱い。NumericField 参照）
+            Keyboard.dismiss();
+            setShowPicker(true);
+          }}
+          disabled={disabled}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={presetPickerTitle(type)}
+          // 見た目（バッジの濃さ・▾ の有無）で示している状態を読み上げにも乗せる
+          accessibilityValue={{
+            text: presetTagStateLabel(
+              tag.kind,
+              tag.kind === 'unselected' ? '' : tag.preset.name,
+            ),
+          }}
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },
+          ]}>
+          {tag.kind === 'unselected' ? (
+            <Ionicons name="pricetag-outline" size={ICON_SIZE} color={colors.blue} />
+          ) : (
+            <PresetBadge
+              preset={tag.preset}
+              size={BADGE_SIZE}
+              muted={tag.kind === 'rate-changed'}
+            />
+          )}
+          {/* ▾ は「今の値がプリセットのもの」の印。率を手で変えた行では外す（§1.5.1）。
+              未選択のときは出す ── 押すと選べることが形から読めるように */}
+          {tag.kind !== 'rate-changed' && (
+            <Ionicons name="chevron-down" size={12} color={colors.blue} />
+          )}
+        </Pressable>
+
+        {/* シートを開かずにその場で外せる「✕」。選択中のときだけ（SiteNameRow と同じ役目） */}
+        {showClear && (
+          <Pressable
+            onPress={onClear}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={presetTagClearLabel(tag.preset.name)}
+            style={({ pressed }) => [styles.clearButton, { opacity: pressed ? 0.5 : 1 }]}>
+            <Ionicons name="close" size={CLEAR_ICON_SIZE} color={colors.secondaryLabel} />
+          </Pressable>
         )}
-        {/* ▾ は「今の値がプリセットのもの」の印。率を手で変えた行では外す（§1.5.1）。
-            未選択のときは出す ── 押すと選べることが形から読めるように */}
-        {tag.kind !== 'rate-changed' && (
-          <Ionicons name="chevron-down" size={12} color={colors.blue} />
-        )}
-      </Pressable>
+      </View>
 
       {/* 開いている間だけマウントする（電卓シートと同じ扱い） */}
       {showPicker && (
@@ -140,6 +168,10 @@ export function PresetTagButton({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -148,5 +180,9 @@ const styles = StyleSheet.create({
     // バッジ 24 / アイコン 22 のどちらが入っても、右隣の数値欄の始まりは動かない
     width: BADGE_SIZE + 2 + 12,
     justifyContent: 'flex-start',
+  },
+  // 「✕」は選択中だけ足される分なので、button の固定幅には含めない
+  clearButton: {
+    paddingLeft: 4,
   },
 });

@@ -8,6 +8,11 @@
 
 import { and, asc, eq, sql } from 'drizzle-orm';
 
+import {
+  DEFAULT_PRESET_CALC_METHOD,
+  type PresetCalcMethod,
+} from '@/logic/preset';
+
 import type { Database } from './repository';
 import { presets, type Preset, type PresetType } from './schema';
 
@@ -31,8 +36,9 @@ export type PresetInput = {
   /** site = 手数料率(%) / それ以外 = 金額(円)（§2.1） */
   value: number;
   /**
-   * まとめ買いの入数（§2.6.4）。0 = 1 個ずつ（販売サイト・送料は常に 0）。
-   * value（1 個あたり）は保存時に確定済みで、この 2 つは買い足しのときの再計算用の控え。
+   * まとめ買いの割る数（§2.6.4 / SPEC-V10 §1.2）。0 = 1 個ずつ（販売サイト・送料は常に 0）。
+   * 個数方式では入数、使用回数方式では想定使用回数。
+   * value（1 回あたり）は保存時に確定済みで、この 2 つは買い足しのときの再計算用の控え。
    */
   packQuantity: number;
   /** まとめ買いの購入価格（円）。同上 */
@@ -42,7 +48,36 @@ export type PresetInput = {
    * まとめ買いで登録した送料プリセットでは、packQuantity / packPrice から出た単価が入る。
    */
   materialCost: number;
+  /**
+   * 単価の計算方式（SPEC-V10 §1.1）。**省略 = `'individual'`（既存方式）。**
+   *
+   * 省略できるようにしてあるのは、既存方式の下書きに対して validatePreset が
+   * 従来と同じ形の結果を返すため（logic/preset.ts）── 既定へ倒すのはこのファイルの責務で、
+   * 列そのものは create / update のどちらでも必ず書く。
+   */
+  calcMethod?: PresetCalcMethod;
+  /** 面積方式の購入サイズ（cm。SPEC-V10 §1.2）。省略・0 = 未設定 */
+  packHeight?: number;
+  packWidth?: number;
+  /** 面積方式の平均使用サイズ（cm）。省略・0 = 未入力（登録額は ¥/㎡ のまま。§1.3） */
+  useHeight?: number;
+  useWidth?: number;
 };
+
+/**
+ * 省略された計算方式の列を既定へ倒す（SPEC-V10 §1.2）。
+ * **create と update で同じ 1 本を通す** ── 片方だけが既定を持つと、
+ * 「面積方式から個数方式へ戻して保存したのにサイズが残る」不整合な行ができる。
+ */
+function calcColumns(input: PresetInput) {
+  return {
+    calcMethod: input.calcMethod ?? DEFAULT_PRESET_CALC_METHOD,
+    packHeight: input.packHeight ?? 0,
+    packWidth: input.packWidth ?? 0,
+    useHeight: input.useHeight ?? 0,
+    useWidth: input.useWidth ?? 0,
+  };
+}
 
 export function createPresetRepository(
   db: Database,
@@ -92,6 +127,9 @@ export function createPresetRepository(
       const row = {
         id: generateId(),
         ...input,
+        // 省略された計算方式の列を既定で埋める（SPEC-V10 §1.2）。
+        // 返り値がそのまま Preset になるので、ここで埋めておかないと呼び出し側の型が欠ける
+        ...calcColumns(input),
         sortOrder: nextSortOrder(input.type),
       };
       db.insert(presets).values(row).run();
@@ -116,6 +154,9 @@ export function createPresetRepository(
           packPrice: input.packPrice,
           // 資材費も同じ理由で必ず書く（送料以外は 0 が渡る）
           materialCost: input.materialCost,
+          // 計算方式とサイズも必ず書く（SPEC-V10 §1.2）── 面積方式から個数方式へ
+          // 戻したときにサイズが残ると、isPackBuy が見る列と calc_method が食い違う
+          ...calcColumns(input),
         })
         .where(and(eq(presets.id, id), eq(presets.type, input.type)))
         .run();

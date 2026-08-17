@@ -5,13 +5,19 @@
 // 開いたままだと 1 ページが十数画面ぶんになり、目当ての項目まで指で送ることになる。
 // 畳んだ見出しが並べば、ページ全体が**目次として読める**。
 //
-// **項目が増えたページには群の小見出しを挟む**（`HelpGroup`）。記録ページは 22 項目あり、
-// 畳んだ見出しが 22 本続くと目次としても長い ── 先に「作る / 見る / 探す / 直す /
-// 登録しておく」を読み、その中から探す形にする。群が 1 つだけのページ（ことば）では
+// **項目が増えたページには群の小見出しを挟む**（`HelpGroup`）。記録ページは 27 項目あり、
+// 畳んだ見出しが 27 本続くと目次としても長い ── 先に「作る / 見る / 探す / 直す /
+// 設定タブで登録しておく」を読み、その中から探す形にする。群が 1 つだけのページ（ことば）では
 // 見出しを出さない（helpContent.ts の `HelpGroup` 参照）。
 //
-// **各段は独立して開閉する**（`Accordion` の既定の作り）。同時に 1 つだけに絞る形も考えたが、
-// 読み比べたい組み合わせ（種別と、ことばの説明など）があるので閉じさせない。
+// **開くのは同時に 1 つだけ。** 別の段を開くと、それまで開いていた段は閉じる。
+// 当初は各段を独立して開閉させていた（`Accordion` の既定の作り）── 読み比べたい組み合わせ
+// （種別と、ことばの説明など）があると考えたためだが、実際には**読む人は 1 つずつしか開かない**。
+// 開きっぱなしの段が積み上がると、ページが十数画面ぶんに伸びて目次として読めなくなる
+// ── アコーディオンにした理由そのものが消える。読み比べは `link` の行が引き受ける。
+//
+// 1 つだけにすると**押した行が上へ飛ぶ**問題が出る（上にあった段が閉じたぶん、
+// 下の内容がまとめてせり上がる）。押した段の位置へこちらから送り直す（scrollToOpened 参照）。
 //
 // **「ことば」はチップに出さない。** 5 枚のチップは横に並べるだけで収まる上限で、
 // 6 枚目を足すと折り返すか横スクロールになる。ことばは他のページから `link` で渡されることが
@@ -26,13 +32,16 @@
 //
 // 本文と並びは `logic/helpContent.ts`、図は `components/HelpDiagram.tsx`（概念）と
 // `components/HelpPartFigure.tsx`（実物の部品）。この画面が持つのは並べ方だけ。
-import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Accordion } from '@/components/Accordion';
 import {
   AchievementKindsFigure,
+  BackupMigrateFigure,
   BackupPreviewFigure,
+  DuplicateFieldsFigure,
   ChartReadingFigure,
   CsvKindsFigure,
   ExpenseItemsFigure,
@@ -51,6 +60,7 @@ import {
   AddRecordFigure,
   BreakdownFigure,
   CalculatorButtonFigure,
+  CommissionFieldFigure,
   ColorGroupsFigure,
   DataModesFigure,
   ExportPreviewFigure,
@@ -75,6 +85,7 @@ import {
   TagViewModeFigure,
   TargetFieldFigure,
 } from '@/components/HelpPartFigure';
+import { helpItemIcon } from '@/components/helpItemIcons';
 import {
   HELP_PAGES,
   HELP_READ_ALL_LABEL,
@@ -103,9 +114,12 @@ const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
   backupPreview: BackupPreviewFigure,
   targetRoom: TargetRoomFigure,
   achievementKinds: AchievementKindsFigure,
+  duplicateFields: DuplicateFieldsFigure,
+  backupMigrate: BackupMigrateFigure,
   // 実物の部品を使う図（UI を直すと図も一緒に変わる）
   modeProfit: ModeProfitFigure,
   calculatorButton: CalculatorButtonFigure,
+  commissionField: CommissionFieldFigure,
   breakdown: BreakdownFigure,
   presetTag: PresetTagFigure,
   shippingMaterial: ShippingMaterialFigure,
@@ -131,6 +145,9 @@ const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
   exportTarget: ExportTargetFigure,
   exportPreview: ExportPreviewFigure,
 };
+
+/** 開いた段へ送るときに、その段の上に残す隙間。真上に貼り付けず、前の段の裾を少し見せる */
+const OPENED_TOP_MARGIN = 12;
 
 type Props = {
   /** 最初に開くページ。省略時は先頭（計算） */
@@ -160,18 +177,85 @@ export function HelpScreen({
 }: Props) {
   const colors = useThemeColors();
   const [pageId, setPageId] = useState<HelpPageId>(initialPage ?? HELP_PAGES[0].id);
+
+  /**
+   * いま開いている段（**ページに 1 つだけ**。null は全部畳んだ状態）。
+   *
+   * 開閉を段ではなくこの画面が持つのは、1 つに絞るには**列が誰を開いているかを知っている**
+   * 必要があるため（Accordion.tsx の controlled）。
+   *
+   * 初期値は「？」から渡された項目（案 `20c`）── ただし**開いた最初のページだけ**。
+   * 設定タブから push したときは全部畳んだまま出す（案 `20b` の姿）。そこは「最初から読む」面で、
+   * どれか 1 つだけ開いて出す理由がない。チップで移った先も同じ理由で畳んだまま（openPage 参照）。
+   */
+  const [openId, setOpenId] = useState<string | null>(
+    initialPage == null ? null : leadItemId ?? null,
+  );
+
   const page = helpPageOf(pageId);
   const isTerms = pageId === 'terms';
   const showsTitle = showPageTitle || isTerms;
 
+  const scrollRef = useRef<ScrollView>(null);
+  /** 群の上端（中身の中での y）と、段の上端（群の中での y）。**開いた段へ送るためだけ**に持つ */
+  const groupTops = useRef(new Map<number, number>()).current;
+  const itemTops = useRef(new Map<string, { group: number; y: number }>()).current;
+  /** 押した段。せり上がりが済んだら、この段の位置へ送る（scrollToOpened） */
+  const pendingScrollId = useRef<string | null>(null);
+
+  const topOf = (id: string): number | null => {
+    const item = itemTops.get(id);
+    const groupTop = item == null ? undefined : groupTops.get(item.group);
+    return item == null || groupTop == null ? null : groupTop + item.y;
+  };
+
   /**
-   * 開いた状態で出す項目は、「？」で開いた**最初のページだけ**（案 `20c`）。
+   * 押した段の上端へ送る。**測り直したあとに呼ぶ**（下の onLayout の 2 か所）──
+   * 閉じる段の高さは画面側から分からないので、せり上がったあとの位置を実測してから動かす。
    *
-   * **設定タブから push したときは全部畳んだまま出す**（案 `20b` の姿）── そこは
-   * 「最初から読む」面なので、どれか 1 つだけ開いて出す理由がない。目次が先に見えるほうが、
-   * 探している項目に手が届く。チップで移った先も同じ理由で畳んだまま。
+   * 動くのは 2 つのうち片方だけ:
+   *   - 同じ群の上の段が閉じた → 群の y はそのまま、段の y が動く
+   *   - 前の群の段が閉じた → 段の y はそのまま、群の y が動く
+   * どちらの onLayout から来ても、もう片方は測り済みの値がそのまま使える。
    */
-  const leadId = pageId === initialPage ? leadItemId : undefined;
+  const scrollToOpened = () => {
+    const id = pendingScrollId.current;
+    if (id == null) return;
+    const top = topOf(id);
+    if (top == null) return;
+    pendingScrollId.current = null;
+    scrollRef.current?.scrollTo({ y: Math.max(0, top - OPENED_TOP_MARGIN), animated: true });
+  };
+
+  /** 段を押したとき。開いているものがあれば閉じる（同時に 1 つだけ） */
+  const toggleItem = (id: string) => {
+    const next = openId === id ? null : id;
+    // 送り直すのは**上の段が閉じるとき**だけ。下の段が閉じても押した行は動かない
+    const closingTop = openId == null || openId === id ? null : topOf(openId);
+    const openingTop = topOf(id);
+    pendingScrollId.current =
+      next != null && closingTop != null && openingTop != null && closingTop < openingTop
+        ? id
+        : null;
+    setOpenId(next);
+  };
+
+  /**
+   * チップ・リンクでページを移る。測った位置は前のページのものなので捨てる。
+   *
+   * `itemId` は `link` から渡る指し先（helpContent.ts の `HelpItem.link`）── その段を開いて、
+   * **そこまで送る**。ページを移ると中身は作り直されて上端から始まるので、
+   * 送らないと「開いてはいるが画面の外」になり、リンクが何も起きていないように見える。
+   */
+  const openPage = (next: HelpPageId, itemId?: string) => {
+    groupTops.clear();
+    itemTops.clear();
+    const opened = itemId ?? (next === initialPage ? leadItemId ?? null : null);
+    // 測り直しは作り直しのあと。並んだ順に onLayout が来るので、揃った時点で送られる
+    pendingScrollId.current = itemId ?? null;
+    setPageId(next);
+    setOpenId(opened);
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -182,7 +266,7 @@ export function HelpScreen({
           return (
             <Pressable
               key={candidate.id}
-              onPress={() => setPageId(candidate.id)}
+              onPress={() => openPage(candidate.id)}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               style={({ pressed }) => [
@@ -205,8 +289,8 @@ export function HelpScreen({
         })}
       </View>
 
-      {/* ページを変えたら中身ごと作り直す（開いていた段を持ち越さない） */}
-      <ScrollView key={pageId} contentContainerStyle={styles.content}>
+      {/* ページを変えたら中身ごと作り直す（前のページの段の高さを持ち越さない） */}
+      <ScrollView ref={scrollRef} key={pageId} contentContainerStyle={styles.content}>
         {showsTitle && (
           <Text style={[styles.pageTitle, { color: colors.label }]}>{page.title}</Text>
         )}
@@ -216,7 +300,7 @@ export function HelpScreen({
             ことばのページ自体では出さない（いま居る場所への入口になる） */}
         {!isTerms && (
           <Pressable
-            onPress={() => setPageId('terms')}
+            onPress={() => openPage('terms')}
             accessibilityRole="link"
             style={({ pressed }) => [styles.termsEntry, { opacity: pressed ? 0.5 : 1 }]}>
             <Text style={[styles.termsEntryLabel, { color: colors.blue }]}>
@@ -226,7 +310,14 @@ export function HelpScreen({
         )}
 
         {page.groups.map((group, index) => (
-          <View key={group.title ?? index} style={styles.group}>
+          <View
+            key={group.title ?? index}
+            style={styles.group}
+            onLayout={(event) => {
+              groupTops.set(index, event.nativeEvent.layout.y);
+              // 前の群の段が閉じて、この群ごとせり上がったとき
+              if (itemTops.get(pendingScrollId.current ?? '')?.group === index) scrollToOpened();
+            }}>
             {group.title != null && (
               <Text style={[styles.groupTitle, { color: colors.secondaryLabel }]}>
                 {group.title}
@@ -236,8 +327,14 @@ export function HelpScreen({
               <Item
                 key={item.id}
                 item={item}
-                expanded={item.id === leadId}
-                onOpenPage={setPageId}
+                expanded={item.id === openId}
+                onToggle={() => toggleItem(item.id)}
+                onMeasure={(y) => {
+                  itemTops.set(item.id, { group: index, y });
+                  // 同じ群の上の段が閉じて、この段だけがせり上がったとき
+                  if (pendingScrollId.current === item.id) scrollToOpened();
+                }}
+                onOpenPage={openPage}
               />
             ))}
           </View>
@@ -260,34 +357,56 @@ export function HelpScreen({
 function Item({
   item,
   expanded,
+  onToggle,
+  onMeasure,
   onOpenPage,
 }: {
   item: HelpItem;
   expanded: boolean;
-  onOpenPage: (page: HelpPageId) => void;
+  onToggle: () => void;
+  /** 群の中でのこの段の上端。開いた段へ送るために画面側が持つ（HelpScreen の itemTops） */
+  onMeasure: (y: number) => void;
+  onOpenPage: (page: HelpPageId, itemId?: string) => void;
 }) {
   const colors = useThemeColors();
   const Figure = item.figure == null ? null : FIGURES[item.figure];
 
   return (
-    <Accordion
-      initiallyExpanded={expanded}
-      accessibilityLabel={item.title}
-      label={<Text style={[styles.itemTitle, { color: colors.label }]}>{item.title}</Text>}>
-      <View style={styles.itemBody}>
-        <Text style={[styles.body, { color: colors.secondaryLabel }]}>{item.body}</Text>
-        {Figure != null && <Figure />}
-        {item.link != null && (
-          <Pressable
-            onPress={() => onOpenPage(item.link!.to)}
-            hitSlop={8}
-            accessibilityRole="link"
-            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-            <Text style={[styles.link, { color: colors.blue }]}>{item.link.label}</Text>
-          </Pressable>
-        )}
-      </View>
-    </Accordion>
+    <View onLayout={(event) => onMeasure(event.nativeEvent.layout.y)}>
+      <Accordion
+        expanded={expanded}
+        onToggle={onToggle}
+        accessibilityLabel={item.title}
+        label={
+          /* アイコンは見出しの左（`helpItemIcons.ts`）。開閉のシェブロンは Accordion が右端に置くので、
+             左＝何の話か / 右＝開いているか、と読む向きが分かれる。
+             読み上げには載せない（accessibilityLabel は見出しの文だけ）── 絵は文の言い換えで、
+             読み上げると同じことを 2 回言う */
+          <View style={styles.itemHeader}>
+            <Ionicons
+              name={helpItemIcon(item.id)}
+              size={19}
+              color={colors.blue}
+              style={styles.itemIcon}
+            />
+            <Text style={[styles.itemTitle, { color: colors.label }]}>{item.title}</Text>
+          </View>
+        }>
+        <View style={styles.itemBody}>
+          <Text style={[styles.body, { color: colors.secondaryLabel }]}>{item.body}</Text>
+          {Figure != null && <Figure />}
+          {item.link != null && (
+            <Pressable
+              onPress={() => onOpenPage(item.link!.to, item.link!.itemId)}
+              hitSlop={8}
+              accessibilityRole="link"
+              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+              <Text style={[styles.link, { color: colors.blue }]}>{item.link.label}</Text>
+            </Pressable>
+          )}
+        </View>
+      </Accordion>
+    </View>
   );
 }
 
@@ -341,6 +460,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginLeft: 4,
+  },
+  /** 見出し行。アイコンの幅を固定して、見出しの字の頭を段どうしで揃える */
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  itemIcon: {
+    width: 22,
+    textAlign: 'center',
   },
   itemTitle: {
     fontSize: 16,

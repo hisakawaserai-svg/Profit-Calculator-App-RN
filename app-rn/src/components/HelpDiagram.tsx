@@ -33,22 +33,29 @@ import {
   achievementDifficulty,
   type AchievementId,
 } from '@/logic/achievements';
-import { formatYenSymbol, groupDigits } from '@/logic/format';
+import { formatUnitYen, formatYenSymbol, groupDigits } from '@/logic/format';
 import {
   ACHIEVEMENT_LADDER_IDS,
   ACHIEVEMENT_ONCE_ID,
   PRICING_EXAMPLE,
 } from '@/logic/helpFigureExample';
+import {
+  presetAreaUnitPrice,
+  presetAreaUsePrice,
+  presetUnitPrice,
+} from '@/logic/preset';
 import { analyzePricing } from '@/logic/pricing';
 import {
   achievementBadgeTierName,
   achievementName,
+  BACKUP_CREATE_BUTTON_LABEL,
   BACKUP_DIFF_CURRENT_HEADER,
   BACKUP_DIFF_FILE_HEADER,
   BACKUP_PREVIEW_PHOTOS_LABEL,
   BACKUP_PREVIEW_PRESETS_LABEL,
   BACKUP_PREVIEW_RECORDS_LABEL,
   BACKUP_PREVIEW_TAGS_LABEL,
+  BACKUP_RESTORE_SECTION_TITLE,
   COMMISSION_LABEL,
   COMMISSION_SHORT_LABEL,
   CUMULATIVE_PROFIT_LABEL,
@@ -73,11 +80,20 @@ import {
   HELP_FIGURE_INCLUDED_LABEL,
   HELP_FIGURE_KEPT_LABEL,
   HELP_FIGURE_MISS_LABEL,
+  HELP_FIGURE_DUPLICATE_COPIED_LABEL,
+  HELP_FIGURE_DUPLICATE_DATE_LABEL,
+  HELP_FIGURE_DUPLICATE_SKIPPED_LABEL,
+  HELP_FIGURE_DUPLICATE_STATUS_LABEL,
+  HELP_FIGURE_DUPLICATE_SUBTITLE,
+  HELP_FIGURE_MIGRATE_NEW_LABEL,
+  HELP_FIGURE_MIGRATE_OLD_LABEL,
+  HELP_FIGURE_MIGRATE_SUBTITLE,
   HELP_FIGURE_NONE_MARK,
-  HELP_FIGURE_NO_ITEM_NAME_LABEL,
   HELP_FIGURE_ONE_BY_ONE_LABEL,
+  HELP_FIGURE_PACK_AREA_LABEL,
   HELP_FIGURE_PACK_QUANTITY_LABEL,
   HELP_FIGURE_PACK_SUBTITLE,
+  HELP_FIGURE_PACK_USAGE_LABEL,
   HELP_FIGURE_PURCHASE_NOTE,
   HELP_FIGURE_PURCHASE_SHORT_LABEL,
   HELP_FIGURE_POSTAGE_NOTE,
@@ -94,20 +110,30 @@ import {
   HELP_FIGURE_TARGET_ROW_TITLE,
   HELP_FIGURE_TARGET_SUBTITLE,
   HELP_FIGURE_TOTAL_CAPTION,
+  ITEM_NAME_LABEL,
   MEMO_LABEL,
   OTHERS_COST_LABEL,
+  PHOTO_FIELD_LABEL,
   POSTAGE_LABEL,
+  PRESET_AREA_UNIT_PRICE_LABEL,
+  PRESET_CALC_METHOD_OPTIONS,
   PRESET_PACK_PRICE_FIELD_LABEL,
   PRESET_UNIT_PRICE_LABEL,
+  PRESET_USE_PRICE_LABEL,
   PURCHASE_PRICE_LABEL,
+  RECORD_KIND_COLUMN,
+  SALES_PRICE_LABEL,
   TAG_LABEL,
   TARGET_PREVIEW_ROOM_LABEL,
+  TARGET_PROFIT_COLUMN,
   TARGET_PROFIT_UNSET_LABEL,
   TOTAL_PROFIT_LABEL,
   chartBarLegendLabel,
+  csvDayItemNames,
   helpFigureAppAmountMeasure,
   helpFigureBothSoldSubtitle,
   helpFigureCsvKindLabel,
+  helpFigurePackUseNote,
   helpFigureSingleRecordLabel,
   helpFigureSiteAmountMeasure,
   helpFigureSourcedRowTitle,
@@ -125,6 +151,21 @@ const COMMISSION = 150;
 const POSTAGE = 215;
 const OTHERS = 50;
 const PURCHASE = 500;
+
+/**
+ * 図 12（梱包材の 3 方式）の題材。**個数は封筒、面積と使用回数は同じロール 1 本**にしてある ──
+ * 同じ買い物を「面積で割るか、回数で割るか」で見比べられるようにするため。
+ */
+const PACK_PRICE = 800;
+const PACK_QUANTITY = 100;
+const ROLL_PRICE = 1200;
+const PACK_HEIGHT_CM = 30;
+const PACK_WIDTH_CM = 200;
+const USE_HEIGHT_CM = 30;
+const USE_WIDTH_CM = 20;
+const USAGE_COUNT = 40;
+/** cm² → ㎡（preset.ts の換算と同じ。図では ㎡ の値だけを見せる） */
+const SQUARE_CM_PER_M2 = 10_000;
 
 /** 手数料と送料まで引いた額（販売サイトが「手取り」として出すことが多い範囲） */
 const SITE_AMOUNT = SALES_PRICE - COMMISSION - POSTAGE;
@@ -773,16 +814,198 @@ export function ExpenseItemsFigure() {
  */
 export function PackBuyFigure() {
   const colors = useThemeColors();
+  const [individualMethod, areaMethod, usageMethod] = PRESET_CALC_METHOD_OPTIONS;
+  const packArea = (PACK_HEIGHT_CM * PACK_WIDTH_CM) / SQUARE_CM_PER_M2;
+  const useArea = (USE_HEIGHT_CM * USE_WIDTH_CM) / SQUARE_CM_PER_M2;
+
+  // 単価は**実際の関数に出させる**（TargetRoomFigure が analyzePricing を呼ぶのと同じ）──
+  // 図に数字を書き写すと、丸めの規則を直したときにここだけ古い数字が残る
+  const rows = [
+    {
+      key: 'individual',
+      method: individualMethod,
+      price: PACK_PRICE,
+      divisorLabel: HELP_FIGURE_PACK_QUANTITY_LABEL,
+      divisor: `${PACK_QUANTITY}`,
+      resultLabel: PRESET_UNIT_PRICE_LABEL,
+      result: presetUnitPrice(PACK_PRICE, PACK_QUANTITY),
+    },
+    {
+      key: 'area',
+      method: areaMethod,
+      price: ROLL_PRICE,
+      divisorLabel: HELP_FIGURE_PACK_AREA_LABEL,
+      divisor: `${packArea}㎡`,
+      resultLabel: PRESET_AREA_UNIT_PRICE_LABEL,
+      result: presetAreaUnitPrice(ROLL_PRICE, PACK_HEIGHT_CM, PACK_WIDTH_CM),
+    },
+    {
+      key: 'usage',
+      method: usageMethod,
+      price: ROLL_PRICE,
+      divisorLabel: HELP_FIGURE_PACK_USAGE_LABEL,
+      divisor: `${USAGE_COUNT}`,
+      resultLabel: PRESET_USE_PRICE_LABEL,
+      result: presetUnitPrice(ROLL_PRICE, USAGE_COUNT),
+    },
+  ];
+  const usePrice = presetAreaUsePrice(
+    ROLL_PRICE,
+    PACK_HEIGHT_CM,
+    PACK_WIDTH_CM,
+    USE_HEIGHT_CM,
+    USE_WIDTH_CM,
+  );
 
   return (
     <FigureFrame subtitle={HELP_FIGURE_PACK_SUBTITLE}>
-      <View style={styles.formulaRow}>
-        <FormulaBox label={PRESET_PACK_PRICE_FIELD_LABEL} value="800" colors={colors} />
-        <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>÷</Text>
-        <FormulaBox label={HELP_FIGURE_PACK_QUANTITY_LABEL} value="100" colors={colors} />
-        <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
-        <FormulaBox label={PRESET_UNIT_PRICE_LABEL} value="8" colors={colors} highlight />
+      {rows.map((row, index) => (
+        <View key={row.key}>
+          <Text
+            style={[
+              styles.rowTitle,
+              index > 0 && styles.rowTitleSpaced,
+              { color: colors.label },
+            ]}>
+            {row.method}
+          </Text>
+          <View style={styles.formulaRow}>
+            <FormulaBox
+              label={PRESET_PACK_PRICE_FIELD_LABEL}
+              value={groupDigits(row.price)}
+              colors={colors}
+            />
+            <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>÷</Text>
+            <FormulaBox label={row.divisorLabel} value={row.divisor} colors={colors} />
+            <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
+            <FormulaBox
+              label={row.resultLabel}
+              value={row.result == null ? HELP_FIGURE_NONE_MARK : formatUnitYen(row.result)}
+              colors={colors}
+              highlight
+            />
+          </View>
+        </View>
+      ))}
+
+      {/* 面積方式だけ 2 段目がある。表の中に 4 つ目の箱を足すと 1 行が読めない幅になるので、
+          下に 1 行で添える（1㎡ あたりのままでも経費には入る、は本文が言う） */}
+      {usePrice != null && (
+        <Text style={[styles.figureNote, styles.rowTitleSpaced, { color: colors.secondaryLabel }]}>
+          {helpFigurePackUseNote(`${useArea}㎡`, formatUnitYen(usePrice))}
+        </Text>
+      )}
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図: 複製で写るもの・写らないもの（記録ページ）。
+ *
+ * **文で列挙すると 10 個の読点になる。** 写る欄がそれだけ多いことこそが複製の値打ちなので、
+ * 数を減らして書くわけにもいかない ── 2 列に分けて、左を読めば「打ち直さずに済むもの」、
+ * 右を読めば「自分で入れるもの」が塊として見える形にする。
+ *
+ * **欄の名前は画面の表示語をそのまま使う**（ITEM_NAME_LABEL など）。図の中で言い換えると、
+ * 記録の画面と見比べたときに対応が取れない。
+ */
+const DUPLICATE_COPIED_LABELS = [
+  ITEM_NAME_LABEL,
+  RECORD_KIND_COLUMN,
+  PURCHASE_PRICE_LABEL,
+  POSTAGE_LABEL,
+  COMMISSION_LABEL,
+  ENVELOPE_COST_LABEL,
+  OTHERS_COST_LABEL,
+  TAG_LABEL,
+  TARGET_PROFIT_COLUMN,
+];
+
+const DUPLICATE_SKIPPED_LABELS = [
+  SALES_PRICE_LABEL,
+  PHOTO_FIELD_LABEL,
+  MEMO_LABEL,
+  HELP_FIGURE_DUPLICATE_DATE_LABEL,
+  HELP_FIGURE_DUPLICATE_STATUS_LABEL,
+];
+
+export function DuplicateFieldsFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <FigureFrame subtitle={HELP_FIGURE_DUPLICATE_SUBTITLE}>
+      <View style={styles.duplicateRow}>
+        <View style={styles.duplicateCol}>
+          <Text style={[styles.duplicateHead, { color: colors.green }]}>
+            {HELP_FIGURE_DUPLICATE_COPIED_LABEL}
+          </Text>
+          {DUPLICATE_COPIED_LABELS.map((label) => (
+            <Text key={label} style={[styles.duplicateItem, { color: colors.label }]}>
+              {label}
+            </Text>
+          ))}
+        </View>
+
+        <View style={[styles.duplicateDivider, { backgroundColor: colors.separator }]} />
+
+        <View style={styles.duplicateCol}>
+          <Text style={[styles.duplicateHead, { color: colors.secondaryLabel }]}>
+            {HELP_FIGURE_DUPLICATE_SKIPPED_LABEL}
+          </Text>
+          {DUPLICATE_SKIPPED_LABELS.map((label) => (
+            <Text key={label} style={[styles.duplicateItem, { color: colors.mutedLabel }]}>
+              {label}
+            </Text>
+          ))}
+        </View>
       </View>
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図: 機種を変えるときの 1 往復（残すページ）。
+ *
+ * **端末どうしが直接つながらない**ことが、この項目でいちばん誤解される点 ──
+ * 間にファイルを 1 つ挟んだ縦の並びにして、「作る」と「復元する」が別の端末での操作だと
+ * 形から読めるようにする。横に並べると 3 つの箱と 2 本の矢印で 1 行が詰まる。
+ */
+export function BackupMigrateFigure() {
+  const colors = useThemeColors();
+  const steps = [
+    { key: 'old', label: HELP_FIGURE_MIGRATE_OLD_LABEL, icon: 'phone-portrait-outline' as const },
+    { key: 'file', label: HELP_FIGURE_FILE_LABEL, icon: 'document-outline' as const },
+    { key: 'new', label: HELP_FIGURE_MIGRATE_NEW_LABEL, icon: 'phone-portrait-outline' as const },
+  ];
+  const actions = [BACKUP_CREATE_BUTTON_LABEL, BACKUP_RESTORE_SECTION_TITLE];
+
+  return (
+    <FigureFrame subtitle={HELP_FIGURE_MIGRATE_SUBTITLE}>
+      {steps.map((step, index) => (
+        <View key={step.key}>
+          <View
+            style={[
+              styles.migrateBox,
+              { borderColor: index === 1 ? colors.blue : colors.separator },
+            ]}>
+            <Ionicons
+              name={step.icon}
+              size={18}
+              color={index === 1 ? colors.blue : colors.secondaryLabel}
+            />
+            <Text style={[styles.migrateLabel, { color: colors.label }]}>{step.label}</Text>
+          </View>
+
+          {index < actions.length && (
+            <View style={styles.migrateStep}>
+              <Ionicons name="arrow-down" size={16} color={colors.secondaryLabel} />
+              <Text style={[styles.migrateAction, { color: colors.secondaryLabel }]}>
+                {actions[index]}
+              </Text>
+            </View>
+          )}
+        </View>
+      ))}
     </FigureFrame>
   );
 }
@@ -847,8 +1070,10 @@ export function GroupingFigure() {
       </Text>
       <View style={[styles.groupRow, { borderColor: colors.blue }]}>
         <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
-        <Text style={[styles.groupName, { color: colors.mutedLabel }]}>
-          {HELP_FIGURE_NO_ITEM_NAME_LABEL}
+        {/* 商品名は消えない。**実際の関数に作らせる** ── 図に「クッション ほか2件」と
+            書き写すと、まとめ方の書式を直したときにここだけ古い形が残る */}
+        <Text style={[styles.groupName, { color: colors.label }]}>
+          {csvDayItemNames(before.map((row) => row.name))}
         </Text>
         <Text style={[styles.groupAmount, { color: colors.blue }]}>950</Text>
       </View>
@@ -1408,6 +1633,48 @@ const styles = StyleSheet.create({
   formulaLabel: {
     fontSize: 11,
     textAlign: 'center',
+  },
+  /** 複製の 2 列（写る／写らない）。真ん中の細い線が「越えない」ことを示す */
+  duplicateRow: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  duplicateCol: {
+    flex: 1,
+    gap: 6,
+  },
+  duplicateDivider: {
+    width: StyleSheet.hairlineWidth,
+  },
+  duplicateHead: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  duplicateItem: {
+    fontSize: 14,
+  },
+  /** 機種変更の 3 段。箱と箱の間に矢印と操作名を挟む */
+  migrateBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  migrateLabel: {
+    fontSize: 14,
+  },
+  migrateStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingLeft: 12,
+  },
+  migrateAction: {
+    fontSize: 12,
   },
   groupRow: {
     flexDirection: 'row',

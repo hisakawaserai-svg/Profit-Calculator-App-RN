@@ -303,6 +303,8 @@ export default function CalcScreen() {
                       // バッジは率ではなく選んだ名前で決まる（§1.5.1）。手で率を変えても札は残る
                       selectedName={values.siteName}
                       onSelect={selectSite}
+                      // SiteNameRow の「✕」と同じ処理。消えるのは名前だけで率は残る
+                      onClear={() => update('siteName', '')}
                     />
                   }
                 />
@@ -327,6 +329,8 @@ export default function CalcScreen() {
                   label={ENVELOPE_COST_LABEL}
                   value={values.envelopeCost}
                   onChangeValue={(value) => update('envelopeCost', value)}
+                  // 梱包材プリセットを積める先はこの欄だけ（§4.5。MiniCalculator 参照）
+                  canPickPackaging
                 />
                 <NumericField
                   label={OTHERS_COST_LABEL}

@@ -45,6 +45,8 @@ import {
   PRESET_INITIAL_EDITING_HINT,
   PRESET_INITIAL_FIELD_LABEL,
   PRESET_INITIAL_HINT,
+  PRESET_CALC_METHOD_LABEL,
+  PRESET_CALC_METHOD_OPTIONS,
   PRESET_NAME_FIELD_LABEL,
   PRESET_PRICE_MODE_LABEL,
   PRESET_PRICE_MODE_OPTIONS,
@@ -63,11 +65,17 @@ import {
 import { formatYen } from '@/logic/format';
 import {
   clampPresetInitial,
+  DEFAULT_PRESET_CALC_METHOD,
   isPackBuy,
   packBuyTarget,
+  presetCalcMethod,
   presetColorValue,
+  presetDraftAreaUnitPrice,
   presetDraftUnitPrice,
+  presetDraftUsePrice,
+  PRESET_CALC_METHODS,
   validatePreset,
+  type PresetCalcMethod,
 } from '@/logic/preset';
 import { shippingPresetTotal } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
@@ -106,15 +114,27 @@ export function PresetFormScreen({ type, preset }: Props) {
   const [editingInitial, setEditingInitial] = useState(false);
   /** ヘッダの「？」（UI-SPEC §5-9）。バッジをタップで直せること（49c）を開いた状態で出す */
   const [showHelp, setShowHelp] = useState(false);
-  // 「金額の入れ方」（§2.6.2）。列は持たず、開くときは packQuantity > 0 から復元する（§2.6.4）
+  // 「金額の入れ方」（§2.6.2）。列は持たず、開くときは materials（入数・購入サイズ）から復元する（§2.6.4）
   const [packBuy, setPackBuy] = useState(preset != null && isPackBuy(preset));
+  /**
+   * 単価の計算方式（SPEC-V10 §1.1）。**こちらは列がある**（材料の列だけでは
+   * 「個数から」と「使用回数から」を見分けられないため）。既存の行は 'individual' で開く。
+   */
+  const [calcMethod, setCalcMethod] = useState<PresetCalcMethod>(() =>
+    preset == null ? DEFAULT_PRESET_CALC_METHOD : presetCalcMethod(preset),
+  );
   // 空 = 未入力。0 を「0」と出さないのは、入数の 0 が「1 個ずつ」の意味を兼ねているため
   const [packQuantity, setPackQuantity] = useState(
-    preset != null && isPackBuy(preset) ? String(preset.packQuantity) : '',
+    preset != null && isPackBuy(preset) ? sizeToInput(preset.packQuantity) : '',
   );
   const [packPrice, setPackPrice] = useState(
     preset != null && isPackBuy(preset) ? String(preset.packPrice) : '',
   );
+  // 面積方式の 4 つ（SPEC-V10 §1.2）。0 = 未設定なので空欄で開く（入数と同じ扱い）
+  const [packHeight, setPackHeight] = useState(() => sizeToInput(preset?.packHeight));
+  const [packWidth, setPackWidth] = useState(() => sizeToInput(preset?.packWidth));
+  const [useHeight, setUseHeight] = useState(() => sizeToInput(preset?.useHeight));
+  const [useWidth, setUseWidth] = useState(() => sizeToInput(preset?.useWidth));
   /**
    * バッジの色（SPEC-V7 §2.1）。**保存値は hex**（固定色も自由色も同じ形）。
    * 旧形式の色キーが残っていても resolvePresetTone が読めるが、state は hex に寄せる
@@ -133,9 +153,31 @@ export function PresetFormScreen({ type, preset }: Props) {
       : '',
   );
 
-  const draft = { type, name, initial, value, packBuy, packQuantity, packPrice, materialCost };
+  const draft = {
+    type,
+    name,
+    initial,
+    value,
+    packBuy,
+    calcMethod,
+    packQuantity,
+    packPrice,
+    packHeight,
+    packWidth,
+    useHeight,
+    useWidth,
+    materialCost,
+  };
   const validation = validatePreset(draft);
-  // 入力に追従する計算結果（§2.6.2）。入数が空・0 のあいだは null ＝「—」（§2.6.6）
+  /**
+   * 入力に追従する計算結果（§2.6.2 / SPEC-V10 §1.3）。材料が揃わないあいだは null ＝「—」。
+   *
+   * - `usePrice`      … 帯に出る「1 個（1 回）あたり」
+   * - `areaUnitPrice` … 面積方式の 1 枚目の帯（¥/㎡）
+   * - `unitPrice`     … **登録額**（面積方式で平均使用サイズが未入力なら ¥/㎡）
+   */
+  const usePrice = presetDraftUsePrice(draft);
+  const areaUnitPrice = presetDraftAreaUnitPrice(draft);
   const unitPrice = presetDraftUnitPrice(draft);
 
   /**
@@ -157,6 +199,18 @@ export function PresetFormScreen({ type, preset }: Props) {
     [type, unitPrice],
   );
 
+  /**
+   * 計算方式の 3 択（SPEC-V10 §1.1）。**打った値は消さない** ── 2 択の切り替え（§2.6.8-3）と
+   * 同じ考え方で、押し間違えて戻ってきたときに打ち直しにならないようにする。
+   * 方式ごとに使わない列は保存時に 0 へ落ちる（validatePreset）ので、行には残らない。
+   */
+  const changeCalcMethod = useCallback((index: number) => {
+    setCalcMethod(PRESET_CALC_METHODS[index] ?? DEFAULT_PRESET_CALC_METHOD);
+  }, []);
+
+  /** 梱包材のまとめ買い（＝単価を計算して登録する状態。§2.6.2 / SPEC-V10 §1.1） */
+  const isPackagingPackBuy = packBuy && packBuyTarget(type) === 'value';
+
   // プレビュー（§3.3-2）は入力に追従する。不正な値でも「今の指定」をそのまま映す ──
   // 保存できない理由は下の 1 行が言うので、プレビューまで止めると何を直したのか分からなくなる
   const previewValue = Number.parseFloat(value);
@@ -167,14 +221,25 @@ export function PresetFormScreen({ type, preset }: Props) {
     colorKey: color,
     // まとめ買いのときは 1 個あたりを映す（保存されるのもこの値。§2.6.4）。
     // 送料はまとめ買いでも金額欄が送料そのものなので、単価に差し替えない（SPEC-V6 §2）
-    value:
-      packBuy && packBuyTarget(type) === 'value'
-        ? (unitPrice ?? 0)
-        : Number.isNaN(previewValue)
-          ? 0
-          : previewValue,
+    value: isPackagingPackBuy
+      ? (unitPrice ?? 0)
+      : Number.isNaN(previewValue)
+        ? 0
+        : previewValue,
     // 資材費のある送料プリセットは、行にも「＋専用資材」の 1 行が出る（SPEC-V6 §1）
     materialCost: validation.valid ? validation.materialCost : 0,
+    // 計算方式の控え（SPEC-V10 §1.5）。行に「1㎡あたり」などの 1 行が出るかどうかが、
+    // 保存する前に一覧と同じ形で見える。1 個ずつのときは既定（＝ 1 行を出さない）に倒す
+    ...(isPackagingPackBuy
+      ? {
+          calcMethod,
+          packQuantity: inputToNumber(packQuantity),
+          packHeight: inputToNumber(packHeight),
+          packWidth: inputToNumber(packWidth),
+          useHeight: inputToNumber(useHeight),
+          useWidth: inputToNumber(useWidth),
+        }
+      : { packQuantity: 0 }),
   };
 
   const save = useCallback(() => {
@@ -188,6 +253,13 @@ export function PresetFormScreen({ type, preset }: Props) {
       packQuantity: validation.packQuantity,
       packPrice: validation.packPrice,
       materialCost: validation.materialCost,
+      // 計算方式の列（SPEC-V10 §1.2）。既存方式では validation に入っていない ──
+      // 省略された列を既定へ倒すのは repository の責務（db/presets.ts の calcColumns）
+      calcMethod: validation.calcMethod,
+      packHeight: validation.packHeight,
+      packWidth: validation.packWidth,
+      useHeight: validation.useHeight,
+      useWidth: validation.useWidth,
     };
     if (preset == null) createPreset(input);
     else updatePreset(preset.id, input);
@@ -216,7 +288,8 @@ export function PresetFormScreen({ type, preset }: Props) {
    */
   const note = !validation.valid ? (
     <Text style={[styles.blockedNote, { color: colors.red }]} accessibilityRole="alert">
-      {presetBlockedNote(validation.reason, type)}
+      {/* 方式まで渡すのは、割る数の欄の名前が方式で変わるため（SPEC-V10 §1.4） */}
+      {presetBlockedNote(validation.reason, type, calcMethod)}
     </Text>
   ) : !isNew ? (
     <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetEditValueNote(type)}</Text>
@@ -315,14 +388,14 @@ export function PresetFormScreen({ type, preset }: Props) {
             {/* 送料の金額欄は常に出す（まとめ買いは資材費の側の話なので、送料の欄は消えない） */}
             {(isShipping || !isPackBuyMode) && (
               <>
+                {/* 電卓は残す（「1000 ÷ 30」の単価計算に使う。§3.3）が、その中の
+                    「梱包材から選ぶ」は出さない ── プリセットからプリセットを選ぶ経路は作らない（§4.2）。
+                    梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう。
+                    canPickPackaging は既定 false なので、ここでは渡さないことがそのまま「出さない」になる */}
                 <NumericField
                   label={presetValueFieldLabel(type)}
                   value={value}
                   onChangeValue={setValue}
-                  // 電卓は残す（「1000 ÷ 30」の単価計算に使う。§3.3）が、その中の
-                  // 「梱包材から選ぶ」は出さない ── プリセットからプリセットを選ぶ経路は作らない（§4.2）。
-                  // 梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう
-                  canPickPackaging={false}
                 />
                 {!isShipping && note}
               </>
@@ -355,14 +428,14 @@ export function PresetFormScreen({ type, preset }: Props) {
                   packPrice={packPrice}
                   onChangePackQuantity={setPackQuantity}
                   onChangePackPrice={setPackPrice}
-                  unitPrice={unitPrice}
+                  // 送料は常に既存方式（3 択を出さないので usePrice と登録額は同じ値）
+                  unitPrice={usePrice}
                 />
               ) : (
                 <NumericField
                   label={SHIPPING_MATERIAL_FIELD_LABEL}
                   value={materialCost}
                   onChangeValue={setMaterialCost}
-                  canPickPackaging={false}
                 />
               )}
             </View>
@@ -407,11 +480,13 @@ export function PresetFormScreen({ type, preset }: Props) {
             </>
           )}
 
-          {/* まとめ買いの 3 行は**別のカード**にする（設計案 28c）── 2 択で欄の形が変わったことが、
+          {/* まとめ買いの欄は**別のカード**にする（設計案 28c）── 2 択で欄の形が変わったことが、
               カードが 1 枚増えることで見て取れる。名前と同じカードに続けると、どこから先が
               「金額の入れ方」で変わった部分なのか読めない。
-              送料では資材費のカードの中に入る（上の分岐）ので、ここは梱包材だけ */}
-          {isPackBuyMode && packBuyTarget(type) === 'value' && (
+              送料では資材費のカードの中に入る（上の分岐）ので、ここは梱包材だけ。
+              **計算方式の 3 択（SPEC-V10 §1.1）もこのカードの中**で、方式で入れ替わるのは
+              下に続く欄だけ ── カードが増えたり減ったりはしない */}
+          {isPackagingPackBuy && (
             <>
               <View
                 style={[
@@ -419,12 +494,35 @@ export function PresetFormScreen({ type, preset }: Props) {
                   packBuyCardStyle,
                   { backgroundColor: colors.secondaryBackground },
                 ]}>
+                {/* 計算方式の 3 択（SPEC-V10 §1.1）。**まとめ買いのカードの中の先頭**に置く ──
+                    この 3 択が変えるのは下に続く欄だけなので、「金額の入れ方」の 2 択と違って
+                    カードをまたがない。2 択（何で登録するか）→ 3 択（何で割るか）の順に読める */}
+                <View style={[styles.modeRow, styles.modeRowInset]}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
+                    {PRESET_CALC_METHOD_LABEL}
+                  </Text>
+                  <SegmentedControl
+                    options={PRESET_CALC_METHOD_OPTIONS}
+                    selectedIndex={PRESET_CALC_METHODS.indexOf(calcMethod)}
+                    onChange={changeCalcMethod}
+                  />
+                </View>
                 <PackBuyFields
+                  method={calcMethod}
                   packQuantity={packQuantity}
                   packPrice={packPrice}
                   onChangePackQuantity={setPackQuantity}
                   onChangePackPrice={setPackPrice}
-                  unitPrice={unitPrice}
+                  packHeight={packHeight}
+                  packWidth={packWidth}
+                  onChangePackHeight={setPackHeight}
+                  onChangePackWidth={setPackWidth}
+                  useHeight={useHeight}
+                  useWidth={useWidth}
+                  onChangeUseHeight={setUseHeight}
+                  onChangeUseWidth={setUseWidth}
+                  unitPrice={usePrice}
+                  areaUnitPrice={areaUnitPrice}
                 />
               </View>
               {note}
@@ -478,6 +576,22 @@ export function PresetFormScreen({ type, preset }: Props) {
       )}
     </>
   );
+}
+
+/**
+ * 保存値を欄の文字列にする（SPEC-V10 §1.2）。**0 は空欄**で開く ──
+ * 入数と同じ扱いで、0 は「未設定」を兼ねているので「0」と書くと打ち始めが「030」になる。
+ * 末尾の `.0` も出さない（保存は real なので 30 が 30 のまま出る）。
+ */
+function sizeToInput(size: number | undefined): string {
+  if (size == null || size <= 0) return '';
+  return String(Number(size.toFixed(1)));
+}
+
+/** 欄の文字列を数値に戻す（プレビュー用。空・"." は 0） */
+function inputToNumber(text: string): number {
+  const parsed = Number.parseFloat(text);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 const styles = StyleSheet.create({

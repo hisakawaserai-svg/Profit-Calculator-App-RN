@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PRESET_COLOR_HEXES } from './preset';
+import { PRESET_CALC_METHODS, PRESET_COLOR_HEXES } from './preset';
 import {
   analyzePricing,
   pricingConclusion,
@@ -136,7 +136,11 @@ import {
   presetFormTitle,
   presetListNote,
   presetOverflowLabel,
+  presetPackQuantityFieldLabel,
+  presetUnitNote,
+  presetUnitPriceRowLabel,
   presetUnitPriceText,
+  PRESET_CALC_METHOD_OPTIONS,
   presetValueFieldLabel,
   presetValueText,
   PRESET_SECTION_TITLE,
@@ -1119,5 +1123,93 @@ describe('achievementToastText（実績獲得トースト）', () => {
     expect(achievementToastText(['first_sale', 'first_profit'])).toBe(
       '実績を2件達成しました',
     );
+  });
+});
+
+describe('SPEC-V10 §1 梱包材の単価計算方式の語', () => {
+  it('3 択の並びは PRESET_CALC_METHODS そのもの（既定の「個数から」が先頭）', () => {
+    expect(PRESET_CALC_METHOD_OPTIONS).toEqual(['個数から', '面積から', '使用回数から']);
+    expect(PRESET_CALC_METHOD_OPTIONS).toHaveLength(PRESET_CALC_METHODS.length);
+  });
+
+  it('割る数の欄は方式で名前が変わる（同じ列でも入れる数の意味が違う）', () => {
+    expect(presetPackQuantityFieldLabel('individual')).toBe('入数（個）');
+    expect(presetPackQuantityFieldLabel('area')).toBe('入数（個）');
+    expect(presetPackQuantityFieldLabel('usage')).toBe('想定使用回数（回）');
+  });
+
+  it('計算結果の帯の見出しも方式で変わる（1 個あたり / 1 回あたり）', () => {
+    expect(presetUnitPriceRowLabel('individual')).toBe('1個あたり');
+    expect(presetUnitPriceRowLabel('area')).toBe('1回あたり');
+    expect(presetUnitPriceRowLabel('usage')).toBe('1回あたり');
+  });
+
+  it('保存できない理由は方式に合わせて欄を名指しする（§1.4）', () => {
+    expect(presetBlockedNote('pack-quantity-required', 'packaging', 'usage')).toBe(
+      '想定使用回数を入れてください',
+    );
+    // 方式を渡さない呼び出し（送料・販売サイト）は従来の文言のまま
+    expect(presetBlockedNote('pack-quantity-required', 'packaging')).toBe('入数を入れてください');
+    expect(presetBlockedNote('pack-size-required', 'packaging', 'area')).toBe(
+      '購入サイズの縦・横を入れてください',
+    );
+    expect(presetBlockedNote('use-size-invalid', 'packaging', 'area')).toBe(
+      '平均使用サイズは縦・横の両方を入れてください',
+    );
+  });
+});
+
+describe('SPEC-V10 §1.5 一覧・選択シートの行に出す「何あたり」の 1 行', () => {
+  const packaging = { type: 'packaging' as const, packQuantity: 0 };
+
+  it('手で金額を入れた行には出さない（その額が 1 回ぶんそのもの）', () => {
+    expect(presetUnitNote(packaging)).toBeNull();
+  });
+
+  it('個数から計算した行は「1個あたり」', () => {
+    expect(presetUnitNote({ ...packaging, packQuantity: 100 })).toBe('1個あたり');
+  });
+
+  it('使用回数から計算した行は「1回あたり」', () => {
+    expect(presetUnitNote({ ...packaging, calcMethod: 'usage', packQuantity: 50 })).toBe(
+      '1回あたり',
+    );
+  });
+
+  it('面積から計算した行は、平均使用サイズを添えて「1回あたり」', () => {
+    expect(
+      presetUnitNote({
+        ...packaging,
+        calcMethod: 'area',
+        packHeight: 100,
+        packWidth: 100,
+        useHeight: 30,
+        useWidth: 20,
+      }),
+    ).toBe('1回あたり（30×20cm）');
+  });
+
+  it('平均使用サイズを入れていない面積の行は「1㎡あたり」（額の単位が他の行と違う）', () => {
+    expect(
+      presetUnitNote({ ...packaging, calcMethod: 'area', packHeight: 100, packWidth: 100 }),
+    ).toBe('1㎡あたり');
+  });
+
+  it('サイズの末尾の .0 は出さない（21.5cm はそのまま）', () => {
+    expect(
+      presetUnitNote({
+        ...packaging,
+        calcMethod: 'area',
+        packHeight: 100,
+        packWidth: 100,
+        useHeight: 21.5,
+        useWidth: 30,
+      }),
+    ).toBe('1回あたり（21.5×30cm）');
+  });
+
+  it('梱包材以外には出さない（送料は「＋専用資材」の 1 行を持つ）', () => {
+    expect(presetUnitNote({ type: 'shipping', packQuantity: 100 })).toBeNull();
+    expect(presetUnitNote({ type: 'site', packQuantity: 0 })).toBeNull();
   });
 });

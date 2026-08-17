@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { PresetType } from '@/db/schema';
-import { presetValueText, shippingMaterialRowNote } from '@/logic/labels';
+import { presetUnitNote, presetValueText, shippingMaterialRowNote } from '@/logic/labels';
 import { presetRowAmount } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
@@ -37,6 +37,16 @@ export type PresetRowValues = {
    * 省略できるのは、この行を保存前の入力（プレビュー）からも描くため。
    */
   materialCost?: number;
+  /**
+   * 単価の計算方式とその材料（SPEC-V10 §1.5）。**梱包材だけが持つ。**
+   * 右端の額が「1 回あたり」なのか「1 ㎡あたり」なのかは、この材料からしか分からない。
+   */
+  calcMethod?: string;
+  packQuantity?: number;
+  packHeight?: number;
+  packWidth?: number;
+  useHeight?: number;
+  useWidth?: number;
 };
 
 type Props = {
@@ -67,7 +77,10 @@ export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Pro
   // 合計だけを出すと「何と何を足した額なのか」が行から読めない
   const materialNote = hasMaterial
     ? shippingMaterialRowNote(preset.value, materialCost)
-    : null;
+    : // 計算して登録した梱包材は、右端の額が「何あたり」かをここで言う（SPEC-V10 §1.5）。
+      // 送料と同じ行に置くのは、どちらも「右端の額の読み方」を補う 1 行だから ──
+      // 種類が違っても役割が同じものを、行の別の場所に散らさない
+      presetUnitNote({ ...preset, packQuantity: preset.packQuantity ?? 0 });
 
   return (
     <View style={styles.row}>
