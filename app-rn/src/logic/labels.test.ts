@@ -4,8 +4,54 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { PRESET_COLOR_HEXES } from './preset';
 import {
+  analyzePricing,
+  pricingConclusion,
+  recordDetailConclusion,
+  simulationVerdict,
+  soldConclusion,
+} from './pricing';
+
+import {
+  ALMOST_ALL_PERCENT_LABEL,
+  AMOUNT_PLACEHOLDER,
+  DETAILS_COLLAPSE_LABEL,
+  DETAILS_EXPAND_LABEL,
+  LESS_THAN_ONE_PERCENT_LABEL,
+  averageSaleDaysValue,
+  detailsToggleLabel,
+  perRecordProfitValue,
+  percentLabel,
+  applyPriceButtonLabel,
+  listingDayBadgeLabel,
+  lossAmountNote,
+  netProfitEstimateNote,
+  pricingConclusionText,
+  pricingHeroAmount,
+  recordDetailConclusionDetail,
+  recordDetailConclusionHeadline,
+  simulationVerdictText,
+  soldRecordDetailConclusionDetail,
+  soldRecordDetailConclusionHeadline,
+  targetProfitRowValue,
+  PRICE_APPLY_EXTERNAL_NOTE,
+  colorRemainingLabel,
+  colorUserLabel,
+  COLOR_ALL_USED_SUBTITLE,
+  COLOR_USED_PICK_SECTION_LABEL,
+  COLOR_USED_SECTION_LABEL,
+  CUSTOM_COLOR_CHANGE_LABEL,
+  CUSTOM_COLOR_CREATE_LABEL,
+  CUSTOM_COLOR_LABEL,
+  otherUsedSectionLabel,
+  ownColorLabel,
+  presetColorLabel,
+  sameColorNote,
   CHART_UNIT_NOTE,
+  DATA_MODE_PROFIT_LABEL,
+  DATA_MODE_TAG_LABEL,
+  achievementToastText,
   filterNoMatchNote,
   filterTagSearchEmptyBody,
   filterTagSearchEmptyTitle,
@@ -71,6 +117,9 @@ import {
   requiredPriceSummary,
   revertToListingConfirmTitle,
   selectedPointTitle,
+  selectedTagTitle,
+  tagSectionMetaText,
+  zeroRecordTagsToggleLabel,
   soldDateChipsNote,
   soldDateNotes,
   soldDatePickerNote,
@@ -91,11 +140,13 @@ import {
   presetValueFieldLabel,
   presetValueText,
   PRESET_SECTION_TITLE,
+  PROFIT_RATE_LABEL,
   TAG_ADD_LABEL,
   TAG_SECTION_TITLE,
   tagBlockedNote,
   tagDeletedMessage,
   tagFormTitle,
+  tagProfitMetaText,
   versionLabel,
 } from './labels';
 
@@ -326,6 +377,23 @@ describe('UI-SPEC §1.5 データタブの語', () => {
       '次の月',
     ]);
     expect([previousPeriodLabel('2025'), nextPeriodLabel('2025')]).toEqual(['前の年', '次の年']);
+  });
+
+  it('タグ別利益ランキングの行の補足は率が何かを言う', () => {
+    expect(tagProfitMetaText('69.3%', '10件')).toBe(`${PROFIT_RATE_LABEL} 69.3%・10件`);
+  });
+
+  it('タグ別利益ランキングの行タップで開く内訳一覧の見出しは selectedPointTitle と同じ形', () => {
+    expect(selectedTagTitle('洋服', 3)).toBe('洋服の記録　3件');
+  });
+
+  it('タグ別の純利益セクションの見出し下の 1 行は期間・件数を語なしで並べる', () => {
+    expect(tagSectionMetaText('2026年', '22件')).toBe('2026年・22件');
+  });
+
+  it('記録のないタグの開閉行は開閉状態で語を変える', () => {
+    expect(zeroRecordTagsToggleLabel(3, false)).toBe('記録のない3タグを見る');
+    expect(zeroRecordTagsToggleLabel(3, true)).toBe('記録のない3タグを閉じる');
   });
 });
 
@@ -695,6 +763,361 @@ describe('§4.2 絞り込みページの文言（案 35c〜35f）', () => {
   it('選んでいるタグが 2 つ以上なら「ほか N件」に畳む（解除バーと同じ作法）', () => {
     expect(filterTagSearchEmptyBody(['洋服', '春夏物', '食器'])).toBe(
       '選んでいるタグ（洋服ほか2件）は、そのまま効いています。',
+    );
+  });
+});
+
+// 設計案 50c: 色を使用状況で 2 群に分けたときの語。
+// 「誰が使っているか」を出すのはこの表示語だけなので、畳み方をここで固定する。
+describe('色の 2 群表示（設計案 50c）', () => {
+  it('色名は日本語で持つ（読み上げにも使うので英語キーを出さない）', () => {
+    expect(presetColorLabel(PRESET_COLOR_HEXES.orange)).toBe('オレンジ');
+    expect(presetColorLabel('teal')).toBe('ティール');
+  });
+
+  it('固定 11 色のどれでもない値は「自由色」', () => {
+    expect(presetColorLabel('#123456')).toBe(CUSTOM_COLOR_LABEL);
+    expect(presetColorLabel('')).toBe(CUSTOM_COLOR_LABEL);
+  });
+
+  it('編集のときは自分の色を名指しする', () => {
+    expect(ownColorLabel(PRESET_COLOR_HEXES.orange, 'タグ')).toBe('オレンジ（このタグの色）');
+    expect(ownColorLabel(PRESET_COLOR_HEXES.red, '送料')).toBe('赤（この送料の色）');
+  });
+
+  it('残りの数は「N色」', () => {
+    expect(colorRemainingLabel(5)).toBe('5色');
+    expect(colorRemainingLabel(0)).toBe('0色');
+  });
+
+  it('下の群の見出しは、編集のときだけ「ほかの◯◯」になる', () => {
+    expect(COLOR_USED_SECTION_LABEL).toBe('使用中');
+    expect(otherUsedSectionLabel('タグ')).toBe('ほかのタグが使用中');
+    expect(otherUsedSectionLabel('梱包材')).toBe('ほかの梱包材が使用中');
+  });
+
+  it('同じ色を複数が使っていたら「ほか N件」に畳む（解除バーと同じ作法）', () => {
+    expect(colorUserLabel(['衣類'])).toBe('衣類');
+    expect(colorUserLabel(['衣類', '本'])).toBe('衣類 ほか1件');
+    expect(colorUserLabel(['衣類', '本', '雑貨'])).toBe('衣類 ほか2件');
+  });
+
+  it('重なったときの注記も 1 件だけ名指しして、残りは件数にする', () => {
+    expect(sameColorNote(['衣類'])).toBe('「衣類」と同じ色です');
+    expect(sameColorNote(['衣類', '本'])).toBe('「衣類」ほか1件と同じ色です');
+  });
+
+  it('名前に「・」を含むプリセットでも区切りが紛れない（名前は 1 件しか書かない）', () => {
+    expect(sameColorNote(['A4・厚さ3cm以内', '宅配60サイズ'])).toBe(
+      '「A4・厚さ3cm以内」ほか1件と同じ色です',
+    );
+  });
+});
+
+// 設計案 51b: 固定 11 色を使い切ったときだけ出る語。
+// 「0色」「すべて使われています」を言わずに同じ状態を伝えるのがこの案の主眼なので、
+// 数を出さないことと、押せることを言う見出しになっていることを固定する。
+describe('色を使い切ったときの語（設計案 51b）', () => {
+  it('副文言は固定色の数を言い切る（残り数「0色」は出さない）', () => {
+    expect(COLOR_ALL_USED_SUBTITLE).toBe('固定の11色は使い切りました');
+    expect(COLOR_ALL_USED_SUBTITLE).not.toContain('0色');
+  });
+
+  it('主文言は、自由色を選んでいるかどうかで「作る」と「変える」に分かれる', () => {
+    expect(CUSTOM_COLOR_CREATE_LABEL).toBe('新しい色を作る');
+    expect(CUSTOM_COLOR_CHANGE_LABEL).toBe(`${CUSTOM_COLOR_LABEL}を変える`);
+  });
+
+  it('下の群の見出しは状態ではなく操作を言う（ここでしか固定色を選べない）', () => {
+    expect(COLOR_USED_PICK_SECTION_LABEL).toBe('使用中の色から選ぶ');
+    expect(COLOR_USED_PICK_SECTION_LABEL).toContain(COLOR_USED_SECTION_LABEL);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 「いくらで売る？」（SPEC-V9 §9）の表示語。
+//
+// 見張るのは 3 つの禁じ手 ── **「¥0」を「決めていない」の意味で使わない**（§1.2）、
+// **目標が無いときに「達成」と言わない**（§9.4）、**「手取り」を使わない**（SPEC-V2 §7-8）。
+// 金額そのものの正しさは logic/pricing.test.ts が見るので、ここでは語だけを見る。
+// ───────────────────────────────────────────────────────────────────────────
+describe('SPEC-V9 §9 「いくらで売る？」の表示語', () => {
+  const costs = { purchasePrice: 2000, postage: 750, envelopeCost: 50, othersCost: 0, commission: 10 };
+  const analyze = (salesPrice: number, targetProfit: number | null) =>
+    analyzePricing({ ...costs, salesPrice, targetProfit });
+
+  const conclusionOf = (salesPrice: number, targetProfit: number | null) => {
+    const analysis = analyze(salesPrice, targetProfit);
+    const conclusion = pricingConclusion(analysis);
+    if (conclusion == null) throw new Error('価格未設定では帯を出さない');
+    return pricingConclusionText(conclusion, analysis, 'sourced');
+  };
+
+  const verdictOf = (salesPrice: number, targetProfit: number | null, price: number) => {
+    const analysis = analyze(salesPrice, targetProfit);
+    return simulationVerdictText(simulationVerdict(analysis, price, costs), analysis, 'sourced');
+  };
+
+  it('A. 目標なし・黒字（モックの文）', () => {
+    expect(conclusionOf(5000, null)).toEqual({
+      headline: '¥3,112 までなら赤字になりません。',
+      detail: '交渉されても、あと ¥1,888 は下げられます。',
+    });
+  });
+
+  it('B. 目標あり・黒字（基準線が目標ラインへ上がる）', () => {
+    expect(conclusionOf(5000, 1000)).toEqual({
+      headline: '¥4,223 までなら、目標利益 ¥1,000 を保てます。',
+      detail: '交渉されても、あと ¥777 は下げられます。',
+    });
+  });
+
+  it('C. 目標なし・赤字', () => {
+    expect(conclusionOf(2500, null)).toEqual({
+      headline: 'あと ¥612 の値上げで、赤字から抜けます。',
+      detail: '¥3,112 で利益ゼロ。それより上なら手元にお金が残ります。',
+    });
+  });
+
+  it('D. 目標あり・赤字は 2 行目だけが変わる', () => {
+    const loss = conclusionOf(2500, 1000);
+
+    expect(loss.headline).toBe(conclusionOf(2500, null).headline);
+    expect(loss.detail).toBe('目標利益 ¥1,000 まで戻すなら ¥4,223（今より ¥1,723 上）');
+  });
+
+  it('**余裕がちょうど 0 のとき「あと ¥0 は下げられます」と言わない**', () => {
+    const detail = conclusionOf(3112, null).detail;
+
+    expect(detail).not.toContain('¥0');
+    expect(detail).toBe('今の価格がその下限です。これ以上は下げられません。');
+  });
+
+  it('**目標が無いときは「達成」と言わない**（§9.4）', () => {
+    expect(verdictOf(5000, null, 4500)).toBe('まだ ¥1,388 の余裕があります');
+    expect(verdictOf(5000, null, 4500)).not.toContain('達成');
+  });
+
+  it('目標があるときだけ「達成」と言う', () => {
+    expect(verdictOf(5000, 1000, 4500)).toBe('目標利益 ¥1,000 を達成');
+  });
+
+  it('赤字だった記録が黒字になるときと、黒字が赤字になるときで語が違う', () => {
+    expect(verdictOf(2500, null, 3200)).toBe('黒字になります（手元に残る ¥80）');
+    expect(verdictOf(5000, null, 3000)).toBe('赤字になります（−¥100）');
+    expect(verdictOf(2500, null, 3000)).toBe('まだ赤字です（−¥100）');
+  });
+
+  it('**「手取り」は使わない**（SPEC-V2 §7-8）', () => {
+    const texts = [
+      netProfitEstimateNote(34),
+      lossAmountNote(-550),
+      verdictOf(2500, null, 3200),
+      conclusionOf(2500, null).detail,
+    ];
+    for (const text of texts) expect(text).not.toContain('手取り');
+  });
+
+  it('主役の数字は赤字だけ負号が付く（黒字に「+」は付けない）', () => {
+    expect(pricingHeroAmount(1700)).toBe('¥1,700');
+    expect(pricingHeroAmount(-550)).toBe('−¥550');
+    expect(pricingHeroAmount(0)).toBe('¥0');
+  });
+
+  it('バッジは出品当日が 1 日目。**日付が逆転していれば日数を出さない**', () => {
+    expect(listingDayBadgeLabel(13)).toBe('出品中 14日目');
+    expect(listingDayBadgeLabel(0)).toBe('出品中 1日目');
+    expect(listingDayBadgeLabel(-2)).toBe('出品中');
+  });
+
+  it('最下段の目標の行は、決めていなければ語・決めてあれば「この記録だけ」を添える', () => {
+    expect(targetProfitRowValue(null)).toBe('決めていません');
+    expect(targetProfitRowValue(1000)).toBe('¥1,000（この記録だけ）');
+    // **目標 0 円は「決めていません」ではない**（§1.2）
+    expect(targetProfitRowValue(0)).toBe('¥0（この記録だけ）');
+  });
+
+  it('ボタンの語は赤字だけ「直す」に変わる（§9.10）', () => {
+    expect(applyPriceButtonLabel(analyze(5000, null))).toBe('この価格でこのアプリに記録する');
+    expect(applyPriceButtonLabel(analyze(2500, null))).toBe('価格を ¥3,112 以上に直す');
+  });
+
+  it('注意文にサービス名を出さない（§9.1）', () => {
+    expect(PRICE_APPLY_EXTERNAL_NOTE).toBe(
+      '出品しているサイトの価格は変わりません。あちらはご自分で変更してください。',
+    );
+  });
+});
+
+// 記録詳細の帯グラフに足す結論行（O3 案。SPEC-V9 未反映）の 4 状態の文言分岐。
+// 数字は logic/pricing.test.ts と同じモックの 1 件（仕入 2,000 ＋ 送料 750 ＋ 梱包 50、手数料 10%）。
+describe('記録詳細の結論行（O3 案）の文言', () => {
+  const costs = { purchasePrice: 2000, postage: 750, envelopeCost: 50, othersCost: 0, commission: 10 };
+  const analyze = (salesPrice: number, targetProfit: number | null) =>
+    analyzePricing({ ...costs, salesPrice, targetProfit });
+
+  const headlineOf = (salesPrice: number, targetProfit: number | null) => {
+    const analysis = analyze(salesPrice, targetProfit);
+    const conclusion = recordDetailConclusion(analysis);
+    return recordDetailConclusionHeadline(conclusion, analysis, 'sourced');
+  };
+
+  const detailOf = (salesPrice: number, targetProfit: number | null) => {
+    const conclusion = recordDetailConclusion(analyze(salesPrice, targetProfit));
+    return recordDetailConclusionDetail(conclusion);
+  };
+
+  it('A. 目標なし・黒字', () => {
+    expect(headlineOf(5000, null)).toBe('あと ¥1,888 下げても赤字になりません');
+    expect(detailOf(5000, null)).toBe('値下げを試す・赤字にならない価格を見る');
+  });
+
+  it('B. 目標あり・黒字', () => {
+    expect(headlineOf(5000, 1000)).toBe('¥4,223までなら、目標利益¥1,000を保てます');
+    expect(detailOf(5000, 1000)).toBe('値下げを試す・目標を保てる価格を見る');
+  });
+
+  it('C. 目標なし・赤字', () => {
+    expect(headlineOf(2500, null)).toBe('あと¥612の値上げで、赤字から抜けます');
+    expect(detailOf(2500, null)).toBe('値上げを試す・赤字から抜ける価格を見る');
+  });
+
+  it('D. 目標あり・赤字', () => {
+    expect(headlineOf(2500, 1000)).toBe('目標利益¥1,000まで戻すなら¥4,223');
+    expect(detailOf(2500, 1000)).toBe('値上げを試す・目標を保てる価格を見る');
+  });
+
+  it('E. 価格未設定 → 結論文は出せないので専用の誘導文言（G への入口）', () => {
+    expect(headlineOf(0, null)).toBe('価格を入れると、どこまで下げられるか分かります');
+    expect(detailOf(0, null)).toBe('売る価格を入力する');
+  });
+});
+
+// 記録詳細の結論行（O3 案）の売却済み版。数字は上と同じモックの 1 件を使う。
+describe('記録詳細の結論行（O3 案）の文言・売却済み版', () => {
+  const costs = { purchasePrice: 2000, postage: 750, envelopeCost: 50, othersCost: 0, commission: 10 };
+  const analyze = (salesPrice: number, targetProfit: number | null) =>
+    analyzePricing({ ...costs, salesPrice, targetProfit });
+
+  const headlineOf = (salesPrice: number, targetProfit: number | null) => {
+    const analysis = analyze(salesPrice, targetProfit);
+    const conclusion = soldConclusion(analysis);
+    if (conclusion == null) throw new Error('価格未設定では行を出さない');
+    return soldRecordDetailConclusionHeadline(conclusion, analysis);
+  };
+
+  const detailOf = (salesPrice: number, targetProfit: number | null) => {
+    const conclusion = soldConclusion(analyze(salesPrice, targetProfit));
+    if (conclusion == null) throw new Error('価格未設定では行を出さない');
+    return soldRecordDetailConclusionDetail(conclusion);
+  };
+
+  it('目標なし', () => {
+    expect(headlineOf(5000, null)).toBe('交渉されても、あと¥1,888は応じられた計算でした');
+    expect(detailOf(5000, null)).toBe('どこまで下げられたか見る');
+  });
+
+  it('目標あり・達成', () => {
+    expect(headlineOf(5000, 1000)).toBe('¥4,223まで、目標利益を保てました');
+    expect(detailOf(5000, 1000)).toBe('どこまで下げられたか見る');
+  });
+
+  it('目標あり・未達成（黒字のまま）', () => {
+    expect(headlineOf(3500, 1000)).toBe('目標まであと¥723でした');
+    expect(detailOf(3500, 1000)).toBe('目標にどれだけ届かなかったか見る');
+  });
+
+  it('価格未設定では行自体を出さない（soldConclusion が null）', () => {
+    expect(soldConclusion(analyze(0, null))).toBeNull();
+  });
+});
+
+// 帯グラフの割合（percentLabel）。**区画の割合の和が 100% を超えて読めてはいけない。**
+// 仕入 400,000 円・手数料 100 円の記録で「仕入価格 100%」と「1%未満」が同時に出ていた。
+describe('帯グラフの割合の語', () => {
+  it('丸めて 0% になる区画は「1%未満」（「無い」と読ませない）', () => {
+    expect(percentLabel(0.004)).toBe(LESS_THAN_ONE_PERCENT_LABEL);
+    expect(percentLabel(0.0000025)).toBe(LESS_THAN_ONE_PERCENT_LABEL);
+  });
+
+  it('**全部ではないのに「100%」と言わない**', () => {
+    // 400000 / 400100 = 99.975%
+    expect(percentLabel(400000 / 400100)).toBe(ALMOST_ALL_PERCENT_LABEL);
+    expect(percentLabel(0.999)).toBe(ALMOST_ALL_PERCENT_LABEL);
+  });
+
+  it('ちょうど全部のときだけ「100%」', () => {
+    expect(percentLabel(1)).toBe('100%');
+  });
+
+  it('間の値は整数に丸めるだけ', () => {
+    expect(percentLabel(0.5)).toBe('50%');
+    expect(percentLabel(0.324)).toBe('32%');
+    expect(percentLabel(0.985)).toBe('99%');
+  });
+});
+
+// データタブ集計段直下の開閉行（案 1c）
+describe('開閉行の文言 detailsToggleLabel', () => {
+  it('畳んでいるときは「詳細を見る」', () => {
+    expect(detailsToggleLabel(false)).toBe(DETAILS_EXPAND_LABEL);
+    expect(detailsToggleLabel(false)).toBe('詳細を見る');
+  });
+
+  it('開いているときは「閉じる」', () => {
+    expect(detailsToggleLabel(true)).toBe(DETAILS_COLLAPSE_LABEL);
+    expect(detailsToggleLabel(true)).toBe('閉じる');
+  });
+});
+
+describe('展開時 3 列目の値 perRecordProfitValue', () => {
+  it('黒字は formatSignedYenSymbol と同じ「+¥」表記（一覧の行・グラフカードと揃える）', () => {
+    expect(perRecordProfitValue(12686 / 9)).toBe('+¥1,410');
+  });
+
+  it('**赤字は「-¥」の順**（formatYenSymbol 単体の「¥-」順ではない。一覧の行・グラフカードの選択値・帯グラフの不足額と同じ表記）', () => {
+    expect(perRecordProfitValue(-200)).toBe('-¥200');
+  });
+
+  it('**null（0 件で割れない）は AMOUNT_PLACEHOLDER（「ーー」）**', () => {
+    expect(perRecordProfitValue(null)).toBe(AMOUNT_PLACEHOLDER);
+    expect(perRecordProfitValue(null)).toBe('ーー');
+  });
+});
+
+describe('展開時 4 列目の値 averageSaleDaysValue', () => {
+  it('小数第 1 位までの「◯日」表記', () => {
+    expect(averageSaleDaysValue(5)).toBe('5.0日');
+    expect(averageSaleDaysValue(2.5)).toBe('2.5日');
+  });
+
+  it('0 日（当日売却）もそのまま表示する', () => {
+    expect(averageSaleDaysValue(0)).toBe('0.0日');
+  });
+
+  it('**null（対象 0 件）は AMOUNT_PLACEHOLDER（「ーー」）**', () => {
+    expect(averageSaleDaysValue(null)).toBe(AMOUNT_PLACEHOLDER);
+    expect(averageSaleDaysValue(null)).toBe('ーー');
+  });
+});
+
+describe('データタブのセグメント（収支 / タグ）の語', () => {
+  it('計算タブの「利益を出す/目標から逆算」と同じ SegmentedControl の 2 択', () => {
+    expect(DATA_MODE_PROFIT_LABEL).toBe('収支');
+    expect(DATA_MODE_TAG_LABEL).toBe('タグ');
+  });
+});
+
+describe('achievementToastText（実績獲得トースト）', () => {
+  it('1個だけなら実績名をそのまま出す', () => {
+    expect(achievementToastText(['first_sale'])).toBe(
+      '実績「初めての一歩」を達成しました',
+    );
+  });
+
+  it('複数なら件数でまとめる', () => {
+    expect(achievementToastText(['first_sale', 'first_profit'])).toBe(
+      '実績を2件達成しました',
     );
   });
 });

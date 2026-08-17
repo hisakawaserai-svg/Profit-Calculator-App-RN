@@ -17,29 +17,44 @@ import { create } from 'zustand';
 import type { RecordKind } from '@/db/schema';
 
 import { DEFAULT_RECORD_KIND_KEY, normalizeRecordKind } from './defaultRecordKind';
+import { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
 
 export {
   DEFAULT_RECORD_KIND_KEY,
   FALLBACK_RECORD_KIND,
   normalizeRecordKind,
 } from './defaultRecordKind';
+export { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
 
 export type Settings = {
   /** 新規レコード・計算タブの初期種別（SPEC-V2 §1.4 / §3.1） */
   defaultRecordKind: RecordKind;
+  /**
+   * 最後にバックアップを作った日時（SPEC-V8 / 案 53a）。まだ作っていなければ null。
+   *
+   * **設定ではなく端末の履歴**なので、復元（全置換）では書き換えない ──
+   * 「いつ作ったか」はファイルの中身ではなく、この端末で起きたこと。
+   */
+  lastBackupAt: string | null;
 };
 
 type SettingsStore = Settings & {
   setDefaultRecordKind: (kind: RecordKind) => void;
+  setLastBackupAt: (createdAt: string) => void;
 };
 
 const useSettingsStore = create<SettingsStore>((set) => ({
   // getItemSync なので初期値をその場で読める。不正値・未設定は 'used' に倒れる
   defaultRecordKind: normalizeRecordKind(Storage.getItemSync(DEFAULT_RECORD_KIND_KEY)),
+  lastBackupAt: normalizeLastBackupAt(Storage.getItemSync(LAST_BACKUP_AT_KEY)),
   setDefaultRecordKind: (kind) => {
     // 先に永続化してからストアを更新する。書き込みが失敗したら state も進めない
     Storage.setItemSync(DEFAULT_RECORD_KIND_KEY, kind);
     set({ defaultRecordKind: kind });
+  },
+  setLastBackupAt: (createdAt) => {
+    Storage.setItemSync(LAST_BACKUP_AT_KEY, createdAt);
+    set({ lastBackupAt: createdAt });
   },
 }));
 

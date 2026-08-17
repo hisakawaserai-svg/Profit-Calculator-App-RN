@@ -87,6 +87,26 @@ export function yAxisLowerBound(values: number[]): number {
   return minValue < 0 ? minValue * 1.15 : 0;
 }
 
+/** 複数系列を通した Y 軸の範囲（円） */
+export type CombinedAxisBounds = { upper: number; lower: number };
+
+/**
+ * タグ別利益ランキングのスパークライン（案 2b）用の Y 軸範囲。
+ *
+ * **系列ごとに自動フィットさせない。** 各タグの折れ線を別々の範囲で描くと、
+ * 小さい純利益のタグの線も大きい純利益のタグの線と同じ高さまで伸びてしまい、
+ * 「背が高い＝純利益が多い」と読めなくなる（タグ間で比べるための一覧なので、
+ * 比べられないと主題が壊れる）。渡された全系列をまとめて 1 回だけ
+ * yAxisUpperBound / yAxisLowerBound に通し、その 1 組の範囲を全員で共有する。
+ *
+ * 目盛りの数字は出さない（スパークラインは高さの比較だけが役目）ので、
+ * dualAxisBounds / singleAxisBounds と違ってキリのいい数への丸めは持たない。
+ */
+export function combinedAxisBounds(seriesList: readonly (readonly number[])[]): CombinedAxisBounds {
+  const values = seriesList.flatMap((series) => series);
+  return { upper: yAxisUpperBound(values), lower: yAxisLowerBound(values) };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // X 軸を「日付の軸」にする（UI-SPEC §1.5-4）。
 //
@@ -215,6 +235,35 @@ export function densifySeries(
   return chartSlots(unit, span.from, span.to).map(
     (slot) => byKey.get(slot.key) ?? { ...slot, profit: 0, recordCount: 0 },
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// タグ別純利益推移（データタブ新規セクション）。
+// 「収支推移」と同じ軸（span・unit・densifySeries）に、タグの次元を 1 つ足すだけ ──
+// 集計そのものは repository の analyticsSeriesByTag（analyticsSeries と同じ SUM 式）に任せ、
+// ここでは選ばれたタグぶんだけ切り出して densifySeries に通す。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** repository の集計点（TagSeriesPoint）と構造的に互換。タグの次元が付いた ChartPoint */
+export type TagSeriesRow = ChartPoint & { tagId: string | null };
+
+/**
+ * 選択中のタグぶんだけ、収支推移グラフと同じ span/unit で密な点列にする。
+ * `selectedTagIds` に無いタグは結果に含めない（チェックを外すと系列が消える）。
+ * 順序は selectedTagIds の反復順（呼び出し側が Set の挿入順＝チェックした順を渡せば、それが凡例の順になる）。
+ */
+export function tagTrendSeries(
+  rows: readonly TagSeriesRow[],
+  selectedTagIds: ReadonlySet<string | null>,
+  unit: ChartUnit,
+  span: { from: Date; to: Date },
+): Map<string | null, ChartPoint[]> {
+  const result = new Map<string | null, ChartPoint[]>();
+  for (const tagId of selectedTagIds) {
+    const points = rows.filter((row) => row.tagId === tagId);
+    result.set(tagId, densifySeries(points, unit, span));
+  }
+  return result;
 }
 
 /**
@@ -384,6 +433,33 @@ export function dualAxisBounds(
     sections,
     sectionsBelow,
   };
+}
+
+/** 1 軸だけの目盛り（タグ別純利益の推移グラフ用。dualAxisBounds の 1 系列版） */
+export type SingleAxisBounds = {
+  /** 目盛りの上限・下限（下限は 0 以下） */
+  max: number;
+  min: number;
+  /** 目盛り 1 段ぶんのキリのいい幅 */
+  step: number;
+  /** 0 より上の段数 */
+  sections: number;
+  /** 0 より下の段数。0 なら負の領域を描かない */
+  sectionsBelow: number;
+};
+
+/**
+ * 1 系列ぶんの Y 軸の範囲（UI-SPEC §1.5-4 と同じ規則。dualAxisBounds §366 のコメント参照）。
+ * 軸を 1 本しか持たないタグ別純利益の推移グラフ向け ── 段数を揃える相手がいないので、
+ * 自分の値だけから丸めた幅・段数を決める。
+ */
+export function singleAxisBounds(values: number[]): SingleAxisBounds {
+  const step = niceStep(axisSpan(values) / TARGET_SECTIONS);
+  const sections = Math.ceil(yAxisUpperBound(values) / step);
+  const sectionsBelow = Math.max(0, Math.ceil(-yAxisLowerBound(values) / step));
+  const min = sectionsBelow === 0 ? 0 : -step * sectionsBelow;
+
+  return { max: step * sections, min, step, sections, sectionsBelow };
 }
 
 /**

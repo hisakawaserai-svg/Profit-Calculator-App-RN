@@ -98,6 +98,12 @@ export type CareerSummary = {
 export type AnalyticsFilter = {
   /** 期間フィルタ。null = 全期間 / "YYYY-MM" = その月 / "YYYY" = その年（logic/period.ts） */
   period: Period;
+  /**
+   * 前期間比較（logic/periodComparison.ts）専用。指定があると period の代わりにこちらで絞る
+   * （月キーの範囲。両端を含む）── 前年同期間比較が「その年の 1〜N 月」のような
+   * period 単体では表せない範囲を要求するため。period はここでは無視される。
+   */
+  monthKeyRange?: { from: string; to: string };
   /** 種別フィルタ。null/undefined = すべて */
   kind?: RecordKind | null;
   /**
@@ -153,6 +159,30 @@ export type AggregatedPoint = {
   recordCount: number;
 };
 
+/**
+ * タグ別純利益ランキング（データタブ新規セクション）の集計 1 行ぶん。
+ * `tagId: null` は「未分類」（タグが 1 つも付いていない記録をまとめたもの）。
+ */
+export type TagProfitStat = {
+  tagId: string | null;
+  totalNetProfit: number;
+  totalSales: number;
+  recordCount: number;
+};
+
+/**
+ * タグ別純利益推移（データタブ新規セクション）の集計 1 点ぶん。AggregatedPoint にタグの次元が
+ * 1 つ増えただけの形 ── 集計点は「刻みキー × タグ」の組ごとに 1 行（記録が無い組み合わせは行自体が無い。
+ * 密な点列に埋めるのは logic/analytics 側の densifySeries に任せる）。
+ */
+export type TagSeriesPoint = {
+  tagId: string | null;
+  key: string;
+  date: Date;
+  profit: number;
+  recordCount: number;
+};
+
 /** 保存時に正規化して受け取る入力（SPEC §5.2）。id は採番するので受け取らない */
 export type SaveRecordInput = {
   itemName: string;
@@ -195,6 +225,18 @@ export type SaveRecordInput = {
    */
   shippingMaterialCost: number;
   excludesShippingMaterial: boolean;
+  /**
+   * 目標利益（SPEC-V9 §1）。**null = 目標を決めていない。0 で代用しない。**
+   *
+   * **省略可にしない**（siteName / photoFileName / tagIds と同じ理由）── update は
+   * 行を丸ごと書き換えるので、省略できると「渡し忘れて静かに目標が消える」経路ができる。
+   * 保存時の正規化はしない ── 0 も「目標は 0 円」という有効な値で、
+   * 決めていない状態と混ぜてはいけない（normalizePurchasePrice のような矯正をかけない理由）。
+   *
+   * **listedAt（将来の出品日）はここに無い**（SPEC-V9 §1）。書き込む経路をまだ作らないので、
+   * insert では null のまま・update では列に触らない（drizzle の set は渡した列だけを書く）。
+   */
+  targetProfit: number | null;
   /**
    * 付けるタグの id（SPEC-V4 §1.4）。空配列 = タグなし。
    *
@@ -323,7 +365,10 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
     eq(saleRecords.isSold, true),
     sql`${saleRecords.saleDate} IS NOT NULL`,
   ];
-  if (filter.period != null) {
+  if (filter.monthKeyRange != null) {
+    const { from, to } = filter.monthKeyRange;
+    conditions.push(sql`substr(${saleRecords.saleDate}, 1, 7) BETWEEN ${from} AND ${to}`);
+  } else if (filter.period != null) {
     conditions.push(periodMatchSql(sql<string>`${saleRecords.saleDate}`, filter.period));
   }
   if (filter.kind != null) {
@@ -446,6 +491,9 @@ export function createRepository(
       // 送料の内訳の控え（SPEC-V6 §3）。postage と違って計算には入らない
       shippingMaterialCost: input.shippingMaterialCost,
       excludesShippingMaterial: input.excludesShippingMaterial,
+      // 目標利益（SPEC-V9 §1）。**null をそのまま入れる** ── 0 に落とすと
+      // 「決めていない」が「目標 0 円」に化ける。listed_at は列に触らない（型のコメント参照）
+      targetProfit: input.targetProfit,
     };
   }
 
@@ -462,7 +510,10 @@ export function createRepository(
      * ここで保証する。
      */
     create(input: SaveRecordInput): SaleRecord {
-      const row = { id: generateId(), ...toRow(input) };
+      // listedAt は toRow に入れない（SPEC-V9 §1）── **新規のときだけ null を置く。**
+      // toRow へ入れると update も毎回この列を書くことになり、
+      // 将来この列に値を入れる経路ができたときに、記録を編集するたび黙って消える
+      const row = { id: generateId(), listedAt: null, ...toRow(input) };
       return db.transaction((tx) => {
         tx.insert(saleRecords).values(row).run();
         writeRecordTags(tx, row.id, input.tagIds);
@@ -520,6 +571,29 @@ export function createRepository(
         .set({ saleDate: toDbDate(saleDate) })
         .where(eq(saleRecords.id, id))
         .run();
+    },
+
+    /**
+     * 販売価格だけの差し替え（SPEC-V9 §9.11。「いくらで売る？」のシミュレーターからの書き戻し）。
+     *
+     * **1 列だけを書く**のは setSaleDate と同じ理由 ── 分析画面はフォームの値一式を
+     * 持っていないので、`update`（行を丸ごと書き換える）を通すと、
+     * 画面が知らない列（タグ・写真・目標）を渡し忘れて消すことになる。
+     */
+    setSalesPrice(id: string, salesPrice: number): void {
+      db.update(saleRecords).set({ salesPrice }).where(eq(saleRecords.id, id)).run();
+    },
+
+    /**
+     * 目標利益だけの差し替え（SPEC-V9 §9.14。目標を決めるシート）。
+     *
+     * **`null` をそのまま書ける**のがこの関数の要点 ── 「目標を消す」は
+     * 0 を書くことではなく null を書くこと（§1.2）。0 は「利益ゼロを目標にする」で、
+     * 消した状態とは別のもの。書き先は記録フォームの目標欄と**同じ 1 列**で、
+     * 分析画面が別の値を別の場所に持つことはしない。
+     */
+    setTargetProfit(id: string, targetProfit: number | null): void {
+      db.update(saleRecords).set({ targetProfit }).where(eq(saleRecords.id, id)).run();
     },
 
     /**
@@ -861,6 +935,93 @@ export function createRepository(
       return new Map(rows.map((row) => [row.tagId, row.count]));
     },
 
+    /**
+     * タグ別の純利益・売上・件数（データタブ「タグ別利益ランキング」）。
+     *
+     * **タグが複数付いた記録は、それぞれのタグの集計に重複して数える** ── 「そのタグの商品で
+     * いくら稼いだか」を見るランキングなので、記録タブの合計行（EXISTS で二重計上を防ぐ。§4.4）
+     * とは逆に、ここは JOIN + GROUP BY でよい。1 レコードが持つタグの数だけ行に分かれて、
+     * 狙いどおりそれぞれのタグの SUM に 1 回ずつ乗る。
+     *
+     * タグが 1 つも無い記録は「未分類」として tagId: null の 1 行にまとめる（0 件なら含めない）。
+     * `filter.tagIds` を指定したときはタグなしの記録が buildAnalyticsWhere の EXISTS 条件で
+     * そもそも対象から落ちるので、この行は自然に消える。
+     */
+    analyticsProfitByTag(filter: AnalyticsFilter): TagProfitStat[] {
+      const tagged = db
+        .select({
+          tagId: recordTags.tagId,
+          totalNetProfit: sql<number>`sum(${netProfitSql})`,
+          totalSales: sql<number>`sum(${saleRecords.salesPrice})`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(recordTags)
+        .innerJoin(saleRecords, eq(saleRecords.id, recordTags.recordId))
+        .where(buildAnalyticsWhere(filter))
+        .groupBy(recordTags.tagId)
+        .all();
+
+      const untagged = db
+        .select({
+          totalNetProfit: sql<number>`coalesce(sum(${netProfitSql}), 0)`,
+          totalSales: sql<number>`coalesce(sum(${saleRecords.salesPrice}), 0)`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(saleRecords)
+        .where(
+          sql`${buildAnalyticsWhere(filter)} AND NOT EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id})`,
+        )
+        .get() ?? { totalNetProfit: 0, totalSales: 0, recordCount: 0 };
+
+      const rows: TagProfitStat[] = tagged;
+      if (untagged.recordCount > 0) rows.push({ tagId: null, ...untagged });
+      return rows;
+    },
+
+    /**
+     * タグ別純利益推移（データタブ新規セクション）。analyticsProfitByTag と analyticsSeries を
+     * 掛け合わせただけ ── グループ化の軸を tagId と刻みキーの 2 本にする以外、SUM の式・
+     * 未分類の作り方（NOT EXISTS）はどちらも既存のまま流用する（新しい集計方式を増やさない）。
+     *
+     * タグが複数付いた記録が各タグの合計に重複して乗る点も analyticsProfitByTag と同じ。
+     */
+    analyticsSeriesByTag(filter: AnalyticsFilter, unit: ChartUnit): TagSeriesPoint[] {
+      const key = chartKeySql(unit);
+
+      const tagged = db
+        .select({
+          tagId: recordTags.tagId,
+          key,
+          profit: sql<number>`sum(${netProfitSql})`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(recordTags)
+        .innerJoin(saleRecords, eq(saleRecords.id, recordTags.recordId))
+        .where(buildAnalyticsWhere(filter))
+        .groupBy(recordTags.tagId, key)
+        .orderBy(asc(key))
+        .all();
+
+      const untagged = db
+        .select({
+          key,
+          profit: sql<number>`sum(${netProfitSql})`,
+          recordCount: sql<number>`count(*)`,
+        })
+        .from(saleRecords)
+        .where(
+          sql`${buildAnalyticsWhere(filter)} AND NOT EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id})`,
+        )
+        .groupBy(key)
+        .orderBy(asc(key))
+        .all();
+
+      return [
+        ...tagged.map((row) => ({ ...row, date: chartKeyToDate(row.key, unit) })),
+        ...untagged.map((row) => ({ ...row, tagId: null, date: chartKeyToDate(row.key, unit) })),
+      ];
+    },
+
     /** チャートの集計点（SPEC §6.2 AggregatedPoint）。日付キーの昇順 */
     analyticsSeries(filter: AnalyticsFilter, unit: ChartUnit): AggregatedPoint[] {
       const key = chartKeySql(unit);
@@ -892,6 +1053,70 @@ export function createRepository(
         .select()
         .from(saleRecords)
         .where(sql`${buildAnalyticsWhere(filter)} AND ${chartKeySql(unit)} = ${key}`)
+        .orderBy(desc(netProfitSql))
+        .all();
+    },
+
+    /**
+     * 期間合計の平均販売日数（データタブの期間サマリー段・展開時の 4 列目）を求めるための生レコード。
+     * buildAnalyticsWhere（データタブの対象条件。売却済み固定）に一致する記録を、日付の計算に
+     * 要る saleStartDate・saleDate ごとそのまま返す。**日付の演算（経過日数・逆転の判定）は
+     * ここではやらない** ── 日付は text 列で保存されており、SQL 側で暦日の差を正しく出すには
+     * 別途パースが要る。既存の集計（sum/count）はすべて SQL で完結させている一方、
+     * 日付演算は logic/profit.ts の elapsedDays/daysBetween に一本化する方針（§4.4 と同じ理由の
+     * 裏返し）なので、ここは対象レコードを渡すだけに留める。
+     */
+    analyticsSoldRecords(filter: AnalyticsFilter): SaleRecord[] {
+      return db.select().from(saleRecords).where(buildAnalyticsWhere(filter)).all();
+    },
+
+    /**
+     * 実績タブの「はじめる系」（販売デビュー・タグデビュー・記録を続けよう）が要る、
+     * 状態を問わない全記録（出品中・売却済みの両方）。analyticsSoldRecords と違い
+     * buildAnalyticsWhere（isSold 固定）を通さない ── これらの実績は「売れた」ではなく
+     * 「記録した」を数える（構成の条件どおり）。全期間・絞り込みなし固定（他の実績と同じ母集団）。
+     */
+    allRecordsForAchievements(): SaleRecord[] {
+      return db.select().from(saleRecords).all();
+    },
+
+    /**
+     * タグ別利益ランキングの行タップの内訳（analyticsDetails のタグ版）。
+     * 未分類（tagId: null）の作り方は analyticsProfitByTag と同じ NOT EXISTS。
+     * 複数タグが付いた記録はタグごとの内訳それぞれに出てよい（analyticsProfitByTag と同じ重複計上の考え方）。
+     */
+    analyticsDetailsByTag(filter: AnalyticsFilter, tagId: string | null): SaleRecord[] {
+      const tagCondition =
+        tagId == null
+          ? sql`NOT EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id})`
+          : sql`EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id} AND ${recordTags.tagId} = ${tagId})`;
+      return db
+        .select()
+        .from(saleRecords)
+        .where(sql`${buildAnalyticsWhere(filter)} AND ${tagCondition}`)
+        .orderBy(desc(netProfitSql))
+        .all();
+    },
+
+    /**
+     * タグ別純利益の推移（「グラフ」）の日付タップで開くタグ別内訳、その 1 行をさらにタップした
+     * ときの内訳（analyticsDetails の日付条件 ＋ analyticsDetailsByTag のタグ条件を両方かける）。
+     * その日付・そのタグの両方に一致する記録だけを返す。
+     */
+    analyticsDetailsByDateAndTag(
+      filter: AnalyticsFilter,
+      unit: ChartUnit,
+      key: string,
+      tagId: string | null,
+    ): SaleRecord[] {
+      const tagCondition =
+        tagId == null
+          ? sql`NOT EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id})`
+          : sql`EXISTS (SELECT 1 FROM ${recordTags} WHERE ${recordTags.recordId} = ${saleRecords.id} AND ${recordTags.tagId} = ${tagId})`;
+      return db
+        .select()
+        .from(saleRecords)
+        .where(sql`${buildAnalyticsWhere(filter)} AND ${chartKeySql(unit)} = ${key} AND ${tagCondition}`)
         .orderBy(desc(netProfitSql))
         .all();
     },

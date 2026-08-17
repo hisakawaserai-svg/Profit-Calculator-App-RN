@@ -22,9 +22,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PhotoThumbnail, PHOTO_THUMBNAIL_SIZE } from '@/components/PhotoThumbnail';
+import { StrikeAchievementBadge } from '@/components/StrikeAchievementBadge';
 import { TagDot } from '@/components/TagChip';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord, Tag } from '@/db/schema';
+import type { Achievement } from '@/logic/achievements';
 import {
   formatApproxYenSymbol,
   formatElapsedDays,
@@ -55,9 +57,22 @@ type Props = {
    * 付いていない記録の方が多いので、空欄や「なし」の語で行を太らせない。
    */
   tags?: readonly Tag[];
+  /**
+   * この記録が「達成した記録」になっている⚡一撃実績（logic/achievements の
+   * strikeAchievementsByRecordId で呼び出し側が引いたもの）。省略・null ならバッジを出さない。
+   * ここでは判定をやり直さない ── 呼び出し側（一覧画面）が全記録ぶんを一括で評価した
+   * 結果を、行ごとに Map から引いて渡すだけ（評価をここで N 回繰り返さないため）。
+   */
+  strikeAchievement?: Achievement | null;
 };
 
-export function RecordRow({ record, isSoldMode, today, tags = [] }: Props) {
+export function RecordRow({
+  record,
+  isSoldMode,
+  today,
+  tags = [],
+  strikeAchievement = null,
+}: Props) {
   const colors = useThemeColors();
   const profit = netProfit(record);
 
@@ -76,9 +91,16 @@ export function RecordRow({ record, isSoldMode, today, tags = [] }: Props) {
       {/* 写真の右側。1 段目・メタ行・タグ行はここに積む */}
       <View style={styles.body}>
         <View style={styles.mainLine}>
-          <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
-            {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
-          </Text>
+          <View style={styles.nameAndBadge}>
+            <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
+              {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+            </Text>
+            {/* ⚡一撃系のバッジ。呼び出し側が strikeAchievementsByRecordId で引いた分だけ渡ってくる
+                （＝この記録が実際に「達成した記録」になっている場合のみ。重複表示防止） */}
+            {strikeAchievement != null && (
+              <StrikeAchievementBadge achievement={strikeAchievement} />
+            )}
+          </View>
           <Text
             style={[
               styles.amount,
@@ -161,6 +183,14 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  // 商品名 + ⚡一撃バッジをまとめる側。flexShrink は元々 itemName が持っていたものを
+  // ここへ移し、商品名はこの中でだけ縮む（バッジは固定サイズのまま押し出されない）
+  nameAndBadge: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   itemName: {
     flexShrink: 1,

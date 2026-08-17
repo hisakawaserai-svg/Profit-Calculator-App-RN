@@ -390,6 +390,8 @@ function buildRecord(index: number, monthIndex: number, sources: DevSeedSources)
     memo: pick(MEMOS),
     siteName,
     photoFileName: null,
+    // 目標は開発用データでも既定の「決めていない」(SPEC-V9 §1)
+    targetProfit: null,
     tagIds: item.tags.map((tagIndex) => sources.tagIds[tagIndex]).filter((id) => id != null),
   };
 }

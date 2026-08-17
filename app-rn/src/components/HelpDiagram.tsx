@@ -16,21 +16,54 @@
 // 4 つの図は 1,500 円の 1 件を共通の題材にしていて、区画の幅・凡例・下の 2 本線の金額が
 // 互いに一致していないと意味が壊れる（1,500 − 150 − 215 − 50 = 1,085）。
 // 描画と離すと片方だけ直る事故が起きるので、数字と語を並びの隣に置く。
-import { StyleSheet, Text, View } from 'react-native';
+//
+// **例外は「売る」ページの題材（`logic/helpFigureExample.ts`）だけ。** あちらは
+// このファイルの図（目標と下げ幅）と `HelpPartFigure` の図（価格ライン・シミュレーター）の
+// **両方**が読む ── 片方に置くと図どうしに上下関係ができるので、数字だけの置き場を分けた。
+// 分けた理由と、そこで固定している条件（目盛りが 3 点そろう・つまみが範囲の内側にある）は
+// そのファイルの冒頭と `helpFigureExample.test.ts` にある。
+import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 
+import { TIER_CHIP_DARK_COLORS, TIER_COLORS } from '@/components/AchievementsSection';
 import { TagChip } from '@/components/TagChip';
-import { groupDigits } from '@/logic/format';
 import {
+  achievementBadgeTier,
+  achievementDifficulty,
+  type AchievementId,
+} from '@/logic/achievements';
+import { formatYenSymbol, groupDigits } from '@/logic/format';
+import {
+  ACHIEVEMENT_LADDER_IDS,
+  ACHIEVEMENT_ONCE_ID,
+  PRICING_EXAMPLE,
+} from '@/logic/helpFigureExample';
+import { analyzePricing } from '@/logic/pricing';
+import {
+  achievementBadgeTierName,
+  achievementName,
+  BACKUP_DIFF_CURRENT_HEADER,
+  BACKUP_DIFF_FILE_HEADER,
+  BACKUP_PREVIEW_PHOTOS_LABEL,
+  BACKUP_PREVIEW_PRESETS_LABEL,
+  BACKUP_PREVIEW_RECORDS_LABEL,
+  BACKUP_PREVIEW_TAGS_LABEL,
   COMMISSION_LABEL,
   COMMISSION_SHORT_LABEL,
   CUMULATIVE_PROFIT_LABEL,
   ENVELOPE_COST_LABEL,
   EXPENSES_LABEL,
-  HELP_FIGURE_BACKUP_SUBTITLE,
+  FORMULA_TARGET_LABEL,
+  HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE,
+  HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL,
+  HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL,
+  HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE,
+  HELP_FIGURE_BACKUP_REPLACE_NOTE,
   HELP_FIGURE_COST_PARTS_SUBTITLE,
   HELP_FIGURE_CSV_BASIC_LABEL,
   HELP_FIGURE_CSV_BREAKDOWN_LABEL,
+  HELP_FIGURE_CSV_KINDS_SUBTITLE,
   HELP_FIGURE_CSV_SITE_LABEL,
   HELP_FIGURE_DAY_GROUP_SUBTITLE,
   HELP_FIGURE_EXCLUDED_LABEL,
@@ -68,6 +101,8 @@ import {
   PRESET_UNIT_PRICE_LABEL,
   PURCHASE_PRICE_LABEL,
   TAG_LABEL,
+  TARGET_PREVIEW_ROOM_LABEL,
+  TARGET_PROFIT_UNSET_LABEL,
   TOTAL_PROFIT_LABEL,
   chartBarLegendLabel,
   helpFigureAppAmountMeasure,
@@ -77,6 +112,7 @@ import {
   helpFigureSiteAmountMeasure,
   helpFigureSourcedRowTitle,
   helpFigureTagOrSubtitle,
+  helpFigureTargetRoomSubtitle,
   helpFigureTotalPriceMeasure,
   profitLabel,
   recordKindLabel,
@@ -102,6 +138,10 @@ const yen = (value: number) => `${groupDigits(value)}円`;
 
 const BAR_HEIGHT = 38;
 const BAR_RADIUS = 6;
+
+/** 実績の★（実物の実績詳細と同じく **5 つ並べて `filled` まで塗る**。空も出す） */
+const ACHIEVEMENT_STAR_COUNT = 5;
+const ACHIEVEMENT_STAR_SIZE = 14;
 
 type ToneKey = 'commission' | 'light' | 'mid' | 'dark' | 'kept';
 
@@ -586,7 +626,7 @@ const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] 
 /**
  * 図 8: 書き出しの 2 種類（データページ）。
  *
- * **「18 列 / 11 列」という数字だけでは、何が減るのかが分からない。**
+ * **「19 列 / 11 列」という数字だけでは、何が減るのかが分からない。**
  * 減るのはメモとタグで、金額の列は減らないことを行ごとに見せる ──
  * 「確定申告用は情報が足りない版」ではなく「帳簿に関係のない記述を持ち込まない版」だと読める。
  */
@@ -594,7 +634,7 @@ export function CsvKindsFigure() {
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_BACKUP_SUBTITLE}>
+    <FigureFrame subtitle={HELP_FIGURE_CSV_KINDS_SUBTITLE}>
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
         <Text style={[styles.csvKind, { color: colors.label }]}>
@@ -617,6 +657,64 @@ export function CsvKindsFigure() {
           </Text>
         </View>
       ))}
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図 8b の 4 行（SPEC-V8 §5.4 の差の表）。**題材は「古いファイルを選んでしまった」場面。**
+ *
+ * 増える側の例にすると、置き換えでも足し算でも同じ結果に見えてしまう ──
+ * 減る行があってはじめて「今あるものに足されるのではない」が図から読める。
+ */
+const BACKUP_DIFF_ROWS: { key: string; label: string; current: number; file: number }[] = [
+  { key: 'records', label: BACKUP_PREVIEW_RECORDS_LABEL, current: 53, file: 21 },
+  { key: 'tags', label: BACKUP_PREVIEW_TAGS_LABEL, current: 8, file: 5 },
+  { key: 'presets', label: BACKUP_PREVIEW_PRESETS_LABEL, current: 6, file: 6 },
+  { key: 'photos', label: BACKUP_PREVIEW_PHOTOS_LABEL, current: 31, file: 12 },
+];
+
+/**
+ * 図 8b: 復元する前のプレビュー（残すページ）。
+ *
+ * **「すべて置き換える」が何をするのかは、数字を 2 列並べないと言えない。**
+ * 文だけだと「今あるものに足される」と読む余地が残り、それは元に戻せない誤解になる。
+ * 実物と同じく**減る側だけを赤くする**（SPEC-V8 §5.4）── 全部に色を付けると、
+ * どちらへ動くのかが色から読めなくなる。
+ */
+export function BackupPreviewFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <FigureFrame subtitle={HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE}>
+      <View style={styles.csvHead}>
+        <View style={styles.csvLabelCol} />
+        <Text style={[styles.csvKind, { color: colors.label }]}>
+          {BACKUP_DIFF_CURRENT_HEADER}
+        </Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>{BACKUP_DIFF_FILE_HEADER}</Text>
+      </View>
+      {BACKUP_DIFF_ROWS.map((row) => (
+        <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
+          <Text style={[styles.csvLabel, styles.csvLabelCol, { color: colors.label }]}>
+            {row.label}
+          </Text>
+          <Text style={[styles.csvMark, { color: colors.secondaryLabel }]}>
+            {groupDigits(row.current)}
+          </Text>
+          {/* 減る行だけ赤。同じ数の行は色を変えない（動かないものに注意を向けない） */}
+          <Text
+            style={[
+              styles.csvMark,
+              { color: row.file < row.current ? colors.red : colors.label },
+            ]}>
+            {groupDigits(row.file)}
+          </Text>
+        </View>
+      ))}
+      <Text style={[styles.figureNote, { color: colors.secondaryLabel }]}>
+        {HELP_FIGURE_BACKUP_REPLACE_NOTE}
+      </Text>
     </FigureFrame>
   );
 }
@@ -792,6 +890,141 @@ export function RoundingFigure() {
   );
 }
 
+/** 図 13 の 3 行。**目標の持ち方だけを変えて、同じ 1 件を 3 回通す**（SPEC-V9 §1.2） */
+const TARGET_ROOM_CASES: { key: string; targetProfit: number | null }[] = [
+  { key: 'unset', targetProfit: null },
+  { key: 'zero', targetProfit: 0 },
+  { key: 'set', targetProfit: PRICING_EXAMPLE.targetProfit },
+];
+
+/**
+ * 図 13: 目標の決め方と「あと下げられる額」（売るページ）。
+ *
+ * **「決めていません」と「¥0」が別のものだ、というのは表でしか言えない。**
+ * 文章で「0 は有効な目標です」と書いても、読んだ人は同じ欄の同じ空白に見える。
+ * 3 行を縦に並べて**右の列が 1 行だけ空く**形にすると、区別が結果の側から読める。
+ *
+ * 下げ幅を出さない行に `－` を置くのは、0 と書けないため（§1.2）──
+ * 「¥0」と出すと「もう下げられない」と読め、決めていない人に根拠のない下げ止まりを見せる。
+ */
+export function TargetRoomFigure() {
+  const colors = useThemeColors();
+
+  return (
+    <FigureFrame
+      subtitle={helpFigureTargetRoomSubtitle(formatYenSymbol(PRICING_EXAMPLE.salesPrice))}>
+      <View style={styles.roomHead}>
+        <Text style={[styles.roomHeadLabel, styles.roomTargetCol, { color: colors.secondaryLabel }]}>
+          {FORMULA_TARGET_LABEL}
+        </Text>
+        <Text style={[styles.roomHeadLabel, styles.roomValueCol, { color: colors.secondaryLabel }]}>
+          {TARGET_PREVIEW_ROOM_LABEL}
+        </Text>
+      </View>
+      {TARGET_ROOM_CASES.map((item) => {
+        const analysis = analyzePricing({ ...PRICING_EXAMPLE, targetProfit: item.targetProfit });
+        // 目標が無い行だけ下げ幅を言わない。room は 3,000 を返すが、それは
+        // 「分岐点まで」であって、決めていない人に見せてよい下げ止まりではない（§4.3）
+        const shows = analysis.hasTarget;
+
+        return (
+          <View key={item.key} style={[styles.roomRow, { borderTopColor: colors.separator }]}>
+            <Text style={[styles.roomTarget, styles.roomTargetCol, { color: colors.label }]}>
+              {item.targetProfit == null
+                ? TARGET_PROFIT_UNSET_LABEL
+                : formatYenSymbol(item.targetProfit)}
+            </Text>
+            <Text
+              style={[
+                styles.roomValue,
+                styles.roomValueCol,
+                { color: shows ? colors.label : colors.disabledContent },
+              ]}>
+              {shows ? formatYenSymbol(analysis.room) : HELP_FIGURE_NONE_MARK}
+            </Text>
+          </View>
+        );
+      })}
+    </FigureFrame>
+  );
+}
+
+/**
+ * 図 14: 実績の 2 とおり（データページ）。
+ *
+ * **段を縦に積む。** 「5 段階で登る」は横に並べると 5 個の別々の実績に見えるが、
+ * 縦に積んで★が 1 つずつ増える形にすると、同じジャンルの続きだと読める。
+ *
+ * **★と段位名は実物と同じものを出す**（実績詳細モーダルの `StarRating` ＋ 段位チップ）──
+ * バッジを押した人が最初に目にするのがその 2 つなので、図がそこを省くと、
+ * 図で覚えた「段」と実物で見る「★4・プラチナ」が別の話に見える。
+ * 星の形・数（5 つ固定で `filled` まで塗る）も、色（`TIER_COLORS`）も、
+ * 段位の語（`achievementBadgeTierName`）も実物から引く。
+ *
+ * **暗色モードでの段位名の色だけは実物の分岐にそろえる**（`TIER_CHIP_DARK_COLORS`）──
+ * レジェンドの `#5A1B33` は暗色の地に対してコントラストが 1.3 しかなく、
+ * そのまま文字色にすると読めない。実物のチップが同じ差し替えをしている。
+ *
+ * 並べる実績は `logic/helpFigureExample.ts`（段位が飛んでいないことを試験してある）。
+ */
+export function AchievementKindsFigure() {
+  const colors = useThemeColors();
+  const isDark = useColorScheme() === 'dark';
+
+  return (
+    <FigureFrame subtitle={HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE}>
+      <Text style={[styles.achievementGroupLabel, { color: colors.secondaryLabel }]}>
+        {HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL}
+      </Text>
+      {ACHIEVEMENT_LADDER_IDS.map((id) => (
+        <AchievementTierRow key={id} id={id} isDark={isDark} />
+      ))}
+
+      <Text
+        style={[
+          styles.achievementGroupLabel,
+          styles.achievementOnceLabel,
+          { color: colors.secondaryLabel },
+        ]}>
+        {HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL}
+      </Text>
+      {/* 単発にも★と段位はある。違うのは「5 つ並んで登るか、1 つで終わるか」だけ */}
+      <AchievementTierRow id={ACHIEVEMENT_ONCE_ID} isDark={isDark} />
+    </FigureFrame>
+  );
+}
+
+/** 1 段ぶん。上に実績名、下に★と段位名（実物の実績詳細と同じ並び） */
+function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean }) {
+  const colors = useThemeColors();
+  const difficulty = achievementDifficulty(id);
+  const tier = achievementBadgeTier(id);
+  const tierColor = TIER_COLORS[tier];
+  // 暗色モードで地に沈む段位（legend）だけ、文字用の明るい色に差し替える（実物と同じ規則）
+  const tierTextColor = isDark ? (TIER_CHIP_DARK_COLORS[tier] ?? tierColor) : tierColor;
+
+  return (
+    <View style={styles.achievementRow}>
+      <Text style={[styles.achievementName, { color: colors.label }]}>{achievementName(id)}</Text>
+      <View style={styles.achievementTierLine}>
+        <View style={styles.achievementStars}>
+          {Array.from({ length: ACHIEVEMENT_STAR_COUNT }, (_, index) => (
+            <Ionicons
+              key={index}
+              name={index < difficulty ? 'star' : 'star-outline'}
+              size={ACHIEVEMENT_STAR_SIZE}
+              color={index < difficulty ? tierColor : colors.separator}
+            />
+          ))}
+        </View>
+        <Text style={[styles.achievementTierName, { color: tierTextColor }]}>
+          {achievementBadgeTierName(tier)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 /**
  * 斜線。RN には繰り返しパターンが無いので、細い View を回して等間隔に並べ、
  * 親の `overflow: 'hidden'` で切る。SVG を持ち込むほどの絵ではない。
@@ -821,6 +1054,72 @@ const styles = StyleSheet.create({
   },
   figureSubtitle: {
     fontSize: 14,
+  },
+  /** 表の下に 1 行だけ添える注記（PartFrame の note と同じ大きさに揃える） */
+  figureNote: {
+    fontSize: 13,
+    lineHeight: 19,
+    paddingTop: 2,
+  },
+  /** 目標と下げ幅の表（TargetRoomFigure）。列の比は CSV の表と揃える */
+  roomHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingBottom: 6,
+  },
+  roomHeadLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  roomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 9,
+  },
+  roomTargetCol: {
+    flex: 1.2,
+  },
+  roomValueCol: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  roomTarget: {
+    fontSize: 14,
+  },
+  roomValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  /** 実績の 2 とおり（AchievementKindsFigure） */
+  achievementGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  achievementOnceLabel: {
+    paddingTop: 8,
+  },
+  /** 1 段ぶん。上に名前、下に★と段位名（実物の実績詳細と同じ縦の並び） */
+  achievementRow: {
+    gap: 2,
+  },
+  achievementName: {
+    fontSize: 14,
+  },
+  achievementTierLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  /** ★は詰めて並べる（実物の starsRow と同じく、間隔を空けると数が読みにくい） */
+  achievementStars: {
+    flexDirection: 'row',
+  },
+  achievementTierName: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   figureBody: {
     paddingTop: 10,

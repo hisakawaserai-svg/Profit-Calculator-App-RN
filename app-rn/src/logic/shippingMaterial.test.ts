@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   hasShippingMaterial,
+  presetRowAmount,
   selectShippingPreset,
   shippingAmountFor,
   shippingMaterialChoiceOf,
@@ -122,5 +123,27 @@ describe('selectShippingPreset（45b の 2 択）', () => {
     const fractional = { value: 450, materialCost: 15.5 };
     expect(selectShippingPreset(fractional, 'with-material').postage).toBe('465.5');
     expect(selectShippingPreset(fractional, 'shipping-only').postage).toBe('450');
+  });
+});
+
+// SPEC-V6 §1: 一覧の行・設定タブのカードに出す額。
+// PresetRow と PresetSummaryCard が同じ 1 本から取ることを、ここで固定する。
+describe('presetRowAmount: 一覧に出す額', () => {
+  it('資材費のある送料プリセットは合計で出す', () => {
+    expect(presetRowAmount({ type: 'shipping', value: 450, materialCost: 100 })).toBe(550);
+  });
+
+  it('資材費 0 円の送料はそのまま', () => {
+    expect(presetRowAmount({ type: 'shipping', value: 210, materialCost: 0 })).toBe(210);
+    expect(presetRowAmount({ type: 'shipping', value: 210 })).toBe(210);
+  });
+
+  it('梱包材・販売サイトは materialCost を持たないのでそのまま', () => {
+    expect(presetRowAmount({ type: 'packaging', value: 15 })).toBe(15);
+    expect(presetRowAmount({ type: 'site', value: 10 })).toBe(10);
+  });
+
+  it('種類が送料でなければ materialCost があっても足さない（不整合な行への防御）', () => {
+    expect(presetRowAmount({ type: 'packaging', value: 15, materialCost: 100 })).toBe(15);
   });
 });

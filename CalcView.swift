@@ -39,8 +39,8 @@ struct CalcView: View {
     @State private var showingForm = false
     @Binding var editingRecord: SaleRecordEntities?
     
-    private var calculationData: MercariCalcData {
-        MercariCalcData(
+    private var calculationData: CalcData {
+        CalcData(
             salesPrice: Double(salesPriceInput) ?? 0,
             purchasePrice: Double(purchasePriceInput) ?? 0,
             postage: Double(postageInput) ?? 0,
@@ -266,7 +266,7 @@ struct CalcView: View {
 
     // MARK: - コンポーネント
     struct TargetProfitView: View {
-        let data: MercariCalcData
+        let data: CalcData
         @Binding var targetProfitInput: String
         var focusTag: CalcView.FocusField? = nil
         var focusedField: FocusState<CalcView.FocusField?>.Binding
@@ -340,7 +340,7 @@ struct CalcView: View {
     }
 
     struct ResultView: View {
-        let data: MercariCalcData
+        let data: CalcData
         var body: some View {
             VStack(spacing: 18) {
                 VStack {
@@ -362,7 +362,7 @@ struct CalcView: View {
 }
 
 // MARK: - 計算モデル
-struct MercariCalcData {
+struct CalcData {
     var salesPrice: Double
     var purchasePrice: Double
     var postage: Double
@@ -378,7 +378,7 @@ struct MercariCalcData {
 
 // MARK: - 内訳ビュー
 struct CalculationDetailsView: View {
-    let data: MercariCalcData
+    let data: CalcData
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("収益内訳：").font(.headline)

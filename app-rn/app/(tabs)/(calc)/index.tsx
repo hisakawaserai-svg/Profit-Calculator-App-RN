@@ -377,10 +377,16 @@ export default function CalcScreen() {
       </View>
 
       {/* 記録フォームには入力中の金額と種別を引き継ぐ（SPEC §3.2 / SPEC-V2 §1.4）。
-          決定 §7-7 のとおり、DB への insert は保存ボタンを押したときだけ */}
+          決定 §7-7 のとおり、DB への insert は保存ボタンを押したときだけ。
+          目標額は逆算モードのときだけ渡す（SPEC-V9 §5.3）── values.targetProfit は
+          モードを戻しても残るので、そのまま渡すと画面に出ていない目標が付く */}
       <RecordFormSheet
         visible={showForm}
-        initialAmounts={toInitialAmounts(values, displayedSalesPrice)}
+        initialAmounts={toInitialAmounts(
+          values,
+          displayedSalesPrice,
+          isTargetMode ? values.targetProfit : '',
+        )}
         onClose={() => setShowForm(false)}
       />
 

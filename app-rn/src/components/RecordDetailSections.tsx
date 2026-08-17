@@ -4,6 +4,9 @@
 //   販売価格から控除を縦に引いて結果行に至る 1 枚。詳細画面の主役はこれ 1 つで、
 //   商品情報・費用内訳の 2 枚に分かれていた旧構成を畳んだもの。
 //   種別・日付はカードの外（メタ行）へ、下部の 1 件サマリーは廃止（§5-12）。
+//   **先頭に帯グラフ（RecordBreakdownBar）が入り、各行の頭に帯と同じ色のドットが付く。**
+//   帯の下に独立した凡例（色・項目名・割合の一覧）は置かない ── 同じ項目名が
+//   レシートと 2 列に分かれて並び、どちらを読む列なのかが決まらなかったため。
 // - SaleStatusCard: 状態カード（§1.4-5 / §8）。状態ごとに 1 個のボタンと、
 //   売れた記録である限り常設する「売れた日」の行。
 //
@@ -18,12 +21,15 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CalendarPicker } from '@/components/CalendarPicker';
+import { partColor } from '@/components/CostProportionBar';
 import { DateChips } from '@/components/DateChips';
+import { RecordBreakdownBar } from '@/components/RecordBreakdownBar';
 import { fromDbDate } from '@/db/dates';
 import { dayChips } from '@/logic/calendar';
 import type { SaleRecord } from '@/db/schema';
 import { formatRecordDate, formatYen } from '@/logic/format';
 import {
+  AMOUNT_PLACEHOLDER,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
   LISTING_STATUS_LABEL,
   MARK_AS_SOLD_BUTTON_LABEL,
@@ -42,6 +48,8 @@ import {
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
 import { commissionCost, netProfit, roundForDisplay } from '@/logic/profit';
+import { findBarPart, recordBreakdown, showsPricedAmounts } from '@/logic/recordBreakdown';
+import type { BreakdownPartKey } from '@/logic/calcForm';
 import { saleDateRange } from '@/logic/saleDate';
 import { useThemeColors } from '@/theme';
 import { LongPressCopy } from '@/components/LongPressCopy';
@@ -49,32 +57,64 @@ import { LongPressCopy } from '@/components/LongPressCopy';
 /**
  * レコード詳細のレシートカード（UI-SPEC §1.4-4 / 採用案 3d）。
  *
- *     販売価格            1,800 円
+ *     ████████████░░░░░░░░░░░░░░░  ← 帯グラフ（RecordBreakdownBar）
+ *     ○ 販売価格          1,800 円
  *     ────────────────────────────
- *     − 仕入価格（仕入品のみ）  赤
- *     − 送料                    赤
- *     − 販売手数料 (10%)    オレンジ
- *     − 梱包材・その他（未入力なら 40% グレー）
+ *     ● − 仕入価格（仕入品のみ）  赤
+ *     ● − 送料                    赤
+ *     ● − 販売手数料 (10%)    オレンジ
+ *     ● − 梱包材・その他（未入力なら 40% グレー）
  *     ════════════════════════════
- *     純利益 / 利益         1,405 円
+ *     ● 純利益 / 利益       1,405 円
  *
  * 控除は大きい順（仕入 → 送料 → 手数料 → 梱包材）。記録フォームの伝票（§1.3）と同じ並びで、
  * 入力した順に読み返せるようにしてある。結果行の語が種別語（純利益 / 利益）なので、
  * 廃止した下部 1 件サマリーの役割もここが引き取る（§5-12）。
+ *
+ * **行の並びは帯の区画の並びと違う**（帯は計算タブと同じ 利益 → 手数料 → 仕入 → 送料 → 梱包材）。
+ * レシートは「上から引いていく」流れが読み方そのものなので、帯に合わせて並べ替えない ──
+ * どの行がどの区画かはドットの色が示すので、並びまで揃える必要がない。
+ *
+ * 割合（%）はレシートには出さない。帯の長さがすでに割合で、幅のある区画には
+ * 帯の中に % が入っている ── 行にも数字で置くと、同じことを 2 通りで言うことになる。
  */
 export function ReceiptCard({ record }: { record: SaleRecord }) {
   const colors = useThemeColors();
   const profit = netProfit(record);
   // 梱包材とその他は伝票では 1 行にまとめる（UI-SPEC §1.4-4）
   const packingCost = record.envelopeCost + record.othersCost;
+  // 価格未設定では販売価格に依存する額（販売価格そのもの・利益）を確定した数字として出さない
+  // （帯グラフと同じ判定。logic/recordBreakdown.ts の showsPricedAmounts）
+  const priced = showsPricedAmounts(record);
+
+  // 帯グラフ（カード先頭）と行を色で結ぶためのドット。独立した凡例は置かない ──
+  // 同じ項目名が 2 つの列に分かれて並び、どちらを読む列なのかが決まらなかったため。
+  const breakdown = recordBreakdown(record);
+  const dotColor = (key: BreakdownPartKey): string => {
+    const part = findBarPart(breakdown, key);
+    // 金額が出ていない項目（0 円・赤字の利益）はグレー。**`inBar` では判定しない** ──
+    // 赤字の帯は単色 1 本で区画を持たないので、そちらで決めると
+    // 赤字の記録だけレシートのドットが全部グレーになる（findBarPart のコメント参照）
+    return part != null && part.amount > 0 ? partColor(key, colors) : colors.gray;
+  };
 
   return (
-    <View style={[styles.card, styles.receiptCard, { backgroundColor: colors.secondaryBackground }]}>
+    <View style={[styles.card, styles.receiptCard, { backgroundColor: colors.secondaryBackground, paddingTop: 0 }]}>
+      {/* 同じ 1 件を横の割合で見せる帯（出品中・売却済み共通）。下の行のドットと同じ配色で、
+          間はこのカードの行間だけ ── 色の対応を目で結べる距離に置く */}
+      <RecordBreakdownBar record={record} />
+
       <View style={styles.receiptRow}>
-        <Text style={[styles.receiptLabel, { color: colors.label }]}>{SALES_PRICE_LABEL}</Text>
+        {/* 販売価格は帯そのもの（＝全長）なので、対応するドットは無い。
+            それでも行名の左端は他の行と揃える（列がずれると別の表に見える） */}
+        <View style={styles.receiptLabelGroup}>
+          <View style={styles.dotPlaceholder} />
+          <Text style={[styles.receiptLabel, { color: colors.label }]}>{SALES_PRICE_LABEL}</Text>
+        </View>
         <LongPressCopy label={SALES_PRICE_LABEL} text={record.salesPrice.toString()}>
-          <Text style={[styles.salesPrice, { color: colors.label }]}>
-              {formatYen(record.salesPrice)}
+          <Text
+            style={[styles.salesPrice, { color: priced ? colors.label : colors.mutedLabel }]}>
+            {priced ? formatYen(record.salesPrice) : UNSET_INPUT_LABEL}
           </Text>
         </LongPressCopy>
       </View>
@@ -87,14 +127,21 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
           label={PURCHASE_PRICE_LABEL}
           amount={record.purchasePrice}
           color={colors.red}
+          dotColor={dotColor('purchasePrice')}
         />
       )}
-      <ReceiptDeductionRow label={POSTAGE_LABEL} amount={record.postage} color={colors.red} />
+      <ReceiptDeductionRow
+        label={POSTAGE_LABEL}
+        amount={record.postage}
+        color={colors.red}
+        dotColor={dotColor('postage')}
+      />
       {/* 手数料「率」も表示時に丸める（決定 §7-5: Int キャストではなく Math.round） */}
       <ReceiptDeductionRow
         label={commissionRowLabel(roundForDisplay(record.commission))}
         amount={commissionCost(record)}
         color={colors.orange}
+        dotColor={dotColor('commission')}
       />
       {/* 販売サイト名の写し（SPEC-V3 §1.5.1）。手数料行の下に薄く 1 行。
           「✕」は置かない ── 詳細は表示専用の画面で、直すのはフォーム経由（§4.2）。
@@ -108,6 +155,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
         label={ENVELOPE_AND_OTHERS_FIELD_LABEL}
         amount={packingCost}
         color={colors.red}
+        dotColor={dotColor('envelopeCost')}
         // 0 のときは金額ではなく「未入力」（UI-SPEC §1.4-4）。「0 円かけた」ではなく
         // 「まだ入れていない」ことを言う欄なので、金額と同じ濃さでは出さない
         unsetText={packingCost === 0 ? UNSET_INPUT_LABEL : undefined}
@@ -117,10 +165,25 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
 
       <View style={styles.receiptRow}>
         {/* カード 1 枚 = レコード 1 件なので種別語（SPEC-V2 §1.3 / §5.3） */}
-        <Text style={[styles.resultLabel, { color: colors.label }]}>{profitLabel(record.kind)}</Text>
+        <View style={styles.receiptLabelGroup}>
+          {/* 結果行にも同じドットを付ける。帯の緑の区画がこの額であることを示す
+              （赤字のときは帯に緑の区画が無いのでグレーになる） */}
+          <View style={[styles.dot, { backgroundColor: dotColor('kept') }]} />
+          <Text style={[styles.resultLabel, { color: colors.label }]}>
+            {profitLabel(record.kind)}
+          </Text>
+        </View>
         <LongPressCopy label={profitLabel(record.kind)} text={profit.toString()}>
-          <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
-            {formatYen(profit)}
+          <Text
+            style={[
+              styles.resultAmount,
+              {
+                // 価格未設定では利益も未確定（帯グラフと同じ扱い。showsPricedAmounts）。
+                // 0 円で売れた体の赤字額をそのまま出すと、確定した損失に見えてしまう
+                color: !priced ? colors.mutedLabel : profit >= 0 ? colors.green : colors.red,
+              },
+            ]}>
+            {priced ? formatYen(profit) : AMOUNT_PLACEHOLDER}
           </Text>
         </LongPressCopy>
       </View>
@@ -128,16 +191,19 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
   );
 }
 
-/** レシートの控除行「− 送料　　300 円」（UI-SPEC §1.4-4） */
+/** レシートの控除行「● − 送料　　300 円」（UI-SPEC §1.4-4） */
 function ReceiptDeductionRow({
   label,
   amount,
   color,
+  dotColor,
   unsetText,
 }: {
   label: string;
   amount: number;
   color: string;
+  /** 行名の前に置く、帯の区画と同じ色のドット。帯に区画が無い項目はグレー */
+  dotColor: string;
   /** 渡すと金額の代わりにこの文字を 40% グレーで出す */
   unsetText?: string;
 }) {
@@ -145,7 +211,10 @@ function ReceiptDeductionRow({
 
   return (
     <View style={styles.receiptRow}>
-      <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel(label)}</Text>
+      <View style={styles.receiptLabelGroup}>
+        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+        <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel(label)}</Text>
+      </View>
       <LongPressCopy label={label} text={amount.toString()}>
         <Text
           style={[
@@ -413,6 +482,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  receiptLabelGroup: {
+    // ドットと行名で 1 つの塊。行名の左端が全行で揃うように、置かない行にも同じ幅を空ける
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    gap: 8,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  dotPlaceholder: {
+    // ドットの無い行（販売価格）の字下げ。dot と同じ幅
+    width: 10,
+  },
   receiptLabel: {
     flexShrink: 1,
     fontSize: 15,
@@ -425,6 +510,8 @@ const styles = StyleSheet.create({
     // 手数料行に付く補足なので、行名（15px）より小さく・上に詰めて出す（SPEC-V3 §1.5.1）
     fontSize: 13,
     marginTop: -6,
+    // 行名の左端に合わせる（ドット 10 ＋ 間隔 8）。揃っていないと手数料行の補足に見えない
+    marginLeft: 18,
   },
   deductionAmount: {
     fontSize: 17,

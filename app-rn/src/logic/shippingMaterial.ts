@@ -29,6 +29,8 @@
 // トグルの状態を postage から逆算しないのは、選んだあとに送料を手で直せるため ──
 // 「postage が資材費ぶん少ないか」では、手で直した記録と区別が付かない。
 
+import type { PresetType } from '@/db/schema';
+
 import { amountToInput } from './recordForm';
 
 /** プリセットのうち、この計算に要る 2 つだけ（テストから作りやすくするため） */
@@ -66,6 +68,27 @@ export function shippingPresetTotal(preset: ShippingPresetAmounts): number {
  */
 export function hasShippingMaterial(preset: ShippingPresetAmounts): boolean {
   return preset.materialCost > 0;
+}
+
+/**
+ * **一覧の行・設定タブのカードに出す額**（SPEC-V6 §1）。
+ * 資材費のある送料プリセットは**合計**で、それ以外は登録した値そのまま。
+ *
+ * 判定を 1 本にしてあるのは、**同じプリセットが画面によって違う額で出ないようにするため** ──
+ * `PresetRow` と `PresetSummaryCard` はそれぞれ独立に `value` を描いていたので、
+ * 一覧を合計に改めたときにカードだけ送料のまま取り残された。
+ *
+ * 率のプリセット（販売サイト）と梱包材は materialCost を持たないので、そのまま返る。
+ */
+export function presetRowAmount(preset: {
+  type: PresetType;
+  value: number;
+  materialCost?: number;
+}): number {
+  const materialCost = preset.materialCost ?? 0;
+  return preset.type === 'shipping' && materialCost > 0
+    ? preset.value + materialCost
+    : preset.value;
 }
 
 /**

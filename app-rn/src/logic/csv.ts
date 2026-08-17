@@ -6,7 +6,7 @@
 //
 //   | 種類 | 列 | 用途 |
 //   |---|---|---|
-//   | `backup`（データ保存用） | 18 列 | バックアップ・表計算で自分で集計する |
+//   | `backup`（データ保存用） | 19 列 | バックアップ・表計算で自分で集計する |
 //   | `tax`（確定申告用）      | 11 列 | 帳簿の材料。経費を**項目ごとに**分けた形 |
 //
 // 当初は「1 パターンに統一する」（§5.2 案 A）と決めていたが覆した。理由は §5.2 の改訂欄に置く。
@@ -246,7 +246,16 @@ function dayKindField(records: readonly SaleRecord[]): string {
 
 // ---- 行の組み立て ----
 
-/** データ保存用の 1 行（18 列。§5.3） */
+/**
+ * 目標利益の列（SPEC-V9 §3）。**決めていない記録は空欄**で、0 とは書かない ──
+ * 「目標 0 円」と書いてある行と区別できなくなるため（日付の null と同じ扱い）。
+ * 既に整数で保存されているので丸めない。
+ */
+function toTargetProfitField(value: number | null): string {
+  return value == null ? '' : String(value);
+}
+
+/** データ保存用の 1 行（19 列。§5.3 ＋ SPEC-V9 §3） */
 function backupRow(record: SaleRecord, tagNames: readonly string[]): string[] {
   const amounts = toCsvAmounts(rawAmountsOf(record));
   return [
@@ -260,6 +269,7 @@ function backupRow(record: SaleRecord, tagNames: readonly string[]): string[] {
     toAmountField(amounts.othersCost),
     toAmountField(amounts.totalExpenses),
     toAmountField(amounts.netProfit),
+    toTargetProfitField(record.targetProfit),
     toRateField(record.commission),
     record.siteName,
     recordKindLabel(record.kind),

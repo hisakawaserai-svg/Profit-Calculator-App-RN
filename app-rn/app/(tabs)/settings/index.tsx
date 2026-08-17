@@ -27,6 +27,7 @@ import { usePresetList } from '@/db/usePresets';
 import { useRecordCount } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
 import {
+  BACKUP_LABEL,
   CSV_EXPORT_LABEL,
   DATA_SECTION_TITLE,
   DEFAULT_RECORD_KIND_LABEL,
@@ -219,6 +220,19 @@ export default function SettingsScreen() {
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
                 <Text style={[styles.label, { color: colors.label }]}>{CSV_EXPORT_LABEL}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+              </Pressable>
+            </Link>
+            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+            {/* SPEC-V8 §5.1: バックアップと復元。**書き出し（CSV）とは別の行にする** ──
+                あちらは期間を選んで表計算で読む形を出すもので、こちらは全件を戻すためのもの。
+                1 つにまとめると「どちらを押せば機種変更で困らないか」が読めなくなる */}
+            <Link href="/settings/backup" asChild>
+              <Pressable
+                // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
+                style={StyleSheet.flatten([styles.row])}
+                accessibilityRole="link">
+                <Text style={[styles.label, { color: colors.label }]}>{BACKUP_LABEL}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>

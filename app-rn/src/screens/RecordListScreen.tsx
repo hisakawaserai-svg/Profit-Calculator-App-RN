@@ -38,8 +38,9 @@ import { SummaryBar, type SummaryItem } from '@/components/SummaryBar';
 import { toMonthKey } from '@/db/dates';
 import type { RecordSortType } from '@/db/repository';
 import type { SaleRecord, Tag } from '@/db/schema';
-import { deleteRecord, useRecordList } from '@/db/useRecords';
+import { deleteRecord, useAchievementsData, useRecordList } from '@/db/useRecords';
 import { useRecordTags, useTagList } from '@/db/useTags';
+import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import { formatYenSymbol } from '@/logic/format';
 import {
   ADD_RECORD_ACTION_LABEL,
@@ -145,6 +146,15 @@ export function RecordListScreen() {
   // 行に出すタグ（§2.3）。並んでいる記録ぶんを 1 本のクエリでまとめて引く（記録ごとに引かない）
   const recordIds = useMemo(() => records.map((record) => record.id), [records]);
   const tagsByRecord = useRecordTags(recordIds);
+
+  // 行に出す⚡一撃バッジ。全記録ぶんの実績評価を 1 回だけ行い（tagsByRecord と同じ「まとめて
+  // 引いて Map から読む」形）、行ごとに strikeAchievementForRecord を呼び直したりしない
+  // （strikeAchievementsByRecordId のコメント参照。判定の重複・重複表示のどちらも避ける）
+  const { achievements: allAchievements } = useAchievementsData();
+  const strikeBadges = useMemo(
+    () => strikeAchievementsByRecordId(allAchievements),
+    [allAchievements],
+  );
 
   /**
    * 消えたタグを絞り込みから落とす（§4.7）。
@@ -349,6 +359,7 @@ export function RecordListScreen() {
               isSoldMode={isSoldMode}
               today={today}
               tags={tagsByRecord.get(item.id) ?? []}
+              strikeAchievement={strikeBadges.get(item.id) ?? null}
               onPress={() => openDetail(item)}
               onDelete={() => handleDelete(item.id)}
             />
@@ -446,6 +457,7 @@ function SwipeToDeleteRow({
   isSoldMode,
   today,
   tags,
+  strikeAchievement,
   onPress,
   onDelete,
 }: {
@@ -453,6 +465,7 @@ function SwipeToDeleteRow({
   isSoldMode: boolean;
   today: Date;
   tags: readonly Tag[];
+  strikeAchievement: Achievement | null;
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -482,7 +495,13 @@ function SwipeToDeleteRow({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
-        <RecordRow record={record} isSoldMode={isSoldMode} today={today} tags={tags} />
+        <RecordRow
+          record={record}
+          isSoldMode={isSoldMode}
+          today={today}
+          tags={tags}
+          strikeAchievement={strikeAchievement}
+        />
       </Pressable>
     </ReanimatedSwipeable>
   );

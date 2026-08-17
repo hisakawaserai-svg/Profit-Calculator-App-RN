@@ -18,11 +18,15 @@ import {
   formatChartLabel,
   formatPointDate,
   labelSlotIndices,
+  combinedAxisBounds,
   nearestRecordedIndex,
+  singleAxisBounds,
+  tagTrendSeries,
   yAxisLowerBound,
   yAxisUpperBound,
   YEAR_UNIT_MONTH_THRESHOLD,
   type ChartPoint,
+  type TagSeriesRow,
 } from './analytics';
 
 /** ローカル時刻の Date を組み立てる（DB もローカル暦で扱うため） */
@@ -238,6 +242,51 @@ describe('UI-SPEC §1.5-4 2 軸の範囲: キリのいい目盛りと 0 の高�
   });
 });
 
+describe('combinedAxisBounds: タグ別利益ランキングのスパークライン共通スケール（案 2b）', () => {
+  it('系列ごとに自動フィットせず、全系列を通した 1 組の範囲を返す', () => {
+    // タグ A は最大 500・タグ B は最大 5000。個別フィットなら A の上限は 500 系だが、
+    // 共通スケールでは B の 5000 が効いて A にも同じ大きい上限が適用される
+    const bounds = combinedAxisBounds([[100, 500], [1000, 5000]]);
+    const soloA = combinedAxisBounds([[100, 500]]);
+
+    expect(bounds.upper).toBeGreaterThan(soloA.upper);
+  });
+
+  it('系列を横断した最大値・最小値から yAxisUpperBound / yAxisLowerBound と同じ規則で範囲を出す', () => {
+    const combined = combinedAxisBounds([[100, 500], [-200, 1000]]);
+    const flat = { upper: yAxisUpperBound([100, 500, -200, 1000]), lower: yAxisLowerBound([100, 500, -200, 1000]) };
+    expect(combined).toEqual(flat);
+  });
+
+  it('系列が 1 つも無ければ 0 を中心にした既定の範囲（yAxisUpperBound の下駄）', () => {
+    const bounds = combinedAxisBounds([]);
+    expect(bounds).toEqual({ upper: yAxisUpperBound([]), lower: yAxisLowerBound([]) });
+  });
+});
+
+describe('タグ別純利益の推移グラフ: 1 軸ぶんの目盛り（dualAxisBounds の 1 系列版）', () => {
+  const ticks = (max: number, sections: number) =>
+    Array.from({ length: sections }, (_, i) => (max / sections) * (i + 1));
+
+  it('キリのいい目盛りに丸める（8596 → 3000/6000/9000）', () => {
+    const bounds = singleAxisBounds([7475]);
+    expect(ticks(bounds.max, bounds.sections)).toEqual([3000, 6000, 9000]);
+  });
+
+  it('負値がなければ下限は 0', () => {
+    const bounds = singleAxisBounds([1000, 2000]);
+    expect(bounds.min).toBe(0);
+    expect(bounds.sectionsBelow).toBe(0);
+  });
+
+  it('負値があれば下限も同じ幅でキリのいい数まで広げる', () => {
+    const bounds = singleAxisBounds([7475, -2000]);
+    expect(bounds.min).toBe(-bounds.step * bounds.sectionsBelow);
+    expect(bounds.step % 1000).toBe(0);
+    expect(bounds.min).toBeLessThanOrEqual(-2000);
+  });
+});
+
 describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
 
@@ -411,6 +460,58 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
       expect(cumulativeProfits(dense.map((slot) => slot.profit))).toEqual([
         1000, 1000, 1000, 1000, 1500,
       ]);
+    });
+  });
+
+  describe('データタブ「タグ別純利益の推移」: tagTrendSeries', () => {
+    const row = (tagId: string | null, key: string, date: Date, profit: number): TagSeriesRow => ({
+      tagId,
+      key,
+      date,
+      profit,
+      recordCount: 1,
+    });
+    const span = { from: d(2026, 7, 1), to: d(2026, 7, 3) };
+
+    it('選択中のタグぶんだけ、収支推移グラフと同じ span/unit で密な点列にする', () => {
+      const rows = [
+        row('a', '2026-07-01', d(2026, 7, 1), 1000),
+        row('a', '2026-07-03', d(2026, 7, 3), 500),
+        row('b', '2026-07-02', d(2026, 7, 2), 300),
+      ];
+
+      const result = tagTrendSeries(rows, new Set(['a', 'b']), 'day', span);
+
+      expect([...result.keys()]).toEqual(['a', 'b']);
+      expect(result.get('a')?.map((point) => point.profit)).toEqual([1000, 0, 500]);
+      expect(result.get('b')?.map((point) => point.profit)).toEqual([0, 300, 0]);
+    });
+
+    it('チェックを外すと選択集合から抜け、系列そのものが結果から消える', () => {
+      const rows = [
+        row('a', '2026-07-01', d(2026, 7, 1), 1000),
+        row('b', '2026-07-01', d(2026, 7, 1), 500),
+      ];
+
+      const bothSelected = tagTrendSeries(rows, new Set(['a', 'b']), 'day', span);
+      expect([...bothSelected.keys()]).toEqual(['a', 'b']);
+
+      // 'b' のチェックを外した状態（呼び出し側の Set からも 'b' が消える）
+      const onlyA = tagTrendSeries(rows, new Set(['a']), 'day', span);
+      expect([...onlyA.keys()]).toEqual(['a']);
+      expect(onlyA.has('b')).toBe(false);
+    });
+
+    it('未分類（tagId: null）も他のタグと同じ 1 系列として扱う', () => {
+      const rows = [row(null, '2026-07-02', d(2026, 7, 2), 700)];
+
+      const result = tagTrendSeries(rows, new Set<string | null>([null]), 'day', span);
+
+      expect(result.get(null)?.map((point) => point.profit)).toEqual([0, 700, 0]);
+    });
+
+    it('選択が空集合なら結果も空の Map', () => {
+      expect(tagTrendSeries([], new Set(), 'day', span).size).toBe(0);
     });
   });
 

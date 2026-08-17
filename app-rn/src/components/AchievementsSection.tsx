@@ -10,7 +10,7 @@
 //   2. あなたの記録（累計）
 //   3. 獲得した実績（横スクロールのカード列 + 未解除の一覧）
 //   4. 自己ベスト（6 タイル）
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -29,7 +29,6 @@ import { DataModeTabs } from '@/components/DataModeTabs';
 import {
   achievementBadgeTier,
   achievementCategory,
-  achievementDifficulty,
   sortAchievementsByRecency,
   type Achievement,
   type AchievementBadgeTier,
@@ -168,6 +167,23 @@ export const TIER_COLORS: Record<AchievementBadgeTier, string> = {
   // 将来、継続系（赤系のバッジ本体）が追加されて色調が近づいても、構造で見分けられる
   legend: '#5A1B33',
 };
+
+/**
+ * 段位チップ（AchievementDetailModal の「レジェンド」等のラベル。縁取り＋文字）の
+ * 暗色モード専用の色。
+ *
+ * TIER_COLORS はバッジ本体の縁取り・リング（TIER_COLORS.legend）にも使うため変更できないが、
+ * legend の #5A1B33（黒みがかった深いボルドー）は暗色の地（カード背景 #1C1C1E）に対して
+ * コントラスト比 1.3 程度しかなく、チップの縁取り・文字としては読めない。チップにだけ、
+ * ボルドー寄りの明るい色（コントラスト比 9 以上）を使う。バッジ本体の縁取り・リングは
+ * TIER_COLORS.legend のまま（リング自体は視認性に問題がないため。§実績詳細ダークモード可読性）。
+ * ブロンズ・シルバー・ゴールド・プラチナは暗色地でもコントラスト比 4.5 以上を確保できている
+ * ため、上書きは不要。
+ */
+export const TIER_CHIP_DARK_COLORS: Partial<Record<AchievementBadgeTier, string>> =
+  {
+    legend: '#F2A9C2',
+  };
 
 /** ★5 レジェンドのリング二重化に挟む金のライン色（TIER_COLORS.gold と同じにして統一する） */
 const LEGEND_RING_GOLD_COLOR = TIER_COLORS.gold;
@@ -652,21 +668,24 @@ function TotalStat({
 }
 
 /**
- * 実績 1 件ぶんの丸いバッジ（色分けアイコン + 段位の縁取り + 段位モチーフ + 名前 + 達成日）。
+ * 実績 1 件ぶんの丸いバッジ（色分けアイコン + 段位の縁取り + 名前 + 達成日）。
  *
  * 「獲得した実績」の横スクロール一覧（達成済み・未解除の両方。どちらも常に onPress あり）と、
  * 実績一覧画面のジャンル別カード（達成済み・未達成の両方。こちらも常に onPress あり）
- * が共有する。全画面詳細モーダルの装飾（段位色の縁取り・難易度モチーフ）をこの小さいバッジにも
- * 縮小して足す ── 種類の色だけでは段位の違いが一覧から読めないため。未達成は categoryColor の
- * 代わりに colors.gray でグレーアウトし、縁取り・モチーフは出さない。onPress を渡さなければ
- * タップしても何も起きない。
+ * が共有する。未達成は categoryColor の代わりに colors.gray でグレーアウトし、
+ * 縁取りも出さない。onPress を渡さなければタップしても何も起きない。
  *
  * ★5 レジェンドも★1〜4 と同じ borderWidth の縁取り（TIER_COLORS.legend）だけで表す ──
  * 全画面詳細モーダル（AchievementDetailModal.DecoratedBadge）が使う二重リング
  * （LegendTierRing）はここでは使わない。以前はこの小さいバッジにもリングを足していたが、
  * リングぶんだけレジェンドだけ一回り大きく見えてしまい、横一列に並べたときに★1〜4と
- * サイズが揃わないという指摘（ユーザー報告）を受けて外した。段位の区別は縁取り色と
- * コーナーの難易度モチーフ（大きな冠）で引き続き付く。
+ * サイズが揃わないという指摘（ユーザー報告）を受けて外した。
+ *
+ * **右下のコーナーバッジ（18px の丸に難易度モチーフ・冠・宝石を載せたもの）も外した**
+ * （ユーザー報告）。段位の区別は**縁取りの色だけ**で付ける ── 56px の丸に 18px の丸を
+ * 重ねると、横一列に並べたときに小さい丸のほうが先に目に入り、どれが何の実績かを
+ * 読む前に段位を読ませることになっていた。段位を確かめる場所は、★と段位名が
+ * 語で出る全画面詳細（AchievementDetailModal）に一本化する。
  */
 export function AchievementBadge({
   achievement,
@@ -681,7 +700,6 @@ export function AchievementBadge({
   onPress?: () => void;
 }) {
   const category = achievementCategory(achievement.id);
-  const difficulty = achievementDifficulty(achievement.id);
   const tier = achievementBadgeTier(achievement.id);
   const tint = achievement.completed
     ? categoryColor(category, colors)
@@ -701,36 +719,23 @@ export function AchievementBadge({
       ]}
     >
       <View style={styles.earnedCircleWrap}>
-        <View>
-          <View
-            style={[
-              styles.earnedCircle,
-              {
-                backgroundColor: tint,
-                borderWidth: achievement.completed ? 2 : 0,
-                borderColor: tierColor,
-              },
-            ]}
-          >
-            <Ionicons
-              name={achievementIcon(achievement.id)}
-              size={22}
-              color="#FFFFFF"
-            />
-          </View>
-          {achievement.completed && (
-            <View
-              style={[
-                styles.earnedTierMotif,
-                {
-                  backgroundColor: colors.secondaryBackground,
-                  borderColor: tierColor,
-                },
-              ]}
-            >
-              <TierMotifIcon difficulty={difficulty} color={tierColor} />
-            </View>
-          )}
+        {/* コーナーバッジを外したので、丸を包む中間の View も要らなくなった
+            （あれは絶対配置の 18px の丸を丸の右下に留めるためのもの） */}
+        <View
+          style={[
+            styles.earnedCircle,
+            {
+              backgroundColor: tint,
+              borderWidth: achievement.completed ? 2 : 0,
+              borderColor: tierColor,
+            },
+          ]}
+        >
+          <Ionicons
+            name={achievementIcon(achievement.id)}
+            size={22}
+            color="#FFFFFF"
+          />
         </View>
       </View>
       <Text
@@ -751,32 +756,6 @@ export function AchievementBadge({
       )}
     </Pressable>
   );
-}
-
-/**
- * 難易度モチーフの縮小版（★1 芽 / ★2 星 / ★3 宝石 / ★4 冠）。
- * AchievementDetailModal の DecoratedBadge と同じ組み合わせ（アイコンの選び方）を、
- * 56px の小さいバッジ 1 個分のコーナーバッジに収まるサイズで出す。
- */
-function TierMotifIcon({
-  difficulty,
-  color,
-}: {
-  difficulty: AchievementDifficulty;
-  color: string;
-}) {
-  switch (difficulty) {
-    case 1:
-      return <FontAwesome5 name="seedling" solid size={9} color={color} />;
-    case 2:
-      return <Ionicons name="star" size={10} color={color} />;
-    case 3:
-      return <FontAwesome5 name="gem" solid size={9} color={color} />;
-    case 4:
-      return <FontAwesome5 name="crown" solid size={10} color={color} />;
-    case 5:
-      return <FontAwesome5 name="crown" solid size={12} color={color} />;
-  }
 }
 
 function BestTile({
@@ -1020,18 +999,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // 難易度モチーフを乗せる、右下のコーナーバッジ
-  earnedTierMotif: {
-    position: 'absolute',
-    right: -3,
-    bottom: -3,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },

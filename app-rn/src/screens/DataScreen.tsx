@@ -28,20 +28,35 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { BarChart } from 'react-native-gifted-charts';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
+import { AchievementsSection, resolveTagFrom, resolveTagNameFrom } from '@/components/AchievementsSection';
+import { DataDetailsToggle, type DataDetailItem } from '@/components/DataDetailsToggle';
+import { DataModeTabs } from '@/components/DataModeTabs';
 import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
 import { FilterNoticeRow } from '@/components/FilterNoticeRow';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
+import type { HelpEntryId } from '@/logic/helpContent';
 import { MonthNavBar } from '@/components/MonthNavBar';
+import { PeriodComparisonCard } from '@/components/PeriodComparisonCard';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
+import {
+  TAG_VIEW_MODE_LIST,
+  TAG_VIEW_MODE_OVERLAY,
+  TagProfitSection,
+  TagProfitTrendCard,
+  type TagChartBreakdownItem,
+  type TagProfitSectionItem,
+} from '@/components/TagProfitSection';
 import { toMonthKey } from '@/db/dates';
 import type { AggregatedPoint } from '@/db/repository';
 import type { SaleRecord } from '@/db/schema';
-import { useAnalyticsData } from '@/db/useRecords';
+import { useAchievementsData, useAnalyticsData, useTagChartTagDetails } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
+import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import {
   chartSpan,
+  combinedAxisBounds,
   cumulativeProfits,
   densifySeries,
   dualAxisBounds,
@@ -50,27 +65,53 @@ import {
   formatPointDate,
   labelSlotIndices,
   nearestRecordedIndex,
+  tagTrendSeries,
   type ChartPoint,
   type ChartUnit,
   type DualAxisBounds,
+  type TagSeriesRow,
 } from '@/logic/analytics';
 import { formatCompactYen, formatSignedYenSymbol, formatYenSymbol } from '@/logic/format';
 import type { Period } from '@/logic/period';
 import {
+  allTagProfits,
+  periodProfitPerRecord,
+  periodProfitRate,
+  tagsWithoutRecords,
+  type RankedTagProfit,
+} from '@/logic/profit';
+import {
+  AVERAGE_SALE_DAYS_LABEL,
   CHART_UNIT_NOTE,
   CLEAR_SELECTION_LABEL,
   CUMULATIVE_PROFIT_LABEL,
+  DATA_MODE_ACHIEVEMENTS_LABEL,
+  DATA_MODE_PROFIT_LABEL,
+  DATA_MODE_TAG_LABEL,
   DATA_TAB_LABEL,
   EXPENSES_LABEL,
   FILTER_LABEL,
   NO_SOLD_DATA_MESSAGE,
+  PER_RECORD_PROFIT_LABEL,
+  PROFIT_RATE_LABEL,
   PROFIT_TREND_LABEL,
+  SOLD_COUNT_LABEL,
   TOTAL_SALES_LABEL,
+  UNCLASSIFIED_TAG_LABEL,
+  averageSaleDaysValue,
   chartBarLegendLabel,
   cumulativeValueLabel,
+  detailsToggleLabel,
   periodProfitLabel,
+  perRecordProfitValue,
+  profitRateSummaryValue,
+  recordCountValue,
   recordDetailAccessibilityLabel,
+  SELECTED_RECORDS_COLLAPSE_LABEL,
   selectedPointTitle,
+  selectedRecordsShowMoreText,
+  selectedTagChartTitle,
+  selectedTagTitle,
 } from '@/logic/labels';
 import {
   activeFilterCount,
@@ -192,6 +233,32 @@ const RECORD_DETAIL_PATHNAME = '/data/record/[id]' as const;
  */
 const DATA_FILTER_PATHNAME = '/data/filter' as const;
 
+/**
+ * データタブのセグメント（「収支」/「タグ」/「実績」）。計算タブの mode と同じ、画面内だけの
+ * 一時的な状態。実績は月バー・絞り込みを見ない別の母集団（useAchievementsData 参照）なので、
+ * 3 つ目の値としてだけ追加し、収支・タグの分岐には一切手を入れない。
+ */
+const DATA_MODE_PROFIT = 0;
+const DATA_MODE_TAG = 1;
+const DATA_MODE_ACHIEVEMENTS = 2;
+
+/**
+ * ヘッダの「？」で開く項目（UI-SPEC §5-9）。**モードごとに変える。**
+ *
+ * 3 つのモードは 1 つの画面に見えるが、読む対象も母集団も違う ── 実績は月バーも
+ * 絞り込みも見ない。どのモードでも「グラフの見かた」を先頭に出すと、
+ * いま画面に出ていないものの説明から読ませることになる。
+ *
+ * **セクションの中に「？」を増やさない**（AchievementsSection / TagProfitSection に
+ * ボタンを足さない）── ヘッダに 1 つある画面の中にもう 1 つ置くと、
+ * 同じ役目の口が 2 か所になり、どちらが何を開くのかを覚える羽目になる。
+ */
+function helpEntryForMode(mode: number): HelpEntryId {
+  if (mode === DATA_MODE_TAG) return 'dataTag';
+  if (mode === DATA_MODE_ACHIEVEMENTS) return 'dataAchievements';
+  return 'data';
+}
+
 export function DataScreen() {
   const colors = useThemeColors();
   const router = useRouter();
@@ -224,11 +291,73 @@ export function DataScreen() {
     null,
   );
   const selectedKey = selection != null && selection.filter === recordFilter ? selection.key : null;
+  /**
+   * タップされたタグ別利益ランキングの行（selection と同じ考え方。§1.5-5 のタグ版）。
+   * tagId 自体が null を取り得る（未分類）ので、「未選択」は tagSelection が null かどうかで持つ ──
+   * selection.key を undefined にはできない（selectedTagId の型と揃えるため tagSelection ごと持つ）。
+   */
+  const [tagSelection, setTagSelection] = useState<{
+    tagId: string | null;
+    filter: RecordFilterDraft;
+  } | null>(null);
+  const selectedTagId =
+    tagSelection != null && tagSelection.filter === recordFilter ? tagSelection.tagId : undefined;
+  /**
+   * タップされた「タグ別純利益の推移」グラフの点（selection と同じ考え方）。
+   * 対象タグ（重ねるでチェック中のタグ）は tagTrendSelected（後述）から都度渡すので、
+   * ここは日付キーだけ持てば足りる。
+   */
+  const [tagChartSelection, setTagChartSelection] = useState<{
+    key: string;
+    filter: RecordFilterDraft;
+  } | null>(null);
+  const tagChartSelectedKey =
+    tagChartSelection != null && tagChartSelection.filter === recordFilter
+      ? tagChartSelection.key
+      : null;
+  /**
+   * タグ別純利益の推移グラフの日付内訳、その行をさらにタップして選んだタグ（tagSelection と
+   * 同じ考え方）。**選んでいる日付（key）まで一致するときだけ**有効にする ── 日付を選び直したら
+   * 別の日の話になるので、前の日で選んでいたタグは自動的に外れる（filter が変わったら selection
+   * を捨てるのと同じ理由）。
+   */
+  const [tagChartTagSelection, setTagChartTagSelection] = useState<{
+    key: string;
+    tagId: string | null;
+    filter: RecordFilterDraft;
+  } | null>(null);
+  const tagChartSelectedBreakdownTagId =
+    tagChartTagSelection != null &&
+    tagChartTagSelection.filter === recordFilter &&
+    tagChartTagSelection.key === tagChartSelectedKey
+      ? tagChartTagSelection.tagId
+      : undefined;
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  /**
+   * 集計段直下の開閉行（案 1c）。「開閉状態は画面遷移や期間切り替えでリセットされてもよい」
+   * （保持は不要）ので、期間・絞り込みの変更時に明示的にリセットする処理は持たない。
+   */
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
+  // タグ名の解決を毎回作り直さない（自己ベストの最多販売タグが 1 回だけ引くコールバック）
+  const resolveTagName = useMemo(() => resolveTagNameFrom(tags), [tags]);
+  const resolveTag = useMemo(() => resolveTagFrom(tags), [tags]);
+
+  /**
+   * 「実績」モード（案 3c）のデータ。**月バー・絞り込みを一切見ない**（useAchievementsData の
+   * コメント参照）── 収支/タグの filter とは無関係な、常に全期間・全件の累計・自己ベスト。
+   */
+  const achievementsData = useAchievementsData();
+  // 内訳一覧（SelectedPointList 等）の⚡一撃バッジ用。実績タブと同じ achievementsData から
+  // recordId → Achievement の対応表を作るだけ（判定をここで作り直さない。§6-11 の考え方どおり
+  // 内訳一覧も記録タブと同じ RecordRow を使うので、バッジも同じ仕組みで揃える）
+  const strikeBadges = useMemo(
+    () => strikeAchievementsByRecordId(achievementsData.achievements),
+    [achievementsData.achievements],
+  );
 
   // データタブは状態を持たない（isSold = true 固定。SPEC §6.2）ので、
   // toFilterConditions には常に true を渡す ── 販売サイトの条件が落ちる分岐は起きない（§6）
@@ -243,18 +372,164 @@ export function DataScreen() {
   // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ。
   // 全期間の刻みは対象の月数で決まり（36 か月超なら年ごと）、判定に最古の月が要るので
   // 取得側が chartUnitFor に決めさせて返す ── 画面はここで分岐しない
-  const { summary, series, details, earliestMonthKey, monthsWithRecords, unit } = useAnalyticsData(
-    filter,
-    selectedKey,
-    today,
-  );
+  const {
+    summary,
+    comparison,
+    averageSaleDays,
+    series,
+    details,
+    tagDetails,
+    tagProfits,
+    tagSeries,
+    earliestMonthKey,
+    monthsWithRecords,
+    unit,
+  } = useAnalyticsData(filter, selectedKey, today, selectedTagId);
 
+  /** 「収支」/「タグ」の 2 択（計算タブの mode と同じ仕組み）。初期状態は「収支」 */
+  const [mode, setMode] = useState(DATA_MODE_PROFIT);
+  /** 「タグ」モードの中の「一覧」/「重ねる」の 2 択（TagProfitSection 側）。初期状態は「一覧」 */
+  const [tagViewMode, setTagViewMode] = useState(TAG_VIEW_MODE_LIST);
+
+  /**
+   * タグ別利益ランキング（「タグ」モード）。純利益の上位 3 件を描画側の形へ組む ──
+   * 名前と色は絞り込みシートと同じ tags 一覧（§4.3 で既に引いている）から引く。
+   * 消えたタグの id が残っていて名前が引けない行は落とす（表示できないため）。
+   */
+  const joinTagRanking = useCallback(
+    (ranked: RankedTagProfit[]): TagProfitSectionItem[] =>
+      ranked.flatMap((item): TagProfitSectionItem[] => {
+        if (item.tagId == null) {
+          return [{ ...item, name: UNCLASSIFIED_TAG_LABEL, colorKey: null }];
+        }
+        const tag = tags.find((candidate) => candidate.id === item.tagId);
+        return tag == null ? [] : [{ ...item, name: tag.name, colorKey: tag.colorKey }];
+      }),
+    [tags],
+  );
+  const allTagRanking: TagProfitSectionItem[] = useMemo(
+    () => joinTagRanking(allTagProfits(tagProfits)),
+    [tagProfits, joinTagRanking],
+  );
+  /**
+   * 記録が 1 件も無いタグ（案 2b の下部「記録のない◯タグを見る」）。
+   * tagProfits（analyticsProfitByTag の結果）には記録が 1 件以上あるタグしか出てこないので、
+   * DB の全タグ一覧（tags）からその集合を引き算するだけで求まる。
+   */
+  const zeroRecordTags = useMemo(() => tagsWithoutRecords(tags, tagProfits), [tags, tagProfits]);
+
+  // 収支グラフ・タグ別純利益推移グラフが共有する期間の範囲（§1.5-4）。
+  // 両方とも同じ span/unit で densifySeries に通すことで、時間軸を必ず揃える
+  const span = useMemo(
+    () => chartSpan({ period, earliestMonthKey, today }),
+    [period, earliestMonthKey, today],
+  );
   // X 軸は日付の軸にする（§1.5-4）。repository が返すのは記録のある点だけなので、
   // 期間の全スロットを作って空きを 0 で埋める ── 7/1 と 7/31 が隣り合わないように
-  const densePoints = useMemo(() => {
-    const span = chartSpan({ period, earliestMonthKey, today });
-    return span == null ? [] : densifySeries(series, unit, span);
-  }, [series, unit, period, earliestMonthKey, today]);
+  const densePoints = useMemo(
+    () => (span == null ? [] : densifySeries(series, unit, span)),
+    [series, unit, span],
+  );
+
+  /**
+   * タグ別純利益の推移（「グラフ」モード）。チェックボックスの候補・初期チェックともランキングの
+   * 「すべて見る」と同じ全件（allTagRanking）── 最初から全タグの折れ線を重ねて出す。
+   *
+   * 期間・絞り込みが変わると対象タグの集合ごと変わるので、選択は毎回そこから作り直す
+   * （resetKey が変わったら初期値に戻す。changePeriod で selectedKey をリセットするのと同じ考え方）。
+   * モードの切替そのものではリセットしない（allTagRanking の中身が変わらない限り、
+   * 「一覧」に切り替えてから戻ってもチェックは保持される）。
+   */
+  const initialTagTrendSelected = useMemo(
+    () => new Set(allTagRanking.map((item) => item.tagId)),
+    [allTagRanking],
+  );
+  const [tagTrendSelected, setTagTrendSelected] = useState(initialTagTrendSelected);
+  const tagTrendResetKey = useMemo(
+    () => allTagRanking.map((item) => item.tagId ?? UNCLASSIFIED_TAG_LABEL).join('|'),
+    [allTagRanking],
+  );
+  const [lastTagTrendResetKey, setLastTagTrendResetKey] = useState(tagTrendResetKey);
+  if (tagTrendResetKey !== lastTagTrendResetKey) {
+    setLastTagTrendResetKey(tagTrendResetKey);
+    setTagTrendSelected(initialTagTrendSelected);
+  }
+  const toggleTagTrendSelected = useCallback((tagId: string | null) => {
+    setTagTrendSelected((current) => {
+      const next = new Set(current);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  }, []);
+  const tagTrendSeriesByTag = useMemo(() => {
+    if (span == null) return new Map<string | null, ChartPoint[]>();
+    const rows: TagSeriesRow[] = tagSeries;
+    return tagTrendSeries(rows, tagTrendSelected, unit, span);
+  }, [tagSeries, tagTrendSelected, unit, span]);
+
+  /**
+   * 「タグ別純利益の推移」グラフの点タップの内訳（採用案。グラフの下に「◯月のタグ別利益」を出す）。
+   * **チェック中のタグに限らず、その月に売れた記録がある全タグ**を対象にする ──
+   * 「その月はどのタグが儲かったか」という問いへの答えなので、グラフに重ねて出しているかどうかは
+   * 関係が無い（重ねる選択は「いつ儲かっているか比べたいタグ」を選ぶもので、別の軸）。
+   *
+   * 個々の記録は読まない。tagSeries（analyticsSeriesByTag の結果。useAnalyticsData で既に
+   * 引いてある）を選んだ点のキーで絞り込むだけで求まるので、新しい DB クエリは要らない。
+   */
+  const tagChartBreakdown: TagChartBreakdownItem[] = useMemo(() => {
+    if (tagChartSelectedKey == null) return [];
+    return tagSeries
+      .filter((row) => row.key === tagChartSelectedKey)
+      .flatMap((row): TagChartBreakdownItem[] => {
+        if (row.tagId == null) {
+          return [{ tagId: null, name: UNCLASSIFIED_TAG_LABEL, colorKey: null, profit: row.profit }];
+        }
+        const tag = tags.find((candidate) => candidate.id === row.tagId);
+        return tag == null
+          ? []
+          : [{ tagId: row.tagId, name: tag.name, colorKey: tag.colorKey, profit: row.profit }];
+      })
+      .sort((a, b) => b.profit - a.profit);
+  }, [tagSeries, tagChartSelectedKey, tags]);
+
+  /**
+   * タグ別内訳（tagChartBreakdown）の行をさらにタップしたときの記録一覧。こちらは集計済みの
+   * tagSeries では引けない（記録の実体が要る）ので、SQL に投げる（useAnalyticsData とは別の
+   * hook。理由は useTagChartTagDetails のコメントを参照）。
+   */
+  const tagChartTagDetails = useTagChartTagDetails(
+    filter,
+    unit,
+    tagChartSelectedKey,
+    tagChartSelectedBreakdownTagId,
+  );
+
+  /**
+   * タグ別利益ランキングのスパークライン（案 2b）。ランキングに出る**全タグ**ぶん
+   * （チェックボックスの選択状態とは無関係）を、重ねるモードのグラフと同じ span/unit で引く ──
+   * 時間軸のルールを 2 か所に分けて持たない。
+   */
+  const rankedTagIds = useMemo(
+    () => new Set(allTagRanking.map((item) => item.tagId)),
+    [allTagRanking],
+  );
+  const sparklineSeriesByTag = useMemo(() => {
+    if (span == null) return new Map<string | null, ChartPoint[]>();
+    return tagTrendSeries(tagSeries, rankedTagIds, unit, span);
+  }, [tagSeries, rankedTagIds, unit, span]);
+  /**
+   * スパークラインの共通 Y 軸範囲（combinedAxisBounds）。**個々のタグでフィットし直さない** ──
+   * 表示中の全タグの値をまとめて 1 回だけ範囲に通し、高さが「そのタグの純利益の多さ」として
+   * タグ間で比べられるようにする（TAG_SPARKLINE_NOTE の説明文と対）。
+   */
+  const sparklineBounds = useMemo(
+    () =>
+      combinedAxisBounds(
+        [...sparklineSeriesByTag.values()].map((points) => points.map((point) => point.profit)),
+      ),
+    [sparklineSeriesByTag],
+  );
 
   /**
    * 期間の初めからの累計（折れ線）。**画面で 1 回だけ出してグラフと値の行が同じ配列を見る** ──
@@ -289,8 +564,68 @@ export function DataScreen() {
     (next: Period) => {
       setPeriod(next);
       setSelection(null);
+      setTagSelection(null);
+      setTagChartSelection(null);
     },
     [setPeriod],
+  );
+
+  /**
+   * タグ別利益ランキングの行タップ → その下に内訳を出す（selectNearest のタグ版）。
+   * **選択中の行をもう一度タップすると外れる**（selectNearest と同じトグル。記録一覧を出す
+   * 選択はどれも「もう一押しで閉じる」に揃える）── 現在の選択は setState の関数形（current）で
+   * 見る。tagId は「未分類」で null を取り得るので、選択なし（tagSelection = null）とは
+   * filter を挟んだオブジェクトかどうかで区別する。
+   */
+  const selectTag = useCallback(
+    (tagId: string | null) => {
+      setTagSelection((current) =>
+        current != null && current.filter === recordFilter && current.tagId === tagId
+          ? null
+          : { tagId, filter: recordFilter },
+      );
+    },
+    [recordFilter],
+  );
+
+  /**
+   * 「タグ別純利益の推移」グラフの点タップ → その下に内訳を出す（selectTag と同じ考え方）。
+   * **選択中の点をもう一度タップすると外れる**（selectNearest と同じトグル。収支グラフの棒タップと
+   * 挙動を揃える。key == null は「×」で明示的に閉じたときの経路で、これは常にそのまま外す）。
+   */
+  const selectTagChartDate = useCallback(
+    (key: string | null) => {
+      if (key == null) {
+        setTagChartSelection(null);
+        return;
+      }
+      setTagChartSelection((current) =>
+        current != null && current.filter === recordFilter && current.key === key
+          ? null
+          : { key, filter: recordFilter },
+      );
+    },
+    [recordFilter],
+  );
+
+  /**
+   * その日付内訳の行タップ → その日付・そのタグの記録一覧を出す。selectTagChartDate と違い、
+   * 「選んでいる日付」に紐づけて保存する（tagChartSelectedBreakdownTagId の説明を参照）。
+   * **選択中の行をもう一度タップすると外れる**（selectTag と同じトグル）。
+   */
+  const selectTagChartBreakdownTag = useCallback(
+    (tagId: string | null) => {
+      if (tagChartSelectedKey == null) return;
+      setTagChartTagSelection((current) =>
+        current != null &&
+        current.filter === recordFilter &&
+        current.key === tagChartSelectedKey &&
+        current.tagId === tagId
+          ? null
+          : { key: tagChartSelectedKey, tagId, filter: recordFilter },
+      );
+    },
+    [tagChartSelectedKey, recordFilter],
   );
 
   /**
@@ -318,11 +653,21 @@ export function DataScreen() {
   // 期間を動かした結果、選択中の棒が範囲外に出ていることがある
   const selectedPoint = series.find((point) => point.key === selectedKey);
 
-  /** タップされたスロット → 最も近い「記録のある」スロットを選ぶ（§1.5-4） */
+  /**
+   * タップされたスロット → 最も近い「記録のある」スロットを選ぶ（§1.5-4）。
+   * **選択中の棒をもう一度タップすると外れる**（selectTag と同じトグル。記録一覧を出す選択は
+   * どれも「もう一押しで閉じる」に揃える）。
+   */
   const selectNearest = useCallback(
     (index: number) => {
       const nearest = nearestRecordedIndex(densePoints, index);
-      if (nearest != null) setSelection({ key: densePoints[nearest].key, filter: recordFilter });
+      if (nearest == null) return;
+      const key = densePoints[nearest].key;
+      setSelection((current) =>
+        current != null && current.filter === recordFilter && current.key === key
+          ? null
+          : { key, filter: recordFilter },
+      );
     },
     [densePoints, recordFilter],
   );
@@ -350,6 +695,33 @@ export function DataScreen() {
     { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
   ];
 
+  /**
+   * 集計段直下の開閉行の 4 列（案 1c）。**選んだ期間全体**が対象で、棒タップでは変わらない
+   * ── summary は月バー直下の集計段（DataSummaryBar）と同じ、絞り込み後の期間合計そのもの。
+   * 利益率・1 件あたりはこの画面用の集計（periodProfitRate / periodProfitPerRecord）を通す
+   * （合計同士の比率・合計 ÷ 件数。単純平均ではない）。平均販売日数だけは例外で、
+   * 1 件ずつの経過日数（elapsedDays）を単純平均する（periodAverageSaleDays）
+   * ── 合計同士の比率で出せる値が無いため（日数は記録ごとにしか無い）。
+   */
+  const detailItems: [DataDetailItem, DataDetailItem, DataDetailItem, DataDetailItem] = [
+    {
+      label: PROFIT_RATE_LABEL,
+      value: profitRateSummaryValue(periodProfitRate(summary.totalSales, summary.totalNetProfit)),
+      color: colors.label,
+    },
+    { label: SOLD_COUNT_LABEL, value: recordCountValue(summary.recordCount), color: colors.label },
+    {
+      label: PER_RECORD_PROFIT_LABEL,
+      value: perRecordProfitValue(periodProfitPerRecord(summary.totalNetProfit, summary.recordCount)),
+      color: colors.label,
+    },
+    {
+      label: AVERAGE_SALE_DAYS_LABEL,
+      value: averageSaleDaysValue(averageSaleDays),
+      color: colors.label,
+    },
+  ];
+
   // UI-SPEC §1.5-1: ヘッダの右は「？」だけ
   const screenOptions = useMemo(
     () => ({
@@ -365,18 +737,20 @@ export function DataScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* 2 段目。**右端に絞り込みの入口（▽）**（案 34a-B / 36b）。記録タブと同じ扱いで、
             効いている間は青ベタ。数は出さない ── 条件は下の青い行に文で並ぶ */}
-        <MonthNavBar
-          period={period}
-          earliestMonthKey={earliestMonthKey}
-          currentMonthKey={currentMonthKey}
-          onChangePeriod={changePeriod}
-          onPressTitle={() => setShowPeriodSheet(true)}
-          filter={{
-            active: filterCount > 0,
-            onPress: openFilterPage,
-            accessibilityLabel: FILTER_LABEL,
-          }}
-        />
+        {mode !== DATA_MODE_ACHIEVEMENTS && (
+            <MonthNavBar
+            period={period}
+            earliestMonthKey={earliestMonthKey}
+            currentMonthKey={currentMonthKey}
+            onChangePeriod={changePeriod}
+            onPressTitle={() => setShowPeriodSheet(true)}
+            filter={{
+              active: filterCount > 0,
+              onPress: openFilterPage,
+              accessibilityLabel: FILTER_LABEL,
+            }}
+          />
+        )}
 
         {/* 青い行は**月バーの直下**（案 36b）── 集計段とグラフカードの間に挟むと、
             絞り込みの有無で集計とグラフの距離が変わる。ここなら
@@ -389,53 +763,182 @@ export function DataScreen() {
           />
         )}
 
-        {/* 集計段（案 36b）。**収支が主役**で、売上と経費は右に小さく積む。
-            種別セグメントは廃止し、種別は絞り込みページの 1 節に一本化した（§6） */}
-        <DataSummaryBar profit={profitValue} context={contextValues} />
+        {mode === DATA_MODE_PROFIT ? (
+          <>
+            {/* 集計段（案 36b）。**収支が主役**で、売上と経費は右に小さく積む。
+                種別セグメントは廃止し、種別は絞り込みページの 1 節に一本化した（§6） */}
+            <DataSummaryBar profit={profitValue} context={contextValues} />
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.chartTitle, { color: colors.label }]}>
-              {PROFIT_TREND_LABEL}
-            </Text>
-            {/* 見出しの下の 1 行。**未選択なら凡例・選択中は押した点の値**（案 38b）。
-                高さは選択の有無で変えない（伸び縮みするとカードの下が動く） */}
-            <ChartHeadRow
-              unit={unit}
-              showCumulative={showsCumulative(densePoints)}
-              cumulativeOnRight={cumulativeOnRight}
-              selected={
-                selectedIndex < 0
-                  ? null
-                  : { point: densePoints[selectedIndex], cumulative: cumulative[selectedIndex] }
-              }
+            {/* 集計段の直下・独立した開閉行（案 1c）。ヘッダー自体には手を入れない */}
+            <DataDetailsToggle
+              expanded={detailsExpanded}
+              onToggle={() => setDetailsExpanded((expanded) => !expanded)}
+              toggleLabel={detailsToggleLabel(detailsExpanded)}
+              items={detailItems}
             />
 
-            {series.length === 0 ? (
-              <EmptyChart />
-            ) : (
-              <ChartView
-                points={densePoints}
-                cumulative={cumulative}
-                unit={unit}
-                selectedIndex={selectedIndex}
-                onSelectIndex={selectNearest}
-              />
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+              <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
+                {/* 「収支」「タグ」「実績」の 3 択（計算タブの「利益を出す/目標から逆算」と同じ考え方）。
+                    カードの上端に置く ── 独立した行として挟むと、その分だけ縦に伸びる */}
+                <DataModeTabs
+                  options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+                  selectedIndex={mode}
+                  onChange={setMode}
+                />
+
+                <Text style={[styles.chartTitle, { color: colors.label }]}>
+                  {PROFIT_TREND_LABEL}
+                </Text>
+                {/* 見出しの下の 1 行。**未選択なら凡例・選択中は押した点の値**（案 38b）。
+                    高さは選択の有無で変えない（伸び縮みするとカードの下が動く） */}
+                <ChartHeadRow
+                  unit={unit}
+                  showCumulative={showsCumulative(densePoints)}
+                  cumulativeOnRight={cumulativeOnRight}
+                  selected={
+                    selectedIndex < 0
+                      ? null
+                      : { point: densePoints[selectedIndex], cumulative: cumulative[selectedIndex] }
+                  }
+                />
+
+                {series.length === 0 ? (
+                  <EmptyChart />
+                ) : (
+                  <ChartView
+                    points={densePoints}
+                    cumulative={cumulative}
+                    unit={unit}
+                    selectedIndex={selectedIndex}
+                    onSelectIndex={selectNearest}
+                  />
+                )}
+              </View>
+
+              {selectedPoint && (
+                <SelectedPointList
+                  point={selectedPoint}
+                  unit={unit}
+                  details={details}
+                  strikeBadges={strikeBadges}
+                  onClear={() => setSelection(null)}
+                  onPressRecord={openDetail}
+                />
+              )}
+
+              <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
+
+              {/* 前期間比較（新規セクション）。全期間選択中は基準となる前期間が無いので comparison が
+                  null になり、そのままセクションごと出ない（logic/periodComparison.ts） */}
+              {comparison != null && (
+                <PeriodComparisonCard
+                  label={comparison.label}
+                  previousLabel={comparison.previousLabel}
+                  metrics={comparison.metrics}
+                />
+              )}
+            </ScrollView>
+          </>
+        ) : mode === DATA_MODE_TAG ? (
+          <>
+            <DataSummaryBar profit={profitValue} context={contextValues} />
+
+            <DataDetailsToggle
+              expanded={detailsExpanded}
+              onToggle={() => setDetailsExpanded((expanded) => !expanded)}
+              toggleLabel={detailsToggleLabel(detailsExpanded)}
+              items={detailItems}
+            />
+
+            {mode === DATA_MODE_TAG && (
+              <ScrollView contentContainerStyle={styles.scrollContent}>
+                {/* 「グラフ」のときだけ、「収支の推移」カードと同じ位置・同じ仕様で出す。
+                    点タップの内訳（タグ別内訳）はこのカードの中に出る（採用案 1a） */}
+                {tagViewMode === TAG_VIEW_MODE_OVERLAY && (
+                  <TagProfitTrendCard
+                    candidates={allTagRanking}
+                    seriesByTag={tagTrendSeriesByTag}
+                    overlaySelected={tagTrendSelected}
+                    axisPoints={densePoints}
+                    unit={unit}
+                    selectedKey={tagChartSelectedKey}
+                    onSelectKey={selectTagChartDate}
+                    viewMode={tagViewMode}
+                    onChangeViewMode={setTagViewMode}
+                    breakdownItems={tagChartBreakdown}
+                    dataMode={mode}
+                    onChangeDataMode={setMode}
+                    selectedBreakdownTagId={tagChartSelectedBreakdownTagId}
+                    onSelectBreakdownTag={selectTagChartBreakdownTag}
+                  />
+                )}
+
+                {tagChartSelectedBreakdownTagId !== undefined && (
+                  <SelectedTagChartTagList
+                    dateText={formatPointDate(
+                      densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
+                      unit,
+                    )}
+                    tagName={
+                      tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
+                        ?.name ?? UNCLASSIFIED_TAG_LABEL
+                    }
+                    details={tagChartTagDetails}
+                    strikeBadges={strikeBadges}
+                    onClear={() => setTagChartTagSelection(null)}
+                    onPressRecord={openDetail}
+                  />
+                )}
+
+                <TagProfitSection
+                  items={allTagRanking}
+                  zeroRecordTags={zeroRecordTags}
+                  summary={summary}
+                  period={period}
+                  sparklineSeriesByTag={sparklineSeriesByTag}
+                  sparklineBounds={sparklineBounds}
+                  overlaySelected={tagTrendSelected}
+                  onToggleOverlay={toggleTagTrendSelected}
+                  viewMode={tagViewMode}
+                  onChangeViewMode={setTagViewMode}
+                  // 「収支 / タグ」タブはタグモードの最初のカードにだけ出す ──
+                  // 「グラフ」なら TagProfitTrendCard が先に出ているので、ここには渡さない
+                  dataMode={tagViewMode === TAG_VIEW_MODE_LIST ? mode : undefined}
+                  onChangeDataMode={tagViewMode === TAG_VIEW_MODE_LIST ? setMode : undefined}
+                  selectedTagId={selectedTagId}
+                  onSelectTag={selectTag}
+                />
+
+                {selectedTagId !== undefined && (
+                  <SelectedTagList
+                    tagName={
+                      allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
+                      UNCLASSIFIED_TAG_LABEL
+                    }
+                    details={tagDetails}
+                    strikeBadges={strikeBadges}
+                    onClear={() => setTagSelection(null)}
+                    onPressRecord={openDetail}
+                  />
+                )}
+              </ScrollView>
             )}
-          </View>
-
-          {selectedPoint && (
-            <SelectedPointList
-              point={selectedPoint}
-              unit={unit}
-              details={details}
-              onClear={() => setSelection(null)}
-              onPressRecord={openDetail}
-            />
-          )}
-
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
-        </ScrollView>
+          </>
+        ) : mode === DATA_MODE_ACHIEVEMENTS ? (
+          // 「実績」モード（案 3c）。月バー・絞り込みを一切見ない別の母集団なので、
+          // DataSummaryBar / DataDetailsToggle（収支/タグと共有の期間集計）はここに出さない
+          <AchievementsSection
+            totals={achievementsData.totals}
+            achievements={achievementsData.achievements}
+            nextAchievement={achievementsData.nextAchievement}
+            personalBests={achievementsData.personalBests}
+            resolveTagName={resolveTagName}
+            resolveTag={resolveTag}
+            dataMode={mode}
+            onChangeDataMode={setMode}
+          />
+        ) : null}
       </View>
 
       {/* 期間シート（月バー中央タップ）。記録タブと同じ部品（UI-SPEC §1.2） */}
@@ -448,10 +951,14 @@ export function DataScreen() {
         onClose={() => setShowPeriodSheet(false)}
       />
 
-      {/* ヘッダの「？」（UI-SPEC §5-9）。データタブも設定タブとは別スタックなので push しない */}
+      {/* ヘッダの「？」（UI-SPEC §5-9）。データタブも設定タブとは別スタックなので push しない。
+          **開く項目は見ているモードで変える** ── 3 つのモードは同じ画面に見えて、
+          読む対象も母集団も違う（実績は月バーも絞り込みも見ない）。どのモードでも
+          「グラフの見かた」を開くと、いま画面に出ていないものの説明が先頭に来る。
+          出す先はどれも同じ「データ」ページなので、チップを 1 つ横へずらせば他の 2 つも読める */}
       {showHelp && (
         <HelpSheet
-          entry="data"
+          entry={helpEntryForMode(mode)}
           onClose={() => setShowHelp(false)}
           onReadAll={() => router.push('/settings/help')}
         />
@@ -995,51 +1502,189 @@ function TapColumns({
   );
 }
 
+/** 選択した記録一覧アコーディオンの初期表示件数（labels.selectedRecordsShowMoreText と同じ考え方） */
+const SELECTED_RECORDS_INITIAL_COUNT = 3;
+
 /**
- * 選択した点の記録一覧（UI-SPEC §1.5-5）。
- * 行は記録タブと同じ RecordRow・同じカードの見た目にする（§6-11）── 同じレコードが
- * 画面によって違う形で出ると、どれが同じものか読み直すことになるため。
- * 対象は売却済みだけなので isSoldMode は常に true。
+ * 選択した点・タグの記録一覧を 1 枚のカードにまとめたアコーディオン。
+ * 棒タップ（SelectedPointList）・タグ別内訳（SelectedTagList）・タグ別純利益推移の内訳
+ * （SelectedTagChartTagList）の 3 経路が共有する（見出しの語だけが違うため title で渡す）。
+ *
+ * 行は記録タブと同じ RecordRow を使う（§6-11）── 同じレコードが画面によって違う形で出ると、
+ * どれが同じものか読み直すことになるため。対象は売却済みだけなので isSoldMode は常に true。
+ *
+ * **最初は先頭 3 件だけ見せる。** 件数の多い月・タグを選ぶとカードが際限なく伸びてグラフ本体が
+ * 遠くなるため、「達成した記録」アコーディオン（AchievementDetailModal）と同じ考え方で畳んでおく。
+ * カードの中の行は白（secondaryBackground）だと外側のカードと同化するので、`colors.background`
+ * （画面の地色）を敷いて 1 段沈める ── 記録タブ側の「白いカードが灰色の地に乗る」関係を
+ * カードの中でも保つため。
  */
+function SelectedRecordsCard({
+  title,
+  details,
+  strikeBadges,
+  onClear,
+  onPressRecord,
+}: {
+  title: string;
+  details: SaleRecord[];
+  strikeBadges: ReadonlyMap<string, Achievement>;
+  onClear: () => void;
+  onPressRecord: (record: SaleRecord) => void;
+}) {
+  const colors = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+
+  const visibleRecords = expanded ? details : details.slice(0, SELECTED_RECORDS_INITIAL_COUNT);
+  const hiddenCount = details.length - visibleRecords.length;
+
+  return (
+    <View style={[styles.selectedCard, { backgroundColor: colors.secondaryBackground }]}>
+      <View style={styles.selectedHeader}>
+        <Text style={[styles.selectedTitle, { color: colors.label }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Pressable
+          onPress={onClear}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={CLEAR_SELECTION_LABEL}
+          style={[styles.clearButton, { backgroundColor: colors.disabledBackground }]}>
+          <Ionicons name="close" size={14} color={colors.secondaryLabel} />
+        </Pressable>
+      </View>
+
+      {visibleRecords.map((record) => (
+        <Pressable
+          key={record.id}
+          style={[styles.rowCard, { backgroundColor: colors.background }]}
+          onPress={() => onPressRecord(record)}
+          accessibilityRole="button"
+          accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
+          <RecordRow
+            record={record}
+            isSoldMode
+            strikeAchievement={strikeBadges.get(record.id) ?? null}
+          />
+        </Pressable>
+      ))}
+
+      {hiddenCount > 0 && (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.showAllButton}>
+          <Text style={[styles.showAllText, { color: colors.blue }]}>
+            {selectedRecordsShowMoreText(hiddenCount)}
+          </Text>
+        </Pressable>
+      )}
+
+      {expanded && details.length > SELECTED_RECORDS_INITIAL_COUNT && (
+        <Pressable
+          onPress={() => setExpanded(false)}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.showAllButton}>
+          <Text style={[styles.showAllText, { color: colors.secondaryLabel }]}>
+            {SELECTED_RECORDS_COLLAPSE_LABEL}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/** 選択した点の記録一覧（UI-SPEC §1.5-5）。見出しの語を組んで SelectedRecordsCard に渡すだけ */
 function SelectedPointList({
   point,
   unit,
   details,
+  strikeBadges,
   onClear,
   onPressRecord,
 }: {
   point: AggregatedPoint;
   unit: ChartUnit;
   details: SaleRecord[];
+  strikeBadges: ReadonlyMap<string, Achievement>;
   onClear: () => void;
   onPressRecord: (record: SaleRecord) => void;
 }) {
-  const colors = useThemeColors();
-
+  const title = selectedPointTitle(formatPointDate(point.date, unit), point.recordCount);
   return (
-    <View style={styles.selectedList}>
-      <View style={styles.selectedHeader}>
-        <Text style={[styles.selectedTitle, { color: colors.label }]} numberOfLines={1}>
-          {selectedPointTitle(formatPointDate(point.date, unit), point.recordCount)}
-        </Text>
-        <Pressable onPress={onClear} hitSlop={8} accessibilityRole="button">
-          <Text style={[styles.clearSelection, { color: colors.blue }]}>
-            {CLEAR_SELECTION_LABEL}
-          </Text>
-        </Pressable>
-      </View>
+    // key で選択のたびに作り直す ── 前の点で開いた「すべて見る」が次の点にも残らないようにするため
+    <SelectedRecordsCard
+      key={title}
+      title={title}
+      details={details}
+      strikeBadges={strikeBadges}
+      onClear={onClear}
+      onPressRecord={onPressRecord}
+    />
+  );
+}
 
-      {details.map((record) => (
-        <Pressable
-          key={record.id}
-          style={[styles.rowCard, { backgroundColor: colors.secondaryBackground }]}
-          onPress={() => onPressRecord(record)}
-          accessibilityRole="button"
-          accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
-          <RecordRow record={record} isSoldMode />
-        </Pressable>
-      ))}
-    </View>
+/**
+ * タグ別利益ランキングの行タップで開く内訳一覧（SelectedPointList のタグ版）。
+ * 棒タップの内訳とまったく同じ見た目・同じ SelectedRecordsCard を使う（§6-11 と同じ考え方をタグにも適用）。
+ */
+function SelectedTagList({
+  tagName,
+  details,
+  strikeBadges,
+  onClear,
+  onPressRecord,
+}: {
+  tagName: string;
+  details: SaleRecord[];
+  strikeBadges: ReadonlyMap<string, Achievement>;
+  onClear: () => void;
+  onPressRecord: (record: SaleRecord) => void;
+}) {
+  const title = selectedTagTitle(tagName, details.length);
+  return (
+    <SelectedRecordsCard
+      key={title}
+      title={title}
+      details={details}
+      strikeBadges={strikeBadges}
+      onClear={onClear}
+      onPressRecord={onPressRecord}
+    />
+  );
+}
+
+/**
+ * 「タグ別純利益の推移」グラフの日付内訳、その行タップで開く記録一覧（SelectedTagList のタグ別
+ * 純利益推移版）。日付とタグ名の両方を主語にする（selectedTagChartTitle）。
+ */
+function SelectedTagChartTagList({
+  dateText,
+  tagName,
+  details,
+  strikeBadges,
+  onClear,
+  onPressRecord,
+}: {
+  dateText: string;
+  tagName: string;
+  details: SaleRecord[];
+  strikeBadges: ReadonlyMap<string, Achievement>;
+  onClear: () => void;
+  onPressRecord: (record: SaleRecord) => void;
+}) {
+  const title = selectedTagChartTitle(dateText, tagName, details.length);
+  return (
+    <SelectedRecordsCard
+      key={title}
+      title={title}
+      details={details}
+      strikeBadges={strikeBadges}
+      onClear={onClear}
+      onPressRecord={onPressRecord}
+    />
   );
 }
 
@@ -1164,12 +1809,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  selectedList: {
+  // 選択した記録一覧アコーディオン（SelectedRecordsCard）。chartCard / PeriodComparisonCard と
+  // 同じ「白いカードが灰色の地に乗る」見た目に揃える
+  selectedCard: {
+    padding: 16,
+    borderRadius: 12,
     gap: 10,
   },
   selectedHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -1178,15 +1827,30 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  clearSelection: {
-    fontSize: 14,
+  // タグ別純利益推移グラフの日付内訳（TagChartDaySummary.daySummaryClear）と同じ丸い「×」ボタン。
+  // 「選択を解除」の見た目をグラフ側の閉じ方と揃える
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  // 記録タブのリストの行と同じ形（UI-SPEC §6-11）
+  // 記録タブのリストの行と同じ形（UI-SPEC §6-11）。カードの中で 1 段沈める（selectedCard のコメント）
   rowCard: {
     paddingHorizontal: 14,
     // 記録タブと同じ行の高さにする（写真の枠 56pt ＋ 上下 13pt。SPEC-V5 §2.3）
     paddingVertical: 13,
     borderRadius: 12,
+  },
+  // 「すべて見る」/「閉じる」（達成した記録アコーディオンと同じ考え方）
+  showAllButton: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  showAllText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   note: {
     fontSize: 12,

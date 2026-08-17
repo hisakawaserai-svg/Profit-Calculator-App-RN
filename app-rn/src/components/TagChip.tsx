@@ -7,7 +7,7 @@
 // 色はここでは決めない ── 解決（resolvePresetTone。自由色も通る。SPEC-V7 §2）は logic の純粋関数で、
 // この部品は結果を描くだけ（PresetBadge と同じ分担）。
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { tagRemoveAccessibilityLabel } from '@/logic/labels';
 import { resolvePresetTone } from '@/logic/preset';
@@ -45,9 +45,17 @@ type Props = {
   onRemove?: () => void;
   /** 名前が空のときに薄く出す語（編集シートのプレビュー。§2.3-2） */
   namePlaceholder?: string;
+  /**
+   * 外から足す器の style。**用途は「置かれた場所で縮めるかどうか」だけ**（`flexShrink`）──
+   * チップの中身（色の点・字の大きさ・丸み）は場所で変えない（§2.3）ので、色や余白は渡さない。
+   *
+   * 既定では縮まない（RN の `flexShrink` は 0）。名前はもともと 1 行で省略される作りだが、
+   * **器が縮まなければ字も縮まず**、幅の足りない行では隣を押し出して外へはみ出す。
+   */
+  style?: StyleProp<ViewStyle>;
 };
 
-export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: Props) {
+export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder, style }: Props) {
   const colors = useThemeColors();
   const isActive = variant === 'active';
   // 青ベタの上では色の点が地に負けるので白に落とす。**色は識別の補助**（§0.1）なので、
@@ -71,6 +79,7 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder }: P
         },
         // 枠線のぶんだけ中身がずれないよう、枠を持たない側にも同じ幅の透明な枠を敷く
         variant !== 'unselected' && styles.borderless,
+        style,
       ]}>
       <View style={[styles.dot, { backgroundColor: dotColor }]} />
       <Text

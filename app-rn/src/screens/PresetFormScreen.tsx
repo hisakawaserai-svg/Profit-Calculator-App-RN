@@ -12,19 +12,20 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { ColorSwatchGrid } from '@/components/ColorSwatchGrid';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
+import { KeyboardSaveBar } from '@/components/KeyboardSaveBar';
 import { NumericField } from '@/components/NumericField';
 import { PackBuyFields, packBuyCardStyle } from '@/components/PackBuyFields';
+import { PresetBadgeInput } from '@/components/PresetBadge';
 import { PresetRow } from '@/components/PresetRow';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
@@ -34,14 +35,16 @@ import {
   createPreset,
   removePreset,
   updatePreset,
+  usePresetList,
 } from '@/db/usePresets';
 import {
   CANCEL_LABEL,
   DELETE_CONFIRM_TITLE,
   DELETE_LABEL,
-  PRESET_COLOR_FIELD_LABEL,
+  presetTypeLabel,
+  PRESET_INITIAL_EDITING_HINT,
   PRESET_INITIAL_FIELD_LABEL,
-  PRESET_INITIAL_NOTE,
+  PRESET_INITIAL_HINT,
   PRESET_NAME_FIELD_LABEL,
   PRESET_PRICE_MODE_LABEL,
   PRESET_PRICE_MODE_OPTIONS,
@@ -64,7 +67,6 @@ import {
   packBuyTarget,
   presetColorValue,
   presetDraftUnitPrice,
-  presetInitial,
   validatePreset,
 } from '@/logic/preset';
 import { shippingPresetTotal } from '@/logic/shippingMaterial';
@@ -81,11 +83,29 @@ export function PresetFormScreen({ type, preset }: Props) {
   const router = useRouter();
   const isNew = preset == null;
 
+  /**
+   * 同じ種類の他のプリセット。**色を 2 群に分けるためだけに引く**（設計案 50c）。
+   *
+   * **種類ごとに数える**（`usePresetList` は type で絞っている）── 送料で赤が使われていても、
+   * 梱包材の編集画面では赤はまだ使っていない色。3 種は別々の一覧として選ばれるので、
+   * 色が重なって困るのも同じ種類の中だけ。
+   *
+   * 自分自身は外す ── 編集で開いた行の色は「使用中」ではなく、上の群の先頭に残す（`ownColor`）。
+   */
+  const { presets } = usePresetList(type);
+  const usedBy = presets
+    .filter((other) => other.id !== preset?.id)
+    .map((other) => ({ colorKey: other.colorKey, name: other.name }));
+
   const [name, setName] = useState(preset?.name ?? '');
   // 数値は文字列で持つ（NumericField / validatePreset がどちらも文字列で扱う）。
   // 0 を「0」と出すのは、既定値 0 のプリセットを開いたときに欄が空に見えないようにするため
   const [value, setValue] = useState(preset == null ? '' : String(preset.value));
   const [initial, setInitial] = useState(preset?.initial ?? '');
+  /** バッジにカーソルが立っているか（設計案 49c。下の 1 行の文言だけが変わる） */
+  const [editingInitial, setEditingInitial] = useState(false);
+  /** ヘッダの「？」（UI-SPEC §5-9）。バッジをタップで直せること（49c）を開いた状態で出す */
+  const [showHelp, setShowHelp] = useState(false);
   // 「金額の入れ方」（§2.6.2）。列は持たず、開くときは packQuantity > 0 から復元する（§2.6.4）
   const [packBuy, setPackBuy] = useState(preset != null && isPackBuy(preset));
   // 空 = 未入力。0 を「0」と出さないのは、入数の 0 が「1 個ずつ」の意味を兼ねているため
@@ -223,35 +243,50 @@ export function PresetFormScreen({ type, preset }: Props) {
 
   return (
     <>
+      {/* 保存は画面下端に移した（設計案 49c）ので、ヘッダに**操作の口は**足さない ──
+          同じ操作の口を上下 2 か所に出さない。
+          右上に置くのは「？」だけ（UI-SPEC §5-9）── 読み物への入口は操作ではないので、
+          下端の保存と役割がぶつからない */}
       <Stack.Screen
         options={{
           title: presetFormTitle(type, isNew),
-          headerRight: () => (
-            <Pressable
-              onPress={save}
-              disabled={!validation.valid}
-              hitSlop={8}
-              accessibilityRole="button">
-              <Text
-                style={[
-                  styles.saveButton,
-                  { color: validation.valid ? colors.blue : colors.disabledContent },
-                ]}>
-                {SAVE_LABEL}
-              </Text>
-            </Pressable>
-          ),
+          headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
         }}
       />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.flex, { backgroundColor: colors.background }]}>
         <ScrollView
-          style={{ backgroundColor: colors.background }}
+          style={styles.flex}
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled">
-          {/* §3.3-2: 選択シートに出るのと同じ形のプレビュー。指定を常に反映する */}
+          keyboardShouldPersistTaps="handled"
+          // 鍵盤が出たぶんだけ中身を上へ逃がす（iOS）。KeyboardAvoidingView をやめたのは、
+          // 下端の保存ボタンが器の中にあると、器ごと押し上げられて帯が浮いてしまうため
+          automaticallyAdjustKeyboardInsets>
+          {/* §3.3-2 / 設計案 49c: プレビューの帯。**バッジそのものが入力欄**で、
+              専用の「バッジの文字」カードは廃した ── 文字と色が同じ場所で決まる。
+              下に続く 1 行（PresetRow）は選択シートに出るのと同じ形で、
+              打った文字がその大きさでどう出るかを同じカードの中で見せる */}
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+            <View style={styles.badgeRow}>
+              <PresetBadgeInput
+                preset={{ name, initial, colorKey: color }}
+                onChangeText={setInitial}
+                onFocus={() => setEditingInitial(true)}
+                // 切るのは**欄を離れたときだけ**（§1.2）。打っている最中は数えない
+                onBlur={() => {
+                  setEditingInitial(false);
+                  setInitial(clampPresetInitial);
+                }}
+              />
+              <View style={styles.badgeCaption}>
+                <Text style={[styles.badgeLabel, { color: colors.label }]}>
+                  {PRESET_INITIAL_FIELD_LABEL}
+                </Text>
+                <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+                  {editingInitial ? PRESET_INITIAL_EDITING_HINT : PRESET_INITIAL_HINT}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.previewSeparator, { backgroundColor: colors.separator }]} />
             <PresetRow preset={preview} namePlaceholder={PRESET_NAME_FIELD_LABEL} />
           </View>
 
@@ -396,41 +431,19 @@ export function PresetFormScreen({ type, preset }: Props) {
             </>
           )}
 
+          {/* SPEC-V7 §3 / 設計案 50c: 色を「まだ使っていない色」と「使用中」の 2 群に分ける。
+              見出しは部品の側が持つので、ここでカードのラベルを重ねない
+              （「バッジの色」と「まだ使っていない色」が 2 段になる） */}
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
-              {PRESET_COLOR_FIELD_LABEL}
-            </Text>
-            <ColorSwatchGrid value={color} onChange={setColor} />
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
-              {PRESET_INITIAL_FIELD_LABEL}
-            </Text>
-            <TextInput
-              style={[
-                styles.initialInput,
-                { color: colors.label, borderColor: colors.separator },
-              ]}
-              value={initial}
-              // 打っている最中は数えない（§1.2）。日本語入力は「ふうとう」と打ってから
-              // 「封筒」に変換するので、onChangeText で 2 文字に切ると 3 文字目が入らず
-              // 変換に辿り着けない（maxLength を使っても同じ ── 変換中の文字も数えられる）。
-              //
-              // React Native は変換中かどうかを JS に出さない（iOS の markedTextRange も
-              // Android の composing span もネイティブ内部で完結していて、対応するイベントがない）。
-              // 変換が確定していることを確実に言えるのは欄を離れたときなので、そこで数える。
-              onChangeText={setInitial}
-              // 確定後の文字数で打ち止める（§1.2）。書記素で数える純粋関数を通す
-              onBlur={() => setInitial(clampPresetInitial)}
-              // 未入力でも何が出るか分かるよう、名前から導出した文字を薄く出す（§3.3-5）
-              placeholder={presetInitial({ name, initial: '' })}
-              placeholderTextColor={colors.mutedLabel}
-              accessibilityLabel={PRESET_INITIAL_FIELD_LABEL}
+            <ColorSwatchGrid
+              value={color}
+              onChange={setColor}
+              usedBy={usedBy}
+              // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
+              // その色が上の群へ移ってしまわないように
+              ownColor={preset?.colorKey}
+              entityLabel={presetTypeLabel(type)}
             />
-            <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              {PRESET_INITIAL_NOTE}
-            </Text>
           </View>
 
           {!isNew && (
@@ -450,8 +463,19 @@ export function PresetFormScreen({ type, preset }: Props) {
             </Pressable>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
 
+        {/* 設計案 49c: 保存は画面下端（タブバーの直上）。鍵盤が出ている間はその上に貼り付く */}
+        <KeyboardSaveBar label={SAVE_LABEL} onPress={save} enabled={validation.valid} />
+      </View>
+
+      {/* この画面は設定タブの中なので、「最初から読む」で使いかた全体へ push できる */}
+      {showHelp && (
+        <HelpSheet
+          entry="presetForm"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }
@@ -462,8 +486,28 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 40,
+    // 下端の保存の帯（約 74pt）に最後のカードが潜らないだけの余白
+    paddingBottom: 24,
     gap: 16,
+  },
+  // プレビュー帯の 1 段目（設計案 49c）。大きなバッジ ＋ その説明
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  badgeCaption: {
+    flexShrink: 1,
+    gap: 2,
+  },
+  badgeLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  // 帯（打つところ）と、実物と同じ形の 1 行を仕切る
+  previewSeparator: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 4,
   },
   card: {
     paddingHorizontal: 16,
@@ -518,25 +562,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
-  initialInput: {
-    borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 16,
-    // 2 文字しか入らない欄なので、幅も 2 文字ぶんに留める（横いっぱいだと長文を誘う）
-    width: 96,
-  },
   blockedNote: {
     fontSize: 12,
   },
   note: {
     fontSize: 12,
     lineHeight: 18,
-  },
-  saveButton: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   deleteRow: {
     alignItems: 'center',

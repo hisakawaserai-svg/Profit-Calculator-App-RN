@@ -5,6 +5,7 @@ import { openDatabaseSync } from 'expo-sqlite';
 
 import migrations from '../../drizzle/migrations';
 import { photoStore } from '../media/expoPhotoFiles';
+import { createBackupRepository } from './backup';
 import { createPresetRepository } from './presets';
 import { createRepository } from './repository';
 import * as schema from './schema';
@@ -37,6 +38,16 @@ export const presetRepository = createPresetRepository(db, { generateId: randomU
  * 同じ DB に同居する（§1.6）ので、マイグレーションは initDatabase の 1 回で足りる。
  */
 export const tagRepository = createTagRepository(db, { generateId: randomUUID });
+
+/**
+ * バックアップと復元（SPEC-V8 §3.4）の入口。**他の 3 つとは別に持つ。**
+ *
+ * 復元は 4 テーブルを 1 つのトランザクションで全置換するので、
+ * 1 件ずつトランザクションを張る上の 3 つとは呼び方が根本的に違う
+ * （入れ子にできない。db/backup.ts の冒頭を参照）。id も採番しないので
+ * generateId を渡さない ── 復元は同じ id を書き戻すことだから。
+ */
+export const backupRepository = createBackupRepository(db);
 
 let initPromise: Promise<void> | null = null;
 

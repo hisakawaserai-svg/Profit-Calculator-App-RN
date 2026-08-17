@@ -249,7 +249,7 @@ struct SaleStatusToggleCard: View {
                 }
             ))
             .labelsHidden() // ラベルは左側のLabelビューで出しているので隠す
-            .toggleStyle(SwitchToggleStyle(tint: .orange)) // メルカリ風のオレンジ
+            .toggleStyle(SwitchToggleStyle(tint: .orange)) // フリマアプリらしいオレンジ
         }
         .padding()
         .background(Color.platformSecondaryBackground)

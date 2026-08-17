@@ -61,6 +61,31 @@ export const saleRecords = sqliteTable('sale_records', {
   excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean' })
     .notNull()
     .default(false),
+  /**
+   * 目標利益（SPEC-V9 §1）。**null = 「目標を決めていない」。**
+   *
+   * **0 を「決めていない」の代わりに使わない。** 0 は「目標は 0 円（＝赤字にならなければよい）」
+   * という立派な目標で、決めていない状態とは別のもの ── 値下げ可能額を出すときに
+   * 「あと 300 円下げられる」と「そもそも下げ幅を言えない」を取り違えると、
+   * 決めていない人に根拠のない下げ幅を見せることになる。
+   * だから photo_file_name と同じく**この列も NULL 許容**で、他の金額列
+   * （NOT NULL DEFAULT 0）の方針には乗せない。
+   *
+   * **整数**（real ではない）── 目標は人が決める切りのいい額で、
+   * 端数を持つ意味がない。計算に入るのは「この額に届く最低販売価格」の右辺だけ。
+   *
+   * **アプリ全体の既定値は持たない**（設定タブに欄を作らない）。新規の記録は常に null で始まる。
+   */
+  targetProfit: integer('target_profit'),
+  /**
+   * 出品日（SPEC-V9 §1）。**列だけ確保してある。今回は読み書きしない。**
+   *
+   * sale_start_date が既に「出品日」の役割を持っているが、そちらは記録を作った日で
+   * 埋まることが多い ── 将来「実際に出品した日」を別に持てるようにするための場所。
+   * ALTER TABLE を 1 回で済ませられるうちに足しておくためだけの列なので、
+   * **UI も計算式も CSV の読み書き以外の経路も無い**（バックアップの往復だけは通す）。
+   */
+  listedAt: text('listed_at'),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),

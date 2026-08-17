@@ -1,5 +1,5 @@
 // SPEC-V3 §5 / SPEC-V4 §5 の CSV 組み立ての単体テスト:
-//   - 2 種類の列（データ保存用 18 列 / 確定申告用 11 列）と、タグ・メモの出し分け
+//   - 2 種類の列（データ保存用 19 列 / 確定申告用 11 列）と、タグ・メモの出し分け
 //   - RFC 4180 のエスケープ（カンマ・引用符・改行）
 //   - 桁区切りなしの素の数値（表計算が数値として読めること）
 //   - 日ごとにまとめたときの合算と、**丸めが列ごとに 1 回だけ**であること
@@ -9,7 +9,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SaleRecord } from '@/db/schema';
-import { ENVELOPE_COST_LABEL, POSTAGE_LABEL } from '@/logic/labels';
+import {
+  COMMISSION_RATE_COLUMN,
+  ENVELOPE_COST_LABEL,
+  MEMO_LABEL,
+  POSTAGE_LABEL,
+  TAG_LABEL,
+} from '@/logic/labels';
 
 import {
   buildCsv,
@@ -41,6 +47,9 @@ const record = (over: Partial<SaleRecord> = {}): SaleRecord => ({
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 目標利益（SPEC-V9 §1）。既定は「決めていない」= null。listed_at はまだ読み書きしない
+  targetProfit: null,
+  listedAt: null,
   ...over,
 });
 
@@ -52,11 +61,19 @@ function dataRows(csv: string): string[][] {
 }
 
 describe('§5.3 列: 種類ごとに列が変わる', () => {
-  it('データ保存用は 18 列で、先頭 3 列が 販売日 / 商品名 / 販売価格（§5.2 の固定）', () => {
+  it('データ保存用は 19 列で、先頭 3 列が 販売日 / 商品名 / 販売価格（§5.2 の固定）', () => {
     const columns = csvColumns('backup');
-    expect(columns).toHaveLength(18);
+    expect(columns).toHaveLength(19);
     expect(columns.slice(0, 3)).toEqual(['販売日', '商品名', '販売価格']);
     expect(columns.at(-1)).toBe('記録ID');
+  });
+
+  it('目標利益は収支の直後（SPEC-V9 §3）。確定申告用には足さない', () => {
+    const backup = csvColumns('backup');
+
+    expect(backup[backup.indexOf('収支') + 1]).toBe('目標利益');
+    expect(csvColumns('tax')).not.toContain('目標利益');
+    expect(csvColumns('tax')).toHaveLength(11);
   });
 
   it('確定申告用は 11 列。帳簿の並び（年月日 → 相手方 → 内容）で始まる', () => {
@@ -88,7 +105,7 @@ describe('§5.3 列: 種類ごとに列が変わる', () => {
 });
 
 describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
-  it('データ保存用は 18 列すべてを埋める（タグは「・」区切り。SPEC-V4 §5.2）', () => {
+  it('データ保存用は 19 列すべてを埋める（タグは「・」区切り。SPEC-V4 §5.2）', () => {
     const csv = buildCsv({
       kind: 'backup',
       grouping: 'record',
@@ -100,8 +117,9 @@ describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
           envelopeCost: 8,
           othersCost: 12,
           commission: 10,
-          siteName: 'メルカリ',
+          siteName: 'フリマA',
           kind: 'sourced',
+          targetProfit: 400,
         }),
       ],
       tagsByRecord: new Map([['r1', ['洋服', '春夏物']]]),
@@ -118,8 +136,9 @@ describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
       '12',
       '495', // 経費合計 = 200 + 175 + 100 + 8 + 12
       '505', // 収支 = 1000 − 495
+      '400', // 目標利益（SPEC-V9 §3）。収支の直後
       '10', // 手数料率(%)
-      'メルカリ',
+      'フリマA',
       '仕入品',
       '洋服・春夏物',
       '売れた',
@@ -134,13 +153,13 @@ describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
       kind: 'tax',
       grouping: 'record',
       records: [
-        record({ salesPrice: 1000, postage: 175, envelopeCost: 8, commission: 10, siteName: 'メルカリ' }),
+        record({ salesPrice: 1000, postage: 175, envelopeCost: 8, commission: 10, siteName: 'フリマA' }),
       ],
     });
 
     expect(dataRows(csv)[0]).toEqual([
       '2026-08-09',
-      'メルカリ',
+      'フリマA',
       'えんぴつ',
       '不用品',
       '1000',
@@ -162,9 +181,27 @@ describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
     expect(dataRows(csv)[0][0]).toBe('');
   });
 
+  it('目標を決めていない記録の目標利益は空文字（0 とは書かない。SPEC-V9 §3）', () => {
+    const index = csvColumns('backup').indexOf('目標利益');
+    const unset = buildCsv({
+      kind: 'backup',
+      grouping: 'record',
+      records: [record({ targetProfit: null })],
+    });
+    // 「目標 0 円」は 0 と書く ── 空欄と書き分かれることがこの列の要点
+    const zero = buildCsv({
+      kind: 'backup',
+      grouping: 'record',
+      records: [record({ targetProfit: 0 })],
+    });
+
+    expect(dataRows(unset)[0][index]).toBe('');
+    expect(dataRows(zero)[0][index]).toBe('0');
+  });
+
   it('タグが 1 件も付いていない記録は空文字（SPEC-V4 §5.2）', () => {
     const csv = buildCsv({ kind: 'backup', grouping: 'record', records: [record()] });
-    expect(dataRows(csv)[0][13]).toBe('');
+    expect(dataRows(csv)[0][csvColumns('backup').indexOf(TAG_LABEL)]).toBe('');
   });
 });
 
@@ -185,7 +222,7 @@ describe('§5.4 書式', () => {
       grouping: 'record',
       records: [record({ commission: 10.5 })],
     });
-    expect(dataRows(csv)[0][10]).toBe('10.5');
+    expect(dataRows(csv)[0][csvColumns('backup').indexOf(COMMISSION_RATE_COLUMN)]).toBe('10.5');
   });
 
   it('改行は CRLF で、末尾にも 1 つ置く', () => {
@@ -316,21 +353,21 @@ describe('§5.2.2 日ごとにまとめる', () => {
       kind: 'tax',
       grouping: 'day',
       records: [
-        record({ id: 'a', siteName: 'メルカリ' }),
-        record({ id: 'b', siteName: 'メルカリ' }),
+        record({ id: 'a', siteName: 'フリマA' }),
+        record({ id: 'b', siteName: 'フリマA' }),
       ],
     });
-    expect(dataRows(oneSite)[0][1]).toBe('メルカリ');
+    expect(dataRows(oneSite)[0][1]).toBe('フリマA');
 
     const twoSites = buildCsv({
       kind: 'tax',
       grouping: 'day',
       records: [
-        record({ id: 'a', siteName: 'メルカリ' }),
-        record({ id: 'b', siteName: 'ラクマ' }),
+        record({ id: 'a', siteName: 'フリマA' }),
+        record({ id: 'b', siteName: 'フリマB' }),
       ],
     });
-    expect(dataRows(twoSites)[0][1]).toBe('メルカリ ほか1件');
+    expect(dataRows(twoSites)[0][1]).toBe('フリマA ほか1件');
   });
 
   it('販売サイトが未設定だけの日は空文字（語を足さない）', () => {
@@ -414,7 +451,7 @@ describe('§5.7 行数の予告', () => {
 
 describe('§5.9 プレビューと書き出しが同じデータを見る（案 40a / 40c）', () => {
   const records = [
-    record({ id: 'a', itemName: 'えんぴつ,2本', memo: '傷あり\n値下げ済み', siteName: 'メルカリ' }),
+    record({ id: 'a', itemName: 'えんぴつ,2本', memo: '傷あり\n値下げ済み', siteName: 'フリマA' }),
     record({ id: 'b', itemName: 'ノート', saleDate: '2026-08-10T09:00:00.000' }),
     record({ id: 'c', itemName: '定規', saleDate: '2026-08-11T09:00:00.000' }),
     record({ id: 'd', itemName: '消しゴム', saleDate: '2026-08-12T09:00:00.000' }),
@@ -438,7 +475,7 @@ describe('§5.9 プレビューと書き出しが同じデータを見る（案 
     const table = buildCsvTable(params);
 
     expect(table.rows[0][1]).toBe('えんぴつ,2本');
-    expect(table.rows[0][16]).toBe('傷あり\n値下げ済み');
+    expect(table.rows[0][table.header.indexOf(MEMO_LABEL)]).toBe('傷あり\n値下げ済み');
     // ファイル側は同じ値を引用して書く
     expect(buildCsv(params)).toContain('"えんぴつ,2本"');
   });
@@ -530,7 +567,7 @@ describe('SPEC-V6 §4 送料に含まれる専用資材の代金', () => {
     const postageIndex = backup.header.indexOf(POSTAGE_LABEL);
 
     expect(backup.rows[0][postageIndex]).toBe('450');
-    // 控えそのものの列は無い（18 列のまま）
-    expect(backup.header).toHaveLength(18);
+    // 控えそのものの列は無い（目標利益を足した 19 列のまま）
+    expect(backup.header).toHaveLength(19);
   });
 });

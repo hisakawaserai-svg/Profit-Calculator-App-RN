@@ -11,6 +11,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { PresetType } from '@/db/schema';
 import { presetValueText, shippingMaterialRowNote } from '@/logic/labels';
+import { presetRowAmount } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
 import { PresetBadge } from './PresetBadge';
@@ -55,35 +56,51 @@ export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Pro
   const colors = useThemeColors();
   const isPlaceholder = preset.name.length === 0 && namePlaceholder != null;
   const materialCost = preset.materialCost ?? 0;
-  // 資材費のある送料プリセットだけ、名前の下に「選ぶと入る額」を小さく足す（SPEC-V6 §1）──
-  // 右端の金額（送料）だけを見て選ぶと、記録に入る額と食い違う
-  const materialNote =
-    preset.type === 'shipping' && materialCost > 0
-      ? shippingMaterialRowNote(materialCost, preset.value + materialCost)
-      : null;
+  const hasMaterial = preset.type === 'shipping' && materialCost > 0;
+  /**
+   * 右端に出す額。**資材費のある送料プリセットは合計**（SPEC-V6 §1）──
+   * 選ぶと記録に入るのがこの額で、一覧・選択シート・欄の 3 つで主役の数字を揃える。
+   * 登録した送料そのものは、下の 1 行に内訳として残る。
+   */
+  const shownValue = presetRowAmount(preset);
+  // 資材費のある送料プリセットだけ、名前の下に内訳を小さく足す（SPEC-V6 §1）──
+  // 合計だけを出すと「何と何を足した額なのか」が行から読めない
+  const materialNote = hasMaterial
+    ? shippingMaterialRowNote(preset.value, materialCost)
+    : null;
 
   return (
     <View style={styles.row}>
       <PresetBadge preset={preset} />
-      {/* バッジの右は 1 つの列。**名前と額は必ず同じ行**で、下に積むもの（資材費の 1 行・
-          45b の 2 択）はその下に来る ── 下に積むものがあっても、額と ✓ の位置は動かない */}
+      {/* バッジの右は 1 つの列。**額と ✓ は「名前 ＋ 資材費の 1 行」に対して縦中央**で、
+          45b の 2 択だけがその下に来る。
+          2 つの「下に積むもの」で扱いを分けているのは、**現れ方が違うから**:
+          - 資材費の 1 行は行の持ち物（materialCost > 0 なら常にある）。出たり消えたりしないので、
+            額をその 2 段の中央に置いても位置が動くことがない ── 上に貼り付いていると、
+            2 段の行だけ額が浮いて見える
+          - 45b の 2 択は**押すと現れる**（PresetPickerSheet）。額と ✓ をその高さまで含めて
+            中央に取ると、選んだ瞬間に額が下へずれる。だから 2 択は line の外に出す */}
       <View style={styles.body}>
         <View style={styles.line}>
-          <Text
-            style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
-            numberOfLines={1}>
-            {isPlaceholder ? namePlaceholder : preset.name}
-          </Text>
+          <View style={styles.nameBlock}>
+            <Text
+              style={[styles.name, { color: isPlaceholder ? colors.mutedLabel : colors.label }]}
+              numberOfLines={1}>
+              {isPlaceholder ? namePlaceholder : preset.name}
+            </Text>
+            {materialNote != null && (
+              <Text
+                style={[styles.materialNote, { color: colors.secondaryLabel }]}
+                numberOfLines={1}>
+                {materialNote}
+              </Text>
+            )}
+          </View>
           <Text style={[styles.value, { color: colors.secondaryLabel }]} numberOfLines={1}>
-            {presetValueText(preset.type, preset.value)}
+            {presetValueText(preset.type, shownValue)}
           </Text>
           {accessory}
         </View>
-        {materialNote != null && (
-          <Text style={[styles.materialNote, { color: colors.secondaryLabel }]} numberOfLines={1}>
-            {materialNote}
-          </Text>
-        )}
         {belowName}
       </View>
     </View>
@@ -98,7 +115,7 @@ const styles = StyleSheet.create({
     minHeight: ROW_HEIGHT,
     paddingVertical: 4,
   },
-  // 名前・額の行と、その下に積むものの列。行の高さは下に積むものがある行だけ伸びる
+  // 名前・額の行と、その下に積む 45b の 2 択の列。行の高さは 2 択がある行だけ伸びる
   body: {
     flex: 1,
     gap: 8,
@@ -108,8 +125,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  name: {
+  // 名前と資材費の 1 行。**額はこの塊に対して中央**に来る（line の alignItems）
+  nameBlock: {
     flex: 1,
+    gap: 8,
+  },
+  name: {
     fontSize: 16,
   },
   materialNote: {

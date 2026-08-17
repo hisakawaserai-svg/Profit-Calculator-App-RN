@@ -145,7 +145,7 @@ export type CostBreakdown = {
   commissionAmount: number;
   /** 手数料以外の経費の合計 */
   expenses: number;
-  /** 帯に出す項目。先頭が kept、次に販売手数料、そのあと経費 */
+  /** 帯に出す項目。入力順（仕入 → 送料 → 販売手数料 → 梱包材・その他）、最後に kept */
   parts: BreakdownPart[];
 };
 
@@ -183,17 +183,28 @@ export type RequiredPriceResult = CostBreakdown & {
 };
 
 /**
- * 経費 4 項目の並び。帯・一覧・式のすべてでこの順に出す。
+ * 経費 4 項目の並び。帯・一覧・式のすべてでこの順に出す（手数料はこの間の postage の次に挟む）。
  * 内訳（§1.1-3a）と違って梱包材とその他をまとめないのは、帯の区画と一覧の行を
  * 1 対 1 で対応させるため（まとめると色 1 つに 2 つの入力欄がぶら下がる）。
+ *
+ * 入力欄の並び（仕入 → 送料 → 手数料 → 梱包材・その他）と揃える。
+ * 記録詳細の帯（recordBreakdown）・ミニ帯グラフ（MINI_BAR_ORDER）と同じ「入力順」で、
+ * 利益（kept）だけが最後に来る。
  */
-const EXPENSE_PARTS: {
+const EXPENSE_PARTS_BEFORE_COMMISSION: {
   key: BreakdownPartKey;
   label: string;
   of: (costs: CostInput) => number;
 }[] = [
   { key: 'purchasePrice', label: PURCHASE_PRICE_LABEL, of: (costs) => costs.purchasePrice },
   { key: 'postage', label: POSTAGE_LABEL, of: (costs) => costs.postage },
+];
+
+const EXPENSE_PARTS_AFTER_COMMISSION: {
+  key: BreakdownPartKey;
+  label: string;
+  of: (costs: CostInput) => number;
+}[] = [
   { key: 'envelopeCost', label: ENVELOPE_COST_LABEL, of: (costs) => costs.envelopeCost },
   { key: 'othersCost', label: OTHERS_COST_LABEL, of: (costs) => costs.othersCost },
 ];
@@ -235,13 +246,20 @@ export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown
   const salesPrice = roundForDisplay(costs.salesPrice);
   const commissionAmount = roundForDisplay(commissionCost(costs));
 
-  const expenseParts = EXPENSE_PARTS
-    // 不用品は仕入価格を帯・一覧・式のどこにも出さない（SPEC-V2 §1.3）。toCostInput で 0 なので
-    // 0 円の項として落としても結果は同じだが、種別の意味として出さないことを明示する
-    .filter((part) => part.key !== 'purchasePrice' || kind === 'sourced')
-    .map((part) => ({ key: part.key, label: part.label, amount: roundForDisplay(part.of(costs)) }))
-    // 0 円の項は帯にも一覧にも出さない（「送料 0 円」は根拠の説明にならない）
-    .filter((part) => part.amount !== 0);
+  const buildExpenseParts = (
+    definitions: { key: BreakdownPartKey; label: string; of: (costs: CostInput) => number }[],
+  ) =>
+    definitions
+      // 不用品は仕入価格を帯・一覧・式のどこにも出さない（SPEC-V2 §1.3）。toCostInput で 0 なので
+      // 0 円の項として落としても結果は同じだが、種別の意味として出さないことを明示する
+      .filter((part) => part.key !== 'purchasePrice' || kind === 'sourced')
+      .map((part) => ({ key: part.key, label: part.label, amount: roundForDisplay(part.of(costs)) }))
+      // 0 円の項は帯にも一覧にも出さない（「送料 0 円」は根拠の説明にならない）
+      .filter((part) => part.amount !== 0);
+
+  const expensePartsBeforeCommission = buildExpenseParts(EXPENSE_PARTS_BEFORE_COMMISSION);
+  const expensePartsAfterCommission = buildExpenseParts(EXPENSE_PARTS_AFTER_COMMISSION);
+  const expenseParts = [...expensePartsBeforeCommission, ...expensePartsAfterCommission];
 
   const expenses = expenseParts.reduce((sum, part) => sum + part.amount, 0);
   const deducted = commissionAmount + expenses;
@@ -253,8 +271,7 @@ export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown
     commissionAmount,
     expenses,
     parts: [
-      // 手元は 0 円でも必ず出す。この画面の主語なので、消えると帯の緑が何だったのか読めなくなる
-      { key: 'kept', label: KEPT_LABEL, amount: salesPrice - deducted },
+      ...expensePartsBeforeCommission,
       ...(commissionAmount !== 0
         ? [
             {
@@ -264,7 +281,9 @@ export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown
             },
           ]
         : []),
-      ...expenseParts,
+      ...expensePartsAfterCommission,
+      // 手元は 0 円でも必ず出す。この画面の主語なので、消えると帯の緑が何だったのか読めなくなる
+      { key: 'kept', label: KEPT_LABEL, amount: salesPrice - deducted },
     ],
   };
 }
@@ -336,12 +355,20 @@ function lowerPriceExample(
  * @param salesPrice 画面の販売価格欄に出ている値。逆算モードでは入力値ではなく逆算結果に
  *   なるので、呼び出し側がモードを解決して渡す。欄に 439 と出ているのに 0 が記録される、
  *   という食い違いを型で防ぐために省略できない引数にしてある。
+ * @param targetProfit 逆算モードの目標額（SPEC-V9 §5.3）。**salesPrice と同じ理由で
+ *   呼び出し側がモードを解決して渡す** ── values.targetProfit はモードを戻しても残るので、
+ *   「利益を出す」モードのまま記録すると、画面のどこにも出ていない目標が付いてしまう。
+ *   逆算モード以外では空文字（＝決めていない）を渡す。
  */
 export function toInitialAmounts(
   values: CalcFormValues,
   salesPrice: string,
+  targetProfit: string,
 ): InitialAmounts {
   return {
+    // 記録フォームの目標欄の初期値。欄に見える状態で渡すだけで、保存されるのは
+    // フォームで「保存」を押したとき（書き換えたならその値）
+    targetProfit,
     kind: values.kind,
     salesPrice,
     // 不用品では欄を出していないので、入力が残っていてもフォームには渡さない

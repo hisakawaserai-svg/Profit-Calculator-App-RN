@@ -122,8 +122,8 @@ describe('formatYenSymbol — 「¥12,685」（区切りあり）', () => {
     expect(formatYenSymbol(980)).toBe('¥980');
   });
 
-  it('負の値も壊れない（純利益はマイナスになり得る。§2.3）', () => {
-    expect(formatYenSymbol(-12685)).toBe('¥-12,685');
+  it('**負の値は負号を ¥ の前に出す**（純利益はマイナスになり得る。§2.3。¥ の直後に負号を置く「¥-12,685」にはしない ── 一覧の行・グラフカード・帯グラフの符号つき表記と順序を揃えるため）', () => {
+    expect(formatYenSymbol(-12685)).toBe('-¥12,685');
   });
 
   it('丸めの規則は変わっていない ── roundForDisplay を通した値に区切りを入れるだけ', () => {
@@ -133,12 +133,14 @@ describe('formatYenSymbol — 「¥12,685」（区切りあり）', () => {
     expect(formatYenSymbol(0.4)).toBe('¥0');
     expect(formatYenSymbol(0.5)).toBe('¥1');
     expect(formatYenSymbol(-0.5)).toBe('¥0'); // Math.round(-0.5) = -0
-    expect(formatYenSymbol(-1234.5)).toBe('¥-1,234'); // Math.round(-1234.5) = -1234
+    expect(formatYenSymbol(-1234.5)).toBe('-¥1,234'); // Math.round(-1234.5) = -1234
   });
 
   it('丸めた結果に小数は残らない（区切りは整数に入る）', () => {
     for (const value of [1234.49, 99999.99, -55555.55]) {
-      expect(formatYenSymbol(value)).toBe(`¥${groupDigits(roundForDisplay(value))}`);
+      const rounded = roundForDisplay(value);
+      const expected = rounded < 0 ? `-¥${groupDigits(Math.abs(rounded))}` : `¥${groupDigits(rounded)}`;
+      expect(formatYenSymbol(value)).toBe(expected);
       expect(formatYenSymbol(value)).not.toContain('.');
     }
   });

@@ -276,6 +276,8 @@ describe('§1.5.1 repository: site_name の保存と取得', () => {
     photoFileName: null,
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    // 目標は既定で「決めていない」（SPEC-V9 §1）
+    targetProfit: null,
     tagIds: [],
   };
 
@@ -343,6 +345,8 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
     photoFileName: null,
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    // 目標は既定で「決めていない」（SPEC-V9 §1）
+    targetProfit: null,
     tagIds: [],
   };
 
@@ -690,7 +694,10 @@ describe('SPEC-V7 §2.1 マイグレーション: 色キー → hex（0007 / 000
         `INSERT INTO tags (id, name, color_key, sort_order) VALUES ('t1', '洋服', 'green', 1)`,
       )
       .run();
-    for (const entry of journal.entries.slice(7)) {
+    // 流すのは 0007 / 0008 の 2 つだけ（この節の主題）。先まで流さないのは、
+    // 下の「二重に流しても」が同じ範囲をもう一度流すため ── ALTER TABLE を含む
+    // マイグレーション（0009）は 2 度流せない（列が既にある）
+    for (const entry of journal.entries.slice(7, 9)) {
       for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
     }
     return sqlite;
@@ -739,7 +746,7 @@ describe('SPEC-V7 §2.1 マイグレーション: 色キー → hex（0007 / 000
 
   it('二重に流しても hex は書き換わらない（すでに # で始まる行は対象外）', () => {
     const sqlite = migrateWithRows();
-    for (const entry of journal.entries.slice(7)) {
+    for (const entry of journal.entries.slice(7, 9)) {
       for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
     }
 

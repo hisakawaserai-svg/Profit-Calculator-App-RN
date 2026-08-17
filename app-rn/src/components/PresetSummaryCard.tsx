@@ -19,6 +19,7 @@ import {
   presetTypeLabel,
   presetValueText,
 } from '@/logic/labels';
+import { presetRowAmount } from '@/logic/shippingMaterial';
 import { useThemeColors } from '@/theme';
 
 import { PresetBadge } from './PresetBadge';
@@ -75,8 +76,10 @@ export function PresetSummaryCard({ type, presets }: Props) {
                 <Text style={[styles.name, { color: colors.label }]} numberOfLines={1}>
                   {preset.name}
                 </Text>
+                {/* 資材費のある送料プリセットは合計（SPEC-V6 §1）。一覧の行（PresetRow）と
+                    同じ 1 本から取る ── 同じプリセットがカードと一覧で違う額に見えないように */}
                 <Text style={[styles.value, { color: colors.secondaryLabel }]}>
-                  {presetValueText(preset.type, preset.value)}
+                  {presetValueText(preset.type, presetRowAmount(preset))}
                 </Text>
               </View>
             ))}

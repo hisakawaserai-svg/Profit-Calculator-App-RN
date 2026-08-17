@@ -109,15 +109,22 @@ export function formatYenTight(value: number): string {
 }
 
 /**
- * 金額表示「¥12,685」。月カード（Swift 版 MonthlySummaryCard）の表記。
+ * 金額表示「¥12,685」「-¥12,685」。月カード（Swift 版 MonthlySummaryCard）の表記。
  *
  * **3 桁区切りを入れる**（Claude Design のモックの表記）── 合計や一覧の行は 5 桁を超えると
  * 区切りなしでは桁が数えられない（`¥15145` は一目では読めない）。
  * 丸めの規則は変えていない: roundForDisplay を**通したあとの値**に区切りを入れるだけで、
  * 丸めるのは従来どおり合算後・表示の瞬間だけ（決定 §7-2 / §2.6）。
+ *
+ * **負号は ¥ の前に出す**（`-¥12,685`）。groupDigits は数字の頭に符号を置くので、
+ * `¥${groupDigits(...)}` とそのまま組むと `¥-12,685`（¥ の直後に負号）になってしまう ──
+ * 一覧の行・グラフカードの選択値・帯グラフの不足額（すべて formatSignedYenSymbol 経由）
+ * とアプリ内で表記の順序が食い違うため、符号だけ外に出して組み直す。
  */
 export function formatYenSymbol(value: number): string {
-  return `¥${groupDigits(roundForDisplay(value))}`;
+  const rounded = roundForDisplay(value);
+  const sign = rounded < 0 ? '-' : '';
+  return `${sign}¥${groupDigits(Math.abs(rounded))}`;
 }
 
 /**
@@ -125,12 +132,12 @@ export function formatYenSymbol(value: number): string {
  *
  * **符号を文字でも出す**のは、正負を緑／赤だけで伝えると色が唯一の手がかりになるため
  * （§0.1「色は識別の補助」）。0 は符号なしの「¥0」── 「+¥0」は増えたと読める。
- * 桁区切りは formatYenSymbol に任せる（符号の外側では刻まない ──「+¥4,500」）。
+ * 負号は formatYenSymbol がすでに ¥ の前に出すので、ここでは黒字にだけ「+」を足す。
  */
 export function formatSignedYenSymbol(value: number): string {
   const rounded = roundForDisplay(value);
   if (rounded === 0) return formatYenSymbol(0);
-  return rounded > 0 ? `+${formatYenSymbol(rounded)}` : `-${formatYenSymbol(Math.abs(rounded))}`;
+  return rounded > 0 ? `+${formatYenSymbol(rounded)}` : formatYenSymbol(rounded);
 }
 
 /**

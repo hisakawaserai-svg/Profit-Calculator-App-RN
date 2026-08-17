@@ -13,6 +13,19 @@ export type ThemeColors = {
   background: string;
   /** UIColor.secondarySystemGroupedBackground 相当。カード・入力欄の地色 */
   secondaryBackground: string;
+  /**
+   * カードの地色（分析画面「いくらで売る？」専用）。
+   *
+   * 通常の画面は地色に `background`（グレー）を敷き、その上のカードに `secondaryBackground`
+   * （白）を乗せることで境界を作る。分析画面だけは画面の地色そのものに `secondaryBackground`
+   * を使うため（§9-6）、カードに同じ `secondaryBackground` を使うと罫線（hairline）だけが
+   * 境界を持つことになり、モックの「地色の差でやわらかく区切る」見た目にならない。
+   * `secondaryBackground` からわずかに離した階調をカード専用に持つ。
+   *
+   * **暗色では明るくする。** iOS の暗色は「高さがある面ほど明るい」（Apple HIG の
+   * elevation）。`background`（暗色は純黒）をそのまま流用すると方向が逆になる。
+   */
+  cardBackground: string;
   /** Color.primary 相当 */
   label: string;
   /** Color.secondary 相当 */
@@ -94,6 +107,19 @@ export type ThemeColors = {
    */
   selectedSegmentBackground: string;
   /**
+   * 注意・危険・無事を伝える帯／カードの地色（SPEC-V8 の案 53 系）。
+   *
+   * **前景（orange / red / green）と対にして使う。** 文字色だけで伝えると、
+   * 本文と同じ大きさの 1 行が色違いで並ぶだけになり、読み飛ばされる ──
+   * 地色を敷いて「別の種類の情報」として切り出す。
+   *
+   * **暗色では α を上げる。** 黒地の上では明色と同じ 10〜12% では沈んで消え、
+   * 「薄い」ではなく「無い」に見える（disabledContent と同じ理由）。
+   */
+  warningBackground: string;
+  dangerBackground: string;
+  successBackground: string;
+  /**
    * プリセットのバッジの色（SPEC-V3 §1.3）。キーは logic/preset.ts の PresetColorKey。
    *
    * **既存のセマンティック色（green = 収支プラス / red = 経費 / orange = 販売手数料）とは
@@ -116,6 +142,7 @@ export type PresetTone = {
 const light: ThemeColors = {
   background: '#F2F2F7',
   secondaryBackground: '#FFFFFF',
+  cardBackground: '#F7F7FA',
   label: '#000000',
   secondaryLabel: 'rgba(60, 60, 67, 0.6)',
   mutedLabel: 'rgba(60, 60, 67, 0.4)',
@@ -136,6 +163,9 @@ const light: ThemeColors = {
   selectedSegmentBackground: '#FFFFFF',
   expenseTones: ['#FF3B30', '#FF6F61', '#FF9E93', '#FFC4BC'],
   helpDiagramTones: ['#D1D1D6', '#AEAEB2', '#8E8E93'],
+  warningBackground: 'rgba(255, 149, 0, 0.12)',
+  dangerBackground: 'rgba(255, 59, 48, 0.10)',
+  successBackground: 'rgba(52, 199, 89, 0.12)',
   presetTones: {
     red: { background: '#FF3B30', foreground: '#FFFFFF' },
     orange: { background: '#F07800', foreground: '#FFFFFF' },
@@ -156,6 +186,7 @@ const light: ThemeColors = {
 const dark: ThemeColors = {
   background: '#000000',
   secondaryBackground: '#1C1C1E',
+  cardBackground: '#2C2C2E',
   label: '#FFFFFF',
   secondaryLabel: 'rgba(235, 235, 245, 0.6)',
   mutedLabel: 'rgba(235, 235, 245, 0.4)',
@@ -179,6 +210,9 @@ const dark: ThemeColors = {
   expenseTones: ['#FF453A', '#FF6F63', '#FF9A90', '#FFC0B8'],
   // 暗い地の上では明度の向きを反転させる（薄い順は保つ）。白文字が載る側を最も明るくしない
   helpDiagramTones: ['#48484A', '#5E5E63', '#7C7C80'],
+  warningBackground: 'rgba(255, 159, 10, 0.22)',
+  dangerBackground: 'rgba(255, 69, 58, 0.20)',
+  successBackground: 'rgba(48, 209, 88, 0.22)',
   presetTones: {
     red: { background: '#FF453A', foreground: '#FFFFFF' },
     orange: { background: '#FF9F0A', foreground: '#000000' },

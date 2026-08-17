@@ -55,6 +55,7 @@ import { StepperButtons } from '@/components/Stepper';
 import { TagChip } from '@/components/TagChip';
 import { TagPickerSheet } from '@/components/TagPickerSheet';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
+import { showAchievementToast } from '@/components/achievementToastBus';
 import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import {
   selectShippingPreset,
@@ -87,8 +88,11 @@ import {
   TAG_FIELD_EMPTY_LABEL,
   TAG_LABEL,
   TAG_PICKER_OPEN_LABEL,
+  TARGET_PROFIT_UNSET_LABEL,
   UNSET_INPUT_LABEL,
   additionLabel,
+  targetProfitLabel,
+  targetProfitSummary,
   commissionFieldLabel,
   dateSectionLabel,
   deductionLabel,
@@ -110,6 +114,7 @@ import {
   canSave,
   changeKind,
   newFormValues,
+  parseTargetProfitInput,
   recordToFormValues,
   toCostInput,
   toSaveInput,
@@ -205,6 +210,11 @@ function RecordForm({
   const [costsOpen, setCostsOpen] = useState(false);
   const [datesOpen, setDatesOpen] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false);
+  /**
+   * 目標利益の節（SPEC-V9 §2）。**開いた状態から始めない** ── 目標は任意で、
+   * 決めない記録の方が多い。畳んであっても見出しの右に「決めていません」か金額が出る
+   */
+  const [targetOpen, setTargetOpen] = useState(false);
   /** 状態を切り替えた直後だけ売れた日の行に薄い青の下地を敷く（UI-SPEC §8.3 / §8.7） */
   const [highlightSoldDate, setHighlightSoldDate] = useState(false);
 
@@ -316,7 +326,8 @@ function RecordForm({
     // ここで片づけないのは、まだ編集の途中だから（選んだ写真は残す）
     if (!canSave(values)) return;
 
-    saveRecord(record?.id ?? null, toSaveInput(values));
+    const newlyCompleted = saveRecord(record?.id ?? null, toSaveInput(values));
+    showAchievementToast(newlyCompleted);
     cleanUpPhotos(values.photoFileName);
     onSaved?.();
     onClose();
@@ -326,6 +337,9 @@ function RecordForm({
   const costs = toCostInput(values);
   const profit = netProfit(costs);
   const packingCost = costs.envelopeCost + costs.othersCost;
+  // 目標は保存する値そのもので見出しを出す（SPEC-V9 §2）。**null と 0 を見分ける必要がある**ので
+  // parseNumericInput ではなく専用の変換を通す
+  const targetProfit = parseTargetProfitInput(values.targetProfit);
   const hasError = isPushedSave && !canSave(values);
 
   // 日付欄は「今日」だけ青くして、既定値のまま出していることが分かるようにする（UI-SPEC §1.3-12）
@@ -561,6 +575,43 @@ function RecordForm({
               )
             }
           />
+        </View>
+
+        {/* 11c. 目標利益（SPEC-V9 §2）。**伝票カードの外**に置く ──
+            目標は売買で実際に動いた金額ではなく「こうしたい」という値なので、
+            引き算の積み上げ（販売価格 → 経費 → 利益）の中に混ぜると、
+            伝票の縦の足し算に入る額に見えてしまう。
+
+            **空欄は「¥0」ではなく「決めていません」と出す**（§2）── 0 は
+            「赤字にならなければよい」という目標そのもので、決めていない状態とは別のもの。
+            金額として書くと、決めた覚えのない目標が記録に出ることになる */}
+        <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
+          <CollapsibleSection
+            label={targetProfitLabel(values.kind)}
+            tone="link"
+            expanded={targetOpen}
+            onToggle={() => setTargetOpen((open) => !open)}
+            trailing={
+              <Text
+                style={[
+                  styles.packingSummary,
+                  { color: targetProfit == null ? colors.mutedLabel : colors.green },
+                ]}>
+                {targetProfitSummary(targetProfit)}
+              </Text>
+            }>
+            <NumericField
+              label={targetProfitLabel(values.kind)}
+              value={values.targetProfit}
+              onChangeValue={(value) => update('targetProfit', value)}
+              // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は
+              // 0 ではない。placeholder にも 0 を出さない
+              placeholder={TARGET_PROFIT_UNSET_LABEL}
+              rowHeight={RECEIPT_ROW_HEIGHT}
+              valueStyle={[styles.deductionValue, { color: colors.green }]}
+              canOpenSettings={false}
+            />
+          </CollapsibleSection>
         </View>
 
         {/* 12. 日付カード（折りたたみ）。畳んだままでも操作対象の日付が読める */}

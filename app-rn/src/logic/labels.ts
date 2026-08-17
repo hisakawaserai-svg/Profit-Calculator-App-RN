@@ -11,26 +11,57 @@
 
 import type { PresetType, RecordKind } from '@/db/schema';
 
+import {
+  LONG_BATTLE_DAYS_THRESHOLD,
+  type Achievement,
+  type AchievementBadgeTier,
+  type AchievementCategory,
+  type AchievementId,
+  type NextAchievement,
+  type PersonalBests,
+} from './achievements';
 import { YEAR_UNIT_MONTH_THRESHOLD, type ChartUnit } from './analytics';
 import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
 import {
+  formatApproxYenSymbol,
   formatElapsedDays,
   formatMonthKeyTitle,
   formatShortDate,
+  formatSignedYenSymbol,
   formatUnitYen,
   formatYearTitle,
+  formatYen,
+  formatYenSymbol,
   formatYenTight,
+  groupDigits,
 } from './format';
 import { daysBetween } from './listingDays';
 import { periodKind, periodYear, type Period } from './period';
+import type {
+  PriceTickKey,
+  PricingAnalysis,
+  PricingConclusion,
+  PricingState,
+  RecordDetailConclusion,
+  SimulationVerdict,
+  SoldConclusion,
+} from './pricing';
+import { roundForDisplay } from './profit';
 import {
   isRatePreset,
+  presetColorKeyOf,
+  PRESET_COLOR_KEYS,
   PRESET_INITIAL_MAX_LENGTH,
   PRESET_NAME_MAX_LENGTH,
   PRESET_RATE_MAX,
+  type PresetColorKey,
   type PresetInvalidReason,
 } from './preset';
-import { TAG_NAME_MAX_LENGTH, TAG_NAME_SEPARATOR, type TagInvalidReason } from './tag';
+import {
+  TAG_NAME_MAX_LENGTH,
+  TAG_NAME_SEPARATOR,
+  type TagInvalidReason,
+} from './tag';
 
 /** 種別そのものの表示名（§1.1 の確定値）。画面によって変わらない */
 const RECORD_KIND_LABELS: Record<RecordKind, string> = {
@@ -328,7 +359,8 @@ export const CLEAR_INPUT_ACTION_LABEL = `入力を${CLEAR_LABEL}`;
  * レコードの削除（DELETE_CONFIRM_TITLE）と違って本文があるのはそのため。
  */
 export const CLEAR_CONFIRM_TITLE = '入力をクリアしますか？';
-export const CLEAR_CONFIRM_MESSAGE = 'すべての金額が空欄になり、種別も既定値に戻ります。';
+export const CLEAR_CONFIRM_MESSAGE =
+  'すべての金額が空欄になり、種別も既定値に戻ります。';
 
 /** 画面下端の固定ボタン（UI-SPEC §1.1-7）。押すと記録フォームを開く */
 export const SAVE_AS_RECORD_LABEL = 'この内容で記録する';
@@ -390,7 +422,9 @@ export function requiredPriceSummary(result: {
 }): string {
   const deductions: string[] = [];
   if (result.commissionAmount !== 0) {
-    deductions.push(`${COMMISSION_SHORT_LABEL}${formatYenTight(result.commissionAmount)}`);
+    deductions.push(
+      `${COMMISSION_SHORT_LABEL}${formatYenTight(result.commissionAmount)}`,
+    );
   }
   if (result.expenses !== 0) {
     deductions.push(`${EXPENSES_LABEL}${formatYenTight(result.expenses)}`);
@@ -457,7 +491,10 @@ export function requiredPriceFormulaLines(formula: {
  * 1 つ下の値段を実際に置いたときいくらになるかを添える。何回出したかを数えて
  * 引っ込める仕掛けは持たない（表示条件は数字が成り立つかどうかだけ）。
  */
-export function lowerPriceWarning(example: { price: number; profit: number }): string {
+export function lowerPriceWarning(example: {
+  price: number;
+  profit: number;
+}): string {
   return `${formatYenTight(example.price)}では${formatYenTight(example.profit)}にしかならず、目標に届きません`;
 }
 
@@ -538,9 +575,34 @@ export function profitTabLabel(kind: RecordKind): string {
   return `${profitLabel(kind)}を出す`;
 }
 
-/** 計算タブの逆算入力欄のラベル（§5.3）: 「目標の純利益」/「目標利益」 */
+/**
+ * 目標利益の入力欄のラベル（§5.3）: 「目標の純利益」/「目標利益」。
+ * 計算タブの逆算（UI-SPEC §1.1-3b）と記録フォームの目標欄（SPEC-V9 §2）で**同じ語**を使う ──
+ * 同じものを指す欄なので、画面ごとに呼び名が変わると別の値に見える。
+ */
 export function targetProfitLabel(kind: RecordKind): string {
   return TARGET_PROFIT_LABELS[kind];
+}
+
+/**
+ * 目標を決めていない記録の表し方（SPEC-V9 §2）。**「¥0」とは書かない。**
+ *
+ * 0 は「目標は 0 円（赤字にならなければよい）」という目標そのもので、
+ * 決めていない状態とは別のもの ── 金額として書くと、決めていない人の記録に
+ * 「目標 0 円」という決めた覚えのない値が出ることになる（schema の targetProfit）。
+ * 未入力の欄に出す `UNSET_INPUT_LABEL`（「未入力」）とも分ける ── 目標は
+ * 入れ忘れではなく「決めない」のが正しい選択でもあるため。
+ */
+export const TARGET_PROFIT_UNSET_LABEL = '決めていません';
+
+/**
+ * 目標欄の折りたたみ見出しの右端に出す値（SPEC-V9 §2）。
+ * 決めていなければ語、決めていれば金額。**null と 0 がここで見分けられる。**
+ */
+export function targetProfitSummary(targetProfit: number | null): string {
+  return targetProfit == null
+    ? TARGET_PROFIT_UNSET_LABEL
+    : formatYen(targetProfit);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -608,9 +670,140 @@ export function cumulativeValueLabel(amountText: string): string {
 /** 選択中の点を外すリンク（UI-SPEC §1.5-5）。点をもう一度押す経路は持たないので語で出す */
 export const CLEAR_SELECTION_LABEL = '選択を解除';
 
+/**
+ * 選択した点・タグの記録一覧（SelectedPointList 等）を 1 枚のカードにまとめたアコーディオン。
+ * 「達成した記録」（labels.ts achievementShowMoreRecordsText）と同じ考え方 ──
+ * 最初は先頭 3 件だけ見せ、「すべて見る」で残りを開く。件数が多い月・タグでもカードの高さが
+ * 際限なく伸びないようにするため。
+ */
+export function selectedRecordsShowMoreText(hiddenCount: number): string {
+  return `すべて見る（あと${groupDigits(hiddenCount)}件）`;
+}
+
+/** 上記アコーディオンを畳むボタン */
+export const SELECTED_RECORDS_COLLAPSE_LABEL = '閉じる';
+
 /** 選択した点の一覧の見出し（UI-SPEC §1.5-5）:「8月9日の記録　3件」 */
 export function selectedPointTitle(dateText: string, count: number): string {
   return `${dateText}の記録　${count}件`;
+}
+
+/**
+ * タグ別利益ランキングの行タップで開く内訳一覧の見出し。selectedPointTitle と同じ形
+ * （日付の代わりにタグ名を主語にする）。
+ */
+export function selectedTagTitle(tagName: string, count: number): string {
+  return `${tagName}の記録　${count}件`;
+}
+
+/**
+ * 「タグ別純利益の推移」グラフの日付内訳、その行をさらにタップして開く記録一覧の見出し。
+ * selectedPointTitle・selectedTagTitle と同じ形で、日付とタグ名の両方を主語にする。
+ */
+export function selectedTagChartTitle(
+  dateText: string,
+  tagName: string,
+  count: number,
+): string {
+  return `${dateText}の${tagName}の記録　${count}件`;
+}
+
+/**
+ * 「タグ別純利益の推移」グラフの点タップで開くタグ別内訳の見出し脇の 1 行（採用案 1a）:
+ * 「3タグ・3件」。日付そのもの（太字）に添える語で、対象の広さ（何タグ・何件ぶんの合計か）を言う。
+ */
+export function tagChartDaySummaryMetaText(
+  tagCount: number,
+  recordCount: number,
+): string {
+  return `${tagCount}タグ・${recordCountValue(recordCount)}`;
+}
+
+/**
+ * 期間サマリー段（グラフ直下・新規）の項目名。売上・収支（TOTAL_SALES_LABEL /
+ * TOTAL_PROFIT_LABEL）に続く 2 項目 ── どちらもこの画面にしかない値なのでここで定義する。
+ */
+export const PROFIT_RATE_LABEL = '利益率';
+/** 出品中を含まない「売れた」件数だけを数える（LISTING_COUNT_LABEL とは対象が違う） */
+export const SOLD_COUNT_LABEL = '販売件数';
+
+/**
+ * 利益率の表示。売上合計が 0（= 対象 0 件）で算出できないときは AMOUNT_PLACEHOLDER
+ * （「ーー」）── 0% だと「収支ちょうど 0」に読めてしまうため（periodProfitRate 参照）。
+ */
+export function profitRateSummaryValue(rate: number | null): string {
+  return rate == null ? AMOUNT_PLACEHOLDER : `${rate.toFixed(1)}%`;
+}
+
+/** 展開行の 3 列目（案 1c）。1 件あたりの純利益（= 純利益合計 ÷ 販売件数） */
+export const PER_RECORD_PROFIT_LABEL = '1件あたり';
+
+/**
+ * 1 件あたり純利益の表示。販売件数が 0（periodProfitPerRecord が null）のときは
+ * AMOUNT_PLACEHOLDER（「ーー」）── profitRateSummaryValue と同じ理由。
+ *
+ * 符号つきの金額は formatSignedYenSymbol を使う（`-¥3,500` の順。一覧の行の純利益・
+ * グラフカードの選択値・帯グラフの不足額と同じ表記）── formatYenSymbol だけを通すと
+ * `¥-3,500`（¥ の直後にマイナス）になり、アプリ内の他の符号つき金額と順序が食い違う。
+ */
+export function perRecordProfitValue(value: number | null): string {
+  return value == null ? AMOUNT_PLACEHOLDER : formatSignedYenSymbol(value);
+}
+
+/** 展開行の 4 列目。記録日 → 販売日の経過日数の単純平均（periodAverageSaleDays） */
+export const AVERAGE_SALE_DAYS_LABEL = '平均販売日数';
+
+/**
+ * 平均販売日数の表示。対象記録が 0 件（日付逆転を除いて。periodAverageSaleDays が null）の
+ * ときは AMOUNT_PLACEHOLDER（「ーー」）── profitRateSummaryValue と同じ理由。
+ * 小数第 1 位までにする（1 件あたり純利益と違って端数が出やすい平均値のため）。
+ */
+export function averageSaleDaysValue(days: number | null): string {
+  return days == null ? AMOUNT_PLACEHOLDER : `${days.toFixed(1)}日`;
+}
+
+/** 集計段直下の開閉行の文言（案 1c）。閉じているときにタップを促す語 / 開いているときに畳む語 */
+export const DETAILS_EXPAND_LABEL = '詳細を見る';
+export const DETAILS_COLLAPSE_LABEL = '閉じる';
+
+export function detailsToggleLabel(expanded: boolean): string {
+  return expanded ? DETAILS_COLLAPSE_LABEL : DETAILS_EXPAND_LABEL;
+}
+
+/**
+ * データタブ「収支」セクションの新規カード（logic/periodComparison.ts）。
+ * 見出しと、比較対象が 0 件のときの代替文言。
+ */
+export const PERIOD_COMPARISON_TITLE = '前期間比較';
+export const PERIOD_COMPARISON_EMPTY_TEXT = '比較対象のデータがありません';
+
+/**
+ * 金額差分の 1 行「▲+¥3,200」「▼-¥1,234」（前期間比較カード）。
+ * 増加は ▲・減少は ▼、変化なしは記号なし。符号つきの金額そのものは
+ * formatSignedYenSymbol（一覧の行の純利益と同じ表記）に任せる。
+ */
+export function periodComparisonAmountDiffText(diff: number): string {
+  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
+  return `${arrow}${formatSignedYenSymbol(diff)}`;
+}
+
+/** 件数差分の 1 行「▲+2件」「▼-2件」（前期間比較カード。金額と同じ増減の記号規則） */
+export function periodComparisonCountDiffText(diff: number): string {
+  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
+  const sign = diff > 0 ? '+' : '';
+  return `${arrow}${sign}${diff}件`;
+}
+
+/**
+ * 利益率差分の 1 行「▲+3.6pt」（前期間比較カード）。ポイント差なので % ではなく pt を付ける。
+ * どちらかの期間の売上合計が 0 で比率が出せないときは AMOUNT_PLACEHOLDER（「ーー」）。
+ */
+export function periodComparisonRateDiffText(diffPt: number | null): string {
+  if (diffPt == null) return AMOUNT_PLACEHOLDER;
+  const rounded = Number(diffPt.toFixed(1));
+  const arrow = rounded > 0 ? '▲' : rounded < 0 ? '▼' : '';
+  const sign = rounded > 0 ? '+' : '';
+  return `${arrow}${sign}${rounded.toFixed(1)}pt`;
 }
 
 /**
@@ -629,6 +822,409 @@ export const CHART_UNIT_NOTE =
   `年や${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
   `（${ALL_PERIOD_LABEL}で記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
   `見出しも選んだ期間の語（「〇〇年の${TOTAL_PROFIT_LABEL}」「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」）になります。`;
+
+/** タグが 1 つも付いていない売れた記録をまとめる集計名（タグ別利益ランキングの 1 行） */
+export const UNCLASSIFIED_TAG_LABEL = '未分類';
+
+/**
+ * タグ別利益ランキングの行の補足（「利益率 32.1%・8件」）。
+ * 率だけだと何の%か初見で伝わらないため PROFIT_RATE_LABEL を頭に付ける。
+ */
+export function tagProfitMetaText(rateText: string, countText: string): string {
+  return `${PROFIT_RATE_LABEL} ${rateText}・${countText}`;
+}
+
+/**
+ * 記録のないタグ（そのタグの売れた記録が 0 件）をまとめる開閉行の文言（案 2b）。
+ * ランキング本体には出さず、下に畳んでおく ── 0 件のタグまで並ぶと純利益の高い順という
+ * 主題が薄まるため。detailsToggleLabel と同じ「開閉状態で語を変える」形。
+ */
+export function zeroRecordTagsToggleLabel(
+  count: number,
+  expanded: boolean,
+): string {
+  return expanded
+    ? `記録のない${count}タグを閉じる`
+    : `記録のない${count}タグを見る`;
+}
+
+/**
+ * タグ別利益ランキングのスパークライン（各タグ右端の小さな折れ線。案 2b）の説明文。
+ * **全タグ共通の目盛り**であることを言う ── 個々に自動フィットさせると高さがタグごとに
+ * 意味を持たなくなり、「背が高い＝良い」に見えてしまうため（実装は combinedAxisBounds）。
+ */
+export const TAG_SPARKLINE_NOTE =
+  '小さな線は1月から12月。高さは全タグ共通の目盛りで、比べられます。';
+
+/**
+ * タグ別の純利益セクション（案 1b）の 2 択。既定は「一覧」（行ごとの純利益・ランキング順）、
+ * 「グラフ」で選んだタグぶんの折れ線を 1 枚に重ねた表示へ切り替える。
+ * ボタンは常にどちらか出ている方のカードの右上に置く（一覧なら一覧カード、グラフならグラフカード）。
+ */
+export const TAG_SECTION_LIST_MODE_LABEL = '一覧';
+export const TAG_SECTION_OVERLAY_MODE_LABEL = 'グラフ';
+
+/**
+ * タグ別の純利益セクションの見出し下・小さな 1 行（「2026年・22件」）。
+ * 大きく出す金額（期間合計の純利益）に、いつ・何件の話かを添える。
+ */
+export function tagSectionMetaText(
+  periodText: string,
+  countText: string,
+): string {
+  return `${periodText}・${countText}`;
+}
+
+/**
+ * 「重ねる」モードのグラフカードの見出し。「収支の推移」カード（PROFIT_TREND_LABEL）と
+ * 同じ位置・同じ見た目で出す ── カードの仕様を収支のグラフと揃えるため。
+ */
+export const TAG_PROFIT_TREND_LABEL = 'タグ別純利益の推移';
+
+/**
+ * 対象のタグが 1 つも無い（= その期間に売れた記録が無い）ときの空状態。
+ * tagProfits が空になる条件はグラフ本体の EmptyChart（series.length === 0）と同じ
+ * （売れた記録が 1 件でもあれば、タグ無しでも「未分類」の 1 行として必ず候補に残るため）
+ * なので、同じ NO_SOLD_DATA_MESSAGE を使う。
+ */
+export { NO_SOLD_DATA_MESSAGE as TAG_PROFIT_TREND_EMPTY_MESSAGE };
+
+/**
+ * データタブのセグメント（「収支」/「タグ」）。計算タブの「利益を出す/目標から逆算」と
+ * 同じ SegmentedControl の型（選んだ瞬間に中身が入れ替わる・状態はタブ内の一時的な useState）。
+ *
+ * 以前はタグ別利益ランキング・推移をサブ画面に追い出し、入口カード 1 枚から push する形に
+ * していたが、押さないと中身が見えず、収支と見比べたいときに行き来が面倒だった。
+ * 同じ画面の中で切り替える形に戻し、期間・絞り込みは両モードで共有する（切替でリセットしない）。
+ */
+export const DATA_MODE_PROFIT_LABEL = '収支';
+export const DATA_MODE_TAG_LABEL = 'タグ';
+/** 3 つ目のセグメント（案 3c）。累計・自己ベスト・実績バッジを見るモード（月バーとは無関係） */
+export const DATA_MODE_ACHIEVEMENTS_LABEL = '実績';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// データタブ「実績」（案 3c）の表示語。logic/achievements.ts の判定結果（Achievement /
+// PersonalBests）を画面の文言に変換する関数をここに集約する。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 「次の実績」カードの見出し */
+export const NEXT_ACHIEVEMENT_LABEL = '次の実績';
+/** 全実績を達成したときのコンプリート表示（構成の「判断はお任せ」を受けた決定） */
+export const ACHIEVEMENTS_COMPLETE_TITLE = 'すべての実績を達成しました';
+export const ACHIEVEMENTS_COMPLETE_MESSAGE =
+  'お疲れさまです。新しい実績が増えたらまたお知らせします。';
+
+/**
+ * 実績ごとの名前・目標の単位（獲得済みバッジ・次の実績カードの両方で使う）。
+ *
+ * 成長系（⚡💰📦🎯🔍）5 ジャンル × 5 段階の名前は「ジャンル名 + しきい値」で統一する ──
+ * 段階が増えても命名規則を覚え直さずに済む（利益ハンターだけ、💰累計利益★5=¥1,000,000の
+ * 元からの固有名を残した特別扱い）。
+ */
+const ACHIEVEMENT_NAMES: Record<AchievementId, string> = {
+  // 特殊実績: はじめる系
+  first_sale: '初めての一歩',
+  sale_debut: '販売デビュー',
+  first_profit: '初利益',
+  career_profit_1000: '累計¥1,000',
+  record_count_10: '記録を続けよう',
+  // 特殊実績: タグ系
+  tag_debut: 'タグデビュー',
+  tag_synergy: 'タグの総合力',
+  tag_mastery: 'タグの達人',
+  // 特殊実績: その他
+  long_battle: '長期戦突破',
+  instant_sale: '即売れ',
+  goal_kept: '有言実行',
+  goal_master: '目標マスター',
+  all_rounder: 'なんでも屋',
+  // 成長系: ⚡一撃
+  profit_1000: '一撃¥1,000',
+  profit_5000: '一撃¥5,000',
+  profit_10000: '一撃¥10,000',
+  profit_30000: '一撃¥30,000',
+  profit_50000: '一撃¥50,000',
+  // 成長系: 💰累計利益
+  career_profit_10000: '累計利益¥10,000',
+  career_profit_50000: '累計利益¥50,000',
+  career_profit_100000: '累計利益¥100,000',
+  career_profit_500000: '累計利益¥500,000',
+  career_profit_1000000: '利益ハンター',
+  // 成長系: 📦販売件数
+  sold_1: '1個売れました',
+  sold_10: '10個販売',
+  sold_50: '50個販売',
+  sold_250: '250個販売',
+  sold_500: '500個販売',
+  // 成長系: 🎯得意分野
+  tag_specialty_1000: '得意分野¥1,000',
+  tag_specialty_5000: '得意分野¥5,000',
+  tag_specialty_10000: '得意分野¥10,000',
+  tag_specialty_50000: '得意分野¥50,000',
+  tag_specialty_100000: '得意分野¥100,000',
+  // 成長系: 🔍売れ筋
+  tag_bestseller_3: '売れ筋3件',
+  tag_bestseller_10: '売れ筋10件',
+  tag_bestseller_25: '売れ筋25件',
+  tag_bestseller_50: '売れ筋50件',
+  tag_bestseller_100: '売れ筋100件',
+};
+
+export function achievementName(id: AchievementId): string {
+  return ACHIEVEMENT_NAMES[id];
+}
+
+/**
+ * 記録保存時の実績獲得トースト（text1）。
+ * 1個だけ新規獲得なら実績名をそのまま、複数なら件数でまとめる。
+ */
+export function achievementToastText(newlyCompletedIds: readonly AchievementId[]): string {
+  if (newlyCompletedIds.length === 1) {
+    return `実績「${achievementName(newlyCompletedIds[0])}」を達成しました`;
+  }
+  return `実績を${newlyCompletedIds.length}件達成しました`;
+}
+
+/** 実績ごとの説明文（全画面表示。獲得した実績の一覧はこれを出さない） */
+const ACHIEVEMENT_DESCRIPTIONS: Record<AchievementId, string> = {
+  first_sale: '初めて商品が売れた',
+  sale_debut: '初めて商品を出品した',
+  first_profit: '初めて純利益がプラスの記録で売れた',
+  career_profit_1000: '累計純利益¥1,000に到達',
+  record_count_10: '記録を10件作った',
+  tag_debut: '初めてタグを付けた記録を作った',
+  tag_synergy: '3つの異なるタグで、それぞれ累計純利益¥5,000以上を達成',
+  tag_mastery: '3つの異なるタグで、それぞれ累計純利益¥10,000以上を達成',
+  long_battle: `出品から${LONG_BATTLE_DAYS_THRESHOLD}日以上かけて売れた商品がある`,
+  instant_sale: '出品したその日のうちに売れた商品がある',
+  goal_kept: '目標利益を達成した記録がある',
+  goal_master: '目標利益を達成した記録が10件以上',
+  all_rounder: '仕入品・不用品の両方で純利益がプラスの記録がある',
+  profit_1000: '1件の商品で純利益¥1,000以上を達成',
+  profit_5000: '1件の商品で純利益¥5,000以上を達成',
+  profit_10000: '1件の商品で純利益¥10,000以上を達成',
+  profit_30000: '1件の商品で純利益¥30,000以上を達成',
+  profit_50000: '1件の商品で純利益¥50,000以上を達成',
+  career_profit_10000: '累計純利益¥10,000に到達',
+  career_profit_50000: '累計純利益¥50,000に到達',
+  career_profit_100000: '累計純利益¥100,000に到達',
+  career_profit_500000: '累計純利益¥500,000に到達',
+  career_profit_1000000: '累計純利益¥1,000,000に到達',
+  sold_1: '累計1件を販売',
+  sold_10: '累計10件を販売',
+  sold_50: '累計50件を販売',
+  sold_250: '累計250件を販売',
+  sold_500: '累計500件を販売',
+  tag_specialty_1000: '1つのタグで累計純利益¥1,000以上',
+  tag_specialty_5000: '1つのタグで累計純利益¥5,000以上',
+  tag_specialty_10000: '1つのタグで累計純利益¥10,000以上',
+  tag_specialty_50000: '1つのタグで累計純利益¥50,000以上',
+  tag_specialty_100000: '1つのタグで累計純利益¥100,000以上',
+  tag_bestseller_3: '1つのタグで売却済み記録が3件以上',
+  tag_bestseller_10: '1つのタグで売却済み記録が10件以上',
+  tag_bestseller_25: '1つのタグで売却済み記録が25件以上',
+  tag_bestseller_50: '1つのタグで売却済み記録が50件以上',
+  tag_bestseller_100: '1つのタグで売却済み記録が100件以上',
+};
+
+export function achievementDescription(id: AchievementId): string {
+  return ACHIEVEMENT_DESCRIPTIONS[id];
+}
+
+/** 段位（ブロンズ〜レジェンド）の表示語 */
+const BADGE_TIER_NAMES: Record<AchievementBadgeTier, string> = {
+  bronze: 'ブロンズ',
+  silver: 'シルバー',
+  gold: 'ゴールド',
+  platinum: 'プラチナ',
+  legend: 'レジェンド',
+};
+
+export function achievementBadgeTierName(tier: AchievementBadgeTier): string {
+  return BADGE_TIER_NAMES[tier];
+}
+
+/** 全画面表示「達成した記録」行の純利益（符号つき。緑／赤の色分けは呼び出し側） */
+export function achievementCompletedRecordProfitText(
+  netProfit: number,
+): string {
+  return formatSignedYenSymbol(netProfit);
+}
+
+/** 目標値の単位が「円」の実績（それ以外はすべて「件」）。進捗表示・「次点」の文言に使う */
+const YEN_UNIT_ACHIEVEMENT_IDS: ReadonlySet<AchievementId> = new Set([
+  'career_profit_1000',
+  'profit_1000',
+  'profit_5000',
+  'profit_10000',
+  'profit_30000',
+  'profit_50000',
+  'career_profit_10000',
+  'career_profit_50000',
+  'career_profit_100000',
+  'career_profit_500000',
+  'career_profit_1000000',
+  'tag_specialty_1000',
+  'tag_specialty_5000',
+  'tag_specialty_10000',
+  'tag_specialty_50000',
+  'tag_specialty_100000',
+]);
+
+/** 実績の目標値の単位が「件」か「円」かを見分ける（進捗表示・「次点」の文言に使う） */
+function isProfitAchievement(id: AchievementId): boolean {
+  return YEN_UNIT_ACHIEVEMENT_IDS.has(id);
+}
+
+/** 「次の実績」カードのリング中央「32 / 50件」（利益系の実績は円で出す） */
+export function nextAchievementProgressText(next: NextAchievement): string {
+  const unit = isProfitAchievement(next.id) ? '円' : '件';
+  return `${groupDigits(next.current)} / ${groupDigits(next.target)}${unit}`;
+}
+
+/** 「あと18件で解除」（構成のモック文言どおり。利益系は「あと¥◯◯」） */
+export function remainingToUnlockText(next: NextAchievement): string {
+  const remaining = Math.max(0, next.target - next.current);
+  return isProfitAchievement(next.id)
+    ? `あと${formatYenSymbol(remaining)}で解除`
+    : `あと${groupDigits(remaining)}件で解除`;
+}
+
+/**
+ * 「次点」の 1 行（構成の「次点の実績名も小さく添える」）。次の実績の次に進捗率が高い
+ * 未達成の実績を、その実績の達成条件つきで小さく示す。無ければ出さない（呼び出し側で判定）。
+ */
+export function nextAchievementRunnerUpText(runnerUp: Achievement): string {
+  const remaining = Math.max(0, runnerUp.target - runnerUp.current);
+  const remainingText = isProfitAchievement(runnerUp.id)
+    ? formatYenSymbol(remaining)
+    : `${groupDigits(remaining)}件`;
+  return `次点：${achievementName(runnerUp.id)}達成（あと${remainingText}）`;
+}
+
+export const YOUR_RECORDS_LABEL = 'あなたの記録';
+export const CAREER_NET_PROFIT_LABEL = '累計純利益';
+export const CAREER_SALES_LABEL = '累計売上';
+
+export const EARNED_ACHIEVEMENTS_LABEL = '獲得した実績';
+/** 「獲得した実績」見出し横の「すべて見る ›」（実績一覧画面への導線） */
+export const VIEW_ALL_ACHIEVEMENTS_LABEL = 'すべて見る';
+/** 実績一覧画面（AchievementListScreen）のヘッダタイトル */
+export const ACHIEVEMENT_LIST_TITLE = '実績一覧';
+
+/** 獲得した実績カード見出し右の「4/8」 */
+export function achievementProgressCountText(
+  earnedCount: number,
+  totalCount: number,
+): string {
+  return `${earnedCount}/${totalCount}`;
+}
+
+/**
+ * 「未解除」セクションの見出し「未解除（3）」。
+ * 「獲得した実績」カードの未解除チップ列・実績一覧画面（AchievementListScreen）の
+ * 未解除グリッドの両方で使う（同じ言い回しを 1 か所にまとめる）。
+ */
+export function lockedAchievementsSectionTitle(count: number): string {
+  return `未解除（${count}）`;
+}
+
+/** 実績一覧画面（AchievementListScreen）のジャンル別カードの見出し（AchievementCategory → 表示名） */
+const ACHIEVEMENT_GENRE_TITLES: Record<AchievementCategory, string> = {
+  strike: '⚡一撃',
+  career_profit: '💰累計利益',
+  sold_count: '📦販売件数',
+  tag_specialty: '🎯得意分野',
+  tag_bestseller: '🔍売れ筋',
+  start: '🌱はじめる系',
+  tag: '🏷️タグ系',
+  sales_technique: 'その他',
+};
+
+export function achievementGenreTitle(category: AchievementCategory): string {
+  return ACHIEVEMENT_GENRE_TITLES[category];
+}
+
+/** 全画面表示（実績タップ時）の「達成した記録」行の見出し */
+export const ACHIEVEMENT_COMPLETED_RECORD_LABEL = '達成した記録';
+
+/**
+ * 全画面表示「達成した記録」セクションの見出し。1 件なら件数を付けない（従来どおり）。
+ * 累計利益・販売件数などの積み重ね系は複数件になるので「達成した記録（12件）」と件数を添える。
+ */
+export function achievementCompletedRecordsSectionTitle(count: number): string {
+  return count <= 1
+    ? ACHIEVEMENT_COMPLETED_RECORD_LABEL
+    : `${ACHIEVEMENT_COMPLETED_RECORD_LABEL}（${count}件）`;
+}
+
+/** 「達成した記録」アコーディオンの「もっと見る」（構成：最初の3件だけ表示し、残りは開いて見る） */
+export function achievementShowMoreRecordsText(hiddenCount: number): string {
+  return `すべて見る（あと${groupDigits(hiddenCount)}件）`;
+}
+
+/** 「達成した記録」アコーディオンを閉じるボタン */
+export const ACHIEVEMENT_COLLAPSE_RECORDS_LABEL = '閉じる';
+
+/** 全画面表示のページ番号「3 / 4」 */
+export function achievementPageIndicatorText(
+  index: number,
+  total: number,
+): string {
+  return `${index + 1} / ${total}`;
+}
+
+/** 全画面表示の左右の矢印。スワイプ以外にも移動できることを示す（読み上げ用） */
+export const ACHIEVEMENT_DETAIL_PREVIOUS_LABEL = '前の実績を見る';
+export const ACHIEVEMENT_DETAIL_NEXT_LABEL = '次の実績を見る';
+
+export const PERSONAL_BESTS_LABEL = '自己ベスト';
+export const BEST_NET_PROFIT_LABEL = '最高純利益';
+export const BEST_SALES_PRICE_LABEL = '最高販売価格';
+export const FASTEST_SALE_LABEL = '最速販売';
+export const BEST_MONTH_BY_COUNT_LABEL = '最多販売月';
+export const BEST_MONTH_BY_PROFIT_LABEL = '最高月間利益';
+export const BEST_TAG_LABEL = '最多販売タグ';
+
+/**
+ * 自己ベストのタイルに値が無い（0 件）ときのプレースホルダ。
+ * AMOUNT_PLACEHOLDER と同じ表記だが、定義がこの位置より後ろにあるため文字列を直書きする
+ * （TDZ を避けるための重複。値は 1 か所で変えられるよう AMOUNT_PLACEHOLDER 側が真実）。
+ */
+const PERSONAL_BEST_EMPTY_VALUE = 'ーー';
+
+/** 最速販売のタイルの値「2日」 */
+export function fastestSaleValueText(bests: PersonalBests): string {
+  return bests.fastestSale == null
+    ? PERSONAL_BEST_EMPTY_VALUE
+    : `${bests.fastestSale.days}日`;
+}
+
+/** 最多販売月のタイルの値「8月・9件」 */
+export function bestMonthByCountValueText(bests: PersonalBests): string {
+  if (bests.bestMonthByCount == null) return PERSONAL_BEST_EMPTY_VALUE;
+  const [, month] = bests.bestMonthByCount.monthKey.split('-').map(Number);
+  return `${month}月・${bests.bestMonthByCount.count}件`;
+}
+
+/** 最高月間利益のタイルのサブ見出し「2026年8月」 */
+export function bestMonthProfitDateText(bests: PersonalBests): string | null {
+  return bests.bestMonthByProfit == null
+    ? null
+    : formatMonthKeyTitle(bests.bestMonthByProfit.monthKey);
+}
+
+/**
+ * 最多販売タグのタイルの値「未分類・7件」「全32件中」。タグ名は呼び出し側（tags 一覧を
+ * 持つ画面）が解決する ── logic 層は tagId しか知らないため（DataScreen の joinTagRanking と同じ分担）。
+ */
+export function bestTagValueText(tagName: string, count: number): string {
+  return `${tagName}・${count}件`;
+}
+
+export function bestTagOfTotalText(totalCount: number): string {
+  return `全${totalCount}件中`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 記録フォーム（UI-SPEC §1.3 / 採用案 3c）とレコード詳細（§1.4 / 採用案 3d）の表示語。
@@ -679,7 +1275,15 @@ export const REVERT_TO_LISTING_CONFIRM_LABEL = '戻す';
  * カレンダーの曜日見出し（UI-SPEC §8.10）。
  * **週の始まりは日曜固定**。ロケールで振らない ── 本アプリは日本語のみ・日本の利用者向け（§0）。
  */
-export const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+export const WEEKDAY_LABELS = [
+  '日',
+  '月',
+  '火',
+  '水',
+  '木',
+  '金',
+  '土',
+] as const;
 
 /**
  * カレンダーの今日の印の読み上げ語（UI-SPEC §8.10）。
@@ -726,6 +1330,54 @@ export const ENVELOPE_AND_OTHERS_FIELD_LABEL = '梱包材・その他';
 
 /** 値の入っていない欄に出す語（UI-SPEC §1.3-10 / §1.4-4。40% グレーで出す） */
 export const UNSET_INPUT_LABEL = '未入力';
+
+/** 帯グラフの凡例の割合（例:「32%」）。整数に丸める ── 小数第 1 位まで読む場面ではない */
+export function percentLabel(ratio: number): string {
+  const percent = Math.round(ratio * 100);
+  // 丸めて 0% になる項目は「無い」ように読めるので、0 とは言わずに小ささのほうを言う。
+  // 帯にはこの項目も最低幅の区画で残っている（消えると合計が合わないように見えるため）
+  if (percent === 0) return LESS_THAN_ONE_PERCENT_LABEL;
+  // **全部ではないのに「100%」と言わない**（上の 0% と同じ話の裏返し）。
+  // 仕入 400,000 円・手数料 100 円の記録では 99.975% が 100% に丸まり、
+  // 隣の区画が「1%未満」と出ているのに合計が 100% を超えて読める。
+  // 帯は「どう分かれたか」を見せる面なので、区画の割合の和が 100% を超えて見えてはいけない
+  if (percent >= 100 && ratio < 1) return ALMOST_ALL_PERCENT_LABEL;
+  return `${percent}%`;
+}
+
+/** 丸めると 0% になる項目に出す語（percentLabel） */
+export const LESS_THAN_ONE_PERCENT_LABEL = '1%未満';
+
+/** 丸めると 100% になるが、全部ではない項目に出す語（percentLabel） */
+export const ALMOST_ALL_PERCENT_LABEL = 'ほぼ100%';
+
+/**
+ * 赤字の帯で、黒字の「手元に残る」の位置に入る斜線の区画の名前。
+ *
+ * 区画そのものは斜線（色でも塗りでもない模様）で「足りていない」ことを示すが、
+ * **模様だけを手がかりにしない**（§0.1「色は識別の補助」と同じ話）── 名前を添える。
+ */
+export const SHORTFALL_SEGMENT_LABEL = '足りない';
+
+/**
+ * 斜線の区画に添える不足額「-¥550」。
+ *
+ * **符号つきで出す**（帯の中／脇には「足りませんでした」を添える幅が無いので、
+ * 数字だけで足りない側だと読めなければならない）。
+ * 引数は不足額（正の数）で、表示は負になる ── レシートの「手元に残る」行と同じ向き。
+ */
+export function shortfallAmountLabel(shortfall: number): string {
+  return formatSignedYenSymbol(-shortfall);
+}
+
+/**
+ * 帯グラフの代わりに出す不活性文（RecordBreakdownBar。§価格未設定）。
+ *
+ * 販売価格が未設定（0 円）の記録は、費用だけを分母にした割合や「足りない」を出すと
+ * 未確定の入力を確定した赤字に見せてしまう。帯そのものを不活性にして、この文だけを出す ──
+ * 「いくらで売る?」画面の未設定時（E。PRICE_UNSET_DESCRIPTION）と同じ考え方。
+ */
+export const BREAKDOWN_BAR_UNPRICED_NOTE = '価格を入れると内訳が計算できます';
 
 /** メモ（UI-SPEC §1.3-13 / §1.4-6） */
 export const MEMO_LABEL = 'メモ';
@@ -992,7 +1644,10 @@ export function presetTypeLabel(type: PresetType): string {
  *
  * 名前の重複は弾かないので、それを咎める文言はここにない（§1.4）。
  */
-export function presetBlockedNote(reason: PresetInvalidReason, type: PresetType): string {
+export function presetBlockedNote(
+  reason: PresetInvalidReason,
+  type: PresetType,
+): string {
   switch (reason) {
     case 'name-required':
       return '名前を入れてください';
@@ -1049,11 +1704,18 @@ export function presetValueText(type: PresetType, value: number): string {
 /**
  * 送料プリセットの行に足す 1 行（SPEC-V6 §1）。資材費があるときだけ出す。
  *
- * **右端の金額は送料のまま**（登録した額）で、この行が「選ぶと入る額」を言う ──
- * 右端を合計に差し替えると、編集画面で打った 450 と一覧の 520 が食い違って見える。
+ * **右端の金額は合計**（選ぶと入る額）で、この行がその**内訳**を言う。
+ *
+ * 当初は逆で、右端が登録した送料・この行が「＋専用資材 100円（合計 550円）」だった。
+ * 改めたのは、一覧・選択シート・記録に入る額の 3 つで**主役の数字を揃える**ため ──
+ * 基本的に専用資材は使うので、まず読みたいのは「これを選ぶといくらか」。
+ * 打った 450 が消えるわけではなく、この行の中に内訳として残る。
  */
-export function shippingMaterialRowNote(materialCost: number, total: number): string {
-  return `＋${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}（${SHIPPING_TOTAL_LABEL} ${formatUnitYen(total)}）`;
+export function shippingMaterialRowNote(
+  value: number,
+  materialCost: number,
+): string {
+  return `${POSTAGE_LABEL} ${formatUnitYen(value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}`;
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -1167,7 +1829,8 @@ export const SHIPPING_MATERIAL_FIELD_LABEL = `${SHIPPING_MATERIAL_LABEL}の代�
 export const SHIPPING_TOTAL_LABEL = '合計';
 
 /** 内訳カードの下の 1 行（§2）。この合計がどこで使われるのかを言う */
-export const SHIPPING_TOTAL_NOTE = '記録でこのプリセットを選ぶと、この合計が送料に入ります。';
+export const SHIPPING_TOTAL_NOTE =
+  '記録でこのプリセットを選ぶと、この合計が送料に入ります。';
 
 /**
  * 選択シートの行に埋め込む 2 択（採用案 45b）。**並びは「送料のみ」→「＋資材」。**
@@ -1195,10 +1858,132 @@ export const CUSTOM_COLOR_LABEL = '自由色';
 export const COLOR_PICKER_TITLE = '色を選ぶ';
 /** 連続量を合わせる操作なので確定ボタンを置く（プリセットの選択シートとは逆。§3） */
 export const COLOR_PICKER_DONE_LABEL = '決定';
+
+// ---- 設計案 50c: 色を使用状況で 2 群に分ける ----
+
+/**
+ * 固定 11 色の表示名。**「使用中」の群と「この◯◯の色」に出す語**なので、
+ * 色そのものと同じく logic 側が 1 か所で持つ（画面で英語キーを出さない）。
+ * 読み上げ（accessibilityLabel）もこれを使う ── `red` と読まれても伝わらない。
+ */
+export const PRESET_COLOR_LABELS: Record<PresetColorKey, string> = {
+  red: '赤',
+  orange: 'オレンジ',
+  yellow: '黄',
+  green: '緑',
+  teal: 'ティール',
+  blue: '青',
+  indigo: '藍',
+  purple: '紫',
+  pink: 'ピンク',
+  brown: '茶',
+  gray: 'グレー',
+};
+
+/** 保存値から色名。固定 11 色のどれでもなければ「自由色」 */
+export function presetColorLabel(stored: string): string {
+  const key = presetColorKeyOf(stored);
+  return key == null ? CUSTOM_COLOR_LABEL : PRESET_COLOR_LABELS[key];
+}
+
+/** 上の群の見出し（追加のとき）。まだ誰も使っていない色だけが並ぶ */
+export const COLOR_UNUSED_SECTION_LABEL = 'まだ使っていない色';
+
+/**
+ * 上の群の見出し（編集のとき）。**「使っていない」とは言えない** ──
+ * 自分の色を先頭に残すので、1 つだけ使用中の色が混じっているため。
+ */
+export const COLOR_SELECTABLE_SECTION_LABEL = '選べる色';
+
+// ---- 設計案 51b: 固定 11 色を使い切ったら、群の上下を入れ替える ----
+//
+// 50c は「上の群が自由色の丸 1 つだけになる」形だったが、4 列のうち 1 つだけが埋まった段は
+// **空いた 3 枠のほうが目に入る**。51b は主役を入れ替えて、上を「新しい色を作る」の 1 行
+// （幅いっぱい）に、下の「使用中の色から選ぶ」を 44pt の丸で普通に並べる ──
+// 空の枠を見せるのをやめるので、寂しさが構造的に消える。
+
+/**
+ * その 1 行の主文言。**「まだ使っていない色」の見出しと残り数は出さない**
+ * （旧 `COLOR_CUSTOM_ONLY_SECTION_LABEL` / `COLOR_ALL_USED_NOTE` は廃止した）──
+ * 空であることを見出しで示すと、無いものを 1 行使って言うことになる。
+ * 使い切ったことは副文言（下記）が 1 回だけ言う。
+ */
+export const CUSTOM_COLOR_CREATE_LABEL = '新しい色を作る';
+
+/**
+ * 同じ行の主文言（すでに自由色を選んでいるとき）。開くシートは同じだが、
+ * 開いた先には**いま使っている色**が入っているので「作る」とは言えない。
+ */
+export const CUSTOM_COLOR_CHANGE_LABEL = `${CUSTOM_COLOR_LABEL}を変える`;
+
+/** 同じ行の副文言。固定色の丸が 1 つも並んでいない理由を、その場で言う */
+export const COLOR_ALL_USED_SUBTITLE = `固定の${PRESET_COLOR_KEYS.length}色は使い切りました`;
+
+/**
+ * 下の群の見出し（設計案 51b の状態）。**状態ではなく操作を言う** ──
+ * この状態では固定色を選べる場所がここしかないので、「使用中」とだけ書くと
+ * 眺めるだけの一覧に見え、押せることが読めない。
+ */
+export const COLOR_USED_PICK_SECTION_LABEL = '使用中の色から選ぶ';
+
+/** 上の群の右（追加のとき）。残っている固定色の数 */
+export function colorRemainingLabel(count: number): string {
+  return `${count}色`;
+}
+
+/** 上の群の右（編集のとき）。「オレンジ（このタグの色）」 */
+export function ownColorLabel(stored: string, entityLabel: string): string {
+  return `${presetColorLabel(stored)}（この${entityLabel}の色）`;
+}
+
+/** 下の群の見出し（追加のとき） */
+export const COLOR_USED_SECTION_LABEL = '使用中';
+
+/** 下の群の見出し（編集のとき）。自分は含まれないことを言う */
+export function otherUsedSectionLabel(entityLabel: string): string {
+  return `ほかの${entityLabel}が使用中`;
+}
+
+/**
+ * 下の群の 1 つに添える名前。**同じ色を複数が使っていることがある**ので、
+ * 先頭 1 件 ＋ 残りの件数にする（横に並べる札なので、全部を書くと 1 行に収まらない）。
+ */
+export function colorUserLabel(names: readonly string[]): string {
+  const [head, ...rest] = names;
+  return rest.length === 0 ? head : `${head} ほか${rest.length}件`;
+}
+
+/**
+ * 使用中の色を選んだときの注記（設計案 50c）。**選択は妨げない** ──
+ * 同じ色を 2 つに付けるのが誤りだとは限らないので、Alert では止めず 1 行だけ出す。
+ *
+ * 複数が同じ色を使っているときも**名前は 1 件だけ**書き、残りは件数にする ──
+ * 名前を「・」で連ねるとプリセット名（「A4・厚さ3cm以内」）と区切りが見分けられず、
+ * 件数が増えるほど行が伸びて注記が読まれなくなる。誰が使っているかは
+ * 下の群にそのまま並んでいるので、ここは「重なっている」ことだけを伝えれば足りる。
+ */
+export function sameColorNote(names: readonly string[]): string {
+  const [head, ...rest] = names;
+  const who =
+    rest.length === 0 ? `「${head}」` : `「${head}」ほか${rest.length}件`;
+  return `${who}と同じ色です`;
+}
 export const PRESET_INITIAL_FIELD_LABEL = 'バッジの文字';
 
 /** 頭文字の欄の下の 1 行（§1.2）。空のままでも何が出るかを先に言う */
 export const PRESET_INITIAL_NOTE = `名前の先頭が入ります。${PRESET_INITIAL_MAX_LENGTH}文字まで変えられます。`;
+
+/**
+ * プレビュー帯のバッジの下の 1 行（設計案 49c）。**打っていないときだけ「押せる」ことを言う** ──
+ * 専用の入力欄を廃したので、バッジが押せること自体が画面から読めなくなるため。
+ */
+export const PRESET_INITIAL_HINT = `${PRESET_INITIAL_MAX_LENGTH}文字まで・押して直せます`;
+
+/**
+ * 同じ 1 行の、打っている最中の形（設計案 49c）。**制限だけを残す** ──
+ * カーソルが立っている時点で押せることは済んだ話で、そこに要るのは上限だけ。
+ */
+export const PRESET_INITIAL_EDITING_HINT = `${PRESET_INITIAL_MAX_LENGTH}文字まで`;
 
 /**
  * 編集のときだけ出す注記（設計案 25b）。§1.5 の帰結を、値を書き換える場所で名指しする。
@@ -1221,7 +2006,10 @@ export function presetDeleteLabel(type: PresetType): string {
  * 消えるのは今後の入力候補だけで、記録に写った金額は残る（§1.5）── そこが利用者の
  * いちばんの気がかりなので、件数と「残る」ことを 1 文に入れる。
  */
-export function presetDeleteConfirmMessage(type: PresetType, usageCount: number): string {
+export function presetDeleteConfirmMessage(
+  type: PresetType,
+  usageCount: number,
+): string {
   return `この${presetTypeLabel(type)}を使った記録が${presetCountLabel(usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
 }
 
@@ -1343,10 +2131,22 @@ export function tagDeleteA11yLabel(name: string): string {
  */
 export function tagDeletedMessage(name: string, usageCount: number): string {
   const head = `『${name}』を削除しました`;
-  return usageCount === 0 ? head : `${head}（${presetCountLabel(usageCount)}の記録から外れました）`;
+  return usageCount === 0
+    ? head
+    : `${head}（${presetCountLabel(usageCount)}の記録から外れました）`;
 }
 
 // ---- SPEC-V4 §2.3 追加・編集シート ----
+
+/**
+ * プレビューの左に置く 1 行（§2.3-2）。**プレビューが何の姿なのかを名指しする。**
+ *
+ * 以前はチップだけを 1 枚のカードに置いていたが、それだけでは
+ * 「打った名前がそのまま出ているだけの帯」に見え、**どこに出るものなのか**が読めなかった。
+ * 実際に出る先（一覧の行）は使用件数とシェブロンまで含んだ形なので、
+ * プレビューもその形ごと見せて、左でそれを名指しする。
+ */
+export const TAG_PREVIEW_LABEL = `${TAG_LABEL}一覧での見え方`;
 
 export function tagFormTitle(isNew: boolean): string {
   return `${TAG_LABEL}を${isNew ? '追加' : '編集'}`;
@@ -1447,7 +2247,8 @@ export const TAG_PICKER_EDIT_LINK = PRESET_PICKER_EDIT_LINK;
  * 語を分けるのは、**ここには作る場所が既にある**から ── 「記録を追加するときにも作れます」は、
  * まさにその記録フォームの上で読むと行き先の分からない案内になる。
  */
-export const TAG_PICKER_EMPTY_BODY = '上の欄に名前を入れると、その場で作れます。';
+export const TAG_PICKER_EMPTY_BODY =
+  '上の欄に名前を入れると、その場で作れます。';
 
 // ---- SPEC-V4 §3.4 レコード詳細のタグ ----
 
@@ -1541,7 +2342,9 @@ export function filterSummaryLabel(parts: string[], count: number): string {
  * 下部の語が対象を言う方を採る（無い欄の理由を読ませるより、無いまま短い方が迷わない）。
  */
 export function matchingRecordLabel(isSoldMode: boolean): string {
-  return isSoldMode ? 'この条件に合う記録' : `この条件に合う${LISTING_COUNT_LABEL}の記録`;
+  return isSoldMode
+    ? 'この条件に合う記録'
+    : `この条件に合う${LISTING_COUNT_LABEL}の記録`;
 }
 
 export function matchingRecordCountValue(count: number): string {
@@ -1599,7 +2402,8 @@ export const NO_RECORDS_EMPTY_BODY = '左下の ＋ を押すと記録できま�
  * プリセットを登録しても増えない ── 行き先はプリセットではなく記録の側だと言う。
  */
 export const FILTER_SITE_EMPTY_TITLE = `${FILTER_SITE_SECTION_LABEL}がありません`;
-export const FILTER_SITE_EMPTY_BODY = '記録に販売サイトを入れると、ここから選べます。';
+export const FILTER_SITE_EMPTY_BODY =
+  '記録に販売サイトを入れると、ここから選べます。';
 
 /**
  * タグの登録が 0 件のとき（§4.2.3 / 案 35d）。カードの中に 2 行で出す。
@@ -1627,14 +2431,19 @@ export const FILTER_TAG_SEARCH_CANCEL_LABEL = 'キャンセル';
  * 同じことを 2 度言うだけになる。
  */
 export function filterTagSectionLabel(totalCount: number): string {
-  return totalCount === 0 ? FILTER_TAG_SECTION_LABEL : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel(totalCount)}）`;
+  return totalCount === 0
+    ? FILTER_TAG_SECTION_LABEL
+    : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel(totalCount)}）`;
 }
 
 /**
  * 検索で絞った一覧の下（案 35f）。「32件のうち2件が該当」。
  * **絞り込みの条件ではなく一覧の見え方の話**なので、下部の件数とは別の語にする。
  */
-export function filterTagSearchResultLabel(totalCount: number, matchedCount: number): string {
+export function filterTagSearchResultLabel(
+  totalCount: number,
+  matchedCount: number,
+): string {
   return `${presetCountLabel(totalCount)}のうち${presetCountLabel(matchedCount)}が該当`;
 }
 
@@ -1653,11 +2462,15 @@ export function filterTagSearchEmptyTitle(keyword: string): string {
  * 上の 2 行目。名前は**先頭の 1 つと残りの数**に畳む（解除バーの filterTagPartLabel と同じ作法）
  * ── 全部並べると、選び方によっては 1 行に収まらない。
  */
-export function filterTagSearchEmptyBody(selectedNames: readonly string[]): string | null {
+export function filterTagSearchEmptyBody(
+  selectedNames: readonly string[],
+): string | null {
   if (selectedNames.length === 0) return null;
   const head = selectedNames[0];
   const names =
-    selectedNames.length === 1 ? head : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
+    selectedNames.length === 1
+      ? head
+      : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
   return `選んでいるタグ（${names}）は、そのまま効いています。`;
 }
 
@@ -1665,7 +2478,8 @@ export function filterTagSearchEmptyBody(selectedNames: readonly string[]): stri
 
 /** 設定の先頭の 1 行カードと、その下の注記（UI-SPEC §1.6-1） */
 export const HELP_LINK_LABEL = '使いかた';
-export const HELP_LINK_NOTE = '各画面の右上の「？」からも、その画面の説明だけを開けます。';
+export const HELP_LINK_NOTE =
+  '各画面の右上の「？」からも、その画面の説明だけを開けます。';
 
 /**
  * 記録まわりの設定の群（UI-SPEC §1.6-2）。見出しはタブ名と同じ語 ──
@@ -1730,10 +2544,17 @@ export const RECORD_ID_COLUMN = '記録ID';
  */
 export const CSV_TAG_SEPARATOR = TAG_NAME_SEPARATOR;
 
+/** 目標利益の列（SPEC-V9 §3）。決めていない記録は**空欄**（0 とは書かない） */
+export const TARGET_PROFIT_COLUMN = '目標利益';
+
 /**
- * データ保存用の 18 列（§5.3 ＋ SPEC-V4 §5.3）。
+ * データ保存用の 19 列（§5.3 ＋ SPEC-V4 §5.3 ＋ SPEC-V9 §3）。
  * 並びは **先頭 3 列（販売日 / 商品名 / 販売価格）→ 内訳 → 計算値 → 属性 → メモ → 記録ID**（§5.2）。
  * 先頭 3 列が固定なのは、会計ソフトの取込ウィザードで先頭数列だけ選べば済むようにするため。
+ *
+ * **目標利益は収支の直後**（SPEC-V9 §3）── 表計算で「目標に対して実際いくらだったか」を
+ * 横に並べて読むための列なので、属性の側へ流すと 2 つが離れて比べられなくなる。
+ * 確定申告用（11 列）には足さない ── 帳簿に「目標」の欄は無い。
  */
 export const CSV_BACKUP_COLUMNS: readonly string[] = [
   SOLD_DATE_FIELD_LABEL,
@@ -1746,6 +2567,7 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
   OTHERS_COST_LABEL,
   TOTAL_EXPENSES_COLUMN,
   TOTAL_PROFIT_LABEL,
+  TARGET_PROFIT_COLUMN,
   COMMISSION_RATE_COLUMN,
   presetTypeLabel('site'),
   RECORD_KIND_COLUMN,
@@ -1784,7 +2606,7 @@ export const CSV_TAX_COLUMNS: readonly string[] = [
 export const CSV_KIND_MIXED_LABEL = '混在';
 
 /**
- * 日ごとにまとめた行の販売サイト（§5.2.2）:「メルカリ ほか1件」。
+ * 日ごとにまとめた行の販売サイト（§5.2.2）:「フリマA ほか1件」。
  * **数えるのは名前の種類**（同じサイトが 3 件でも「ほか」は付かない）。
  * 名前が 1 つも無ければ空文字 ── 未設定の記録だけの日に語を足さない（§5.4「空値は空文字」）。
  */
@@ -1831,19 +2653,45 @@ export const EXPORT_GROUPING_SECTION_LABEL = 'まとめ方';
 export const EXPORT_TARGET_SECTION_LABEL = '対象';
 
 /** 種類の 2 択（§5.2 の改訂）。既定は先頭（データ保存用） */
-export const EXPORT_KIND_OPTIONS: readonly { value: 'backup' | 'tax'; label: string }[] = [
+export const EXPORT_KIND_OPTIONS: readonly {
+  value: 'backup' | 'tax';
+  label: string;
+}[] = [
   { value: 'backup', label: 'データ保存用' },
   { value: 'tax', label: '確定申告用' },
 ];
 
-/** 種類の節の下の 1 行。選んでいる方が何のためのものかを言う（列の一覧までは出さない） */
+/**
+ * 種類の節の下の 1 行。選んでいる方が何のためのものかを言う（列の一覧までは出さない）。
+ *
+ * **「バックアップにも使えます」を外した**（SPEC-V8 §0.2）── SPEC-V3 §5.2 の時点では
+ * 唯一の書き出しだったので正しかったが、**SPEC-V8 で本物の復元が入って嘘になった。**
+ * この CSV は読み戻せない（計算値が入り、写真・資材費の 3 列が無く、時刻が落ちている）。
+ * 下の EXPORT_NOT_RESTORABLE_NOTE と同じ画面に並ぶので、残すと真っ向から矛盾する。
+ */
 export const EXPORT_KIND_NOTES: Record<'backup' | 'tax', string> = {
-  backup: 'メモやタグも含めて、記録した内容をすべて書き出します。バックアップにも使えます。',
+  backup:
+    'メモやタグも含めて、記録した内容をすべて書き出します。表計算で見るための形です。',
   tax: '帳簿に要る列だけを書き出します。メモとタグは出しません。',
 };
 
+/**
+ * 書き出し画面に出す**復元との関係**（SPEC-V8 §0.2 / §5.1）。
+ *
+ * **書き出しとバックアップはどちらも CSV が出てくるので、画面の名前だけでは区別が付かない。**
+ * この 1 行が無いと「データ保存用」を選んだ人が、戻せないファイルを持って機種変更する。
+ * **どちらの種類を選んでいても出す** ── 確定申告用はなおさら戻せない。
+ *
+ * 行き先（「バックアップと復元」）を名指しするのは、否定だけで終わらせないため。
+ */
+export const EXPORT_NOT_RESTORABLE_NOTE =
+  'このCSVは復元には使えません。機種変更などでデータを移すときは「バックアップと復元」をお使いください。';
+
 /** まとめ方の 2 択（§5.2.2）。**確定申告用のときだけ出す** */
-export const EXPORT_GROUPING_OPTIONS: readonly { value: 'record' | 'day'; label: string }[] = [
+export const EXPORT_GROUPING_OPTIONS: readonly {
+  value: 'record' | 'day';
+  label: string;
+}[] = [
   { value: 'record', label: '1件ずつ' },
   { value: 'day', label: '日ごとにまとめる' },
 ];
@@ -1858,7 +2706,10 @@ export const EXPORT_GROUPING_NOTES: Record<'record' | 'day', string> = {
  * 対象の 2 択（§5.5-3）。既定は「売れた記録のみ」（決定 §8-9）──
  * 申告も集計も確定した金額しか扱わないため。
  */
-export const EXPORT_TARGET_OPTIONS: readonly { value: boolean; label: string }[] = [
+export const EXPORT_TARGET_OPTIONS: readonly {
+  value: boolean;
+  label: string;
+}[] = [
   { value: false, label: `${SOLD_RECORDS_LABEL}のみ` },
   { value: true, label: `${LISTING_STATUS_LABEL}も含める` },
 ];
@@ -1870,7 +2721,10 @@ export const EXPORT_SUBMIT_LABEL = '書き出す';
  * 下端の左（§5.7）:「2026年8月・売れた記録」。期間名は月バーと同じ書式（periodTitle）。
  * **押す前に何が出るかを読ませる行**なので、効いている条件をそのまま並べる。
  */
-export function exportSummaryLabel(period: Period, includeListing: boolean): string {
+export function exportSummaryLabel(
+  period: Period,
+  includeListing: boolean,
+): string {
   const target = includeListing
     ? `${SOLD_RECORDS_LABEL}と${LISTING_STATUS_LABEL}`
     : SOLD_RECORDS_LABEL;
@@ -1882,7 +2736,10 @@ export function exportSummaryLabel(period: Period, includeListing: boolean): str
  * **件数は記録の数**で、行数はファイルの行の数 ── まとめると行の方が少なくなるので、
  * 変わったことがその場で読めるように両方出す。同じ数のときは括弧を出さない。
  */
-export function exportCountLabel(recordCount: number, rowCount: number): string {
+export function exportCountLabel(
+  recordCount: number,
+  rowCount: number,
+): string {
   const count = presetCountLabel(recordCount);
   return rowCount === recordCount ? count : `${count}（${rowCount}行）`;
 }
@@ -1925,7 +2782,10 @@ export const EXPORT_PREVIEW_SCREEN_TITLE = 'プレビュー';
  * **行数が先、列数が後。** 見えているもの（3 行）を先に言い、見えていないもの（列）を後に置く。
  * 出す行が 3 行に満たないときは実際の数を出す（「先頭3行」と出て 2 行しか無いと数が食い違う）。
  */
-export function exportPreviewMetaLabel(shownRows: number, columnCount: number): string {
+export function exportPreviewMetaLabel(
+  shownRows: number,
+  columnCount: number,
+): string {
   return `先頭${shownRows}行・全${columnCount}列`;
 }
 
@@ -1959,10 +2819,12 @@ export function exportPreviewScreenMetaLabel(
 }
 
 /** 共有シートが使えない端末（§5.6）。書き出しの経路が共有シートしかないので、押した後に出る */
-export const EXPORT_SHARING_UNAVAILABLE = 'この端末では共有シートを開けませんでした。';
+export const EXPORT_SHARING_UNAVAILABLE =
+  'この端末では共有シートを開けませんでした。';
 
 /** 書き出しに失敗したとき（§5.6）。原因は端末側なので、言えるのは「できなかった」まで */
-export const EXPORT_FAILED_MESSAGE = '書き出せませんでした。もう一度お試しください。';
+export const EXPORT_FAILED_MESSAGE =
+  '書き出せませんでした。もう一度お試しください。';
 
 /** 共有シートの見出し（Android / Web のみ表示される。expo-sharing の dialogTitle） */
 export const EXPORT_SHARE_DIALOG_TITLE = CSV_EXPORT_LABEL;
@@ -2026,7 +2888,8 @@ export const PHOTO_EMPTY_LABEL = '写真なし';
  * 写真へのアクセスを拒否されたとき（§3.3）。**「設定を開く」の口と対で出す** ──
  * アプリの中では直せないので、どこへ行けば直せるかまで言わないと詰む。
  */
-export const PHOTO_PERMISSION_DENIED_MESSAGE = '写真へのアクセスが許可されていません。';
+export const PHOTO_PERMISSION_DENIED_MESSAGE =
+  '写真へのアクセスが許可されていません。';
 
 /** 上の文と対で出すリンク（§3.3）。iOS の設定アプリのこのアプリの画面を開く */
 export const PHOTO_OPEN_SETTINGS_LABEL = '設定を開く';
@@ -2048,19 +2911,55 @@ export const HELP_FIGURE_MODE_PROFIT_NOTE = 'この 2 つで切り替えます';
 export const HELP_FIGURE_MODE_TARGET_NOTE =
   'こちらに切り替えると、ほしい利益から販売価格を出します';
 export const HELP_FIGURE_CALCULATOR_NOTE = '青いボタンを押すと電卓が開きます';
-export const HELP_FIGURE_BREAKDOWN_NOTE = '「内訳」を押すと、この帯と項目ごとの金額が出ます';
-export const HELP_FIGURE_PRESET_TAG_NOTE = 'タグの印を押すと、登録した値から選べます';
-export const HELP_FIGURE_ADD_RECORD_NOTE = '記録タブの左下・タブバーの上にあります';
+export const HELP_FIGURE_BREAKDOWN_NOTE =
+  '「内訳」を押すと、この帯と項目ごとの金額が出ます';
+export const HELP_FIGURE_PRESET_TAG_NOTE =
+  'タグの印を押すと、登録した値から選べます';
+/** 45b の 2 択（SPEC-V6 §3）。**押した側の額がそのまま欄に入る**ことを言う */
+export const HELP_FIGURE_SHIPPING_MATERIAL_NOTE =
+  '資材の代金を登録した送料だけ、この 2 つが出ます';
+export const HELP_FIGURE_ADD_RECORD_NOTE =
+  '記録タブの左下・タブバーの上にあります';
 export const HELP_FIGURE_KIND_SELECTOR_NOTE = '記録の画面のここで選びます';
-export const HELP_FIGURE_STATUS_TOGGLE_NOTE = '左が今の状態、右を押すともう一方に変わります';
+export const HELP_FIGURE_STATUS_TOGGLE_NOTE =
+  '左が今の状態、右を押すともう一方に変わります';
 export const HELP_FIGURE_PHOTO_NOTE =
   '空の枠を押すと写真を選べます。付いた写真は右上の「✕」で外せます';
-export const HELP_FIGURE_TAG_ROW_NOTE = '「＋」を押すと選べます。まだ無いタグはその場で作れます';
-export const HELP_FIGURE_MONTH_BAR_NOTE = '「◀」「▶」で前後の月へ。月の名前を押すと期間を選べます';
-export const HELP_FIGURE_FILTER_ENTRY_NOTE = '右端の「▽」から開きます。効いている間は青くなります';
+export const HELP_FIGURE_TAG_ROW_NOTE =
+  '「＋」を押すと選べます。まだ無いタグはその場で作れます';
+export const HELP_FIGURE_MONTH_BAR_NOTE =
+  '「◀」「▶」で前後の月へ。月の名前を押すと期間を選べます';
+export const HELP_FIGURE_FILTER_ENTRY_NOTE =
+  '右端の「▽」から開きます。効いている間は青くなります';
 export const HELP_FIGURE_SEARCH_SORT_NOTE = '左が商品名でさがす、右が並び替え';
-export const HELP_FIGURE_SOLD_LISTING_NOTE = '上の合計も、選んだほうの記録で計算されます';
-export const HELP_FIGURE_PRESET_LIST_NOTE = '設定タブの「入力を減らす」に、この形で並びます';
+export const HELP_FIGURE_SOLD_LISTING_NOTE =
+  '上の合計も、選んだほうの記録で計算されます';
+export const HELP_FIGURE_PRESET_LIST_NOTE =
+  '設定タブの「入力を減らす」に、この形で並びます';
+/** 目標欄（SPEC-V9 §2）。**空欄が 0 ではない**ことだけを言う */
+export const HELP_FIGURE_TARGET_FIELD_NOTE =
+  '入れていないときは「決めていません」。「¥0」とは別のものです';
+/** 価格ライン（§9.6）。**目盛りは目標の有無で 2 点にも 3 点にもなる**ことを言う */
+export const HELP_FIGURE_PRICE_LINE_NOTE =
+  '目標を決めていない記録では、真ん中の目盛りが出ません';
+/** シミュレーター（§9.9）。図では動かせないことを断る */
+export const HELP_FIGURE_SIMULATOR_NOTE =
+  'つまみを動かすと、その価格での見込みが上に出ます（この図では動きません）';
+/** データタブの 3 択（案 3c）。**押す場所**を言う */
+export const HELP_FIGURE_DATA_MODES_NOTE = 'グラフのカードの上端にあります';
+/** タグ別の 2 択（案 1b）。カードの右上という位置が見落とされやすい */
+export const HELP_FIGURE_TAG_VIEW_NOTE = 'タグのカードの右上で切り替えます';
+/** 写真を含めるか（SPEC-V8 §4）。**既定と、含めなかったときの結果**を言う */
+export const HELP_FIGURE_PHOTO_INCLUDE_NOTE =
+  '既定は「含める」。「含めない」で作ると、そのファイルから写真は戻せません';
+/** バッジの文字（設計案 49c）。専用の入力欄が無いことを言う */
+export const HELP_FIGURE_PRESET_BADGE_NOTE = 'バッジそのものを押すと文字を直せます';
+/** 記録詳細の帯（§4）。凡例の代わりが下の丸であることを言う */
+export const HELP_FIGURE_RECORD_BAR_NOTE =
+  '帯の色は、下の行に付いた同じ色の丸が表します';
+/** 色の 2 群（設計案 50c）。上下の意味だけを言う（使い切ったときの形は本文が持つ） */
+export const HELP_FIGURE_COLOR_GROUPS_NOTE =
+  '上がまだ使っていない色、下が使用中。どちらも押して選べます';
 export const HELP_FIGURE_EXPORT_TARGET_NOTE = `既定は「${SOLD_RECORDS_LABEL}のみ」です`;
 export const HELP_FIGURE_EXPORT_PREVIEW_NOTE = '押すと全部の行を見られます';
 
@@ -2071,11 +2970,30 @@ export const HELP_FIGURE_SEARCH_CAPTION = 'さがす';
 
 /** 抽象的な図（HelpDiagram）の見出し。図が何の場面を描いているかを言う */
 export const HELP_FIGURE_KIND_SUBTITLE_SUFFIX = 'で売れたとき';
-export const HELP_FIGURE_SITE_AMOUNT_SUBTITLE = '同じ 1 件を、どこまで引いた金額で見ているか';
+export const HELP_FIGURE_SITE_AMOUNT_SUBTITLE =
+  '同じ 1 件を、どこまで引いた金額で見ているか';
 export const HELP_FIGURE_TARGET_SUBTITLE = 'ほしい利益が先に決まっているとき';
-export const HELP_FIGURE_BACKUP_SUBTITLE = '減るのはメモとタグだけ';
-export const HELP_FIGURE_COST_PARTS_SUBTITLE = 'このアプリが販売価格から引くのは、この 5 つ';
+/**
+ * 書き出し（CSV）2 種の図の見出し。
+ *
+ * **`BACKUP` を名前に入れない**（旧 `HELP_FIGURE_BACKUP_SUBTITLE`）── CSV の種類の一方が
+ * 「データ保存用」（内部の値は `backup`）なのでそう呼んでいたが、SPEC-V8 で
+ * 本物の「バックアップと復元」が入ったあとは、定数名だけ読むとあちらの図に見える。
+ * 表示文言は変えていない。
+ */
+export const HELP_FIGURE_CSV_KINDS_SUBTITLE = '減るのはメモとタグだけ';
+export const HELP_FIGURE_COST_PARTS_SUBTITLE =
+  'このアプリが販売価格から引くのは、この 5 つ';
 export const HELP_FIGURE_DAY_GROUP_SUBTITLE = '同じ日に 3 件売れたとき';
+/** 復元前のプレビュー（SPEC-V8 §5.4）。**置き換えであることを図の題で言う** */
+export const HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE =
+  '古いファイルを選んでしまったとき';
+export const HELP_FIGURE_BACKUP_REPLACE_NOTE =
+  '赤い数字は減るもの。押すとこの中身に置き換わります';
+/** 実績の 2 とおり（案 3c）。段を登るものと 1 回だけのもの */
+export const HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE = '実績には 2 とおりある';
+export const HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL = '5 段階で登るもの（⚡一撃の例）';
+export const HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL = '条件を満たすと 1 回だけ付くもの';
 
 /** 帯・行の中の語（図にしか無いもの。画面に出る語は定数を共有する） */
 export const HELP_FIGURE_KEPT_LABEL = '残る分';
@@ -2105,6 +3023,16 @@ export const HELP_FIGURE_OTHERS_NOTE = '交通費など、上に当てはまら�
 /** 図の見出しのうち、題材の金額や語をそのまま含むもの（値は図が持つ） */
 export function helpFigureBothSoldSubtitle(price: string): string {
   return `どちらも${SALES_PRICE_LABEL} ${price}で売れたとき`;
+}
+/**
+ * 目標と下げ幅の図の見出し（SPEC-V9 §1.2 / §4.3）。**同じ 1 件だと題で言う** ──
+ * 3 行を別々の記録だと読まれると、「目標の決め方で変わる」という関係そのものが消える。
+ *
+ * 金額を引数で受けるのは、図が持つ題材（`PRICING_EXAMPLE`）と食い違わせないため ──
+ * 見出しに「¥5,000」と書き込んでしまうと、題材を変えたときに題だけが古い額を主張する。
+ */
+export function helpFigureTargetRoomSubtitle(price: string): string {
+  return `同じ記録（今の価格 ${price}）で、目標だけを変えたとき`;
 }
 export function helpFigureSourcedRowTitle(purchasePrice: string): string {
   return `${RECORD_KIND_LABELS.sourced}（${PURCHASE_PRICE_LABEL} ${purchasePrice}）`;
@@ -2139,10 +3067,1027 @@ export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
 
 /**
  * 図 8（書き出しの 2 種類）の見出し（案 `20a`）。**列数は実際の列の並びから数える** ──
- * 図に「18 列」と書いておくと、列を 1 つ足したときに図だけが古くなる。
+ * 図に「19 列」と書いておくと、列を 1 つ足したときに図だけが古くなる。
  */
 export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
   const columns = kind === 'backup' ? CSV_BACKUP_COLUMNS : CSV_TAX_COLUMNS;
-  const label = EXPORT_KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '';
+  const label =
+    EXPORT_KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '';
   return `${label}\n${columns.length} 列`;
 }
+
+// ---- SPEC-V8 バックアップと復元 ----
+//
+// **既存の「書き出し（CSV）」の語とは分けて持つ**（§0.2）── あちらは「書き出し」、
+// こちらは「バックアップ」。同じ語を使い回すと、設定の 2 行が同じものに見えて
+// 「どちらを押せば機種変更で困らないか」が読めなくなる。
+
+/** 設定タブ「データ」群の 3 行目（§5.1）。書き出し（CSV）の下に並ぶ */
+export const BACKUP_LABEL = 'バックアップと復元';
+
+/** バックアップ画面の見出し（§5.2） */
+export const BACKUP_SCREEN_TITLE = BACKUP_LABEL;
+
+/** backup-info.csv のファイル名（§1.2）。logic/backup.ts と画面の両方が使う */
+export const BACKUP_INFO_FILE = 'backup-info.csv';
+
+// ---- 画面 1: バックアップを作る（§5.3・設計案 53a / 53b） ----
+//
+// **1 枚に 2 つのカードと、下端に固定した 1 つのボタン。**
+// カード 1 が「何ができるか」、カード 2 が「写真をどうするか」、
+// 押す口は下端に 1 つだけ ── 親指の届く場所に、押せるものを 1 つに絞る。
+
+export const BACKUP_CREATE_SECTION_TITLE = 'バックアップを作る';
+export const BACKUP_CREATE_BUTTON_LABEL = 'バックアップを作る';
+
+/**
+ * 作る側の説明（案 53a）。**行き先（新しい端末）まで書く。**
+ *
+ * 「全件が入る」「期間の指定はない」は件数の帯（下の 3 つの数字）が見せるので、
+ * 文では「何のために作るのか」だけを言う ── 機種変更で困らないためのものだ、と
+ * 分かる位置に置かないと、隣の「書き出し（CSV）」との違いが読めない。
+ */
+export const BACKUP_CREATE_NOTE =
+  '今あるデータをまとめて1つのファイルにします。機種を変えるときは、このファイルを新しい端末に渡してください。';
+
+/** 件数の帯（案 53a）。「記録 53件」の形で 3 つ並べる */
+export const BACKUP_COUNT_RECORDS_LABEL = '記録';
+export const BACKUP_COUNT_TAGS_LABEL = 'タグ';
+export const BACKUP_COUNT_PRESETS_LABEL = 'プリセット';
+export const BACKUP_COUNT_PHOTOS_LABEL = '写真';
+
+/** 「記録 53件」（帯の 1 つ）。ラベルと数の間は半角空き 1 つ */
+export function backupCountChipLabel(label: string, count: number): string {
+  return `${label} ${presetCountLabel(count)}`;
+}
+
+/** 写真の枚数（「31枚」）。件（記録・タグ・プリセット）とは単位を変える */
+export function photoCountLabel(count: number): string {
+  return `${count}枚`;
+}
+
+// ---- 写真を含めるか（SPEC-V8 §4 / 案 53a） ----
+//
+// **トグルではなく 2 択にする。** トグルは「いま入っているのか、切っているのか」を
+// 色と位置だけで示すもので、50 代の利用者には読み取りに時間がかかる。
+// 2 択なら選択肢の中に枚数とサイズを書けるので、「含めるとは何のことか」が
+// 選ぶ瞬間に目に入る。既定は左の「含める」（バックアップは全部戻せるのが本来）。
+
+export const BACKUP_PHOTO_SECTION_TITLE = '商品の写真';
+export const BACKUP_PHOTO_INCLUDE_LABEL = '含める';
+export const BACKUP_PHOTO_EXCLUDE_LABEL = '含めない';
+
+/** 「含める」の下に出す実測（53枚・8.2MB）。**合計サイズは実体を読まずに出す**（§4.4） */
+export function backupPhotoIncludeDetail(count: number, bytes: number): string {
+  return `${photoCountLabel(count)}・${formatByteSize(bytes)}`;
+}
+
+/** 「含めない」の下に出す利点。否定の選択肢にも選ぶ理由を書く */
+export const BACKUP_PHOTO_EXCLUDE_DETAIL = 'ファイルが軽い';
+
+/**
+ * バイト数を読める形に。MB は小数 1 桁、KB 未満は「1KB未満」に丸める。
+ *
+ * **割り切れるときは小数を落とす**（`50.0MB` ではなく `50MB`）── 上限のように
+ * 定数として出す数字に `.0` が付くと、意味のない桁を読ませることになる。
+ */
+export function formatByteSize(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb >= 1) return `${Number(mb.toFixed(1))}MB`;
+  const kb = bytes / 1024;
+  if (kb >= 1) return `${Math.round(kb)}KB`;
+  return '1KB未満';
+}
+
+/**
+ * **写真が入らないことの警告（案 53b）。** 選択カードの**直下**に出す。
+ *
+ * 「含めない」を選んだ**その瞬間**に、選んだ場所のすぐ下で言う ── 作ったあとに
+ * 気付いても遅い。下端のボタン名（BACKUP_CREATE_WITHOUT_PHOTOS_LABEL）と合わせて
+ * **2 か所**で言うのは、片方だけでは押す前の視線に入らないことがあるため。
+ */
+export const BACKUP_NO_PHOTO_WARNING =
+  'このバックアップに写真は含まれません。新しい端末で写真は表示されなくなります。';
+
+/** 上限に当たった人の逃げ道（§4.4）。**否定で終わらせない** */
+export const BACKUP_CREATE_WITHOUT_PHOTOS_LABEL = '写真なしで作る';
+
+/**
+ * 中身が CSV であることの位置づけ（SPEC-V8 §0.3 / §10）。
+ *
+ * **開けてしまうことを隠さない。** ZIP を解凍すれば CSV が 5 枚出てくるので、
+ * 黙っていると「CSV なら表計算で直せる」と読まれる ── 直したものを読み込ませる前提では
+ * 設計していない（列も型も参照も厳しく見るので、少し触ると弾かれる）。
+ *
+ * **「編集できません」とは言わない**（§10）── 禁止する実装は入れておらず、
+ * 検証を通れば読み込める。言えるのは「想定していない」まで。
+ *
+ * 写真の警告（BACKUP_NO_PHOTO_WARNING）とは重さが違うので**カードの外に小さく置く** ──
+ * あちらは知らないと失う（写真が戻らない）が、こちらは知らなくても損はしない。
+ */
+export const BACKUP_CSV_INSIDE_NOTE =
+  '中身はCSVですが、確認用です。編集して読み込むことは想定していません。';
+
+// ---- 作っている間（案 53a 右） ----
+//
+// **ボタンをそのまま進捗バーに変える。** 別の場所に印を出すと、押した指の先から
+// 反応が消えて「効いたのか」が読めない。進捗は写真の枚数で数える ──
+// 止まって見える時間のほとんどが写真の読み出しなので、そこだけが動けば十分。
+
+export const BACKUP_CREATING_LABEL = '作っています...';
+
+/** 「写真 34枚目 / 53枚」。**何枚目まで進んだか**を出す（率は出さない） */
+export function backupPhotoProgressLabel(done: number, total: number): string {
+  return `写真 ${done}枚目 / ${photoCountLabel(total)}`;
+}
+
+/** 進捗の右に添える 1 語。**待てば終わる**ことだけを言う */
+export const BACKUP_PROGRESS_WAIT_NOTE = 'このままお待ちください';
+
+/**
+ * 下端のボタンの下に出す 1 行（案 53a）。
+ *
+ * **「前回」を出すのは、間隔が空いたことに自分で気付けるようにするため。**
+ * 通知も催促もしないので、思い出す手がかりはこの 1 行しかない。
+ */
+export function backupLastCreatedNote(createdAt: string | null): string {
+  if (createdAt == null) return 'まだ一度も作っていません';
+  return `前回作ったのは ${backupDayLabel(createdAt)}`;
+}
+
+/** 「2026年7月2日」。保存形式 "YYYY-MM-DDTHH:mm:ss.SSS" から日付だけを出す */
+export function backupDayLabel(date: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (match == null) return date;
+  const [, year, month, day] = match;
+  return `${year}年${Number(month)}月${Number(day)}日`;
+}
+
+export const BACKUP_SHARE_DIALOG_TITLE = 'バックアップを保存';
+export const BACKUP_CREATE_FAILED_MESSAGE = 'バックアップを作れませんでした。';
+export const BACKUP_SHARING_UNAVAILABLE = 'この端末では共有できません。';
+
+// ---- 画面 2: 上限を超えたとき（§4.4 / 案 53e） ----
+//
+// **押す前には何も出さない。** 大半の利用者に無関係な数字で、先に見せると
+// 「50MB とは何枚か」を考えさせることになる。超えた人にだけ、押した後に
+// **下からのシート**で受け止める ── ダイアログより文を長く書けて、
+// 棒グラフで「あと少しなのか、大幅に超えているのか」まで見せられる。
+
+export const BACKUP_PHOTO_LIMIT_TITLE = '写真が多すぎます';
+
+/** 何が起きるのかを、起きる順に 1 文で。「上限」の語より先に結果を言う */
+export const BACKUP_PHOTO_LIMIT_MESSAGE =
+  '写真を全部入れると、作っている途中でアプリが止まってしまいます。';
+
+/** 棒グラフの左の見出し（「今の写真 53枚」） */
+export function backupPhotoLimitBarLabel(count: number): string {
+  return `今の写真 ${photoCountLabel(count)}`;
+}
+
+/** 棒グラフの下の目盛り（左端は 0、右端は上限） */
+export const BACKUP_PHOTO_LIMIT_BAR_MIN = '0';
+
+export function backupPhotoLimitBarMax(limit: number): string {
+  return `上限 ${formatByteSize(limit)}`;
+}
+
+/**
+ * シートの下の補足（案 53e）。**失うものと残るものを分けて言う。**
+ *
+ * 「写真なしで作る」を押させる前に、**それでも移せるもの**を件数で見せる ──
+ * 数字が無いと「写真が入らないなら意味がない」と読まれて、
+ * バックアップそのものを取らずに終わる。
+ */
+export function backupPhotoLimitFooter(counts: {
+  records: number;
+  tags: number;
+  presets: number;
+}): string {
+  return (
+    `写真なしでも、記録${counts.records}件・タグ${counts.tags}件・プリセット${counts.presets}件は` +
+    `すべて新しい端末に移せます。写真だけは「写真」アプリなどに保存してください。`
+  );
+}
+
+/**
+ * シートを閉じる側（案 53e）。**「キャンセル」ではなく「やめる」。**
+ *
+ * 押すと写真の選択が「含めない」に切り替わる ── 閉じた先で
+ * 「そのまま作る」か「写真を減らしてから戻る」かを選べるようにするため、
+ * **同じ行き止まりに戻さない**。
+ */
+export const BACKUP_LIMIT_CANCEL_LABEL = 'やめる';
+
+// ---- 復元するものを選ぶ（§5.4） ----
+
+export const BACKUP_RESTORE_SECTION_TITLE = '復元する';
+export const BACKUP_PICK_FILE_LABEL = 'バックアップのファイルを選ぶ';
+export const BACKUP_PICK_FOLDER_LABEL = '解凍したフォルダを選ぶ';
+
+/** 2 つの選び方がある理由を 1 行で（§3.1 / 決定 §8-2） */
+export const BACKUP_RESTORE_NOTE =
+  'バックアップの ZIP ファイルか、それを解凍したフォルダを選びます。中身を確認するために解凍したあとでも復元できます。';
+
+// ---- 画面 3: プレビュー（§5.4 / 案 53f / 53g） ----
+//
+// **確認ダイアログは持たない。** ダイアログでは「今あるものがどうなるか」を
+// 数字で並べられず、閉じると理由が残らない。この 1 枚が確認そのもので、
+// **「今の端末 → ファイル」の差**を出すのが、間違ったファイルに気付く一番強い手がかり。
+
+export const BACKUP_PREVIEW_SCREEN_TITLE = '読み込む中身';
+export const BACKUP_PREVIEW_BACK_LABEL = '戻る';
+
+/** 差の表の 2 つの列見出し */
+export const BACKUP_DIFF_CURRENT_HEADER = '今の端末';
+export const BACKUP_DIFF_FILE_HEADER = 'ファイル';
+
+/** 差の表の行の名前（§4.4）。**写真の行は 0 枚でも出す** ── 差の表では 0 に意味がある */
+export const BACKUP_PREVIEW_RECORDS_LABEL = BACKUP_COUNT_RECORDS_LABEL;
+export const BACKUP_PREVIEW_TAGS_LABEL = BACKUP_COUNT_TAGS_LABEL;
+export const BACKUP_PREVIEW_PRESETS_LABEL = BACKUP_COUNT_PRESETS_LABEL;
+export const BACKUP_PREVIEW_PHOTOS_LABEL = BACKUP_COUNT_PHOTOS_LABEL;
+
+/**
+ * ファイルのカードの 2 行目（案 53f / 53g）。
+ *
+ * **相対の語（きょう・きのう）を添える。** 「2026年8月13日」だけでは、
+ * それが直前に作ったものか半年前のものかを暗算することになる。
+ * 写真の入っていないファイルは、ここでも `・写真なし` と言う（§4.6）。
+ */
+export function backupPreviewCreatedLine(
+  createdAt: string,
+  today: Date,
+  hasPhotos: boolean,
+): string {
+  const relative = backupRelativeDayLabel(createdAt, today);
+  const day =
+    relative == null
+      ? backupDayLabel(createdAt)
+      : `${backupDayLabel(createdAt)}（${relative}）`;
+  return hasPhotos ? `作成日 ${day}` : `作成日 ${day}・写真なし`;
+}
+
+/** きょう / きのう / それ以前は null（日付だけで足りる） */
+export function backupRelativeDayLabel(
+  createdAt: string,
+  today: Date,
+): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(createdAt);
+  if (match == null) return null;
+  const [, year, month, day] = match;
+  const created = new Date(Number(year), Number(month) - 1, Number(day));
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((base.getTime() - created.getTime()) / 86_400_000);
+  if (days === 0) return 'きょう';
+  if (days === 1) return 'きのう';
+  return null;
+}
+
+/**
+ * 表の下の 1 文（案 53f）。**中身を 1 件だけ名指しする。**
+ *
+ * 件数は合っていても「別の人のファイル」「別のアプリのファイル」であることはあり得る。
+ * 商品名 1 つを出せば、見覚えがあるかどうかで一瞬で分かる ──
+ * 件数の一致より強い手がかりで、しかも読むのに 1 秒もかからない。
+ */
+export function backupNewestRecordNote(date: string, itemName: string): string {
+  const name = itemName.trim() === '' ? UNTITLED_LABEL : itemName;
+  return `中で一番新しい記録は ${backupDayLabel(date)}「${name}」です。見覚えがなければ、別の人のファイルです。`;
+}
+
+/**
+ * 大きく減るときだけ足す注意帯（案 53f）。
+ *
+ * 赤い数字は「減る」ことしか言わないので、**減り幅が大きいときだけ**
+ * 言葉でも言う ── 古いバックアップを選んでいる典型がここに出る。
+ */
+export function backupLargeDecreaseNote(current: number, next: number): string {
+  return (
+    `記録が${presetCountLabel(current)}から${presetCountLabel(next)}に減ります。` +
+    `古いバックアップを選んでいないか確かめてください。`
+  );
+}
+
+/** 写真の入っていないファイルから戻すとき（案 53g）。**損失が二重なので 2 文に分ける** */
+export const BACKUP_NO_PHOTO_IN_FILE_TITLE =
+  'このファイルに写真は入っていません。';
+
+export function backupNoPhotoInFileBody(devicePhotos: number): string {
+  return (
+    `写真は復元されません。今この端末にある写真${photoCountLabel(devicePhotos)}も、` +
+    `いっしょに削除されます。`
+  );
+}
+
+/** 赤いボタンの上に置く警告（案 53f）。**取り消せないことを最後に言う** */
+export function backupReplaceWarning(records: number): string {
+  return (
+    `今あるデータ（記録${presetCountLabel(records)}）はすべて消えて、` +
+    `ファイルの中身に置き換わります。元には戻せません。`
+  );
+}
+
+export const BACKUP_REPLACE_ALL_LABEL = 'すべて置き換える';
+
+/** 写真の入っていないファイルのとき（案 53g）。**ボタン名でも写真のことを言う** */
+export const BACKUP_REPLACE_WITHOUT_PHOTOS_LABEL = '写真なしで置き換える';
+
+export const BACKUP_PICK_ANOTHER_FILE_LABEL = '別のファイルを選ぶ';
+
+/** 復元の最中（写真を書き戻している間）。作るときと同じ形で出す */
+export const BACKUP_RESTORING_LABEL = '読み込んでいます...';
+
+// ---- 画面 5: 復元できたとき（§5.6 / 案 53k） ----
+
+export const BACKUP_RESULT_SCREEN_TITLE = '読み込みの結果';
+export const BACKUP_RESTORED_TITLE = '復元しました。';
+
+/** 写真の行（案 53k）。**欠けたぶんは括弧で添える**（行そのものは消さない） */
+export function backupRestoredPhotoValue(
+  restored: number,
+  missing: number,
+): string {
+  if (missing === 0) return photoCountLabel(restored);
+  return `${photoCountLabel(restored)}（${photoCountLabel(missing)}は復元できず）`;
+}
+
+/**
+ * 欠けた写真の説明（案 53k）。**警告色は使わない。**
+ *
+ * これはエラーではなく起きたことの報告なので、赤い帯にはしない ──
+ * 復元そのものは成功していて、金額も日付も入っている（§4.3）。
+ * 言うのは「なぜ欠けたか」と「その記録はどうなったか」の 2 つ。
+ */
+export function backupMissingPhotoNote(missing: number): string {
+  return (
+    `写真${photoCountLabel(missing)}はファイルの中に無いか壊れていたため、` +
+    `その${presetCountLabel(missing)}は写真なしの記録として入りました。金額や日付は入っています。`
+  );
+}
+
+export const BACKUP_RESULT_OPEN_RECORDS_LABEL = '記録を見る';
+
+/** 欠けた写真があるときだけ出す 2 つ目の口（案 53k） */
+export function backupMissingPhotoRecordsLabel(missing: number): string {
+  return `写真がなかった${presetCountLabel(missing)}を見る`;
+}
+
+/** 欠けた記録の一覧（上の口を押したときに開く）の見出し */
+export const BACKUP_MISSING_PHOTO_LIST_TITLE = '写真がなかった記録';
+
+// ---- 画面 4: エラー（§3.3 / 案 53h） ----
+//
+// **文言の型は 3 行で固定する**（§3.3）:
+//   バックアップを読み込めませんでした。
+//   〈どこが〉〈なぜ〉
+//   現在のデータは変更されていません。
+//
+// 3 行目を必ず付けるのは、失敗したときに利用者が一番知りたいのが
+// 「壊れていないか」だから ── 全置換の機能なので、途中まで入った可能性を疑わせない。
+//
+// **ダイアログでは出さない**（案 53h）。ダイアログは 3 行が同じ大きさの塊になり、
+// 閉じると理由が残らない ── 行番号を家族に見せながら相談することもできない。
+// 画面の中の赤枠のカードに出し、**3 行目だけは緑の帯に分ける**
+// （赤の中に埋めると「無事だった」ことが読み飛ばされる）。
+
+export const BACKUP_ERROR_TITLE = 'バックアップを読み込めませんでした。';
+export const BACKUP_ERROR_UNCHANGED_NOTE = '現在のデータは変更されていません。';
+
+/**
+ * 理由の下に置く 1 文（案 53h）。**部分的に入っていないことと、次の一手**を言う。
+ *
+ * 「1か所でも」と言い切るのは §3.2 の約束（1 件でもエラーがあれば一切読み込まない）
+ * そのもので、利用者から見れば「途中まで入った」を疑わなくていい根拠になる。
+ */
+export const BACKUP_ERROR_HINT =
+  '1か所でも読めない値があると、途中まで入れることはしません。ファイルを作り直すか、別のファイルを選んでください。';
+
+/**
+ * 「この内容をコピーする」で持ち出す文（案 53h）。
+ *
+ * **画面に出ている 3 行をそのまま**渡す ── 家族や問い合わせ先に転記するときに、
+ * 行番号と列名が落ちると調べようがない。**長押しではなく普通のボタン**にしてあるのは、
+ * 長押しは金額の行（LongPressCopy）でだけ使う作法にしているため。
+ */
+export function backupErrorCopyText(reason: string): string {
+  return [
+    BACKUP_ERROR_TITLE,
+    reason,
+    BACKUP_ERROR_HINT,
+    BACKUP_ERROR_UNCHANGED_NOTE,
+  ].join('\n');
+}
+
+/** コピーできたときのトーストに出す語（copiedMessage に渡す） */
+export const BACKUP_ERROR_COPY_LABEL = 'この内容をコピーする';
+export const BACKUP_ERROR_COPY_TOAST_LABEL = 'エラーの内容';
+
+/** 「records.csv 501行目：「仕入価格」が正しい数値ではありません。」（§3.3 の例） */
+export function backupColumnErrorMessage(
+  fileName: string,
+  lineNumber: number,
+  columnLabel: string,
+  reason: string,
+): string {
+  return `${fileName} ${lineNumber}行目：「${columnLabel}」${reason}`;
+}
+
+export const BACKUP_NUMBER_ERROR = 'が正しい数値ではありません。';
+export const BACKUP_DATE_ERROR = 'が正しい日付ではありません。';
+export const BACKUP_BOOLEAN_ERROR = 'が 0 か 1 ではありません。';
+
+export function BACKUP_ENUM_ERROR(values: readonly string[]): string {
+  return `が ${values.join(' / ')} のどれでもありません。`;
+}
+
+export function backupEmptyColumnMessage(
+  fileName: string,
+  lineNumber: number,
+  columnLabel: string,
+): string {
+  return `${fileName} ${lineNumber}行目：「${columnLabel}」が空です。`;
+}
+
+/**
+ * 列そのものが違うとき（並べ替え・改名・過不足）。
+ *
+ * **列名を全部は並べない。** 19 列を 2 回並べると画面が文字で埋まり、
+ * 肝心の「どこが違うか」が読めなくなる（実機で確認した）。
+ * 出すのは**最初に食い違った 1 か所**だけ ── 直すべき場所はそこから辿れる。
+ */
+export function backupColumnMismatchMessage(
+  fileName: string,
+  expected: readonly string[],
+  actual: readonly string[],
+): string {
+  if (expected.length !== actual.length) {
+    return `${fileName} の列の数が違います。必要な列は ${expected.length} ですが、ファイルには ${actual.length} あります。`;
+  }
+  const index = expected.findIndex((name, i) => name !== actual[i]);
+  return `${fileName} の列名が違います。${index + 1} 列目は「${expected[index]}」のはずですが「${actual[index]}」になっています。`;
+}
+
+export function backupFieldCountMessage(
+  fileName: string,
+  lineNumber: number,
+  expected: number,
+  actual: number,
+): string {
+  return `${fileName} ${lineNumber}行目：項目の数が ${expected} ではなく ${actual} です。`;
+}
+
+export function backupMissingFileMessage(fileName: string): string {
+  return `${fileName} が見つかりません。`;
+}
+
+export function BACKUP_EMPTY_FILE_MESSAGE(fileName: string): string {
+  return `${fileName} が空です。`;
+}
+
+export function backupUnsupportedVersionMessage(version: number): string {
+  return `このバックアップの形式（バージョン ${version}）には対応していません。アプリを更新してください。`;
+}
+
+/** 参照先が無い中間行（§3.2）。**FK が効かないぶんの検査** */
+export function backupUnknownRecordRefMessage(
+  lineNumber: number,
+  recordId: string,
+): string {
+  return `record_tags.csv ${lineNumber}行目：記録ID「${recordId}」が records.csv にありません。`;
+}
+
+export function backupUnknownTagRefMessage(
+  lineNumber: number,
+  tagId: string,
+): string {
+  return `record_tags.csv ${lineNumber}行目：タグID「${tagId}」が tags.csv にありません。`;
+}
+
+/** 選んだものがバックアップに見えないとき（§3.1） */
+export const BACKUP_NO_CSV_MESSAGE =
+  '選んだファイルはバックアップではないようです。バックアップの ZIP か、それを解凍したフォルダを選んでください。';
+
+/** ZIP として開けなかったとき（壊れている・別形式） */
+export const BACKUP_BROKEN_ZIP_MESSAGE =
+  'ファイルを開けませんでした。壊れている可能性があります。';
+
+/** フォルダ選択そのものが使えない端末（Directory.pickDirectoryAsync が無い経路） */
+export const BACKUP_FOLDER_PICK_UNAVAILABLE =
+  'この端末ではフォルダを選べません。ZIP ファイルのまま選んでください。';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 価格と利益の分析「いくらで売る？」（SPEC-V9 §9）の表示語。
+//
+// **サービス名は一切出さない**（§9.1）。出品先は「出品しているサイト」としか呼ばない ──
+// 名前を書くと、そのサイトを使っていない人の画面に無関係な語が出る。
+//
+// **「¥0」を「決めていない」の意味で使わない**（§1.2）。目標に関わる語は必ず
+// `targetProfitSummary` / `TARGET_PROFIT_UNSET_LABEL` を通る。
+//
+// **「手取り」は使わない**（SPEC-V2 §7-8）。販売サイトが表示する「手取り」は梱包材費や
+// その他経費を含まず、このアプリの数字と食い違うため ── この画面でも例外にしない。
+// 同じことを言う語は「手元に残る」。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 画面のタイトル（§9.2）。「分析」とは言わない ── 見たいのは分析ではなく値段 */
+export const PRICING_SCREEN_TITLE = 'いくらで売る？';
+
+/**
+ * 商品名の右のバッジ（§9.3）:「出品中 14日目」。日数は logic/listingDays の暦日差 + 1
+ * （出品当日が 1 日目）。
+ *
+ * **出品日が未来の記録（日数が負）では日付を出さず、状態だけを出す** ──
+ * 「0日目」「-1日目」は読み方が無い。日付の誤りそのものは記録詳細のメタ行が見せる。
+ */
+export function listingDayBadgeLabel(days: number): string {
+  return days < 0
+    ? LISTING_STATUS_LABEL
+    : `${LISTING_STATUS_LABEL} ${days + 1}日目`;
+}
+
+/** 価格が未設定の記録のバッジ（§9.7）。**「未入力」ではない** ── 空欄も 0 円も同じ値で保存されるため */
+export const PRICE_UNSET_BADGE_LABEL = '価格 未設定';
+
+/** 主役の数字が負のときに添えるバッジ（§9.5） */
+export const LOSS_BADGE_LABEL = '赤字';
+
+/** 主役の数字が出せないとき（価格未設定）の置き字（§9.7）。「¥0」とは書かない */
+export const AMOUNT_PLACEHOLDER = 'ーー';
+
+/** 主役の数字の上（§9.4）:「今の価格 ¥5,000 で売れたら」 */
+export function currentPriceLeadLabel(price: number): string {
+  return `今の価格 ${formatYenSymbol(price)} で売れたら`;
+}
+
+/**
+ * 主役の数字の下（§9.4）:「手元に残る見込み・利益率 34.0%」。
+ * 利益率は小数第 1 位まで（§4.5 の profitRate）。価格 0 では出せないので語だけになる。
+ */
+export function netProfitEstimateNote(profitRate: number | null): string {
+  const head = '手元に残る見込み';
+  return profitRate == null
+    ? head
+    : `${head}・利益率 ${profitRate.toFixed(1)}%`;
+}
+
+/** 赤字のときの主役の数字の下（§9.5）:「売っても、手元のお金は ¥550 減ります」 */
+export function lossAmountNote(loss: number): string {
+  return `売っても、手元のお金は ${formatYenSymbol(Math.abs(loss))} 減ります`;
+}
+
+/**
+ * 結論の帯の 2 行（§9.6）。**状態ごとに文がまるごと変わる**ので、
+ * 「金額を差し替えるだけの 1 つの文」にはしない ── 黒字と赤字では言うべきことが違う。
+ *
+ * @param kind 目標の語を種別に合わせる（§5.2 の targetProfitLabel）
+ */
+export function pricingConclusionText(
+  conclusion: PricingConclusion,
+  analysis: PricingAnalysis,
+  kind: RecordKind,
+): { headline: string; detail: string } {
+  const target = targetProfitLabel(kind);
+  const targetAmount =
+    analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
+
+  switch (conclusion) {
+    case 'safe':
+      return {
+        headline: `${formatYenSymbol(analysis.breakEven)} までなら赤字になりません。`,
+        detail: discountRoomText(analysis.room),
+      };
+    case 'safeWithTarget':
+      return {
+        headline: `${formatYenSymbol(analysis.floorPrice)} までなら、${target} ${targetAmount} を保てます。`,
+        detail: discountRoomText(analysis.room),
+      };
+    case 'belowTarget':
+      return {
+        headline: `${target} ${targetAmount} まで、あと ${formatYenSymbol(analysis.targetShortfall ?? 0)} です。`,
+        detail: `${formatYenSymbol(analysis.breakEven)} までなら赤字にはなりません。`,
+      };
+    case 'loss':
+      return {
+        headline: `あと ${formatYenSymbol(analysis.breakEvenShortfall)} の値上げで、赤字から抜けます。`,
+        detail: `${formatYenSymbol(analysis.breakEven)} で利益ゼロ。それより上なら手元にお金が残ります。`,
+      };
+    case 'lossWithTarget':
+      return {
+        headline: `あと ${formatYenSymbol(analysis.breakEvenShortfall)} の値上げで、赤字から抜けます。`,
+        detail: `${target} ${targetAmount} まで戻すなら ${formatYenSymbol(analysis.targetPrice ?? 0)}（今より ${formatYenSymbol(analysis.targetShortfall ?? 0)} 上）`,
+      };
+  }
+}
+
+/**
+ * 帯の 2 行目「交渉されても、あと ¥1,888 は下げられます。」（§9.6）。
+ *
+ * **余裕がちょうど 0 のときは「あと ¥0 は下げられます」と言わない** ──
+ * 今の価格が基準線ぴったり（分岐点＝価格）の記録では実際に起きる文で、
+ * 「0 円ぶん下げられる」は下げられないことを回りくどく言っているだけになる。
+ */
+function discountRoomText(room: number): string {
+  // 下限が分岐点か目標ラインかで「下げるとどうなるか」は変わるので、
+  // ここでは行き先を言わずに「下限そのもの」だけを言う（行き先は 1 行目に出ている）
+  return roundForDisplay(room) === 0
+    ? '今の価格がその下限です。これ以上は下げられません。'
+    : `交渉されても、あと ${formatYenSymbol(room)} は下げられます。`;
+}
+
+/**
+ * 記録詳細の帯グラフに足す結論行（O3 案。SPEC-V9 未反映）の 1 行目（結論・太字）。
+ *
+ * 全画面（PricingScreen）の結論の帯（pricingConclusionText）と語を揃えていない ──
+ * あちらは帯の下の 2 行に分けて「行き先の額」と「余裕」を別々に言えるが、
+ * こちらは 1 行しかないので、額 1 つで用件が伝わる短い言い方を使う。
+ */
+export function recordDetailConclusionHeadline(
+  conclusion: RecordDetailConclusion,
+  analysis: PricingAnalysis,
+  kind: RecordKind,
+): string {
+  const target = targetProfitLabel(kind);
+  const targetAmount =
+    analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
+
+  switch (conclusion) {
+    case 'safe':
+      return `あと ${formatYenSymbol(analysis.room)} 下げても赤字になりません`;
+    case 'safeWithTarget':
+      return `${formatYenSymbol(analysis.floorPrice)}までなら、${target}${targetAmount}を保てます`;
+    case 'loss':
+      return `あと${formatYenSymbol(analysis.breakEvenShortfall)}の値上げで、赤字から抜けます`;
+    case 'lossWithTarget':
+      return `${target}${targetAmount}まで戻すなら${formatYenSymbol(analysis.targetPrice ?? 0)}`;
+    case 'unpriced':
+      // 赤字/目標達成の判定には価格が必要なので結論文は出せない。G（価格がなくても
+      // 分かっていること）への誘導文言に差し替える
+      return '価格を入れると、どこまで下げられるか分かります';
+  }
+}
+
+/** 結論行の 2 行目（小さいグレー・末尾に ›）。黒字/赤字・目標の有無で動詞と行き先が変わる */
+const RECORD_DETAIL_CONCLUSION_DETAILS: Record<RecordDetailConclusion, string> =
+  {
+    safe: '値下げを試す・赤字にならない価格を見る',
+    safeWithTarget: '値下げを試す・目標を保てる価格を見る',
+    loss: '値上げを試す・赤字から抜ける価格を見る',
+    lossWithTarget: '値上げを試す・目標を保てる価格を見る',
+    unpriced: '売る価格を入力する',
+  };
+
+export function recordDetailConclusionDetail(
+  conclusion: RecordDetailConclusion,
+): string {
+  return RECORD_DETAIL_CONCLUSION_DETAILS[conclusion];
+}
+
+/** 価格ラインの目盛りの説明（§9.8）。金額はその上に出るので、ここは「何の線か」だけを言う */
+export function priceTickLabel(key: PriceTickKey): string {
+  return PRICE_TICK_LABELS[key];
+}
+
+const PRICE_TICK_LABELS: Record<PriceTickKey, string> = {
+  breakEven: 'ここで利益ゼロ',
+  target: '目標利益ライン',
+  current: '今の価格',
+};
+
+/**
+ * 赤字のときだけ価格ラインの右端に添える向きの説明（§9.8）。
+ * 黒字では出さない ── そちらは左へ動かす（値下げする）ことが読みたいことで、
+ * 向きの意味が反転する赤字のときだけ、どちらへ動かすと良くなるかを語で言う。
+ */
+export const PRICE_LINE_RAISE_HINT = '上げるほど残る →';
+
+/** 価格ラインの 2 点の間に渡す差額（§9.8）:「あと ¥612」 */
+export function priceGapLabel(amount: number): string {
+  return `あと ${formatYenSymbol(amount)}`;
+}
+
+/** 書き換える前の価格を示す灰色の点（§9.11）。画面を出るまでの表示で、保存はしない */
+export const PREVIOUS_PRICE_LABEL = '前の価格';
+
+/**
+ * シミュレーターの見出し（§9.9）。**赤字では「値下げ」と言わない** ──
+ * 赤字の記録でしたいのは値上げなので、見出しが操作と逆を向く。
+ */
+export function simulatorTitle(state: PricingState): string {
+  return state === 'loss' ? '価格を動かしてみる' : '値下げしてみる';
+}
+
+/** シミュレーターの見出しの右（§9.9）。触っても記録は動かないことを先に言う */
+export const SIMULATOR_NOTE = '動かしても記録は変わりません';
+
+/** シミュレーターの右上の数字の下（§9.9）:「見込み利益・27.8%」 */
+export function simulatorProfitNote(profitRate: number | null): string {
+  const head = '見込み利益';
+  return profitRate == null ? head : `${head}・${profitRate.toFixed(1)}%`;
+}
+
+/**
+ * シミュレーターの判定（§9.9）。**「達成」は目標があるときだけ出す** ──
+ * 決めていない人に「達成」と言うと、決めた覚えのない基準に受かったように読める。
+ */
+export function simulationVerdictText(
+  verdict: SimulationVerdict,
+  analysis: PricingAnalysis,
+  kind: RecordKind,
+): string {
+  const target = targetProfitLabel(kind);
+  const targetAmount =
+    analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
+  const net = formatYenSymbol(Math.abs(verdict.simulation.netProfit));
+
+  switch (verdict.key) {
+    case 'loss':
+      // もともと赤字の記録なら「まだ」── 新しく赤字になるわけではない
+      return analysis.state === 'loss'
+        ? `まだ赤字です（−${net}）`
+        : `赤字になります（−${net}）`;
+    case 'turnsProfit':
+      return `黒字になります（手元に残る ${net}）`;
+    case 'roomLeft':
+      // 余裕 0（下限ぴったり）で「まだ ¥0 の余裕があります」とは言わない
+      return roundForDisplay(verdict.room) === 0
+        ? 'ここが下限です'
+        : `まだ ${formatYenSymbol(verdict.room)} の余裕があります`;
+    case 'belowTarget':
+      return `${target} ${targetAmount} まで あと ${formatYenSymbol(verdict.shortfall ?? 0)}`;
+    case 'targetMet':
+      return `${target} ${targetAmount} を達成`;
+  }
+}
+
+/**
+ * シミュレーターのボタン（§9.10）。
+ * 赤字では「記録する」ではなく**直すべき下限**を語にする ── この画面でしたいことがそれだから。
+ */
+export function applyPriceButtonLabel(analysis: PricingAnalysis): string {
+  return analysis.state === 'loss'
+    ? `価格を ${formatYenSymbol(analysis.breakEven)} 以上に直す`
+    : 'この価格でこのアプリに記録する';
+}
+
+/** ボタンの下の注記（§9.10）。**サービス名は書かない** */
+export const APPLY_PRICE_NOTE = '出品しているサイトの価格は変わりません。';
+
+/** 書き換えの確認シート（§9.11） */
+export const PRICE_APPLY_SHEET_TITLE = 'この価格に書き換えます';
+export const PRICE_APPLY_CURRENT_LABEL = 'いまの記録';
+export const PRICE_APPLY_NEXT_LABEL = '書き換えたあと';
+export const PRICE_APPLY_PROFIT_LABEL = '見込みの利益';
+export const PRICE_APPLY_CONFIRM_LABEL = '書き換える';
+
+/**
+ * 確認シートの注意文（§9.11）。**サービス名は書かない**（「あちら」で指す）。
+ * このアプリの記録だけが変わることを、押す前に読める位置に置く。
+ */
+export const PRICE_APPLY_EXTERNAL_NOTE =
+  '出品しているサイトの価格は変わりません。あちらはご自分で変更してください。';
+
+/** 「¥1,700 → ¥1,250」（確認シートの見込み利益の行。§9.11） */
+export function priceChangeArrow(before: string, after: string): string {
+  return `${before} → ${after}`;
+}
+
+/** 書き換えたあとのバー（§9.12）。5 秒で消え、そのとき取り消しもできなくなる */
+export function priceAppliedMessage(price: number): string {
+  return `このアプリの記録を ${formatYenSymbol(price)} にしました`;
+}
+
+/** バーの取り消し（§9.12）。「元に戻す」（UNDO_LABEL）と役割は同じだが、語はモックに合わせる */
+export const PRICE_UNDO_LABEL = '取り消す';
+
+// ---- 価格が未設定のとき（E。§9.7） ----
+
+/** 主役の数字の代わりに出す見出し */
+export const PRICE_UNSET_LEAD_LABEL = '売る価格';
+
+export const PRICE_UNSET_DESCRIPTION =
+  '売る価格を入れると、手元に残る金額と、いくらまで下げられるかが出ます。';
+
+/** 価格を入れに行くボタン（記録の編集フォームを開く） */
+export const PRICE_INPUT_BUTTON_LABEL = '売る価格を入力する';
+
+/** 価格が無くても出せる値の節（§9.7）。**空の主役を置いたまま終わらせないための面** */
+export const KNOWN_WITHOUT_PRICE_TITLE = '価格がなくても分かっていること';
+export const SPENT_COST_LABEL = 'すでにかかった費用';
+export const NO_LOSS_PRICE_LABEL = '赤字にならない価格';
+export const TARGET_REACHED_PRICE_LABEL = '目標が出る価格';
+
+/** 「¥3,112 以上」（下限であることを金額そのものに書く） */
+export function minPriceLabel(price: number): string {
+  return `${formatYenSymbol(price)} 以上`;
+}
+
+/**
+ * 上の 2〜3 行が何から出ているかの注記（§9.7）。
+ * 内訳の金額を並べるのは、価格が無い記録でも**この下限だけは既に決まっている**ことを示すため。
+ */
+export function knownWithoutPriceNote(costs: {
+  purchasePrice: number;
+  postage: number;
+  packing: number;
+}): string {
+  const parts = [
+    `仕入 ${formatYenSymbol(costs.purchasePrice)}`,
+    `送料 ${formatYenSymbol(costs.postage)}`,
+    `梱包 ${formatYenSymbol(costs.packing)}`,
+  ];
+  return `${parts.join('・')} から計算しています。価格を入れる前でも、この下限は決まります。`;
+}
+
+/** 不活性なシミュレーターに重ねる語（§9.7） */
+export const SIMULATOR_DISABLED_NOTE = '価格を入れると、ここで値下げを試せます';
+
+// ---- 最下段の 2 行（§9.13） ----
+
+/**
+ * 費用の内訳への行（§9.13）。**行き先は記録詳細**（帯グラフ・レシートは既にあそこにある）──
+ * この画面に複製すると、同じ 1 件の内訳が 2 か所で別々に育つ。
+ */
+export const COST_BREAKDOWN_ROW_LABEL = '費用の内訳';
+
+/**
+ * 目標利益の行の右の値（§9.13）。決めてあれば「この記録だけ」を添える ──
+ * アプリ全体の既定値は無い（§1.3）ので、ここで見えている額が他の記録に及ばないことを言う。
+ */
+export function targetProfitRowValue(targetProfit: number | null): string {
+  return targetProfit == null
+    ? TARGET_PROFIT_UNSET_LABEL
+    : `${formatYenSymbol(targetProfit)}（この記録だけ）`;
+}
+
+// ---- 目標利益を決めるシート（§9.14） ----
+
+/** シートの見出し。語は記録フォームの欄と同じ（§5.2） */
+export function targetProfitSheetTitle(kind: RecordKind): string {
+  return `${targetProfitLabel(kind)}を決める`;
+}
+
+/**
+ * 入れた額から**その場で**出る 2 つの数字（§9.14）。
+ * 決めたあとに何が変わるのかを、決める前の画面で見せるための行。
+ */
+export const TARGET_PREVIEW_PRICE_LABEL = '目標が出る価格';
+export const TARGET_PREVIEW_ROOM_LABEL = 'あと下げられる額';
+
+/**
+ * 目標を消す（§9.14）。**0 を入れて消す道は作らない** ──
+ * 0 は「利益ゼロを目標にする」という有効な値で、消すこととは別（§1.2）。
+ */
+export const TARGET_PROFIT_CLEAR_LABEL = '目標を消す';
+
+/**
+ * 主役の数字そのもの（§9.4 / §9.5）。**赤字は「−¥550」**（マイナス記号は U+2212）。
+ *
+ * `formatSignedYenSymbol`（一覧の行）を使わないのは、あちらが黒字に「+」を付けるため ──
+ * ここは 1 件の見込みを大きく 1 つだけ出す場所で、プラスの符号は要らない。
+ */
+export function pricingHeroAmount(netProfit: number): string {
+  const rounded = roundForDisplay(netProfit);
+  return rounded < 0
+    ? `−${formatYenSymbol(-rounded)}`
+    : formatYenSymbol(rounded);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 売却済み分析「どうだった？」。§9 の「いくらで売る？」と対になる、売れたあとの画面。
+// **「分析」とは言わない**のは §9 と同じ理由（見たいのは分析ではなく結果）。
+// ─────────────────────────────────────────────────────────────────────────
+
+/** 画面のタイトル。出品中の PRICING_SCREEN_TITLE（「いくらで売る？」）とは別の語 */
+export const SOLD_ANALYSIS_SCREEN_TITLE = 'どうだった？';
+
+/** 主役の数字の上（§9.4 と対）:「残った利益」。「見込み」ではない ── もう確定した額 */
+export const REMAINING_PROFIT_LEAD_LABEL = '残った利益';
+
+/** 商品名の右のバッジ:「8/14 に売れました」。一覧・詳細の「売れた」バッジと違い、日付まで言う */
+export function soldOnBadgeLabel(saleDate: Date): string {
+  return `${formatShortDate(saleDate)} に売れました`;
+}
+
+/** 主役の数字の下:「販売価格 ¥5,000・利益率 34.0%」。利益率は価格 0 では出さない語だけになる */
+export function soldPriceRateNote(
+  price: number,
+  profitRate: number | null,
+): string {
+  const rate = profitRate == null ? '' : `・利益率 ${profitRate.toFixed(1)}%`;
+  return `販売価格 ${formatYenSymbol(price)}${rate}`;
+}
+
+/** 達成バッジ「目標より +¥700」。赤字で目標を割っていても符号つきでそのまま言える */
+export function targetAchievementBadgeLabel(diff: number): string {
+  return `目標より ${formatSignedYenSymbol(diff)}`;
+}
+
+/** 未達成のときの帯「目標まであと¥323でした」。**過去形** ── もう売れたあとの結果を言う語なので */
+export function targetShortfallPastLabel(shortfall: number): string {
+  return `目標まであと${formatYenSymbol(shortfall)}でした`;
+}
+
+/** 達成バーの左端「目標 ¥1,000」 */
+export function soldTargetBarLabel(target: number): string {
+  return `目標 ${formatYenSymbol(target)}`;
+}
+
+/** 達成バーの右端「実際 ¥1,700」 */
+export function soldActualBarLabel(actual: number): string {
+  return `実際 ${formatYenSymbol(actual)}`;
+}
+
+/**
+ * 見出しが状態で変わるセクション（目標なし / 目標あり）。
+ * 目標の有無だけで分かれる ── 達成したかどうかは本文（soldSectionBody）側の語尾で言う。
+ */
+export function soldSectionTitle(conclusion: SoldConclusion): string {
+  return conclusion === 'noTarget'
+    ? 'どこまで下げられた取引だったか'
+    : '値下げの余裕はどれだけあったか';
+}
+
+/**
+ * 見出し下の本文。**A は「応じられた」、B は「保てました」、C は「保てませんでした」**で
+ * 語尾だけが変わる（見出しは B/C で共通・A だけ別）。
+ */
+export function soldSectionBody(
+  conclusion: SoldConclusion,
+  analysis: PricingAnalysis,
+): string {
+  const price = formatYenSymbol(analysis.currentPrice);
+
+  switch (conclusion) {
+    case 'noTarget':
+      return `${formatYenSymbol(analysis.breakEven)}で利益ゼロでした。${price}で売れたので、交渉されても${formatYenSymbol(analysis.room)}は応じられた計算です。`;
+    case 'targetMet':
+      return `${formatYenSymbol(analysis.floorPrice)}までなら目標を保てました。実際は${price}で売れたので、${formatYenSymbol(analysis.room)}は応じられた計算です。`;
+    case 'belowTarget':
+      return `${formatYenSymbol(analysis.floorPrice)}以上で売れていれば目標を保てましたが、実際は${price}で売れたため、${formatYenSymbol(analysis.targetShortfall ?? 0)}足りませんでした。`;
+  }
+}
+
+/**
+ * 記録詳細の帯グラフに足す結論行（O3 案）の 1 行目・売却済み版。
+ *
+ * 出品中版（recordDetailConclusionHeadline）と同じ場所に出すが、もう売れたあとなので
+ * 「これから下げる／上げる」ではなく**過去形で結果を言う**。額は soldSectionBody と
+ * 同じ数字（room / floorPrice / targetShortfall）を使うので、行を開いた先（pricing 画面の
+ * SoldContent）と食い違わない。
+ */
+export function soldRecordDetailConclusionHeadline(
+  conclusion: SoldConclusion,
+  analysis: PricingAnalysis,
+): string {
+  switch (conclusion) {
+    case 'noTarget':
+      return `交渉されても、あと${formatYenSymbol(analysis.room)}は応じられた計算でした`;
+    case 'targetMet':
+      return `${formatYenSymbol(analysis.floorPrice)}まで、目標利益を保てました`;
+    case 'belowTarget':
+      return `目標まであと${formatYenSymbol(analysis.targetShortfall ?? 0)}でした`;
+  }
+}
+
+/** 結論行の 2 行目・売却済み版。もう動かせる価格が無いので「試す」ではなく「見る」だけを言う */
+const SOLD_RECORD_DETAIL_CONCLUSION_DETAILS: Record<SoldConclusion, string> = {
+  noTarget: 'どこまで下げられたか見る',
+  targetMet: 'どこまで下げられたか見る',
+  belowTarget: '目標にどれだけ届かなかったか見る',
+};
+
+export function soldRecordDetailConclusionDetail(
+  conclusion: SoldConclusion,
+): string {
+  return SOLD_RECORD_DETAIL_CONCLUSION_DETAILS[conclusion];
+}
+
+// ---- 経過日数（§4.7 の 3 分岐） ----
+
+/** 通常「13日で売れました」 */
+export function soldElapsedDaysLabel(days: number): string {
+  return `${days}日で売れました`;
+}
+
+/** 0 日（記録日と同日に売れた）は割り算をしないので専用の語にする */
+export const SOLD_SAME_DAY_LABEL = '記録した日に売れました';
+
+/** 記録日 → 販売日「8/1 に記録 → 8/14 に販売」 */
+export function soldDateRangeNote(saleStartDate: Date, saleDate: Date): string {
+  return `${formatShortDate(saleStartDate)} に記録 → ${formatShortDate(saleDate)} に販売`;
+}
+
+/** 1 日あたり利益「1日 約¥131」。仕入品かつ売却済みのみ出す */
+export function soldPerDayProfitLabel(perDay: number): string {
+  return `1日 ${formatApproxYenSymbol(perDay)}`;
+}
+
+/** 1 日あたり利益の注記。不用品には出ないことをここで断る */
+export const SOLD_PER_DAY_CAPTION = '仕入品のみ表示';
+
+/** 日付が逆転している記録（販売日 < 記録日）に出す黄色い帯 */
+export const SOLD_DATE_REVERSED_LABEL = '記録した日より前に売れています';
+
+/** 逆転した日付を直す導線（記録編集フォームを開く） */
+export const FIX_DATE_LABEL = '日付を直す';

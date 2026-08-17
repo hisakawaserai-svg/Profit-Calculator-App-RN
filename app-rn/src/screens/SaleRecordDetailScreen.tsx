@@ -50,11 +50,19 @@ import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { ReceiptCard, SaleStatusCard } from '@/components/RecordDetailSections';
+import { StrikeAchievementBadge } from '@/components/StrikeAchievementBadge';
 import { TagChip } from '@/components/TagChip';
 import { UndoBar } from '@/components/UndoBar';
+import { showAchievementToast } from '@/components/achievementToastBus';
 import { fromDbDate } from '@/db/dates';
 import type { SaleRecord, Tag } from '@/db/schema';
-import { deleteRecord, setSaleDate, setSoldStatus, useRecord } from '@/db/useRecords';
+import {
+  deleteRecord,
+  setSaleDate,
+  setSoldStatus,
+  useAchievementsData,
+  useRecord,
+} from '@/db/useRecords';
 import { useRecordTagIds, useTagList } from '@/db/useTags';
 import { formatShortDate } from '@/logic/format';
 import {
@@ -78,6 +86,7 @@ import {
   recordTimelineText,
   revertToListingConfirmTitle,
 } from '@/logic/labels';
+import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import { listingDays } from '@/logic/listingDays';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { initialSaleDate } from '@/logic/saleDate';
@@ -98,6 +107,14 @@ export function SaleRecordDetailScreen() {
   const { tags } = useTagList();
   const { tagIds, refresh: refreshTagIds } = useRecordTagIds(id);
   const recordTags = selectedTags(tags, tagIds);
+  // ⚡一撃バッジ用。全記録ぶんの実績評価から、この画面の記録が「達成した記録」に
+  // なっている分だけを引く（strikeAchievementsByRecordId のコメント参照。判定はここで作り直さない）
+  const { achievements } = useAchievementsData();
+  const strikeBadges = useMemo(
+    () => strikeAchievementsByRecordId(achievements),
+    [achievements],
+  );
+  const strikeAchievement = id == null ? null : (strikeBadges.get(id) ?? null);
   const [showForm, setShowForm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   /** 「今日」はマウント時に 1 回だけ決める（出品中の経過日数の基準） */
@@ -120,7 +137,12 @@ export function SaleRecordDetailScreen() {
   const handleMarkSold = useCallback(() => {
     if (record == null) return;
 
-    setSoldStatus(id, true, initialSaleDate(fromDbDate(record.saleStartDate), today));
+    const newlyCompleted = setSoldStatus(
+      id,
+      true,
+      initialSaleDate(fromDbDate(record.saleStartDate), today),
+    );
+    showAchievementToast(newlyCompleted);
     refresh();
     setShowUndo(true);
     setHighlightSoldDate(true);
@@ -230,10 +252,14 @@ export function SaleRecordDetailScreen() {
           <RecordHeaderBlock
             record={record}
             tags={recordTags}
+            strikeAchievement={strikeAchievement}
             onAddPhoto={() => setShowForm(true)}
           />
 
-          {/* 4. レシートカード */}
+          {/* 4. レシートカード。先頭に帯グラフが入る（出品中・売却済み共通）。
+              独立した凡例は置かず、レシートの各行のドットが帯の区画と色で対応する。
+              出品中・価格設定済みだけ、帯の直下に pricing 画面への結論行（O3 案）が付く
+              （RecordBreakdownBar が自分で判定・push する。売却済みでは出ない） */}
           <ReceiptCard record={record} />
 
           {/* 5. 状態カード。メタ行のバッジとは役割が違うので両方置く（UI-SPEC §5-13 / §8.7） */}
@@ -373,10 +399,12 @@ function timelineText(record: SaleRecord, today: Date): string {
 function RecordHeaderBlock({
   record,
   tags,
+  strikeAchievement,
   onAddPhoto,
 }: {
   record: SaleRecord;
   tags: Tag[];
+  strikeAchievement: Achievement | null;
   onAddPhoto: () => void;
 }) {
   const colors = useThemeColors();
@@ -426,6 +454,11 @@ function RecordHeaderBlock({
                 {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
               </Text>
             </LongPressCopy>
+            {/* ⚡一撃系のバッジ。この記録が実際に「達成した記録」になっている場合だけ
+                （strikeAchievement は画面側が strikeAchievementsByRecordId で引いたもの） */}
+            {strikeAchievement != null && (
+              <StrikeAchievementBadge achievement={strikeAchievement} />
+            )}
           </View>
 
           {tags.length > 0 && (

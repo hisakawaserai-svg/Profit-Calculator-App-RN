@@ -51,6 +51,7 @@ import {
   EXPORT_KIND_NOTES,
   EXPORT_KIND_OPTIONS,
   EXPORT_KIND_SECTION_LABEL,
+  EXPORT_NOT_RESTORABLE_NOTE,
   EXPORT_PERIOD_SECTION_LABEL,
   EXPORT_PREVIEW_CARD_TITLE,
   EXPORT_PREVIEW_OPEN_LABEL,
@@ -157,6 +158,15 @@ export function ExportSheet() {
               onChange={(index) => setKind(EXPORT_KIND_OPTIONS[index].value)}
             />
           </Section>
+
+          {/* SPEC-V8 §0.2 / §5.1: **この CSV は復元に使えない。**
+              種類の節のすぐ下に置く ── 種類を選んだ直後が「これで何ができるか」を
+              読む位置で、下端まで送ると押す前に目に入らない。
+              **種類に関わらず常に出す**（確定申告用はなおさら戻せない）。
+              §5.8 の注意書き（確定申告用のときだけ）とは別物なので、節は分けたまま */}
+          <Text style={[styles.note, styles.crossNote, { color: colors.secondaryLabel }]}>
+            {EXPORT_NOT_RESTORABLE_NOTE}
+          </Text>
 
           {/* §5.8: 確定申告用のときだけ出す固定の注意書き。
               **押すとヘルプの「確定申告に使うときの注意」が開く**（UI-SPEC Step 6 で繋いだ）。
@@ -401,6 +411,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginLeft: 4,
+  },
+  // 節の外に置く 1 行（SPEC-V8 の注記）。節どうしの間隔（content の gap 20）のままだと
+  // 上の「種類」から切り離されて見えるので、そのぶんだけ詰めて節の下に付いているようにする。
+  // 節の中の間隔（8）と揃う
+  crossNote: {
+    marginTop: -12,
   },
   // 見出しの行（表題 ＋ 右に「先頭3行・全18列」＋ `›`）。節の見出しと同じ高さに揃える
   previewHead: {

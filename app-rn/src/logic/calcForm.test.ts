@@ -53,7 +53,7 @@ describe('UI-SPEC §5-8 クリアの有効・無効', () => {
   });
 
   it('販売サイトを選んだだけでも有効（クリアで札も外れるため。SPEC-V3 §1.5.1）', () => {
-    expect(hasAnyInput({ ...newCalcValues('used'), siteName: 'メルカリ' }, 'used')).toBe(true);
+    expect(hasAnyInput({ ...newCalcValues('used'), siteName: 'フリマA' }, 'used')).toBe(true);
   });
 
   it('設定の既定種別が変われば、同じ値でも判定が変わる', () => {
@@ -135,12 +135,12 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
 
   it('逆算側と同じ並び・同じキーで返す（2 つのモードで見え方を揃えるため）', () => {
     expect(profitBreakdown({ ...filled, othersCost: '20' }).parts.map((part) => part.key)).toEqual([
-      'kept',
-      'commission',
       'purchasePrice',
       'postage',
+      'commission',
       'envelopeCost',
       'othersCost',
+      'kept',
     ]);
   });
 
@@ -154,11 +154,11 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
     const breakdown = profitBreakdown({ ...filled, salesPrice: '100' });
     expect(breakdown.kept).toBeLessThan(0);
     // 手元の項目自体は残る（一覧では読めるように）が、帯に描かれるのは 0 円より大きい区画だけ
-    expect(breakdown.parts[0].key).toBe('kept');
+    expect(breakdown.parts[breakdown.parts.length - 1].key).toBe('kept');
     expect(breakdown.parts.filter((part) => part.amount > 0).map((part) => part.key)).toEqual([
-      'commission',
       'purchasePrice',
       'postage',
+      'commission',
       'envelopeCost',
     ]);
   });
@@ -219,7 +219,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
     expect(result.kept).toBeGreaterThanOrEqual(100);
   });
 
-  it('項目の並びは 手元 → 販売手数料 → 経費 4 項目', () => {
+  it('項目の並びは 経費 4 項目（仕入 → 送料 → 手数料 → 梱包材・その他）→ 手元', () => {
     const result = requiredPriceResult({
       ...newCalcValues('sourced'),
       purchasePrice: '500',
@@ -229,12 +229,12 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
       targetProfit: '1000',
     });
     expect(result.parts.map((part) => part.key)).toEqual([
-      'kept',
-      'commission',
       'purchasePrice',
       'postage',
+      'commission',
       'envelopeCost',
       'othersCost',
+      'kept',
     ]);
     // 内訳（§1.1-3a）と違い、梱包材とその他はまとめない（帯の区画と 1 対 1 にするため）
     expect(result.parts.map((part) => part.label)).toContain('梱包材');
@@ -242,7 +242,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
 
   it('経費 0 項目でも手元と販売手数料は残る', () => {
     const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '100' });
-    expect(result.parts.map((part) => part.key)).toEqual(['kept', 'commission']);
+    expect(result.parts.map((part) => part.key)).toEqual(['commission', 'kept']);
     expect(result.expenses).toBe(0);
   });
 
@@ -394,7 +394,7 @@ describe('toInitialAmounts', () => {
   };
 
   it('種別と金額をそのまま引き継ぐ（SPEC-V2 §1.4）', () => {
-    expect(toInitialAmounts(values, values.salesPrice)).toMatchObject({
+    expect(toInitialAmounts(values, values.salesPrice, '')).toMatchObject({
       kind: 'sourced',
       salesPrice: '1000',
       purchasePrice: '300',
@@ -403,22 +403,36 @@ describe('toInitialAmounts', () => {
   });
 
   it('不用品では仕入価格を渡さない（欄を出していないため）', () => {
-    expect(toInitialAmounts({ ...values, kind: 'used' }, '1000').purchasePrice).toBe('');
+    expect(toInitialAmounts({ ...values, kind: 'used' }, '1000', '').purchasePrice).toBe('');
   });
 
   it('選んだ販売サイトの名前も引き継ぐ（SPEC-V3 §1.5.1）', () => {
-    const withSite = { ...values, siteName: 'メルカリ' };
-    expect(toInitialAmounts(withSite, withSite.salesPrice).siteName).toBe('メルカリ');
+    const withSite = { ...values, siteName: 'フリマA' };
+    expect(toInitialAmounts(withSite, withSite.salesPrice, '').siteName).toBe('フリマA');
   });
 
-  it('逆算の目標額は引き継がない（レコードの項目ではない）', () => {
-    expect(toInitialAmounts(values, values.salesPrice)).not.toHaveProperty('targetProfit');
+  it('逆算の目標額をフォームの初期値として引き継ぐ（SPEC-V9 §5.3）', () => {
+    const target = { ...values, targetProfit: '500' };
+    expect(toInitialAmounts(target, target.salesPrice, target.targetProfit).targetProfit).toBe(
+      '500',
+    );
+  });
+
+  it('目標 0 円も引き継ぐ（「決めていない」ではなく立派な目標。§1.2）', () => {
+    const target = { ...values, targetProfit: '0' };
+    expect(toInitialAmounts(target, target.salesPrice, target.targetProfit).targetProfit).toBe('0');
+  });
+
+  it('「利益を出す」モードでは目標を引き継がない（画面に出ていないため。§5.3）', () => {
+    // 呼び出し側がモードを解決して空文字を渡す。values に入力の残骸が残っていても渡らない
+    const target = { ...values, targetProfit: '500' };
+    expect(toInitialAmounts(target, target.salesPrice, '').targetProfit).toBe('');
   });
 
   it('逆算モードでは画面に出ている逆算結果を引き継ぐ（入力欄の値ではない）', () => {
     // 欄に 439 と出ているのに 0 が記録される、という食い違いを起こさない
     const target = { ...newCalcValues('used'), salesPrice: '', targetProfit: '100' };
     const displayed = String(requiredPriceResult(target).requiredPrice);
-    expect(toInitialAmounts(target, displayed).salesPrice).toBe(displayed);
+    expect(toInitialAmounts(target, displayed, target.targetProfit).salesPrice).toBe(displayed);
   });
 });

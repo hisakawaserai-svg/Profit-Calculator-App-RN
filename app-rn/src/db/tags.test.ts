@@ -69,6 +69,8 @@ const base: SaveRecordInput = {
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 目標は既定で「決めていない」（SPEC-V9 §1）
+  targetProfit: null,
   tagIds: [],
 };
 
@@ -319,12 +321,12 @@ describe('§9-15 db.transaction: 途中で失敗したら中間行も本体も�
 
 describe('§4.2 siteNames: 絞り込みの候補は記録に実在する名前', () => {
   it('重複を畳んで名前順。空文字は候補に出さない', () => {
-    repo.create({ ...base, siteName: 'メルカリ' });
-    repo.create({ ...base, siteName: 'メルカリ' });
-    repo.create({ ...base, siteName: 'ヤフオク' });
+    repo.create({ ...base, siteName: 'フリマA' });
+    repo.create({ ...base, siteName: 'フリマA' });
+    repo.create({ ...base, siteName: 'フリマC' });
     repo.create({ ...base, siteName: '' });
 
-    expect(tagRepo.siteNames()).toEqual(['ヤフオク', 'メルカリ'].sort());
+    expect(tagRepo.siteNames()).toEqual(['フリマC', 'フリマA'].sort());
   });
 
   it('記録が 0 件なら空配列', () => {
@@ -392,11 +394,11 @@ describe('§4.2.1 countsByTagForFilter: 選択中のタグ以外のすべての�
 
   it('販売サイトで数が変わる', () => {
     const { clothes } = setup();
-    repo.create({ ...base, siteName: 'メルカリ', tagIds: [clothes.id] });
-    repo.create({ ...base, siteName: 'ラクマ', tagIds: [clothes.id] });
+    repo.create({ ...base, siteName: 'フリマA', tagIds: [clothes.id] });
+    repo.create({ ...base, siteName: 'フリマB', tagIds: [clothes.id] });
 
     expect(
-      repo.countsByTagForFilter({ isSoldMode: true, siteName: 'メルカリ' }).get(clothes.id),
+      repo.countsByTagForFilter({ isSoldMode: true, siteName: 'フリマA' }).get(clothes.id),
     ).toBe(1);
   });
 
@@ -437,7 +439,7 @@ describe('§4.2.1 countsByTagForFilter: 選択中のタグ以外のすべての�
 
     // 出品中の記録は site_name が空。条件が効いてしまうと必ず 0 件になる
     expect(
-      repo.countsByTagForFilter({ isSoldMode: false, siteName: 'メルカリ' }).get(clothes.id),
+      repo.countsByTagForFilter({ isSoldMode: false, siteName: 'フリマA' }).get(clothes.id),
     ).toBe(1);
   });
 

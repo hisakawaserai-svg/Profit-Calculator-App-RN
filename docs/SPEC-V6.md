@@ -95,9 +95,20 @@ excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean
   （`components/PackBuyFields.tsx`）。単価が入る先だけが違う（§1.1）。
 - 内訳カードを出すのは、**合計だけでは「何と何を足した額なのか」が画面から読めない**ため。
 
-一覧（設定タブ）と編集画面のプレビューでは、名前の下に「＋専用資材 70円（合計 520円）」を
-小さく足す ── 右端の金額（送料）だけを見て選ぶと、記録に入る額と食い違うため。
+一覧（設定タブのカード・プリセット一覧）と編集画面のプレビューでは、
+**右端の金額を合計（520円）にし、名前の下に内訳「送料 450円 ＋ 専用資材 70円」を小さく足す。**
+
+> **当初は逆だった**（右端が登録した送料 450円、副題が「＋専用資材 70円（合計 520円）」）。
+> 改めたのは、**基本的に専用資材は使う**ので、まず読みたいのが「これを選ぶといくらか」
+> だから ── 選択シート（§3）でも記録の欄でも入るのは合計なのに、一覧だけ送料を主役に
+> していると、同じプリセットの数字が場所によって変わって見える。
+> 登録した送料が消えるわけではなく、内訳の中に残る（編集画面の「金額」欄も 450 のまま）。
+
 **選択シート（§3）はこの副題を出さない**（セグメントが同じことを言うので）。
+
+**どの額を出すかの判定は `presetRowAmount`（`logic/shippingMaterial.ts`）に 1 本化する** ──
+一覧の行（`PresetRow`）と設定タブのカード（`PresetSummaryCard`）は別部品で、
+それぞれが独立に `value` を描いていたため、一覧だけ直したときにカードが取り残された。
 
 ---
 
@@ -106,7 +117,7 @@ excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean
 資材費のあるプリセットの行**だけ**、名前の下にセグメント 2 択を常時出す。
 
 ```
- 小   専用箱（小）                    450円
+ 小   専用箱（小）                    550円
       [ 送料のみ | ＋資材 100円 ]
 ```
 
@@ -116,6 +127,12 @@ excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean
 - 選択中の行は**右端の金額が選んだ側の額**になり（送料のみ = 450円 / ＋資材 = 550円）、
   **✓ と薄い青の下地**が付く。選ばれていない行はどちらのセグメントも持ち上げない
   （`SegmentedControl` の `selectedIndex: null`。採用案 `22b` と同じ語法）。
+- **まだ選ばれていない行の金額も「＋資材」側（合計）で出す。**
+  当初この図は 450 円（送料のみ）で描いており、実装もそうなっていたが、
+  **行を押すと入るのは 550 円**なので、押す前に見えていた数字と入る数字が食い違っていた。
+  `shippingAmountFor` は「シートの行の右端に出る額でもあり、欄に入る額でもある」ための
+  1 本なので、未選択の行も既定の側で引く。セグメントは持ち上げないまま
+  （まだ選んでいないことは下地と ✓ の有無が言う）。
 - **資材費 0 円のプリセットにはセグメントを出さない。** 行の形は従来のまま。
 - 寸法は 45b の指定どおり **高さ 34pt・幅 212pt**、行は **96pt** に伸びる。
   34pt は親指には低いので、当たり判定だけ上下 6pt ずつ広げて 46pt を確保する
@@ -175,7 +192,8 @@ excludesShippingMaterial: integer('excludes_shipping_material', { mode: 'boolean
 | `src/logic/preset.ts` | `packBuyTarget` / 資材費の検証（§2） |
 | `src/components/PackBuyFields.tsx` | まとめ買いの 3 行（梱包材と共有） |
 | `src/components/PresetPickerSheet.tsx` | §3 の 45b の行 |
-| `src/components/PresetRow.tsx` | 名前の下に積むもの（副題・セグメント） |
+| `src/components/PresetRow.tsx` | 右端の額（合計）と、名前の下に積むもの（内訳・セグメント） |
+| `src/components/PresetSummaryCard.tsx` | 設定タブのカードの額。`presetRowAmount` を共有する |
 | `src/screens/PresetFormScreen.tsx` | §2 の編集画面 |
 | `src/screens/RecordFormSheet.tsx` | 選んだ結果を記録へ（トグルは §3.2 で廃止） |
 | `src/screens/ExportPreviewScreen.tsx` | §4 の注意書き |

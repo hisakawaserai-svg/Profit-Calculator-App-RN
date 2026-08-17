@@ -13,6 +13,7 @@ import {
   computePersonalBests,
   evaluateAchievements,
   groupAchievementsByGenre,
+  newlyCompletedAchievements,
   selectNextAchievement,
   sortAchievementsByRecency,
   strikeAchievementsByRecordId,
@@ -1661,5 +1662,43 @@ describe('computePersonalBests', () => {
       tagId: 'a',
       count: 2,
     });
+  });
+});
+
+describe('newlyCompletedAchievements（保存トーストの新規獲得検出）', () => {
+  it('保存前は未達成・保存後は達成になった実績だけを返す', () => {
+    const records = [
+      record({ saleStartDate: d('2026-01-01'), saleDate: d('2026-01-02'), profit: 100 }),
+    ];
+    const before = evaluateAchievements([]);
+    const after = evaluateAchievements(records);
+
+    const newly = newlyCompletedAchievements(before, after);
+
+    expect(newly.length).toBeGreaterThan(0);
+    expect(newly.every((a) => a.completed)).toBe(true);
+    expect(newly.map((a) => a.id)).toContain('first_profit');
+  });
+
+  it('保存前後で達成状態が変わらない実績は含まない', () => {
+    const records = [
+      record({ saleStartDate: d('2026-01-01'), saleDate: d('2026-01-02'), profit: 100 }),
+    ];
+    const before = evaluateAchievements(records);
+    const after = evaluateAchievements(records);
+
+    expect(newlyCompletedAchievements(before, after)).toHaveLength(0);
+  });
+
+  it('before が全滅（0件）でも after 側の達成済みをすべて拾う', () => {
+    const before: Achievement[] = [];
+    const records = [
+      record({ saleStartDate: d('2026-01-01'), saleDate: d('2026-01-02'), profit: 100 }),
+    ];
+    const after = evaluateAchievements(records);
+
+    const newly = newlyCompletedAchievements(before, after);
+
+    expect(newly).toEqual(after.filter((a) => a.completed));
   });
 });

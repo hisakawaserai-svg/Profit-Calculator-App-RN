@@ -55,6 +55,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
   // タグ（SPEC-V4 §1.4）。この経路ではタグを付けないので空配列
+  // 目標は既定で「決めていない」（SPEC-V9 §1）
+  targetProfit: null,
   tagIds: [],
 };
 

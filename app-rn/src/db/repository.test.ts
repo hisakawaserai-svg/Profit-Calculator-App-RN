@@ -65,6 +65,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
   // タグ（SPEC-V4 §1.4）。タグを使う describe 群は自前で上書きする
+  // 目標は既定で「決めていない」（SPEC-V9 §1）
+  targetProfit: null,
   tagIds: [],
 };
 
@@ -614,6 +616,68 @@ describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () 
   });
 });
 
+describe('SPEC-V9 §9 「いくらで売る？」からの 1 列だけの書き戻し', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+  });
+
+  it('setSalesPrice は販売価格だけを書き換える', () => {
+    const created = repo.create({ ...base, kind: 'used', purchasePrice: 0, salesPrice: 5000, targetProfit: 1000 });
+    repo.setSalesPrice(created.id, 4500);
+
+    const saved = repo.getById(created.id);
+    expect(saved?.salesPrice).toBe(4500);
+    // 画面が持っていない値（目標・経費）は触られない
+    expect(saved?.targetProfit).toBe(1000);
+    expect(saved?.postage).toBe(base.postage);
+  });
+
+  it('**タグ・写真は落ちない**（update と違い行を丸ごと書き換えないため）', () => {
+    const tag = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const created = repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      salesPrice: 5000,
+      photoFileName: 'photo.jpg',
+      tagIds: [tag.id],
+    });
+
+    repo.setSalesPrice(created.id, 4500);
+
+    expect(repo.getById(created.id)?.photoFileName).toBe('photo.jpg');
+    expect(tagRepo.tagIdsByRecord(created.id)).toEqual([tag.id]);
+  });
+
+  it('setTargetProfit は目標だけを書き換える', () => {
+    const created = repo.create({ ...base, kind: 'used', purchasePrice: 0, salesPrice: 5000, targetProfit: null });
+    repo.setTargetProfit(created.id, 1000);
+
+    const saved = repo.getById(created.id);
+    expect(saved?.targetProfit).toBe(1000);
+    expect(saved?.salesPrice).toBe(5000);
+  });
+
+  it('**null を書ける**（「目標を消す」は 0 を書くことではない。§1.2）', () => {
+    const created = repo.create({ ...base, kind: 'used', purchasePrice: 0, targetProfit: 1000 });
+    repo.setTargetProfit(created.id, null);
+
+    expect(repo.getById(created.id)?.targetProfit).toBe(null);
+  });
+
+  it('**目標 0 円は消えた状態と別に保存される**（§1.2 / §7-2）', () => {
+    const created = repo.create({ ...base, kind: 'used', purchasePrice: 0, targetProfit: null });
+    repo.setTargetProfit(created.id, 0);
+
+    expect(repo.getById(created.id)?.targetProfit).toBe(0);
+  });
+});
+
 describe('SPEC-V4 §4.4 タグが付いても集計が二重にならない', () => {
   let repo: Repository;
   let tagRepo: TagRepository;
@@ -723,27 +787,27 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
     const sold = (over: Partial<SaveRecordInput>) =>
       repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
 
-    // 売却済み 3 件（メルカリ 2 / ラクマ 1）＋ 出品中 1 件（サイト名は空）
-    sold({ saleDate: soldOn(1), siteName: 'メルカリ', tagIds: [clothes.id] });
-    sold({ saleDate: soldOn(2), siteName: 'メルカリ', tagIds: [summer.id] });
-    sold({ saleDate: soldOn(3), siteName: 'ラクマ', tagIds: [clothes.id, summer.id] });
+    // 売却済み 3 件（フリマA 2 / フリマB 1）＋ 出品中 1 件（サイト名は空）
+    sold({ saleDate: soldOn(1), siteName: 'フリマA', tagIds: [clothes.id] });
+    sold({ saleDate: soldOn(2), siteName: 'フリマA', tagIds: [summer.id] });
+    sold({ saleDate: soldOn(3), siteName: 'フリマB', tagIds: [clothes.id, summer.id] });
     repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
   });
 
   describe('販売サイト（§4.2）', () => {
     it('名前の完全一致で絞れる', () => {
-      expect(repo.countRecords({ isSoldMode: true, siteName: 'メルカリ' })).toBe(2);
-      expect(repo.countRecords({ isSoldMode: true, siteName: 'ラクマ' })).toBe(1);
+      expect(repo.countRecords({ isSoldMode: true, siteName: 'フリマA' })).toBe(2);
+      expect(repo.countRecords({ isSoldMode: true, siteName: 'フリマB' })).toBe(1);
     });
 
     it('合計行（careerSummary）にも同じ条件が効く（§4.5 の表）', () => {
-      expect(repo.careerSummary({ isSoldMode: true, siteName: 'メルカリ' }).recordCount).toBe(2);
+      expect(repo.careerSummary({ isSoldMode: true, siteName: 'フリマA' }).recordCount).toBe(2);
     });
 
     /** 出品中の記録は site_name が空。画面で節を消すのと二重に、SQL の側でも無視する（§4.2） */
     it('isSoldMode = false のときは条件ごと無視される', () => {
-      expect(repo.countRecords({ isSoldMode: false, siteName: 'メルカリ' })).toBe(1);
-      expect(repo.filteredRecords({ isSoldMode: false, siteName: 'メルカリ' })).toHaveLength(1);
+      expect(repo.countRecords({ isSoldMode: false, siteName: 'フリマA' })).toBe(1);
+      expect(repo.filteredRecords({ isSoldMode: false, siteName: 'フリマA' })).toHaveLength(1);
     });
 
     it('null / 空文字は「すべて」（条件を組み立てない）', () => {
@@ -783,12 +847,12 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
 
   it('販売サイトとタグは AND で重なる', () => {
     expect(
-      repo.countRecords({ isSoldMode: true, siteName: 'メルカリ', tagIds: [clothes.id] }),
+      repo.countRecords({ isSoldMode: true, siteName: 'フリマA', tagIds: [clothes.id] }),
     ).toBe(1);
   });
 
   it('earliestMonthKey も同じ条件で動く（buildWhere の 4 経路すべてに効く。§4.4）', () => {
-    expect(repo.earliestMonthKey({ isSoldMode: true, siteName: 'ラクマ' })).toBe('2026-08');
+    expect(repo.earliestMonthKey({ isSoldMode: true, siteName: 'フリマB' })).toBe('2026-08');
     expect(repo.earliestMonthKey({ isSoldMode: true, siteName: '無い名前' })).toBeNull();
   });
 });
@@ -812,10 +876,10 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
     const sold = (over: Partial<SaveRecordInput>) =>
       repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
 
-    // 売却済み 3 件（メルカリ 2 / ラクマ 1）。販売日は 8/1・8/2・8/3 で 1 日ずつずらす
-    sold({ saleDate: soldOn(1), siteName: 'メルカリ', tagIds: [clothes.id] });
-    sold({ saleDate: soldOn(2), siteName: 'メルカリ', tagIds: [summer.id] });
-    sold({ saleDate: soldOn(3), siteName: 'ラクマ', tagIds: [clothes.id, summer.id] });
+    // 売却済み 3 件（フリマA 2 / フリマB 1）。販売日は 8/1・8/2・8/3 で 1 日ずつずらす
+    sold({ saleDate: soldOn(1), siteName: 'フリマA', tagIds: [clothes.id] });
+    sold({ saleDate: soldOn(2), siteName: 'フリマA', tagIds: [summer.id] });
+    sold({ saleDate: soldOn(3), siteName: 'フリマB', tagIds: [clothes.id, summer.id] });
     // 出品中 1 件（タグ付き・サイト名は空）。データタブの集合には入らない
     repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
   });
@@ -827,7 +891,7 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
    */
   it('タグ 2 つの記録が analyticsSummary で二重に計上されない', () => {
     // 8/3 の 1 件だけを見る（この記録にタグが 2 つ付いている）
-    const one = { period: null, siteName: 'ラクマ' };
+    const one = { period: null, siteName: 'フリマB' };
     const withoutTags = repo.analyticsSummary(one);
     const withBothTags = repo.analyticsSummary({ ...one, tagIds: [clothes.id, summer.id] });
 
@@ -851,9 +915,9 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
   });
 
   it('販売サイトで絞れる（合計・集計点・最古の月のすべてに効く）', () => {
-    expect(repo.analyticsSummary({ period: null, siteName: 'メルカリ' }).recordCount).toBe(2);
-    expect(repo.analyticsSeries({ period: null, siteName: 'ラクマ' }, 'day')).toHaveLength(1);
-    expect(repo.analyticsEarliestMonthKey({ period: null, siteName: 'ラクマ' })).toBe('2026-08');
+    expect(repo.analyticsSummary({ period: null, siteName: 'フリマA' }).recordCount).toBe(2);
+    expect(repo.analyticsSeries({ period: null, siteName: 'フリマB' }, 'day')).toHaveLength(1);
+    expect(repo.analyticsEarliestMonthKey({ period: null, siteName: 'フリマB' })).toBe('2026-08');
     expect(repo.analyticsEarliestMonthKey({ period: null, siteName: '無い名前' })).toBeNull();
   });
 
@@ -910,14 +974,358 @@ describe('SPEC-V4 §6 データタブへの絞り込み（buildAnalyticsWhere �
     it('選択中のタグは条件から外れ、ほかの条件は効いたまま', () => {
       const counts = repo.analyticsCountsByTagForFilter({
         period: null,
-        siteName: 'メルカリ',
+        siteName: 'フリマA',
         tagIds: [clothes.id],
       });
 
-      // メルカリの 2 件は「洋服」1 件・「春夏物」1 件。tagIds は数えるときに外れる
+      // フリマAの 2 件は「洋服」1 件・「春夏物」1 件。tagIds は数えるときに外れる
       expect(counts.get(clothes.id)).toBe(1);
       expect(counts.get(summer.id)).toBe(1);
     });
+  });
+});
+
+/**
+ * データタブ新規セクション「タグ別利益ランキング」の元データ（SPEC.md §6.2 の派生）。
+ * ランキングの並び替え・上位 3 件への絞り込み自体は logic/profit.ts の topTagProfits
+ * （純粋関数）のテストで見ており、ここでは repository が返す集計行の正しさだけを見る。
+ */
+describe('analyticsProfitByTag: タグ別利益ランキングの集計行（データタブ新規セクション）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    // base の salesPrice は 1000円・commission 10% → 1 件の純利益は 900円（§2.3）
+    sold({ saleDate: soldOn(1), tagIds: [clothes.id] }); // 洋服のみ
+    sold({ saleDate: soldOn(2), tagIds: [summer.id] }); // 春夏物のみ
+    sold({ saleDate: soldOn(3), tagIds: [clothes.id, summer.id] }); // 両方
+    sold({ saleDate: soldOn(4), tagIds: [] }); // タグなし → 未分類
+    // 出品中（データタブの対象外。isSold 固定条件で落ちることを別テストで確かめる）
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
+  });
+
+  it('タグが複数付いた記録は、それぞれのタグの集計に重複して数える', () => {
+    const byTagId = new Map(
+      repo.analyticsProfitByTag({ period: null }).map((row) => [row.tagId, row]),
+    );
+
+    // 洋服＝8/1＋8/3、春夏物＝8/2＋8/3。8/3 はどちらの合計にも 1 回ずつそのまま乗る
+    expect(byTagId.get(clothes.id)).toEqual({
+      tagId: clothes.id,
+      totalNetProfit: 1800,
+      totalSales: 2000,
+      recordCount: 2,
+    });
+    expect(byTagId.get(summer.id)).toEqual({
+      tagId: summer.id,
+      totalNetProfit: 1800,
+      totalSales: 2000,
+      recordCount: 2,
+    });
+  });
+
+  it('タグが 1 つも無い記録は tagId: null（未分類）の 1 行にまとめる', () => {
+    const untagged = repo
+      .analyticsProfitByTag({ period: null })
+      .find((row) => row.tagId === null);
+
+    expect(untagged).toEqual({
+      tagId: null,
+      totalNetProfit: 900,
+      totalSales: 1000,
+      recordCount: 1,
+    });
+  });
+
+  it('出品中の記録は対象に入らない（isSold 固定条件。SPEC §6.2）', () => {
+    const rows = repo.analyticsProfitByTag({ period: null });
+    const totalRecordCount = rows.reduce((sum, row) => sum + row.recordCount, 0);
+
+    // 4 件の売却済みのうち、タグ 2 つ付きの 1 件が両方の合計に乗るぶん総和は 5 になる。
+    // 出品中の 1 件（洋服タグ付き）はここに含まれない
+    expect(totalRecordCount).toBe(5);
+  });
+
+  it('期間フィルタが効く。対象が無い期間は空配列', () => {
+    expect(
+      repo.analyticsProfitByTag({ period: '2026-08' }).reduce((sum, row) => sum + row.recordCount, 0),
+    ).toBe(5);
+    expect(repo.analyticsProfitByTag({ period: '2026-07' })).toEqual([]);
+  });
+
+  it('タグの絞り込み（tagIds）で対象が減ると、未分類の行は消える', () => {
+    // タグなしの記録は tagExistsSql の EXISTS 条件を満たさないため、この時点で対象から落ちる
+    const rows = repo.analyticsProfitByTag({ period: null, tagIds: [clothes.id] });
+
+    expect(rows.find((row) => row.tagId === null)).toBeUndefined();
+    expect(rows.find((row) => row.tagId === clothes.id)?.recordCount).toBe(2);
+  });
+
+  it('該当期間に売れた記録が無いタグは行そのものが出ない（「すべて見る」でも 0 件のタグを含めない）', () => {
+    // winter は存在するタグだが、beforeEach で作った記録のどれにも付けていない
+    const winter = tagRepo.create({ name: '秋冬物', colorKey: 'gray' });
+
+    const rows = repo.analyticsProfitByTag({ period: null });
+
+    expect(rows.find((row) => row.tagId === winter.id)).toBeUndefined();
+  });
+});
+
+describe('analyticsDetailsByTag: タグ別利益ランキングの行タップの内訳（analyticsDetails のタグ版）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    sold({ saleDate: soldOn(1), tagIds: [clothes.id] }); // 洋服のみ
+    sold({ saleDate: soldOn(2), tagIds: [summer.id] }); // 春夏物のみ
+    sold({ saleDate: soldOn(3), tagIds: [clothes.id, summer.id] }); // 両方
+    sold({ saleDate: soldOn(4), tagIds: [] }); // タグなし → 未分類
+    // 出品中（データタブの対象外）
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, tagIds: [clothes.id] });
+  });
+
+  it('そのタグが付いた売却済みの記録だけを返す（重複計上している記録も両方の内訳に出る）', () => {
+    const clothesIds = repo.analyticsDetailsByTag({ period: null }, clothes.id).map((r) => r.saleDate);
+    expect(clothesIds).toHaveLength(2); // 8/1・8/3
+
+    const summerIds = repo.analyticsDetailsByTag({ period: null }, summer.id).map((r) => r.saleDate);
+    expect(summerIds).toHaveLength(2); // 8/2・8/3
+  });
+
+  it('未分類（tagId: null）はタグなしの記録だけ返す', () => {
+    const untagged = repo.analyticsDetailsByTag({ period: null }, null);
+    expect(untagged).toHaveLength(1);
+  });
+
+  it('出品中の記録は対象に入らない（isSold 固定条件）', () => {
+    const rows = repo.analyticsDetailsByTag({ period: null }, clothes.id);
+    expect(rows.every((row) => row.isSold)).toBe(true);
+  });
+});
+
+describe('analyticsSoldRecords: 平均販売日数（periodAverageSaleDays）を求めるための生レコード', () => {
+  let repo: Repository;
+
+  beforeEach(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
+  });
+
+  it('buildAnalyticsWhere（isSold 固定・saleDate 非 null）に一致する記録だけを返す', () => {
+    // 売却済み
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      isSold: true,
+      saleStartDate: new Date(2026, 7, 1),
+      saleDate: new Date(2026, 7, 8),
+    });
+    // 出品中（saleDate が null なので対象外）
+    repo.create({ ...base, kind: 'used', purchasePrice: 0 });
+
+    const rows = repo.analyticsSoldRecords({ period: null });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].isSold).toBe(true);
+  });
+
+  it('saleStartDate・saleDate をそのまま（DB の文字列のまま）返す ── 日付演算はここではやらない', () => {
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      isSold: true,
+      saleStartDate: new Date(2026, 7, 1),
+      saleDate: new Date(2026, 7, 8),
+    });
+
+    const [row] = repo.analyticsSoldRecords({ period: null });
+    expect(row.saleStartDate).toBe(toDbDate(new Date(2026, 7, 1)));
+    expect(row.saleDate).toBe(toDbDate(new Date(2026, 7, 8)));
+  });
+
+  it('期間・種別などの絞り込みは buildAnalyticsWhere と同じように効く', () => {
+    repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      isSold: true,
+      saleStartDate: new Date(2026, 6, 1),
+      saleDate: new Date(2026, 6, 5),
+    });
+    repo.create({
+      ...base,
+      kind: 'sourced',
+      purchasePrice: 100,
+      isSold: true,
+      saleStartDate: new Date(2026, 7, 1),
+      saleDate: new Date(2026, 7, 5),
+    });
+
+    expect(repo.analyticsSoldRecords({ period: '2026-07' })).toHaveLength(1);
+    expect(repo.analyticsSoldRecords({ period: null, kind: 'sourced' })).toHaveLength(1);
+  });
+
+  it('該当 0 件なら空配列', () => {
+    expect(repo.analyticsSoldRecords({ period: null })).toEqual([]);
+  });
+});
+
+describe('analyticsDetailsByDateAndTag: タグ別純利益推移（グラフ）の日付内訳、その行タップの内訳', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    sold({ saleDate: soldOn(1), tagIds: [clothes.id] }); // 8/1・洋服のみ
+    sold({ saleDate: soldOn(1), tagIds: [summer.id] }); // 8/1・春夏物のみ
+    sold({ saleDate: soldOn(1), tagIds: [clothes.id, summer.id] }); // 8/1・両方
+    sold({ saleDate: soldOn(1), tagIds: [] }); // 8/1・タグなし → 未分類
+    sold({ saleDate: soldOn(2), tagIds: [clothes.id] }); // 8/2・洋服のみ（別の日なので対象外）
+    // 出品中（データタブの対象外）
+    repo.create({ ...base, kind: 'used', purchasePrice: 0, saleDate: soldOn(1), tagIds: [clothes.id] });
+  });
+
+  it('その日付 かつ そのタグの両方に一致する記録だけを返す（重複計上している記録も両方の内訳に出る）', () => {
+    const clothesRows = repo.analyticsDetailsByDateAndTag({ period: null }, 'day', '2026-08-01', clothes.id);
+    expect(clothesRows).toHaveLength(2); // 洋服のみ・両方
+
+    const summerRows = repo.analyticsDetailsByDateAndTag({ period: null }, 'day', '2026-08-01', summer.id);
+    expect(summerRows).toHaveLength(2); // 春夏物のみ・両方
+  });
+
+  it('未分類（tagId: null）はその日付でタグなしの記録だけ返す', () => {
+    const untagged = repo.analyticsDetailsByDateAndTag({ period: null }, 'day', '2026-08-01', null);
+    expect(untagged).toHaveLength(1);
+  });
+
+  it('別の日付の記録は含まない', () => {
+    const rows = repo.analyticsDetailsByDateAndTag({ period: null }, 'day', '2026-08-01', clothes.id);
+    expect(rows.every((row) => row.saleDate?.startsWith('2026-08-01'))).toBe(true);
+  });
+
+  it('出品中の記録は対象に入らない（isSold 固定条件）', () => {
+    const rows = repo.analyticsDetailsByDateAndTag({ period: null }, 'day', '2026-08-01', clothes.id);
+    expect(rows.every((row) => row.isSold)).toBe(true);
+  });
+});
+
+describe('analyticsSeriesByTag: タグ別純利益推移の集計行（データタブ新規セクション）', () => {
+  let repo: Repository;
+  let tagRepo: TagRepository;
+  let clothes: schema.Tag;
+  let summer: schema.Tag;
+
+  const soldOn = (month: number, day: number) => new Date(2026, month - 1, day, 12, 0, 0);
+
+  beforeEach(() => {
+    const db = drizzle(newDatabase(), { schema });
+    repo = createRepository(db, recordDeps());
+    tagRepo = createTagRepository(db, { generateId: randomUUID });
+    clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+
+    const sold = (over: Partial<SaveRecordInput>) =>
+      repo.create({ ...base, kind: 'used', purchasePrice: 0, isSold: true, ...over });
+
+    // base の salesPrice は 1000円・commission 10% → 1 件の純利益は 900円（§2.3）
+    sold({ saleDate: soldOn(7, 1), tagIds: [clothes.id] }); // 7月・洋服のみ
+    sold({ saleDate: soldOn(7, 15), tagIds: [clothes.id, summer.id] }); // 7月・洋服＋春夏物
+    sold({ saleDate: soldOn(8, 1), tagIds: [summer.id] }); // 8月・春夏物のみ
+    sold({ saleDate: soldOn(8, 2), tagIds: [] }); // 8月・タグなし → 未分類
+  });
+
+  it('刻み（月ごと）× タグの組み合わせごとに 1 行。SUM の式は analyticsProfitByTag と同じ', () => {
+    const rows = repo.analyticsSeriesByTag({ period: null }, 'month');
+
+    expect(rows.find((row) => row.tagId === clothes.id && row.key === '2026-07')).toEqual({
+      tagId: clothes.id,
+      key: '2026-07',
+      date: new Date(2026, 6, 1),
+      profit: 1800,
+      recordCount: 2,
+    });
+  });
+
+  it('タグが複数付いた記録は、それぞれのタグの月の行に重複して計上する', () => {
+    const rows = repo.analyticsSeriesByTag({ period: null }, 'month');
+    const julyTagIds = rows.filter((row) => row.key === '2026-07').map((row) => row.tagId);
+
+    expect(julyTagIds.sort()).toEqual([clothes.id, summer.id].sort());
+  });
+
+  it('タグが 1 つも無い記録は tagId: null（未分類）の行にまとめる', () => {
+    const rows = repo.analyticsSeriesByTag({ period: null }, 'month');
+    const untagged = rows.find((row) => row.tagId === null);
+
+    expect(untagged).toEqual({
+      tagId: null,
+      key: '2026-08',
+      date: new Date(2026, 7, 1),
+      profit: 900,
+      recordCount: 1,
+    });
+  });
+
+  it('unit が日ごとなら日単位のキーに分かれる ── 収支推移グラフ（analyticsSeries）と同じ刻みルール', () => {
+    const rows = repo.analyticsSeriesByTag({ period: '2026-07' }, 'day');
+
+    expect(
+      rows
+        .filter((row) => row.tagId === clothes.id)
+        .map((row) => row.key)
+        .sort(),
+    ).toEqual(['2026-07-01', '2026-07-15']);
+  });
+
+  it('タグ・刻みの組み合わせで記録が無ければ行そのものが無い（密な点列に埋めるのは呼び出し側の densifySeries）', () => {
+    const rows = repo.analyticsSeriesByTag({ period: null }, 'month');
+
+    expect(rows.find((row) => row.tagId === clothes.id && row.key === '2026-08')).toBeUndefined();
+  });
+
+  it('期間フィルタが analyticsSeries と同じように効く', () => {
+    const rows = repo.analyticsSeriesByTag({ period: '2026-07' }, 'month');
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.key === '2026-07')).toBe(true);
   });
 });
 
@@ -1016,6 +1424,27 @@ describe('期間フィルタに年（"YYYY"）を渡す（SPEC.md §6.2 / SPEC-V
       expect(repo.analyticsSummary({ period: '2024' }).recordCount).toBe(1);
       // 出品中は年で絞っても入らない（isSold = true 固定。SPEC §6.2）
       expect(repo.analyticsSummary({ period: null }).recordCount).toBe(5);
+    });
+
+    it('monthKeyRange を渡すと period の代わりに月キーの範囲（両端含む）で絞る（前期間比較用）', () => {
+      // 2025-01 〜 2025-08: '2025年1月の椅子' と '2025年8月の鍋' の 2 件（'2025年12月のカメラ' は外れる）
+      const range = repo.analyticsSummary({ period: null, monthKeyRange: { from: '2025-01', to: '2025-08' } });
+      expect(range.recordCount).toBe(2);
+      expect(range.totalSales).toBeCloseTo(2000 + 3000, 9);
+
+      // 年をまたぐ範囲（2024-12 〜 2025-01）でも両端含みで正しく絞れる
+      const crossYear = repo.analyticsSummary({
+        period: null,
+        monthKeyRange: { from: '2024-12', to: '2025-01' },
+      });
+      expect(crossYear.recordCount).toBe(2);
+
+      // period が同時に指定されていても monthKeyRange が優先される
+      const overridden = repo.analyticsSummary({
+        period: '2026',
+        monthKeyRange: { from: '2025-01', to: '2025-08' },
+      });
+      expect(overridden.recordCount).toBe(2);
     });
 
     it('年を選んだときの集計点は月ごとの 3 点（記録のある月だけ返る）', () => {
@@ -1149,7 +1578,7 @@ describe('SPEC-V5 §2.1 マイグレーション: photo_file_name 列の追加',
            (id, item_name, sales_price, purchase_price, postage, envelope_cost, others_cost,
             commission, is_sold, sale_start_date, sale_date, memo, kind, site_name)
          VALUES (?, ?, 1000, 300, 175, 20, 5, 10, 1,
-                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'メルカリ')`,
+                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'フリマA')`,
       )
       .run('id-0', '既存の記録');
     // 0005 以降を最後まで流す ── repository は**今のスキーマ**で読むので、
@@ -1180,7 +1609,7 @@ describe('SPEC-V5 §2.1 マイグレーション: photo_file_name 列の追加',
       sale_date: '2026-08-09T12:00:00.000',
       memo: 'メモ',
       kind: 'sourced',
-      site_name: 'メルカリ',
+      site_name: 'フリマA',
     });
   });
 
@@ -1301,7 +1730,7 @@ describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
            (id, item_name, sales_price, purchase_price, postage, envelope_cost, others_cost,
             commission, is_sold, sale_start_date, sale_date, memo, kind, site_name)
          VALUES (?, ?, 1000, 300, 175, 20, 5, 10, 1,
-                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'メルカリ')`,
+                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'フリマA')`,
       )
       .run('id-0', '既存の記録');
     sqlite
@@ -1310,7 +1739,12 @@ describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
          VALUES ('mine', 'shipping', '自分の送料', 'blue', '自', 450, 0, 0, 99)`,
       )
       .run();
-    for (const statement of migrationSql(journal.entries[6].tag)) sqlite.exec(statement);
+    // 0006（この節の主題）から**先を全部**流す ── 最後の「repository から読める」は
+    // 現在の schema で SELECT するので、あとから足された列（0009 の目標利益など）の
+    // マイグレーションまで届いていないと「そんな列は無い」で落ちる
+    for (const entry of journal.entries.slice(6)) {
+      for (const statement of migrationSql(entry.tag)) sqlite.exec(statement);
+    }
     return sqlite;
   }
 

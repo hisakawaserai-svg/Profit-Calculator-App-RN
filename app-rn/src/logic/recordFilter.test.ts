@@ -39,7 +39,7 @@ describe('§4.1 activeFilterCount: 条件の本数を数える（決定 §9-2）
 
   it('種別・販売サイト・タグでそれぞれ 1 本ずつ', () => {
     expect(activeFilterCount(draft({ kind: 'sourced' }))).toBe(1);
-    expect(activeFilterCount(draft({ siteName: 'メルカリ' }))).toBe(1);
+    expect(activeFilterCount(draft({ siteName: 'フリマA' }))).toBe(1);
     expect(activeFilterCount(draft({ tagIds: [clothes.id] }))).toBe(1);
   });
 
@@ -48,7 +48,7 @@ describe('§4.1 activeFilterCount: 条件の本数を数える（決定 §9-2）
   });
 
   it('3 条件すべてで 3（最大）', () => {
-    const filter = draft({ kind: 'used', siteName: 'メルカリ', tagIds: [clothes.id, summer.id] });
+    const filter = draft({ kind: 'used', siteName: 'フリマA', tagIds: [clothes.id, summer.id] });
 
     expect(activeFilterCount(filter)).toBe(3);
     expect(hasActiveFilter(filter)).toBe(true);
@@ -65,8 +65,8 @@ describe('§4.3 filterSummaryText: 絞り込み中の青い行の文言（案 34
   });
 
   it('販売サイトは種類まで言う（名前だけでは何の名前か読めない）', () => {
-    expect(filterSummaryText(draft({ siteName: 'メルカリ' }), tags, 3)).toBe(
-      '販売サイト「メルカリ」の3件だけ',
+    expect(filterSummaryText(draft({ siteName: 'フリマA' }), tags, 3)).toBe(
+      '販売サイト「フリマA」の3件だけ',
     );
   });
 
@@ -85,10 +85,10 @@ describe('§4.3 filterSummaryText: 絞り込み中の青い行の文言（案 34
   });
 
   it('3 条件は「・」で連なり、並ぶ数は activeFilterCount と一致する', () => {
-    const filter = draft({ kind: 'sourced', siteName: 'メルカリ', tagIds: [clothes.id] });
+    const filter = draft({ kind: 'sourced', siteName: 'フリマA', tagIds: [clothes.id] });
 
     expect(filterSummaryText(filter, tags, 1)).toBe(
-      '仕入品・販売サイト「メルカリ」・タグ「洋服」の1件だけ',
+      '仕入品・販売サイト「フリマA」・タグ「洋服」の1件だけ',
     );
     expect(activeFilterCount(filter)).toBe(3);
   });
@@ -114,7 +114,7 @@ describe('§4.2 clearAll: 3 条件だけを初期値へ戻す', () => {
 });
 
 describe('§4.2 effectiveFilter: 出品中では販売サイトが効かない', () => {
-  const filter = draft({ kind: 'used', siteName: 'メルカリ', tagIds: [clothes.id] });
+  const filter = draft({ kind: 'used', siteName: 'フリマA', tagIds: [clothes.id] });
 
   it('売れた記録ではそのまま', () => {
     expect(effectiveFilter(filter, true)).toBe(filter);
@@ -163,11 +163,11 @@ describe('§4.7 pruneMissingTags: 消えたタグを落とす', () => {
   });
 
   it('種別・販売サイトは触らない', () => {
-    const filter = draft({ kind: 'sourced', siteName: 'メルカリ', tagIds: ['deleted'] });
+    const filter = draft({ kind: 'sourced', siteName: 'フリマA', tagIds: ['deleted'] });
     const pruned = pruneMissingTags(filter, tags);
 
     expect(pruned.kind).toBe('sourced');
-    expect(pruned.siteName).toBe('メルカリ');
+    expect(pruned.siteName).toBe('フリマA');
   });
 
   /** 変化がなければ同じ参照（画面が毎回 setState して引き直すのを防ぐ） */

@@ -91,7 +91,7 @@ describe('§1.6 色キーの正規化', () => {
     for (const key of PRESET_COLOR_KEYS) {
       expect(normalizePresetColor(key)).toBe(key);
     }
-    // 11 色目（gray）は SPEC-V7 §2.1 で追加（丸 11 個 ＋ 自由色で 6 × 2）
+    // 11 色目（gray）は SPEC-V7 §2.1 で追加（丸 11 個 ＋ 自由色で 4 × 3）
     expect(PRESET_COLOR_KEYS).toHaveLength(11);
   });
 
@@ -584,8 +584,8 @@ describe('§4.1 / §4.3 欄の値・名前からプリセットを引く', () =>
     { name: '手渡し', value: 0 },
   ];
   const sites = [
-    { name: 'メルカリ', value: 10 },
-    { name: 'ラクマ', value: 10 },
+    { name: 'フリマA', value: 10 },
+    { name: 'フリマB', value: 10 },
   ];
 
   it('値が一致する行を返す', () => {
@@ -602,8 +602,8 @@ describe('§4.1 / §4.3 欄の値・名前からプリセットを引く', () =>
   });
 
   it('同じ値が 2 件あるときは並び順で先の 1 件', () => {
-    expect(findPresetByName(sites, 'ラクマ')?.value).toBe(10);
-    expect(findPresetByValue(sites, 10)?.name).toBe('メルカリ');
+    expect(findPresetByName(sites, 'フリマB')?.value).toBe(10);
+    expect(findPresetByValue(sites, 10)?.name).toBe('フリマA');
   });
 
   it('名前が空文字（未設定）なら null。消えたプリセットの名前も引けない（§1.5.1）', () => {
@@ -618,8 +618,8 @@ describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
     { name: '手渡し', value: 0 },
   ];
   const sites = [
-    { name: 'メルカリ', value: 10 },
-    { name: 'ラクマ', value: 6 },
+    { name: 'フリマA', value: 10 },
+    { name: 'フリマB', value: 6 },
   ];
 
   it('名前を写さない欄は値だけで引く（送料）', () => {
@@ -632,22 +632,22 @@ describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
   });
 
   it('名前も率も一致していれば通常のバッジ', () => {
-    expect(resolvePresetTag(sites, 10, 'メルカリ')).toEqual({
+    expect(resolvePresetTag(sites, 10, 'フリマA')).toEqual({
       kind: 'selected',
       preset: sites[0],
     });
   });
 
   it('名前は一致するが率が違えば rate-changed（薄いバッジ・▾ なし）', () => {
-    expect(resolvePresetTag(sites, 8, 'メルカリ')).toEqual({
+    expect(resolvePresetTag(sites, 8, 'フリマA')).toEqual({
       kind: 'rate-changed',
       preset: sites[0],
     });
   });
 
   it('率だけが他のプリセットと一致しても、写した名前の側で判定する', () => {
-    // 10% のメルカリを選んでから 6%（ラクマの率）に下げても、札はメルカリのまま薄くする
-    expect(resolvePresetTag(sites, 6, 'メルカリ')).toEqual({
+    // 10% のフリマAを選んでから 6%（フリマBの率）に下げても、札はフリマAのまま薄くする
+    expect(resolvePresetTag(sites, 6, 'フリマA')).toEqual({
       kind: 'rate-changed',
       preset: sites[0],
     });
@@ -659,11 +659,11 @@ describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
 
   it('プリセットが削除・改名されて引けないときは未選択（バッジの色と頭文字が無い）', () => {
     expect(resolvePresetTag(sites, 10, 'もう無いサイト')).toEqual({ kind: 'unselected' });
-    expect(resolvePresetTag([], 10, 'メルカリ')).toEqual({ kind: 'unselected' });
+    expect(resolvePresetTag([], 10, 'フリマA')).toEqual({ kind: 'unselected' });
   });
 
   it('空欄は選んだ率と一致しないので rate-changed', () => {
-    expect(resolvePresetTag(sites, null, 'メルカリ')).toEqual({
+    expect(resolvePresetTag(sites, null, 'フリマA')).toEqual({
       kind: 'rate-changed',
       preset: sites[0],
     });
@@ -803,7 +803,7 @@ describe('SPEC-V7 §2 プリセットの色（hex 保存と自由色）', () => 
     gray: { background: '#6E6E73', foreground: '#FFFFFF' },
   };
 
-  it('固定色は 11 色（丸 11 個 ＋ 自由色で 6 × 2）', () => {
+  it('固定色は 11 色（丸 11 個 ＋ 自由色で 4 × 3）', () => {
     expect(PRESET_COLOR_KEYS).toHaveLength(11);
     expect(Object.keys(PRESET_COLOR_HEXES)).toHaveLength(11);
   });

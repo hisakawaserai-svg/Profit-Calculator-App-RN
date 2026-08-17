@@ -12,6 +12,7 @@ import {
   canSave,
   changeKind,
   newFormValues,
+  parseTargetProfitInput,
   recordToFormValues,
   toCostInput,
   toSaveInput,
@@ -39,6 +40,9 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 目標利益（SPEC-V9 §1）。既定は「決めていない」= null。listed_at はまだ読み書きしない
+  targetProfit: null,
+  listedAt: null,
   ...partial,
 });
 
@@ -64,7 +68,8 @@ describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
         envelopeCost: '20',
         othersCost: '5',
         commission: 8,
-        siteName: 'メルカリ',
+        siteName: 'フリマA',
+        targetProfit: '',
       },
       NOW,
     );
@@ -72,7 +77,7 @@ describe('§3.2 / §7-8 / §7-11 新規追加時の初期値', () => {
     expect(values.salesPrice).toBe('1000');
     expect(values.commission).toBe(8);
     // 率と一緒に選んだ販売サイトの名前も引き継ぐ（SPEC-V3 §1.5.1）
-    expect(values.siteName).toBe('メルカリ');
+    expect(values.siteName).toBe('フリマA');
     // 引き継ぐのは金額・手数料・種別だけ。商品名は空・出品中のまま
     expect(values.itemName).toBe('');
     expect(values.isSold).toBe(false);
@@ -95,6 +100,7 @@ describe('SPEC-V2 §1.4 種別の初期値', () => {
       othersCost: '',
       commission: 10,
       siteName: '',
+      targetProfit: '',
     } as const;
 
     // 設定は不用品でも、画面の見た目に合わせて仕入品で開く
@@ -207,22 +213,22 @@ describe('SPEC-V3 §1.5.1 販売サイト名の写し', () => {
   });
 
   it('選んだ名前をそのまま保存する', () => {
-    expect(toSaveInput({ ...base(), siteName: 'メルカリ', commission: 10 }).siteName).toBe(
-      'メルカリ',
+    expect(toSaveInput({ ...base(), siteName: 'フリマA', commission: 10 }).siteName).toBe(
+      'フリマA',
     );
   });
 
   it('手で率を変えても名前は消えない（率の微調整で札は無効にならない）', () => {
-    const values = { ...base(), siteName: 'メルカリ', commission: 8 };
+    const values = { ...base(), siteName: 'フリマA', commission: 8 };
 
     expect(toSaveInput(values).commission).toBe(8);
-    expect(toSaveInput(values).siteName).toBe('メルカリ');
+    expect(toSaveInput(values).siteName).toBe('フリマA');
   });
 
   it('種別を切り替えても名前は消えない（金額の欄ではないため）', () => {
-    const values = { ...base(), kind: 'sourced' as const, siteName: 'メルカリ' };
+    const values = { ...base(), kind: 'sourced' as const, siteName: 'フリマA' };
 
-    expect(changeKind(values, 'used').siteName).toBe('メルカリ');
+    expect(changeKind(values, 'used').siteName).toBe('フリマA');
   });
 });
 
@@ -303,7 +309,7 @@ describe('編集時の初期値（Swift 版 loadInitialData 相当）', () => {
   });
 
   it('保存済みの販売サイト名をフォームへ戻す（SPEC-V3 §1.5.1）', () => {
-    expect(recordToFormValues(record({ siteName: 'メルカリ' }), NOW).siteName).toBe('メルカリ');
+    expect(recordToFormValues(record({ siteName: 'フリマA' }), NOW).siteName).toBe('フリマA');
     // 既存レコードはバックフィルしないので空文字のまま
     expect(recordToFormValues(record(), NOW).siteName).toBe('');
   });
@@ -393,5 +399,124 @@ describe('SPEC-V6 §3 送料の専用資材', () => {
 
     // 1000 − 520 = 480。資材費 70 を二重に引かない
     expect(netProfit(toCostInput(values))).toBeCloseTo(480);
+  });
+});
+
+describe('SPEC-V9 §5.3 計算タブの目標をフォームの初期値として引き継ぐ', () => {
+  const amounts = (targetProfit: string) =>
+    ({
+      kind: 'sourced',
+      salesPrice: '1000',
+      purchasePrice: '300',
+      postage: '',
+      envelopeCost: '',
+      othersCost: '',
+      commission: 10,
+      siteName: '',
+      targetProfit,
+    }) as const;
+
+  it('逆算で入れた目標額が目標欄の初期値になる', () => {
+    expect(newFormValues('used', amounts('500'), NOW).targetProfit).toBe('500');
+  });
+
+  it('目標 0 円も引き継ぐ（「決めていない」に落とさない。§1.2）', () => {
+    const values = newFormValues('used', amounts('0'), NOW);
+
+    expect(values.targetProfit).toBe('0');
+    expect(toSaveInput({ ...values, itemName: 'えんぴつ' }).targetProfit).toBe(0);
+  });
+
+  it('目標を入力していなければ null のまま（「利益を出す」モードから来た場合を含む）', () => {
+    const values = newFormValues('used', amounts(''), NOW);
+
+    expect(values.targetProfit).toBe('');
+    expect(toSaveInput({ ...values, itemName: 'えんぴつ' }).targetProfit).toBeNull();
+  });
+
+  it('**渡るのは初期値だけ**で、フォーム側で書き換えたらその値が保存される', () => {
+    const values = newFormValues('used', amounts('500'), NOW);
+    // 欄に見える状態で渡すので、開いた人が書き換えられる（黙って保存されない）
+    const edited = { ...values, itemName: 'えんぴつ', targetProfit: '800' };
+
+    expect(toSaveInput(edited).targetProfit).toBe(800);
+  });
+
+  it('フォーム側で消せば「決めていない」に戻せる', () => {
+    const values = newFormValues('used', amounts('500'), NOW);
+    const cleared = { ...values, itemName: 'えんぴつ', targetProfit: '' };
+
+    expect(toSaveInput(cleared).targetProfit).toBeNull();
+  });
+});
+
+describe('SPEC-V9 §2 目標利益（空欄 = 決めていない）', () => {
+  it('新規は空欄から始まる（アプリ全体の既定値を持たないため設定から引く元も無い）', () => {
+    expect(newFormValues('used', undefined, NOW).targetProfit).toBe('');
+    expect(newFormValues('sourced', undefined, NOW).targetProfit).toBe('');
+  });
+
+  it('**空欄は 0 ではなく null として保存される**（他の金額欄と扱いが違う唯一の欄）', () => {
+    const values = { ...newFormValues('used', undefined, NOW), targetProfit: '' };
+
+    expect(toSaveInput(values).targetProfit).toBeNull();
+    // 同じ空欄でも、他の金額欄は 0 のまま（§5.1）
+    expect(toSaveInput(values).othersCost).toBe(0);
+  });
+
+  it('打ちかけの "." も null（0 として保存すると「目標 0 円」に化ける）', () => {
+    expect(parseTargetProfitInput('.')).toBeNull();
+    expect(parseTargetProfitInput(' ')).toBeNull();
+  });
+
+  it('**"0" は 0 として保存される** ── 決めていない状態と混ぜない', () => {
+    expect(parseTargetProfitInput('0')).toBe(0);
+    expect(toSaveInput({ ...newFormValues('used', undefined, NOW), targetProfit: '0' }).targetProfit)
+      .toBe(0);
+  });
+
+  it('整数に丸める（列が integer。端数を持つ意味がない）', () => {
+    expect(parseTargetProfitInput('1500.4')).toBe(1500);
+    expect(parseTargetProfitInput('1500.6')).toBe(1501);
+  });
+
+  it('編集で開くと保存値が戻る（null は空欄）', () => {
+    expect(recordToFormValues(record({ targetProfit: 2000 }), NOW).targetProfit).toBe('2000');
+    expect(recordToFormValues(record({ targetProfit: null }), NOW).targetProfit).toBe('');
+  });
+
+  it('**目標 0 円の記録を開き直しても消えない**（amountToInput は 0 を空欄にするので使えない）', () => {
+    const values = recordToFormValues(record({ targetProfit: 0 }), NOW);
+
+    expect(values.targetProfit).toBe('0');
+    // 開いてそのまま保存し直しても 0 のまま（null に落ちない）
+    expect(toSaveInput(values).targetProfit).toBe(0);
+    // 参考: 他の金額欄は 0 を空欄に落とす
+    expect(amountToInput(0)).toBe('');
+  });
+
+  it('保存 → 読み戻しの往復で値が変わらない（null / 0 / 正の額）', () => {
+    for (const targetProfit of [null, 0, 2000]) {
+      const values = recordToFormValues(record({ targetProfit }), NOW);
+      expect(toSaveInput(values).targetProfit).toBe(targetProfit);
+    }
+  });
+
+  it('目標は計算式に入らない（伝票の純利益は今までどおり）', () => {
+    const values = {
+      ...newFormValues('used', undefined, NOW),
+      salesPrice: '1000',
+      postage: '200',
+      commission: 0,
+      targetProfit: '5000',
+    };
+
+    expect(netProfit(toCostInput(values))).toBeCloseTo(800);
+  });
+
+  it('目標が空でも保存できる（必須は商品名だけ。§5.2）', () => {
+    const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', targetProfit: '' };
+
+    expect(canSave(values)).toBe(true);
   });
 });

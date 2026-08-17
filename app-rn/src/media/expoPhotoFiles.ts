@@ -44,6 +44,45 @@ const fileSystem: PhotoFileSystem = {
     // 消し直し（記録の削除 → 取り消し → 再削除など）で落ちないよう、無ければ何もしない
     if (file.exists) file.delete();
   },
+
+  /**
+   * 置き場ごと消して作り直す（SPEC-V8 §4.2 の復元）。
+   *
+   * **中身を 1 つずつ消さずディレクトリごと落とす** ── 復元の直前なので、
+   * 残すべきファイルは 1 つも無い。作り直すところまでやるのは、
+   * この後すぐ写真を足したときに `ensureDirectory` を待たずに済ませるため
+   * （`create` は idempotent なので二重に作っても落ちない）。
+   */
+  removeAll() {
+    if (photoDirectory.exists) photoDirectory.delete();
+    photoDirectory.create({ intermediates: true, idempotent: true });
+  },
+
+  /**
+   * 名前と大きさだけを返す（SPEC-V8 §4.4）。**中身は読まない。**
+   *
+   * `File.size` はファイルのメタデータを見るだけで、実体をメモリに載せない ──
+   * 合計サイズを出すために全部読んだら、上限を設けた意味（メモリを使いすぎない）が消える。
+   */
+  list() {
+    if (!photoDirectory.exists) return [];
+    return photoDirectory
+      .list()
+      .filter((item): item is File => item instanceof File)
+      .map((file) => ({ name: file.name, size: file.size }));
+  },
+
+  write(uri: string, bytes: Uint8Array) {
+    // 復元では置き場ごと作り直した直後に呼ばれるが、単体でも成立させておく
+    photoDirectory.create({ intermediates: true, idempotent: true });
+    const file = new File(uri);
+    file.create({ overwrite: true });
+    file.write(bytes);
+  },
+
+  read(uri: string) {
+    return new File(uri).bytesSync();
+  },
 };
 
 /**

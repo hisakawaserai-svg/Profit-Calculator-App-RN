@@ -155,8 +155,12 @@ export function PresetPickerSheet({
                         <PresetRow
                           preset={{
                             ...preset,
-                            // 右端の額は**選んだ側の額**（45b）。選ばれていない行は登録した送料
-                            value: shippingAmountFor(preset, choice ?? 'shipping-only'),
+                            // 右端の額は**選んだ側の額**（45b）。まだ選ばれていない行は
+                            // **既定の側（＋資材）**で描く ── 行を押すと入るのがその額だから。
+                            // 送料だけの額を出しておくと、450 円と読んで押した結果 550 円が
+                            // 欄に入る（shippingAmountFor が「押す前に見えていた数字と
+                            // あとで欄に入る数字を食い違わせない」ためのものなので、その逆になる）
+                            value: shippingAmountFor(preset, choice ?? 'with-material'),
                             // 副題（「＋専用資材 …」）は 2 択が言うので出さない（45b）
                             materialCost: 0,
                           }}

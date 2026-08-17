@@ -1,7 +1,7 @@
 # 利益計算アプリ 仕様書（React Native 移植用）
 
 SwiftUI + CoreData 版（本リポジトリ）の全 `.swift` ファイルおよび `MyAppDataModel.xcdatamodeld` から読み取った仕様。
-物販（メルカリ等のフリマ販売）の利益計算・出品/売却記録・月次集計・分析グラフを提供する iOS / macOS (Catalyst) アプリ。
+物販（フリマサイトでの個人間売買）の利益計算・出品/売却記録・月次集計・分析グラフを提供する iOS / macOS (Catalyst) アプリ。
 
 - 通貨は日本円。表示は整数円（表示時のみ丸め、保存値は Double のまま）。
 - 対象ソース: 全 17 の Swift ファイル + CoreData モデル定義。
@@ -81,7 +81,7 @@ commissionCost = salesPrice × (commission / 100)
 ```
 
 - **丸めなし**。Double のまま保持（例: salesPrice=999, commission=10 → 99.9）。
-- 実サービス（メルカリ等）のような「手数料は1円未満切り捨て」等の処理は**存在しない**。
+- 実在するサービスにあるような「手数料は1円未満切り捨て」等の処理は**存在しない**。
 - **TODO（§7-4 で保留）**: 実サービスの手数料端数処理（1 円未満切り捨て等）に合わせるかは未決定。RN 版でも当面は丸めなしのまま移植する。
 
 ### 2.3 純利益（netProfit）
@@ -100,7 +100,7 @@ totalExpenses = purchasePrice + postage + envelopeCost + othersCost + commission
 
 この式は 2 箇所に重複実装されており、内容は同一:
 - `SaleRecordEntities` の extension（保存済みレコード用）
-- `MercariCalcData` 構造体（CalcView のシミュレーション用。プロパティ名は `NetProfit` と大文字始まり）
+- `CalcData` 構造体（CalcView のシミュレーション用。プロパティ名は `NetProfit` と大文字始まり）
 
 ### 2.5 目標利益からの逆算（必要販売価格）
 
@@ -533,7 +533,7 @@ TabView
 | `PersistenceController.swift` | CoreData スタック |
 | `SaleRecordEntities+Extensions.swift .swift`（※末尾に余分な ` .swift`） | `netProfit` / `totalExpenses` 計算プロパティ |
 | `SaleRecordViewModel.swift` | フィルタ・グループ化・ソートロジック |
-| `CalcView.swift` | 計算タブ（`MercariCalcData`、逆算、入力フォーム含む） |
+| `CalcView.swift` | 計算タブ（`CalcData`、逆算、入力フォーム含む） |
 | `MonthlyRecordList.swift` | 出品中/実績タブの月別一覧 |
 | `SaleRecord.swift` | `SaleRecordView`（月別詳細リスト）+ `RecordRowView` |
 | `SaleRecordDetailView.swift` | 詳細画面 + 商品情報/費用内訳/メモ/売却トグル部品 |

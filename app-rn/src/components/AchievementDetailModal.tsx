@@ -3,25 +3,31 @@
 // 「一覧はシンプル、タップした全画面表示は装飾豊か」の方針どおり、AchievementsSection の
 // 横スクロールカード（3.獲得した実績）は変えず、タップしたときだけここで装飾を出す。
 // 難易度（logic/achievements.ts の achievementDifficulty、1〜5。★5＝レジェンド）
-// に応じて、バッジに添えるモチーフ（芽 → 星 → 宝石 → 冠 → 大きな冠）が変わる。
+// に応じて、バッジに添えるモチーフ（葉 → 葉 → ギザ葉 → 宝石 → 王冠）が変わる。
+// ★1〜★3 は AchievementTierMotif（react-native-svg の自作イラスト）、★4・★5 は
+// FontAwesome5 のアイコン（gem / crown）を使う（自作イラストより従来のアイコンの
+// 見た目が良いというフィードバックにより、この2つはアイコンのまま据え置き）。
 //
-// **難易度ごとのモチーフ**:
-//   ★1 ブロンズ: 芽（seedling）をバッジの下に小さく
-//   ★2 シルバー: 星（star）をバッジの周囲に 3 個
-//   ★3 ゴールド: 宝石（gem）をバッジの上に 1 つ
-//   ★4 プラチナ: 冠（crown）をバッジの上に大きめ・斜めに乗せる ── 「斜めがけ」
-//   ★5 レジェンド: ★4 より大きな冠を、傾けずバッジの正面中央に堂々と乗せる ──
-//     「斜めがけ」の★4と見分けるための正面配置。縁取りも★4よりさらに太い（TIER_BORDER_WIDTHS）
-// バッジ本体の色（種類の色。categoryColor）はそのまま。モチーフの色も同じ tint を使う。
+// **難易度ごとのモチーフ**（★1〜★3 は AchievementTierMotif が描く。
+// 「丸(バッジ本体)の下・両サイドから葉が伸び、真下で触れ合う」共通の構図で、
+// 難易度が上がるほど大きく・葉の輪郭も派手にしていく。ユーザー指定）:
+//   ★1 ブロンズ: 大きな葉を1枚ずつ（滑らかな輪郭）
+//   ★2 シルバー: ★1 より一回り大きく、付け根を丸の高い位置まで回り込ませる
+//     （滑らかな輪郭のまま）
+//   ★3 ゴールド: ★2 よりさらに大きく、輪郭を鋸歯状のギザギザにして
+//     ★1・★2（滑らかな輪郭）と一目で見分けられるようにする
+//   ★4 プラチナ: 宝石（gem）を、傾けずバッジ上部に堂々と乗せる
+//   ★5 レジェンド: 王冠（crown）を、傾けずバッジの正面中央に堂々と乗せる
+//     縁取りも★4よりさらに太い（TIER_BORDER_WIDTHS）
+// モチーフの色は難易度（段位）ごとに固定（★1〜★3 は AchievementTierMotif 内の
+// ブロンズ〜ゴールドの配色、★4・★5 は tierColor＝TIER_COLORS）。バッジ本体・リングの
+// 色分け（種類の色。categoryColor＝tint）とは完全に独立した軸 ── バッジ本体の
+// 色分けルールはこれまで通り変更しない。
 //
 // **未達成（achievement.completed === false）も表示できる。** AchievementsSection の
 // 「獲得した実績」カード内、未解除チップ列や、実績一覧画面（AchievementListScreen）の
 // ジャンル別カードから開いたときは、バッジをグレーアウトしモチーフを出さない代わりに、
 // 達成日・「達成した記録」行の位置に進捗バー（現在値 / 目標値）を出す。
-//
-// 新しいアイコンライブラリ・画像アセットは追加しない。@expo/vector-icons が束ねる
-// Ionicons・FontAwesome5 の中から近いアイコンを使う（芽 → seedling、宝石 → gem、
-// 冠 → crown。いずれも FontAwesome5 Free に収録済み）。
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -34,6 +40,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useColorScheme,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -44,9 +51,11 @@ import {
   categoryColor,
   legendRingOuterSize,
   LegendTierRing,
+  TIER_CHIP_DARK_COLORS,
   TIER_COLORS,
   type TagLookup,
 } from '@/components/AchievementsSection';
+import { AchievementTierMotif } from '@/components/AchievementTierMotif';
 import { TagChip } from '@/components/TagChip';
 import {
   achievementBadgeTier,
@@ -92,6 +101,19 @@ const TIER_BORDER_WIDTHS: Record<AchievementDifficulty, number> = {
   3: 10,
   4: 13,
   5: 17,
+};
+
+/**
+ * AchievementTierMotif（★1〜★3）の表示サイズ。難易度が上がるほど大きく・装飾的にする。
+ * ★1 だけはバッジの縁から生えるのではなく丸の下・両サイドに大きな葉を添える構図なので、
+ * バッジ本体（難易度 1 の直径 = BADGE_BASE_SIZE + BADGE_SIZE_STEP = 138）を覆えるサイズにする
+ */
+const TIER_MOTIF_SIZES: Record<1 | 2 | 3, number> = {
+  1: 150,
+  2: 175,
+  // ★3 は viewBox を -18 -18 136 136 に拡張した分（136/100 倍）だけ size も拡大し、
+  // 葉自体の実ピクセルサイズは前と変わらないようにしている（motifTier3.top も連動して調整）
+  3: 147,
 };
 
 /**
@@ -368,6 +390,14 @@ function AchievementPage({
     : colors.gray;
   // 段位の色（縁取り・段位チップ）。未達成はバッジ本体と同じくグレーに落とす
   const tierColor = achievement.completed ? TIER_COLORS[tier] : colors.gray;
+  // 段位チップ（縁取り・文字）の色。暗色モードでは、地の色に対してコントラストが
+  // 足りない段位（legend）だけ、チップ専用の明るい色に差し替える
+  // （バッジ本体の縁取り・リングは tierColor のまま。§実績詳細ダークモード可読性）
+  const isDarkMode = useColorScheme() === 'dark';
+  const tierChipColor =
+    achievement.completed && isDarkMode
+      ? (TIER_CHIP_DARK_COLORS[tier] ?? tierColor)
+      : tierColor;
   // 未達成の進捗バーに使う。labels.ts の nextAchievementProgressText / remainingToUnlockText は
   // NextAchievement（{id, current, target, progress}）を受け取る形なので、Achievement から同じ形を作る
   const progress =
@@ -415,6 +445,7 @@ function AchievementPage({
             difficulty={difficulty}
             tint={tint}
             tierColor={tierColor}
+            iconTierColor={tierChipColor}
             decorated={achievement.completed}
           />
         </View>
@@ -429,8 +460,8 @@ function AchievementPage({
 
           <View style={styles.tierRow}>
             <StarRating filled={difficulty} tint={tint} colors={colors} />
-            <View style={[styles.tierChip, { borderColor: tierColor }]}>
-              <Text style={[styles.tierChipText, { color: tierColor }]}>
+            <View style={[styles.tierChip, { borderColor: tierChipColor }]}>
+              <Text style={[styles.tierChipText, { color: tierChipColor }]}>
                 {achievementBadgeTierName(tier)}
               </Text>
             </View>
@@ -686,6 +717,7 @@ function DecoratedBadge({
   difficulty,
   tint,
   tierColor,
+  iconTierColor,
   decorated,
 }: {
   iconName: keyof typeof Ionicons.glyphMap;
@@ -693,6 +725,12 @@ function DecoratedBadge({
   tint: string;
   /** 段位の縁取り色（TIER_COLORS。未達成は colors.gray） */
   tierColor: string;
+  /**
+   * ★4・★5 のアイコン（gem/crown）用の段位色。暗色モードでは地の色に対してコントラストが
+   * 足りない段位（legend）だけ、tierChipColor（明るい差し替え色）に置き換わっている
+   * （バッジ本体の縁取り・リングは tierColor のまま。§実績詳細ダークモード可読性）
+   */
+  iconTierColor: string;
   /** false = 未達成。モチーフ・縁取りを出さず、バッジも tint（呼び出し側で colors.gray）だけで見せる */
   decorated: boolean;
 }) {
@@ -700,65 +738,34 @@ function DecoratedBadge({
 
   return (
     <View style={styles.badgeOverlay}>
-      {decorated && difficulty === 1 && (
-        // 芽はバッジの上端から生えている見た目にする（浮かせず、めり込ませて茎の根元を隠す）
-        <FontAwesome5
-          name="seedling"
-          solid
-          size={24}
-          color={tint}
-          style={styles.motifSeedling}
-        />
-      )}
-      {decorated && difficulty === 2 && (
-        <>
-          <Ionicons
-            name="star"
-            size={16}
-            color={tint}
-            style={[styles.motifStar, styles.motifStarTopLeft]}
-          />
-          <Ionicons
-            name="star"
-            size={13}
-            color={tint}
-            style={[styles.motifStar, styles.motifStarTopRight]}
-          />
-          <Ionicons
-            name="star"
-            size={12}
-            color={tint}
-            style={[styles.motifStar, styles.motifStarBottom]}
-          />
-        </>
-      )}
-      {decorated && difficulty === 3 && (
-        // 宝石はバッジの縁にくっつける（浮かせない）
-        <FontAwesome5
-          name="gem"
-          solid
-          size={36}
-          color={tint}
-          style={styles.motifGem}
+      {decorated && difficulty !== 4 && difficulty !== 5 && (
+        // ★1〜★3 のモチーフは AchievementTierMotif が難易度ごとに描く（葉 → 葉 → ギザ葉）
+        <AchievementTierMotif
+          difficulty={difficulty}
+          size={TIER_MOTIF_SIZES[difficulty]}
+          style={TIER_MOTIF_STYLES[difficulty]}
         />
       )}
       {decorated && difficulty === 4 && (
-        // 冠はバッジに深くかぶせ、強めに傾けて「斜めかぶり」にする
+        // ★4 プラチナ。指輪の宝石のように、傾けずバッジ上部に堂々と乗せる。
+        // 色はバッジ本体の種類色（tint）ではなく段位色（iconTierColor）に合わせる
         <FontAwesome5
-          name="crown"
+          name="gem"
           solid
-          size={48}
-          color={tint}
-          style={styles.motifTiara}
+          size={40}
+          color={iconTierColor}
+          style={styles.motifGemPlatinum}
         />
       )}
       {decorated && difficulty === 5 && (
-        // ★5 レジェンド。★4 より大きな冠を、傾けずバッジの正面中央に堂々と乗せる
+        // ★5 レジェンド。★4 より大きな冠を、傾けずバッジの正面中央に堂々と乗せる。
+        // 色はバッジ本体の種類色（tint）ではなく段位色（iconTierColor。暗色モードでは
+        // legend だけ明るい色に差し替え）に合わせる
         <FontAwesome5
           name="crown"
           solid
-          size={60}
-          color={tint}
+          size={46}
+          color={iconTierColor}
           style={styles.motifCrownLegend}
         />
       )}
@@ -918,51 +925,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  // 難易度モチーフ（★1 芽 / ★2 星 / ★3 宝石 / ★4 冠）はすべてバッジに重ねる
+  // 難易度モチーフ（AchievementTierMotif）はすべてバッジに重ねる
   // （position: relative は RN View のデフォルトなので、absolute な子はこの View 基準で置ける）
   badgeOverlay: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // ★1 芽。バッジの上端にめり込ませ、根元が隠れて「生えている」ように見せる
-  motifSeedling: {
+  // AchievementTierMotif は viewBox 下端中央を茎の根元として描いているので、
+  // top はどの難易度も「サイズ分だけ引き上げて、少しだけバッジに埋め込む」という
+  // 同じ考え方（TIER_MOTIF_SIZES[difficulty] - 埋め込み量）で決めている
+  // ★1 は丸(バッジ、直径 138)の下・両サイドに大きな葉を添える構図。葉の付け根・
+  // 先端の座標自体がバッジの下端ぎりぎりで触れ合うよう作ってあるので、モチーフの箱
+  // （TIER_MOTIF_SIZES[1] = 150）はバッジ本体にほぼ中央揃え（(150-138)/2=6 だけ引き上げ）
+  motifTier1: {
     position: 'absolute',
-    top: -22,
+    top: -6,
     zIndex: 1,
   },
-  motifStar: {
+  // ★2 も★1 と同じ「丸の下・両サイドに葉」構図。バッジ本体（直径 156）に対して
+  // モチーフの箱（TIER_MOTIF_SIZES[2] = 175）を中央揃え（(175-156)/2=9.5 だけ引き上げ）
+  // 中央揃え（-10）からさらに下にずらし、葉がバッジの縁（リング）に重なるように見せる
+  motifTier2: {
     position: 'absolute',
-  },
-  motifStarTopLeft: {
-    top: -8,
-    left: -6,
-  },
-  motifStarTopRight: {
-    top: -4,
-    right: -12,
-  },
-  motifStarBottom: {
-    bottom: -6,
-    right: 10,
-  },
-  // ★3 宝石。浮かせず、バッジの縁にくっつける
-  motifGem: {
-    position: 'absolute',
-    top: -34,
+    top: 15,
     zIndex: 1,
   },
-  // ★4 冠。★5（正面配置）と見分けるため、深くかぶせて強めに傾ける
-  motifTiara: {
+  // ★3 も★1・★2 と同じ「丸の下・両サイドに葉」構図。中央揃えからさらに下にずらし、
+  // 葉がバッジの縁（リング）に重なるように見せる
+  motifTier3: {
     position: 'absolute',
-    top: -18,
-    right: -18,
+    top: 76,
     zIndex: 1,
-    transform: [{ rotate: '41deg' }],
   },
-  // ★5 レジェンドの冠。★4 と違い傾けず、バッジの正面中央に堂々と乗せる
+  // ★4 プラチナの宝石アイコン。★5 の冠と同じ考え方で、傾けずバッジ上部に乗せる
+  motifGemPlatinum: {
+    position: 'absolute',
+    top: -36,
+    zIndex: 1,
+  },
+  // ★5 レジェンドの冠。★4 と違い傾けず、バッジの正面中央に堂々と乗せる。
+  // カード上端からはみ出さないよう size と合わせて控えめにする
   motifCrownLegend: {
     position: 'absolute',
-    top: -30,
+    top: -26,
     zIndex: 1,
   },
   badgeCircle: {
@@ -1073,3 +1078,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+/** 難易度（★1〜★3）→ AchievementTierMotif の位置スタイル */
+const TIER_MOTIF_STYLES: Record<1 | 2 | 3, (typeof styles)['motifTier1']> = {
+  1: styles.motifTier1,
+  2: styles.motifTier2,
+  3: styles.motifTier3,
+};

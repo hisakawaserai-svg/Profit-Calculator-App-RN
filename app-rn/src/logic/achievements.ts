@@ -1116,6 +1116,24 @@ export function evaluateAchievements(
 }
 
 /**
+ * 記録の保存前後で evaluateAchievements をそれぞれ呼んだ結果を比べ、
+ * 保存によって新たに完了した実績（before は未達成 → after は達成）だけを返す。
+ * 保存トーストの「実績を獲得しました」表示が使う（呼び出し側は db/useRecords.ts）。
+ *
+ * before・after は同じ 38 種類を同じ順序で持つ想定（どちらも evaluateAchievements の結果）。
+ * after の並び順をそのまま保つ（呼び出し側の表示順 = 実績一覧の並びと一致させるため）。
+ */
+export function newlyCompletedAchievements(
+  before: readonly Achievement[],
+  after: readonly Achievement[],
+): Achievement[] {
+  const completedBefore = new Set(
+    before.filter((a) => a.completed).map((a) => a.id),
+  );
+  return after.filter((a) => a.completed && !completedBefore.has(a.id));
+}
+
+/**
  * evaluateAchievements の結果から、⚡一撃系（strike カテゴリ）の completedRecord を
  * recordId → 実績（Achievement）の対応表にする。
  *

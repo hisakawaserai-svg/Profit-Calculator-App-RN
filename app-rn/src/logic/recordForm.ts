@@ -66,6 +66,17 @@ export type RecordFormValues = {
   /** 「専用資材を使わない」（SPEC-V6 §3）。false = 資材費を含める（既定） */
   excludesShippingMaterial: boolean;
   /**
+   * 目標利益（SPEC-V9 §2）。**入力中の文字列**で、空欄 = 「目標を決めていません」。
+   *
+   * 他の金額欄と同じ文字列で持つが、意味が 1 つだけ違う: **空欄は 0 ではなく null になる**
+   * （`parseTargetProfitInput`）。他の欄は「未入力 ＝ 0 円」で意味が通るが、
+   * 目標は 0 が「赤字にならなければよい」という目標そのものなので、
+   * 決めていない状態と同じ値にはできない。
+   *
+   * **アプリ全体の既定値は持たない**（設定タブに欄を作らない）── 新規は常に空欄で始まる。
+   */
+  targetProfit: string;
+  /**
    * 付けるタグの id（SPEC-V4 §3.1）。**空配列でも保存できる**（§0：必須にしない）。
    *
    * 並びは `tags.sortOrder` 昇順（§1.5）── 選択シートは一覧の並びのままチェックを付けるので、
@@ -92,6 +103,10 @@ export type InitialAmounts = Pick<
   // 計算タブで選んだ販売サイトの名前も引き継ぐ（§1.5.1）。率だけ渡すと、
   // 「この内容で記録する」を押した瞬間に札だけが落ちる
   | 'siteName'
+  // 逆算モードで入れた目標額（SPEC-V9 §5.3）。**フォームの初期値として**渡すだけで、
+  // 黙って保存されるわけではない ── 目標の欄に見える状態で入り、そこで書き換えられる。
+  // 逆算モードでないときは空文字（＝決めていない）が渡る（解決は呼び出し側。toInitialAmounts）
+  | 'targetProfit'
 >;
 
 /**
@@ -132,6 +147,11 @@ export function newFormValues(
     // 控えは常に 0 から始まる ＝ トグルは出ない（SPEC-V6 §3）
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    // **目標の既定値は空欄（＝決めていない）**（SPEC-V9 §2）。アプリ全体の既定値を
+    // 作らないので、設定から引く元は無い。計算タブの逆算から来たときだけ、その目標額が
+    // ここに入る（SPEC-V9 §5.3）── 入るのはあくまでフォームの初期値で、欄に見える状態で
+    // 渡すので、そのまま保存するか書き換えるかは開いた人が決められる
+    targetProfit: amounts?.targetProfit ?? '',
     // タグは常に 0 件から始まる（SPEC-V4 §3.4 / 決定 §9-4）。計算タブにはタグ行が無いので、
     // siteName のように引き継ぐ元も無い ── InitialAmounts が tagIds を持たないのはそのため
     tagIds: [],
@@ -147,6 +167,34 @@ export function newFormValues(
  */
 export function amountToInput(value: number): string {
   return value > 0 ? String(value) : '';
+}
+
+/**
+ * 保存済みの目標利益を入力欄の文字列に戻す（SPEC-V9 §2）。**amountToInput は使えない。**
+ *
+ * あちらは 0 以下を空欄にするが、目標の 0 は「赤字にならなければよい」という
+ * 立派な目標で、空欄（＝決めていない）に落としてはいけない ──
+ * 落とすと、目標 0 円の記録を開いて保存し直すだけで目標が消える。
+ * 空欄になるのは null のときだけ。
+ */
+export function targetProfitToInput(value: number | null): string {
+  return value == null ? '' : String(value);
+}
+
+/**
+ * 入力欄の文字列を保存する値に直す（SPEC-V9 §2）。**空欄は null（「決めていない」）。**
+ *
+ * "." だけの入力も null にする ── 他の金額欄では `parseNumericInput` が 0 として扱うが
+ * （SPEC §5.1）、ここでは 0 が「目標 0 円」という別の意味を持つので、
+ * 打ちかけの記号を目標として保存してしまう。
+ *
+ * 整数に丸めるのは列が integer だから（schema の targetProfit）。
+ * 目標は人が決める切りのいい額で、端数を持つ意味がない。
+ */
+export function parseTargetProfitInput(value: string): number | null {
+  const text = value.trim();
+  if (text === '' || text === '.') return null;
+  return Math.round(parseNumericInput(text));
 }
 
 /**
@@ -182,6 +230,8 @@ export function recordToFormValues(
     // 保存済みの控えをそのまま戻す（SPEC-V6 §3）。これでトグルの有無も向きも復元される
     shippingMaterialCost: record.shippingMaterialCost,
     excludesShippingMaterial: record.excludesShippingMaterial,
+    // 目標（SPEC-V9 §2）。null は空欄、0 は "0" のまま戻る（targetProfitToInput の理由）
+    targetProfit: targetProfitToInput(record.targetProfit),
     tagIds: [...tagIds],
   };
 }
@@ -257,6 +307,8 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     // 送料の内訳の控え（SPEC-V6 §3）。postage には既に含まれた形で入っている
     shippingMaterialCost: values.shippingMaterialCost,
     excludesShippingMaterial: values.excludesShippingMaterial,
+    // 目標利益（SPEC-V9 §2）。**空欄は 0 ではなく null**（他の金額欄と扱いが違う唯一の欄）
+    targetProfit: parseTargetProfitInput(values.targetProfit),
     // タグ（SPEC-V4 §1.4 / §3.1）。**中間テーブルは全消し → 入れ直し**なので、
     // ここが空配列ならその記録からタグが全部外れる。SaveRecordInput 側を省略可に
     // しないのは「渡し忘れて静かに全部外れる」を防ぐため

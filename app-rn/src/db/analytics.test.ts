@@ -13,7 +13,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import journal from '../../drizzle/meta/_journal.json';
-import { netProfit, totalExpenses } from '../logic/profit';
+import { netProfit, periodProfitRate, totalExpenses } from '../logic/profit';
 import {
   createRepository,
   type AnalyticsFilter,
@@ -59,6 +59,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
   // タグ（SPEC-V4 §1.4）。集計テストではタグを付けないので空配列
+  // 目標は既定で「決めていない」（SPEC-V9 §1）
+  targetProfit: null,
   tagIds: [],
 };
 
@@ -226,6 +228,38 @@ describe('§6.2 合計行: totalNetProfit = totalSales − totalExpenses', () =>
       totalNetProfit: 0,
       recordCount: 0,
     });
+  });
+});
+
+describe('データタブ期間サマリー段（グラフ直下・新規）: 選んだ期間の analyticsSummary から利益率まで出す', () => {
+  it('期間を変えると analyticsSummary が引き直され、利益率もその期間の合計から出る', () => {
+    const augSummary = repo.analyticsSummary(period(AUGUST));
+    expect(augSummary.recordCount).toBe(2);
+    expect(periodProfitRate(augSummary.totalSales, augSummary.totalNetProfit)).toBeCloseTo(
+      (sumProfit(['aug1', 'aug2']) / sumSales(['aug1', 'aug2'])) * 100,
+      9,
+    );
+
+    // 全期間に戻すと対象件数・合計・利益率のすべてが変わる（同じ関数が別の入力を通るだけ）
+    const allSummary = repo.analyticsSummary(period(null));
+    expect(allSummary.recordCount).toBe(5);
+    expect(periodProfitRate(allSummary.totalSales, allSummary.totalNetProfit)).not.toBeCloseTo(
+      periodProfitRate(augSummary.totalSales, augSummary.totalNetProfit) as number,
+      1,
+    );
+  });
+
+  it('赤字だけの期間（2025-03）は利益率も負', () => {
+    const summary = repo.analyticsSummary(period('2025-03'));
+    const rate = periodProfitRate(summary.totalSales, summary.totalNetProfit);
+    expect(rate).not.toBeNull();
+    expect(rate as number).toBeLessThan(0);
+  });
+
+  it('対象 0 件の期間（2020-01）は売上合計も 0 なので利益率は null（「ーー」で出す境界）', () => {
+    const summary = repo.analyticsSummary(period('2020-01'));
+    expect(summary.recordCount).toBe(0);
+    expect(periodProfitRate(summary.totalSales, summary.totalNetProfit)).toBeNull();
   });
 });
 

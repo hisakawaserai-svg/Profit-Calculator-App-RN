@@ -27,6 +27,26 @@ export type PhotoFileSystem = {
   copy: (from: string, to: string) => void;
   /** ファイルを消す。無ければ何もしない（消し直しで落ちない） */
   remove: (uri: string) => void;
+  /**
+   * 置き場ごと空にする（SPEC-V8 §4.2 の復元）。無ければ何もしない。
+   *
+   * 1 枚ずつ消す口（`remove`）と分けてあるのは、**消す対象を DB から引けない**ため ──
+   * 復元は記録を全置換するので、消したい写真を指している行はもう存在しない。
+   * 「残っているファイルを全部」という指定の仕方がここでしかできない。
+   */
+  removeAll: () => void;
+  /**
+   * 保存済みの写真の**名前と大きさ**（SPEC-V8 §4.4）。
+   *
+   * **中身は読まない。** バックアップ画面は合計サイズを出すためだけにこれを呼ぶので、
+   * ここで実体を読むと「表示するためにメモリを食う」ことになる ── 上限を設けた理由
+   * （メモリ）と真っ向から矛盾する。`File.size` はメタデータだけを見る。
+   */
+  list: () => { name: string; size: number }[];
+  /** 写真を書き込む（復元。SPEC-V8 §4.5）。既にあれば置き換える */
+  write: (fileName: string, bytes: Uint8Array) => void;
+  /** ファイル名 → 中身（バックアップの作成）。1 枚ずつ読む */
+  read: (fileName: string) => Uint8Array;
 };
 
 export type PhotoStore = {
@@ -39,6 +59,22 @@ export type PhotoStore = {
   remove: (fileName: string) => void;
   /** ファイル名 → 表示に使う URI。null / 空文字はそのまま null（列が NULL 許容なので） */
   uri: (fileName: string | null | undefined) => string | null;
+  /**
+   * 保存済みの写真をすべて消す（SPEC-V8 §4.2）。**復元のときだけ使う。**
+   *
+   * 復元は記録を全置換するので、消さないとどこからも指されない画像が
+   * ドキュメントディレクトリに残り続ける。
+   */
+  removeAll: () => void;
+  /**
+   * 保存済みの写真の名前と大きさ（SPEC-V8 §4.4）。**中身は読まない**（上の理由）。
+   * バックアップ画面の「53枚・8.2MB」と、上限の判定に使う。
+   */
+  list: () => { name: string; size: number }[];
+  /** 写真を書き込む（復元。SPEC-V8 §4.5） */
+  write: (fileName: string, bytes: Uint8Array) => void;
+  /** 写真を読み込む（バックアップの作成）。**1 枚ずつ**呼ぶ */
+  read: (fileName: string) => Uint8Array;
 };
 
 /**
@@ -73,6 +109,24 @@ export function createPhotoStore(
     uri(fileName: string | null | undefined): string | null {
       if (fileName == null || fileName === '') return null;
       return uriFor(fileName);
+    },
+
+    removeAll(): void {
+      fs.removeAll();
+    },
+
+    list(): { name: string; size: number }[] {
+      return fs.list();
+    },
+
+    write(fileName: string, bytes: Uint8Array): void {
+      // remove と同じ理由で空文字を弾く（壊れた URI を組み立てない）
+      if (fileName === '') return;
+      fs.write(uriFor(fileName), bytes);
+    },
+
+    read(fileName: string): Uint8Array {
+      return fs.read(uriFor(fileName));
     },
   };
 }
