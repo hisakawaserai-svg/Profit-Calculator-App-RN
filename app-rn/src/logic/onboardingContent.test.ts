@@ -19,15 +19,15 @@ import {
 } from './onboardingContent';
 
 describe('初回起動チュートリアルの構成', () => {
-  it('8 ページぶんある（計算 → 逆算 → プリセット → 保存の仕方 → 値下げ → データ → 梱包材のまとめ買い → 実績）', () => {
+  it('8 ページぶんある（計算 → 逆算 → 保存の仕方 → 値下げ → データ → プリセット → 梱包材のまとめ買い → 実績）', () => {
     expect(ONBOARDING_PAGES).toHaveLength(8);
     expect(ONBOARDING_PAGES.map((page) => page.id)).toEqual([
       'calc',
       'target',
-      'preset',
       'save',
       'simulator',
       'data',
+      'preset',
       'packagingPreset',
       'achievements',
     ]);
@@ -48,6 +48,12 @@ describe('初回起動チュートリアルの構成', () => {
     const packagingIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'packagingPreset');
     const achievementsIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'achievements');
     expect(packagingIndex).toBe(achievementsIndex - 1);
+  });
+
+  it('プリセットのページは梱包材のまとめ買い計算の直前に置いてある', () => {
+    const presetIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'preset');
+    const packagingIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'packagingPreset');
+    expect(presetIndex).toBe(packagingIndex - 1);
   });
 
   it('送料プリセットの例は「送料のみ」の額より「＋資材」の額（value）の方が大きい', () => {

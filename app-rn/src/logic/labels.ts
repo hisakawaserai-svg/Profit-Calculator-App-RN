@@ -4116,19 +4116,41 @@ export const ONBOARDING_SAVE_BODY =
 
 export const ONBOARDING_PRESET_TITLE = 'よく使う値はプリセットに';
 export const ONBOARDING_PRESET_BODY =
-  '送料・梱包材・販売サイトはプリセットから選べます。電卓からの入力もいつでも使えます。';
+  '販売サイト・送料・梱包材はプリセットから選べます。電卓からの入力もいつでも使えます。';
 
 export const ONBOARDING_SIMULATOR_TITLE = '出品中でも、値下げを試せる';
 export const ONBOARDING_SIMULATOR_BODY =
   '今の価格から動かして、見込みの利益をその場で確認できます。動かしても記録は変わりません。';
-/** 目標利益ライン（帯グラフの目盛り）が条件つきで出ることの注記（PriceLine.tsx の
- * priceLineTicks 参照。目標が無いときは目標の点を作らない仕様） */
+/**
+ * 目標利益ライン（帯グラフの目盛り）が条件つきで出ることの注記（PriceLine.tsx の
+ * priceLineTicks 参照。目標が無いときは目標の点を作らない仕様）。
+ * 3 つに分けてあるのは、条件の核心（「目標の純利益を入力」しているかどうか）を
+ * 強調して見せるため（構成の指定）── EMPHASIS だけ色・太さを変えて描く。
+ * 3 つをこの順でつなぐと ONBOARDING_SIMULATOR_NOTE と同じ 1 文になる。
+ */
+export const ONBOARDING_SIMULATOR_NOTE_PREFIX = '目標利益のラインは、その記録に';
+export const ONBOARDING_SIMULATOR_NOTE_EMPHASIS = '目標の純利益を入力';
+export const ONBOARDING_SIMULATOR_NOTE_SUFFIX = 'しているときだけ表示されます。';
 export const ONBOARDING_SIMULATOR_NOTE =
-  '目標利益のラインは、その記録に目標の純利益を入力しているときだけ表示されます。';
+  ONBOARDING_SIMULATOR_NOTE_PREFIX + ONBOARDING_SIMULATOR_NOTE_EMPHASIS + ONBOARDING_SIMULATOR_NOTE_SUFFIX;
 
 export const ONBOARDING_PACKAGING_PRESET_TITLE = '梱包材はまとめ買いも自動計算';
+/**
+ * 呼び出し場所（「電卓の中から」）を強調して見せる（構成の指定）ため 3 つに分けてある。
+ * 3 つをこの順でつなぐと ONBOARDING_PACKAGING_PRESET_BODY と同じ 1 文になる。
+ *
+ * 登録場所（設定タブの「${PRESET_SECTION_TITLE}」）を明記してあるのは、それを書かないと
+ * 「電卓の中から選んで呼び出せます」だけでは**登録自体も電卓から行う**と勘違いされかねない
+ * ため（構成の指定「設定・入力することが書かれていないため勘違いしそう」）。文言は
+ * presetPickerEmptyBodyWithoutLink と同じ「設定タブの「入力を減らす」」の言い回しに揃えてある。
+ */
+export const ONBOARDING_PACKAGING_PRESET_BODY_PREFIX = `設定タブの「${PRESET_SECTION_TITLE}」で購入価格と入数を登録しておくだけで、1個あたりの単価を自動で計算します。次からは`;
+export const ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS = '電卓の中から';
+export const ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX = '選んで呼び出せます。';
 export const ONBOARDING_PACKAGING_PRESET_BODY =
-  '購入価格と入数を入れるだけで、1個あたりの単価を自動で計算します。プリセットに登録しておけば、次からは電卓の中からひと押しで呼び出せます。';
+  ONBOARDING_PACKAGING_PRESET_BODY_PREFIX +
+  ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS +
+  ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX;
 
 export const ONBOARDING_DATA_TITLE = '3つの見方で販売を振り返る';
 export const ONBOARDING_DATA_BODY = '収支・タグ・実績。見たい角度でこれまでの販売がわかります。';

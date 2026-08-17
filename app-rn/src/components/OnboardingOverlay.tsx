@@ -37,8 +37,13 @@ import {
   DATA_TAB_LABEL,
   ONBOARDING_ACHIEVEMENTS_NOTE,
   ONBOARDING_NEXT_PAGE_LABEL,
+  ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS,
+  ONBOARDING_PACKAGING_PRESET_BODY_PREFIX,
+  ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX,
   ONBOARDING_PREVIOUS_PAGE_LABEL,
-  ONBOARDING_SIMULATOR_NOTE,
+  ONBOARDING_SIMULATOR_NOTE_EMPHASIS,
+  ONBOARDING_SIMULATOR_NOTE_PREFIX,
+  ONBOARDING_SIMULATOR_NOTE_SUFFIX,
   ONBOARDING_SKIP_LABEL,
   ONBOARDING_START_LABEL,
   onboardingPageIndicatorText,
@@ -75,15 +80,6 @@ const noop = () => {};
  * （app/(tabs)/(calc)/index.tsx・RecordListScreen.tsx・DataScreen.tsx）。
  */
 const ONBOARDING_HELP_SCREEN_TITLES = [CALC_SCREEN_TITLE, RECORDS_TAB_LABEL, DATA_TAB_LABEL];
-
-/**
- * 本文だけでは伝わらない「実物側の条件つきの挙動」を補う注記。ページごとに高々 1 つ
- * （構成の指定で足された注記が増えたら、ここに 1 行足すだけで済むように map にしてある）。
- */
-const ONBOARDING_PAGE_NOTES: Partial<Record<OnboardingPage['id'], string>> = {
-  simulator: ONBOARDING_SIMULATOR_NOTE,
-  achievements: ONBOARDING_ACHIEVEMENTS_NOTE,
-};
 
 /**
  * 図の枠の高さ。全ページ共通の固定値にすることで、直下の見出し・本文の開始位置が
@@ -261,7 +257,8 @@ function OnboardingPageView({
   children: React.ReactNode;
 }) {
   const isLastPage = page.id === 'achievements';
-  const note = ONBOARDING_PAGE_NOTES[page.id];
+  const isSimulatorPage = page.id === 'simulator';
+  const isPackagingPresetPage = page.id === 'packagingPreset';
 
   return (
     <View style={styles.pageContent}>
@@ -279,7 +276,19 @@ function OnboardingPageView({
       </ScrollView>
       <View style={styles.pageText}>
         <Text style={[styles.title, { color: colors.label }]}>{page.title}</Text>
-        <Text style={[styles.body, { color: colors.secondaryLabel }]}>{page.body}</Text>
+        {/* 梱包材のまとめ買いページだけ、本文中の「呼び出し場所」を強調する
+            （構成の指定「電卓を強調して」）。他のページは page.body をそのまま出す */}
+        {isPackagingPresetPage ? (
+          <Text style={[styles.body, { color: colors.secondaryLabel }]}>
+            {ONBOARDING_PACKAGING_PRESET_BODY_PREFIX}
+            <Text style={[styles.bodyEmphasis, { color: colors.blue }]}>
+              {ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS}
+            </Text>
+            {ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX}
+          </Text>
+        ) : (
+          <Text style={[styles.body, { color: colors.secondaryLabel }]}>{page.body}</Text>
+        )}
         {isLastPage && (
           <>
             {/* 「各画面の？」は 1 画面の例だけだと「その画面だけの機能」に見えかねないので、
@@ -302,10 +311,21 @@ function OnboardingPageView({
                 </View>
               ))}
             </View>
+            <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+              {ONBOARDING_ACHIEVEMENTS_NOTE}
+            </Text>
           </>
         )}
-        {note != null && (
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{note}</Text>
+        {/* 値下げシミュレーションページだけ、注記中の「表示される条件」を強調する
+            （構成の指定「目標の純利益を入力を強調して」） */}
+        {isSimulatorPage && (
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {ONBOARDING_SIMULATOR_NOTE_PREFIX}
+            <Text style={[styles.noteEmphasis, { color: colors.blue }]}>
+              {ONBOARDING_SIMULATOR_NOTE_EMPHASIS}
+            </Text>
+            {ONBOARDING_SIMULATOR_NOTE_SUFFIX}
+          </Text>
         )}
       </View>
     </View>
@@ -363,11 +383,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
+  // 強調区間だけ太字にする（構成の指定「電卓を強調して」）。色は colors.blue を都度渡す
+  bodyEmphasis: {
+    fontWeight: '700',
+  },
   note: {
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 8,
+  },
+  // 強調区間だけ太字にする（構成の指定「目標の純利益を入力を強調して」）
+  noteEmphasis: {
+    fontWeight: '700',
   },
   // 「各画面の？」のミニ見本。画面ごとに個別のチップで並べる（1 つの例だけだと
   // 「その画面だけの機能」に見えるため。構成の指定）

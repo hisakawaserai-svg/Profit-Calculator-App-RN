@@ -282,16 +282,17 @@ export function OnboardingTargetFigure() {
 }
 
 /**
- * 3 ページ目「よく使う値はプリセットに」。3 種類のプリセット（送料・販売サイトの手数料・
- * 梱包材）を計算タブの入力順（送料 → 手数料 → 梱包材）に並べる ── 3 種類ともプリセット
- * から選べることを見せる（構成の指定「梱包材以外も入れて、手数料と送料もあるでしょ」）。
- * カード 1 は送料プリセットの選択行そのもの（実物の PresetRow。送料のみ／＋資材の 2 択も
- * 実物の SegmentedControl）。カード 2 は販売サイト（手数料）プリセットの行
- * （同じ PresetRow。type が 'site' だと右端の額が自動で「%」表記になる）。カード 3 は
- * 梱包材の入力欄 ── **行そのものにはタグの入口が無い**（送料・手数料と違い、
- * NumericField の envelopeCost 欄は presetType を渡していないため）。プリセットの入口は
- * 電卓を開いた先（実物の MiniCalculator の「🏷 梱包材から選ぶ」ボタン）にしかないので、
- * 行の電卓ボタンの下にその入口の見本を添える形にした（実際の見た目の食い違いを指摘されて修正）。
+ * 3 ページ目「よく使う値はプリセットに」。3 種類のプリセット（販売サイトの手数料・送料・
+ * 梱包材）を並べる ── 3 種類ともプリセットから選べることを見せる（構成の指定「梱包材以外も
+ * 入れて、手数料と送料もあるでしょ」）。並びは販売サイト → 送料 → 梱包材（構成の指定「送料
+ * 部分と手数料部分を逆に」で、本文（ONBOARDING_PRESET_BODY）の説明順もこれに揃えてある）。
+ * カード 1 は販売サイト（手数料）プリセットの行（実物の PresetRow。type が 'site' だと
+ * 右端の額が自動で「%」表記になる）。カード 2 は送料プリセットの選択行（同じ PresetRow。
+ * 送料のみ／＋資材の 2 択は実物の SegmentedControl）。カード 3 は梱包材の入力欄 ──
+ * **行そのものにはタグの入口が無い**（送料・手数料と違い、NumericField の envelopeCost 欄は
+ * presetType を渡していないため）。プリセットの入口は電卓を開いた先（実物の MiniCalculator の
+ * 「🏷 梱包材から選ぶ」ボタン）にしかないので、行の電卓ボタンの下にその入口の見本を添える形に
+ * した（実際の見た目の食い違いを指摘されて修正）。
  */
 export function OnboardingPresetFigure() {
   const colors = useThemeColors();
@@ -300,6 +301,10 @@ export function OnboardingPresetFigure() {
 
   return (
     <View style={styles.presetStack}>
+      <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+        <PresetRow preset={ONBOARDING_SITE_PRESET_EXAMPLE} />
+      </View>
+
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <PresetRow
           preset={ONBOARDING_SHIPPING_PRESET_EXAMPLE}
@@ -311,10 +316,6 @@ export function OnboardingPresetFigure() {
             />
           }
         />
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-        <PresetRow preset={ONBOARDING_SITE_PRESET_EXAMPLE} />
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>

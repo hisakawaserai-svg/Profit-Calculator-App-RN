@@ -41,11 +41,12 @@ export type OnboardingPage = {
 };
 
 /**
- * ページの並び（計算 → 逆算＋記録 → プリセット・電卓 → 保存の仕方 → 値下げシミュレーション →
- * データ → 梱包材のまとめ買い計算 → 実績）。
+ * ページの並び（計算 → 逆算＋記録 → 保存の仕方 → 値下げシミュレーション → データ →
+ * プリセット・電卓 → 梱包材のまとめ買い計算 → 実績）。
  *
- * プリセットは「計算の入力を楽にする話」なので計算 2 ページの直後、保存の直前に置く
- * （送料・梱包材のプリセットは記録の伝票にもそのまま乗るため。§保存の仕方の伝票行と地続き）。
+ * プリセットは梱包材のまとめ買い計算（電卓の中からプリセットを呼び出す話）の一歩手前の
+ * 前提知識にあたるので、梱包材のまとめ買い計算ページの直前に置く（構成の指定「プリセット設定の
+ * チュートリアル画面を梱包材プリセットの一つ前の画面に移動」）。
  * シミュレーションは「保存したあと、出品中に値段を動かす話」なので保存の直後に置く
  * （まだ売れていない記録に対してだけ意味を持つ機能のため）。
  * 梱包材のまとめ買い計算は「プリセットを**編集する**ときだけ出る、一歩踏み込んだ機能」
@@ -55,10 +56,10 @@ export type OnboardingPage = {
 export const ONBOARDING_PAGES: readonly OnboardingPage[] = [
   { id: 'calc', title: ONBOARDING_CALC_TITLE, body: ONBOARDING_CALC_BODY },
   { id: 'target', title: ONBOARDING_TARGET_TITLE, body: ONBOARDING_TARGET_BODY },
-  { id: 'preset', title: ONBOARDING_PRESET_TITLE, body: ONBOARDING_PRESET_BODY },
   { id: 'save', title: ONBOARDING_SAVE_TITLE, body: ONBOARDING_SAVE_BODY },
   { id: 'simulator', title: ONBOARDING_SIMULATOR_TITLE, body: ONBOARDING_SIMULATOR_BODY },
   { id: 'data', title: ONBOARDING_DATA_TITLE, body: ONBOARDING_DATA_BODY },
+  { id: 'preset', title: ONBOARDING_PRESET_TITLE, body: ONBOARDING_PRESET_BODY },
   {
     id: 'packagingPreset',
     title: ONBOARDING_PACKAGING_PRESET_TITLE,
