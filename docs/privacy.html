@@ -134,21 +134,27 @@
   <p>「うりつみ」（以下「本アプリ」）は、利用者のプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、本アプリが取り扱う情報の内容と、その利用目的について説明するものです。</p>
 
   <h2>1. 記録した情報の取り扱い</h2>
-  <p>本アプリで入力・記録した情報は、すべて端末内のデータベースに保存されます。具体的には、商品名、販売価格、仕入価格、送料、手数料、梱包材、目標利益、タグ、メモ、商品写真などが含まれます。</p>
+  <p>本アプリで入力・記録した情報は、すべて端末内のデータベースに保存されます。具体的には、商品名、販売価格、仕入価格、送料、梱包材費、その他の費用、手数料率、出品日・販売日、販売サイト名、タグ、メモ、目標利益、商品写真、および利用者が登録したプリセット（販売サイト・配送方法・梱包材）が含まれます。</p>
   <p>これらの情報が外部のサーバーへ送信されることはありません。開発者がこれらを取得・閲覧することもできません。</p>
   <p>本アプリにはユーザー登録機能がなく、氏名、メールアドレス、電話番号などの個人を特定できる情報を求めることはありません。</p>
 
   <h2>2. 写真へのアクセス</h2>
-  <p>本アプリは、商品写真を記録に添付する目的で、写真ライブラリまたはカメラへのアクセス許可を求めます。</p>
-  <p>選択・撮影された写真は端末内にのみ保存され、外部へ送信されることはありません。アクセス許可は端末の設定からいつでも変更できます。許可を取り消した場合、写真の添付ができなくなります。</p>
+  <p>本アプリは、商品写真を記録に添付する目的で、端末の写真ライブラリへのアクセスを利用します。許可を求めるのは、記録に写真を添えようとしたときだけで、起動時ではありません。</p>
+  <p>本アプリはカメラを起動しません。カメラおよびマイクへのアクセス許可を求めることはありません。</p>
+  <p>選択された写真は、縮小したうえで端末内の本アプリの領域にのみ保存され、外部へ送信されることはありません。写真ライブラリ全体を読み取ることはなく、利用者が選んだ 1 枚だけを取り込みます。</p>
+  <p>アクセス許可は端末の設定からいつでも変更できます。許可しない場合でも、写真の添付以外の機能はすべてご利用いただけます。</p>
+  <p>なお Android 13 以降では、OS 標準の写真選択画面を使用するため、写真へのアクセス許可を求めるダイアログは表示されません。</p>
 
   <h2>3. データの書き出しとバックアップ</h2>
-  <p>本アプリには、記録データを CSV ファイルとして書き出す機能、および写真を含むバックアップファイルを作成する機能があります。</p>
+  <p>本アプリには、記録データを CSV ファイルとして書き出す機能と、記録データおよび商品写真をまとめたバックアップファイル（ZIP 形式）を作成する機能があります。CSV には記録の内容のみが含まれ、写真は含まれません。</p>
   <p>作成したファイルは、OS の共有機能を通じて利用者が選んだ保存先へ渡されます。保存先を選ぶのは利用者であり、本アプリが特定のサービスへ自動的に送信することはありません。</p>
-  <p>書き出したファイルには記録内容と商品写真が含まれます。取り扱いには十分ご注意ください。また、渡した先のアプリやサービスにおける取り扱いについては、それぞれのプライバシーポリシーをご確認ください。</p>
+  <p>バックアップからの復元では、利用者が選んだファイルまたはフォルダのみを読み取ります。それ以外の端末内のファイルを参照することはありません。</p>
+  <p>書き出したファイルには記録内容が、バックアップファイルにはさらに商品写真が含まれます。取り扱いには十分ご注意ください。また、渡した先のアプリやサービスにおける取り扱いについては、それぞれのプライバシーポリシーをご確認ください。</p>
 
-  <h2>4. 利用状況の記録</h2>
-  <p>本アプリは、記録件数や利益の集計値などを、グラフ表示や実績機能のために保持します。これらは端末内にのみ保存され、外部へ送信されることはありません。</p>
+  <h2>4. 集計・実績と設定値</h2>
+  <p>グラフや実績機能で表示される件数・利益の集計値は、端末内に保存された記録からその都度計算しているもので、別途どこかへ蓄積されることはありません。</p>
+  <p>このほか、既定の記録種別、最後にバックアップを行った日時、チュートリアルを表示済みかどうかといった設定値を端末内に保存します。これらも外部へ送信されることはありません。</p>
+  <p>本アプリは、利用者の操作履歴や利用状況を計測・収集する仕組み（アクセス解析等）を組み込んでいません。</p>
   <p>記録した内容は、本アプリを端末から削除することで消去されます。削除する前に、必要なデータの書き出しを行ってください。</p>
 
   <h2>5. 広告について</h2>
@@ -160,32 +166,38 @@
     <li><a href="https://policies.google.com/privacy?hl=ja" target="_blank" rel="noopener">Google プライバシーポリシー</a></li>
   </ul>
 
+  <p>広告の表示にあたっては、Google が提供する同意管理の仕組み（UMP）を利用しています。お住まいの地域の法令に応じて、初回起動時などに同意を求める画面が表示されます。同意の状態は端末内に保存されます。</p>
+
   <h3>iOS をお使いの場合（App Tracking Transparency）</h3>
-  <p>iOS では、トラッキングの許可を求めるダイアログが表示されます。許可しない場合でも本アプリの機能はすべて利用でき、広告も表示されますが、利用者の興味に合わない広告が表示されることがあります。</p>
+  <p>iOS では、上記の同意画面に続いて、トラッキングの許可を求めるダイアログが表示されることがあります。許可しない場合でも本アプリの機能はすべて利用でき、広告も表示されますが、利用者の興味に合わない広告が表示されることがあります。</p>
   <p>この設定は、端末の「設定」→「プライバシーとセキュリティ」→「トラッキング」からいつでも変更できます。</p>
 
   <h3>Android をお使いの場合</h3>
   <p>広告のパーソナライズは、端末の「設定」→「Google」→「広告」から無効にできます。</p>
 
   <h3>欧州経済領域・英国・スイスをご利用の方（GDPR）</h3>
-  <p>これらの地域では、広告の表示に関する同意を求める画面を表示します。同意の内容は、後から変更することができます。</p>
+  <p>これらの地域では、広告の表示に関する同意を求める画面を表示します。同意しない場合でも本アプリの機能はすべて利用できます。</p>
 
   <h3>米国の一部の州をご利用の方</h3>
-  <p>お住まいの州の法令に応じて、個人情報の販売・共有の停止を求める選択肢を提供します。</p>
+  <p>お住まいの州の法令に応じて、個人情報の販売・共有に関する選択肢が上記の同意画面に表示されることがあります。</p>
 
-  <h2>6. 第三者への提供</h2>
-  <p>本アプリは、前項の広告配信を除き、利用者の情報を第三者へ提供することはありません。法令に基づく開示請求があった場合を除き、情報を外部に開示することはありません。</p>
+  <h2>6. 通信について</h2>
+  <p>本アプリが行う外部との通信は、前項の広告の取得と同意管理に関わるものだけです。記録した内容が通信に含まれることはありません。</p>
+  <p>そのため、機内モードなど通信のない状態でも、広告が表示されないことを除き、本アプリの機能はすべてご利用いただけます。</p>
 
-  <h2>7. お子様のプライバシー</h2>
+  <h2>7. 第三者への提供</h2>
+  <p>本アプリは、前項までの広告配信を除き、利用者の情報を第三者へ提供することはありません。法令に基づく開示請求があった場合を除き、情報を外部に開示することはありません。</p>
+
+  <h2>8. お子様のプライバシー</h2>
   <p>本アプリは、13歳未満のお子様を対象としたものではなく、13歳未満のお子様から意図的に情報を収集することはありません。</p>
 
-  <h2>8. 免責事項</h2>
+  <h2>9. 免責事項</h2>
   <p>本アプリは、販売活動の記録と計算を補助するものです。表示される計算結果や集計値の正確性について保証するものではなく、確定申告その他の手続きにおける利用は、利用者ご自身の責任において行ってください。</p>
 
-  <h2>9. 本ポリシーの変更</h2>
+  <h2>10. 本ポリシーの変更</h2>
   <p>法令の改正や本アプリの機能追加に伴い、本ポリシーを変更することがあります。重要な変更を行う場合は、本ページ上で告知します。変更後の内容は、本ページに掲載した時点から適用されます。</p>
 
-  <h2>10. お問い合わせ</h2>
+  <h2>11. お問い合わせ</h2>
   <div class="callout">
     <p>本ポリシーおよび本アプリに関するお問い合わせは、下記までご連絡ください。</p>
     <p><strong>アプリ名：</strong>うりつみ<br>
@@ -204,21 +216,27 @@
   <p>Uritsumi ("the App") respects your privacy. This policy explains what information the App handles and why.</p>
 
   <h2>1. Information you record</h2>
-  <p>Everything you enter in the App is stored in a database on your device. This includes item names, selling prices, purchase costs, shipping charges, platform fees, packaging costs, profit targets, tags, notes, and item photos.</p>
+  <p>Everything you enter in the App is stored in a database on your device. This includes item names, selling prices, purchase costs, shipping charges, packaging costs, other costs, fee rates, listing and sale dates, marketplace names, tags, notes, profit targets, item photos, and any presets you create for marketplaces, shipping methods, and packaging materials.</p>
   <p>None of this is sent to any server. The developer has no way to access or view it.</p>
   <p>The App has no account system and never asks for personally identifiable information such as your name, email address, or phone number.</p>
 
   <h2>2. Photo access</h2>
-  <p>The App requests access to your photo library or camera so you can attach item photos to your records.</p>
-  <p>Photos you select or take are stored only on your device and are never transmitted. You can change this permission at any time in your device settings; revoking it will prevent you from attaching photos.</p>
+  <p>The App uses access to your device's photo library so you can attach item photos to your records. Permission is requested only when you go to attach a photo — never at launch.</p>
+  <p>The App does not open the camera, and never requests camera or microphone access.</p>
+  <p>A photo you select is resized and then stored only in the App's own area on your device; it is never transmitted. The App does not read your photo library as a whole — only the single image you choose is imported.</p>
+  <p>You can change this permission at any time in your device settings. If you decline, every feature other than attaching photos remains available.</p>
+  <p>On Android 13 and later, the App uses the system photo picker, so no photo permission dialog appears at all.</p>
 
   <h2>3. Exporting and backing up data</h2>
-  <p>The App can export your records as a CSV file, and can create a backup file that includes your photos.</p>
+  <p>The App can export your records as a CSV file, and can create a backup file (a ZIP archive) containing both your records and your item photos. CSV exports contain records only — no photos.</p>
   <p>These files are passed to a destination you choose through your operating system's share sheet. You choose the destination; the App never sends files to any service automatically.</p>
-  <p>Exported files contain your records and item photos, so please handle them with care. For how a receiving app or service treats your data, review its own privacy policy.</p>
+  <p>When restoring from a backup, the App reads only the file or folder you select. It does not look at any other files on your device.</p>
+  <p>Exported files contain your records, and backup files also contain your item photos, so please handle them with care. For how a receiving app or service treats your data, review its own privacy policy.</p>
 
-  <h2>4. Usage statistics</h2>
-  <p>The App keeps counts and totals — such as the number of records and aggregated profit figures — in order to draw charts and track achievements. This data is stored only on your device and is never transmitted.</p>
+  <h2>4. Statistics, achievements, and settings</h2>
+  <p>The counts and profit totals shown in charts and achievements are calculated on demand from the records stored on your device. They are not accumulated anywhere separately.</p>
+  <p>The App also stores a few settings on your device, such as your default record type, when you last made a backup, and whether you have seen the tutorial. These are never transmitted either.</p>
+  <p>The App contains no analytics or usage-tracking of any kind.</p>
   <p>Deleting the App from your device removes this data. Export anything you need before doing so.</p>
 
   <h2>5. Advertising</h2>
@@ -230,32 +248,38 @@
     <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
   </ul>
 
+  <p>Advertising consent is handled through Google's User Messaging Platform (UMP). Depending on the laws where you are, a consent screen is shown — typically on first launch. Your choice is stored on your device.</p>
+
   <h3>On iOS (App Tracking Transparency)</h3>
-  <p>iOS will ask whether you allow tracking. If you decline, every feature of the App remains available and ads are still shown, but they may be less relevant to your interests.</p>
+  <p>On iOS, the consent screen above may be followed by a dialog asking whether you allow tracking. If you decline, every feature of the App remains available and ads are still shown, but they may be less relevant to your interests.</p>
   <p>You can change this at any time under Settings → Privacy &amp; Security → Tracking.</p>
 
   <h3>On Android</h3>
   <p>You can turn off ad personalization under Settings → Google → Ads.</p>
 
   <h3>European Economic Area, United Kingdom, and Switzerland (GDPR)</h3>
-  <p>In these regions, the App presents a consent screen regarding advertising. You can change your choices later.</p>
+  <p>In these regions, the App presents a consent screen regarding advertising. Every feature of the App remains available whether or not you consent.</p>
 
   <h3>Certain U.S. states</h3>
-  <p>Depending on the laws of your state, the App offers options to opt out of the sale or sharing of personal information.</p>
+  <p>Depending on the laws of your state, options regarding the sale or sharing of personal information may appear on the consent screen described above.</p>
 
-  <h2>6. Disclosure to third parties</h2>
+  <h2>6. Network use</h2>
+  <p>The only network activity in the App is fetching ads and handling advertising consent, as described above. Nothing you record is ever included in that traffic.</p>
+  <p>As a result, every feature of the App works offline — in airplane mode, for instance — except that no ads are shown.</p>
+
+  <h2>7. Disclosure to third parties</h2>
   <p>Apart from the advertising described above, the App does not provide your information to third parties. Information will not be disclosed externally except where required by law.</p>
 
-  <h2>7. Children's privacy</h2>
+  <h2>8. Children's privacy</h2>
   <p>The App is not directed at children under 13, and does not knowingly collect information from children under 13.</p>
 
-  <h2>8. Disclaimer</h2>
+  <h2>9. Disclaimer</h2>
   <p>The App is a tool for recording and calculating your own sales activity. The accuracy of its calculations and totals is not guaranteed, and any use of them for tax filing or other formal procedures is at your own responsibility.</p>
 
-  <h2>9. Changes to this policy</h2>
+  <h2>10. Changes to this policy</h2>
   <p>This policy may be updated as laws change or as features are added to the App. Significant changes will be announced on this page, and take effect once posted here.</p>
 
-  <h2>10. Contact</h2>
+  <h2>11. Contact</h2>
   <div class="callout">
     <p>For questions about this policy or the App, please get in touch:</p>
     <p><strong>App:</strong> Uritsumi<br>
@@ -283,13 +307,13 @@
   var TEXT = {
     ja: {
       title: 'プライバシーポリシー',
-      meta: 'うりつみ（Uritsumi）／最終更新日：2026年◯月◯日',
+      meta: 'うりつみ（Uritsumi）／最終更新日：2026年8月17日',
       foot: '© 2026 うりつみ',
       docTitle: 'プライバシーポリシー | うりつみ'
     },
     en: {
       title: 'Privacy Policy',
-      meta: 'Uritsumi — Last updated: ◯◯ ◯, 2026',
+      meta: 'Uritsumi — Last updated: August 17, 2026',
       foot: '© 2026 Uritsumi',
       docTitle: 'Privacy Policy | Uritsumi'
     }
