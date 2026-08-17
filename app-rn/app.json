@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "うりつみ",
-    "slug": "app-rn",
+    "slug": "uritsumi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "apprn",
+    "scheme": "uritsumi",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
