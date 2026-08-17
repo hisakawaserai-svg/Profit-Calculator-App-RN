@@ -6,7 +6,11 @@
 // ステップ 6 で足すので、ここではまだ push だけ。
 //
 // 群の並びは UI-SPEC §1.6 のまま:
-//   使いかた / 記録の既定値 / 入力を減らす / データ / バージョン表記。
+//   使いかた / 表示言語 / 記録の既定値 / 入力を減らす / データ / バージョン表記。
+// 「表示言語」は多言語化のステップ 1 で足した群（§1.6 未採番）。位置の理由は当該箇所を参照。
+//
+// **この画面の表示語だけが辞書（src/i18n/）に移してある**（多言語化ステップ 1）。
+// labels.ts から取るものが定数ではなく関数になっているのはそのため。
 // 「入力を減らす」（旧「（今後）」・非活性）を SPEC-V3 Step 2 で活性化し、
 // 3 行を**カード**にした（設計案 24a。理由は PresetSummaryCard の冒頭）。
 // 「データ」群の書き出し（CSV）は Step 6（SPEC-V3 §5.7）で活性化した。押すとモーダルで
@@ -20,6 +24,7 @@ import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { LanguageSelector } from '@/components/LanguageSelector';
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { TagDot } from '@/components/TagChip';
@@ -28,24 +33,26 @@ import { usePresetList } from '@/db/usePresets';
 import { useRecordCount } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
 import {
-  BACKUP_LABEL,
-  CSV_EXPORT_LABEL,
-  DATA_SECTION_TITLE,
-  DEFAULT_RECORD_KIND_LABEL,
-  DEFAULT_RECORD_KIND_NOTE,
-  HELP_LINK_LABEL,
-  HELP_LINK_NOTE,
-  PRESET_SECTION_NOTE,
-  PRESET_SECTION_TITLE,
+  backupLabel,
+  csvExportLabel,
+  dataSectionTitle,
+  defaultRecordKindLabel,
+  defaultRecordKindNote,
+  helpLinkLabel,
+  helpLinkNote,
+  languageSectionNote,
+  languageSectionTitle,
   presetCountLabel,
-  RECORD_COUNT_LABEL,
-  RECORD_SETTINGS_SECTION_TITLE,
-  REPLAY_TUTORIAL_LABEL,
-  SETTINGS_TAB_LABEL,
-  TAG_CARD_EMPTY_LABEL,
-  TAG_LABEL,
-  TAG_SECTION_NOTE,
-  TAG_SECTION_TITLE,
+  presetSectionNote,
+  presetSectionTitle,
+  recordCountLabel,
+  recordSettingsSectionTitle,
+  replayTutorialLabel,
+  settingsTabLabel,
+  tagCardEmptyLabel,
+  tagLabel,
+  tagSectionNote,
+  tagSectionTitle,
   versionLabel,
 } from '@/logic/labels';
 import { PRESET_TYPES } from '@/logic/preset';
@@ -79,7 +86,9 @@ const TAG_DOT_PREVIEW_SIZE = 10;
 
 export default function SettingsScreen() {
   const colors = useThemeColors();
-  const { defaultRecordKind, setDefaultRecordKind } = useSettings();
+  // useSettings() はストア全体を購読するので、言語を変えるとこの画面も再描画される
+  // （表示語は下の各関数が呼ばれた時点の言語で決まる）
+  const { defaultRecordKind, setDefaultRecordKind, language, setLanguage } = useSettings();
   // 3 種ぶん個別に引く。フックの数は固定なので、配列を回して呼んでいるわけではない
   const sitePresets = usePresetList('site');
   const shippingPresets = usePresetList('shipping');
@@ -113,7 +122,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: SETTINGS_TAB_LABEL }} />
+      <Stack.Screen options={{ title: settingsTabLabel() }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}>
@@ -128,11 +137,11 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{HELP_LINK_LABEL}</Text>
+              <Text style={[styles.label, { color: colors.label }]}>{helpLinkLabel()}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </Pressable>
           </Link>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{HELP_LINK_NOTE}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{helpLinkNote()}</Text>
         </View>
 
         {/* 「使いかた」と同じ見出しなしの 1 行カード。押すと初回起動チュートリアルを
@@ -147,21 +156,36 @@ export default function SettingsScreen() {
               { backgroundColor: colors.secondaryBackground },
             ])}
             accessibilityRole="button">
-            <Text style={[styles.label, { color: colors.label }]}>{REPLAY_TUTORIAL_LABEL}</Text>
+            <Text style={[styles.label, { color: colors.label }]}>{replayTutorialLabel()}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </Pressable>
         </View>
 
+        {/* 表示言語（3 択）。**「記録の既定値」より上に置く** ── 下の群の見出しごと
+            切り替わるものなので、切り替えた結果が下に見える並びにする。
+            カードの作りは「記録の既定値」と同じ（見出し・セグメント・注記）*/}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {RECORD_SETTINGS_SECTION_TITLE}
+            {languageSectionTitle()}
           </Text>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={[styles.label, { color: colors.label }]}>{DEFAULT_RECORD_KIND_LABEL}</Text>
+            <LanguageSelector language={language} onChange={setLanguage} />
+            <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+              {languageSectionNote()}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+            {recordSettingsSectionTitle()}
+          </Text>
+          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+            <Text style={[styles.label, { color: colors.label }]}>{defaultRecordKindLabel()}</Text>
             <RecordKindSelector kind={defaultRecordKind} onChange={setDefaultRecordKind} />
             {/* SPEC-V2 §3.4: 設定が効くのはこれから作るレコードだけ。既存の種別は変わらない */}
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              {DEFAULT_RECORD_KIND_NOTE}
+              {defaultRecordKindNote()}
             </Text>
           </View>
         </View>
@@ -169,13 +193,13 @@ export default function SettingsScreen() {
         {/* SPEC-V3 §3.1 / 設計案 24a: 3 種を 3 枚のカードで。追加の口はここに置かない */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {PRESET_SECTION_TITLE}
+            {presetSectionTitle()}
           </Text>
           {PRESET_TYPES.map((type) => (
             <PresetSummaryCard key={type} type={type} presets={presetsByType[type]} />
           ))}
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {PRESET_SECTION_NOTE}
+            {presetSectionNote()}
           </Text>
         </View>
 
@@ -185,7 +209,7 @@ export default function SettingsScreen() {
             群 3 と群 5 の間なのは、設定を「入力 → 記録 → 出力」の順に読ませるため */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {TAG_SECTION_TITLE}
+            {tagSectionTitle()}
           </Text>
           <Link href="/settings/tags" asChild>
             <Pressable
@@ -196,10 +220,10 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link"
-              accessibilityLabel={`${TAG_LABEL} ${presetCountLabel(tags.length)}`}>
+              accessibilityLabel={`${tagLabel()} ${presetCountLabel(tags.length)}`}>
               <View style={styles.tagHeader}>
                 <Text style={[styles.label, styles.tagTitle, { color: colors.label }]}>
-                  {TAG_LABEL}
+                  {tagLabel()}
                 </Text>
                 <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
                   {presetCountLabel(tags.length)}
@@ -211,7 +235,7 @@ export default function SettingsScreen() {
                   「その 3 件が特別」と読めるため。点だけなら全部を 1 行に収められる */}
               {tags.length === 0 ? (
                 <Text style={[styles.empty, { color: colors.mutedLabel }]}>
-                  {TAG_CARD_EMPTY_LABEL}
+                  {tagCardEmptyLabel()}
                 </Text>
               ) : (
                 <View style={styles.tagDots}>
@@ -222,13 +246,13 @@ export default function SettingsScreen() {
               )}
             </Pressable>
           </Link>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_SECTION_NOTE}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{tagSectionNote()}</Text>
         </View>
 
         {/* UI-SPEC §1.6-4: データ群。書き出しは SPEC-V3 §5.7 で実装済み（活性） */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {DATA_SECTION_TITLE}
+            {dataSectionTitle()}
           </Text>
           <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
             {/* SPEC-V3 §5.7 で活性化した（「準備中」が外れた）。押すとモーダルの
@@ -238,7 +262,7 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{CSV_EXPORT_LABEL}</Text>
+                <Text style={[styles.label, { color: colors.label }]}>{csvExportLabel()}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
@@ -251,13 +275,13 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{BACKUP_LABEL}</Text>
+                <Text style={[styles.label, { color: colors.label }]}>{backupLabel()}</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <View style={styles.row}>
-              <Text style={[styles.label, { color: colors.label }]}>{RECORD_COUNT_LABEL}</Text>
+              <Text style={[styles.label, { color: colors.label }]}>{recordCountLabel()}</Text>
               <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
                 {presetCountLabel(recordCount.count)}
               </Text>

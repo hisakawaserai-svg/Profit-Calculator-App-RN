@@ -61,7 +61,15 @@
           }
         }
       ],
-      "./plugins/withKotlinGradlePlugin"
+      "./plugins/withKotlinGradlePlugin",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": ["ja", "en"]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

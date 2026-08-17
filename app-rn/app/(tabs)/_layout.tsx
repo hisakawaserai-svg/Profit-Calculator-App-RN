@@ -3,12 +3,8 @@ import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import type { ColorValue } from 'react-native';
 
-import {
-  CALC_TAB_LABEL,
-  DATA_TAB_LABEL,
-  RECORDS_TAB_LABEL,
-  SETTINGS_TAB_LABEL,
-} from '@/logic/labels';
+import { calcTabLabel, dataTabLabel, recordsTabLabel, settingsTabLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -35,6 +31,9 @@ function tabIcon(focusedName: IoniconName, unfocusedName: IoniconName) {
 }
 
 export default function TabLayout() {
+  // タブ名を表示中の言語で出すための購読。返り値そのものは使わない（src/settings の useLocale）
+  useLocale();
+
   return (
     <Tabs>
       {/* 計算タブも自前の Stack を持つ（(calc)/_layout.tsx）。push する行き先は無いが、
@@ -43,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(calc)"
         options={{
-          title: CALC_TAB_LABEL,
+          title: calcTabLabel(),
           tabBarIcon: tabIcon('calculator', 'calculator-outline'),
           headerShown: false,
         }}
@@ -53,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="records"
         options={{
-          title: RECORDS_TAB_LABEL,
+          title: recordsTabLabel(),
           tabBarIcon: tabIcon('receipt', 'receipt-outline'),
           headerShown: false,
         }}
@@ -61,7 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="data"
         options={{
-          title: DATA_TAB_LABEL,
+          title: dataTabLabel(),
           tabBarIcon: tabIcon('bar-chart', 'bar-chart-outline'),
           headerShown: false,
         }}
@@ -69,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: SETTINGS_TAB_LABEL,
+          title: settingsTabLabel(),
           tabBarIcon: tabIcon('settings', 'settings-outline'),
           headerShown: false,
         }}

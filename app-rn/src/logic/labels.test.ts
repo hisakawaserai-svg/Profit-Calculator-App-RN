@@ -143,10 +143,10 @@ import {
   PRESET_CALC_METHOD_OPTIONS,
   presetValueFieldLabel,
   presetValueText,
-  PRESET_SECTION_TITLE,
+  presetSectionTitle,
   PROFIT_RATE_LABEL,
   TAG_ADD_LABEL,
-  TAG_SECTION_TITLE,
+  tagSectionTitle,
   tagBlockedNote,
   tagDeletedMessage,
   tagFormTitle,
@@ -699,8 +699,8 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
 
 describe('SPEC-V4 §2 タグの表示語', () => {
   it('群はプリセットと別の見出しになる（§2.1。目的が違うので同じ群に入れない）', () => {
-    expect(TAG_SECTION_TITLE).toBe('記録を分類する');
-    expect(TAG_SECTION_TITLE).not.toBe(PRESET_SECTION_TITLE);
+    expect(tagSectionTitle()).toBe('記録を分類する');
+    expect(tagSectionTitle()).not.toBe(presetSectionTitle());
   });
 
   it('追加の口の「＋」は additionLabel の字を使う（半角に振れない）', () => {

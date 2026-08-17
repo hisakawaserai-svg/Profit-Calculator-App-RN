@@ -8,8 +8,24 @@
 // 内部の識別子（netProfit / totalNetProfit / SortTypeMonthly の profitDesc 等）は
 // **改名しない**（§5.3）。ここで扱うのは画面に出る文字列だけ。
 // 「手取り」はアプリ内のどこでも使わない（§1.2 / §7-8）。
+//
+// ## 多言語化の途中経過（ステップ 1）
+//
+// 日英の二言語対応を段階的に入れている。**このファイルが画面から見た唯一の入口である点は
+// 変わらない** ── 変わるのは中の実装だけで、リテラルの代わりに辞書（src/i18n/）を `t()` でひく。
+//
+// 移した語は `export const X = '...'` から `export function x(): string` になる。
+// 定数は import 時に一度きり評価されるので、言語を切り替えても値が固まったままだから。
+// 命名はこのファイルの既存の慣習どおり（SCREAMING_CASE = 定数、camelCase() = 関数）。
+//
+// **まだ移していない画面が参照している定数は、定数のまま残してある。** それらは
+// `tJa('...')` で辞書から日本語を取るので、同じ文が 2 か所に書かれることはない
+// （食い違いようがない）。呼び出し側を関数に移し終えた時点で定数ごと消える。
+//
+// ステップ 1 で移したのは**タブ名と設定タブの一覧画面**だけ。それ以外はリテラルのまま。
 
 import type { PresetType, RecordKind } from '@/db/schema';
+import { t, tJa } from '@/i18n';
 
 import {
   LONG_BATTLE_DAYS_THRESHOLD,
@@ -158,11 +174,28 @@ export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
  * 計算タブだけヘッダが別語（「計算」/「利益計算」）なのは、タブ名の幅では
  * **何の計算なのかを言えない**ため。ヘッダには幅があるので、そちらで補う。
  */
-export const CALC_TAB_LABEL = '計算';
+export function calcTabLabel(): string {
+  return t('tabs.calc');
+}
 export const CALC_SCREEN_TITLE = '利益計算';
-export const RECORDS_TAB_LABEL = '記録';
-export const DATA_TAB_LABEL = 'データ';
-export const SETTINGS_TAB_LABEL = '設定';
+export function recordsTabLabel(): string {
+  return t('tabs.records');
+}
+export function dataTabLabel(): string {
+  return t('tabs.data');
+}
+export function settingsTabLabel(): string {
+  return t('tabs.settings');
+}
+
+/**
+ * **移行前の呼び出し用（日本語固定）。** タブバー以外からも参照されている 2 つだけ残す ──
+ * 記録は記録一覧・使いかた・チュートリアル、データはデータタブとチュートリアル
+ * （どれもステップ 1 の対象外）。
+ * 詳しくはファイル冒頭の「多言語化の途中経過」を参照。
+ */
+export const RECORDS_TAB_LABEL = tJa('tabs.records');
+export const DATA_TAB_LABEL = tJa('tabs.data');
 
 /**
  * アイコンだけのボタンの読み上げ語（UI-SPEC §1.2-1）。
@@ -1791,15 +1824,27 @@ export function shippingMaterialRowNote(
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
 
 /** 群の見出し（§3.1）。UI-SPEC §1.6-3 の「（今後）」を外した形 */
-export const PRESET_SECTION_TITLE = '入力を減らす';
+export function presetSectionTitle(): string {
+  return t('settings.preset.title');
+}
+
+/**
+ * **移行前の呼び出し用（日本語固定）。** 一覧の空表示とチュートリアルの本文が、
+ * この語を文の中に埋め込んで参照している（どちらもステップ 1 の対象外）。
+ */
+export const PRESET_SECTION_TITLE = tJa('settings.preset.title');
 
 /** 群の下の注記 1 行（§3.1） */
-export const PRESET_SECTION_NOTE =
-  'よく使う値を登録しておくと、記録するときに選ぶだけで入ります。';
+export function presetSectionNote(): string {
+  return t('settings.preset.note');
+}
 
-/** 登録件数（§3.1）。カードの中に収まりきらないぶんの数でもある（presetOverflowLabel） */
+/**
+ * 登録件数（§3.1）。カードの中に収まりきらないぶんの数でもある（presetOverflowLabel）。
+ * 英語だけ 1 件と 2 件で語形が変わるので、辞書側で複数形を持たせている。
+ */
 export function presetCountLabel(count: number): string {
-  return `${count}件`;
+  return t('common.count', { count });
 }
 
 /**
@@ -1810,8 +1855,14 @@ export function presetOverflowLabel(count: number): string {
   return `ほか${presetCountLabel(count)}`;
 }
 
-/** 1 件も登録がない種類のカードに出す 1 行（設計案 24a）。一覧の空表示（§3.2）とは別の短い形 */
-export const PRESET_CARD_EMPTY_LABEL = 'まだ登録がありません';
+/**
+ * 1 件も登録がない種類のカードに出す 1 行（設計案 24a）。一覧の空表示（§3.2）とは別の短い形。
+ *
+ * **移行前の呼び出し用（日本語固定）。** PresetSummaryCard がまだ参照している
+ * （設定タブの一覧に載るカードだが、部品そのものの移行はステップ 2）。
+ * 設定タブのタグのカードは同じ語を `tagCardEmptyLabel()` から取る。
+ */
+export const PRESET_CARD_EMPTY_LABEL = tJa('common.notRegistered');
 
 // ---- SPEC-V3 §3.2 一覧画面 ----
 
@@ -2248,21 +2299,35 @@ export function presetTagClearLabel(name: string): string {
 // 件数の「N件」だけは presetCountLabel をそのまま使う ── 数え方の表記まで分ける理由はない。
 
 /** タグそのものの表示名（§2.1 のカード・§2.2 の見出し）。設定タブ・一覧・シートで共通 */
-export const TAG_LABEL = 'タグ';
+export function tagLabel(): string {
+  return t('common.tag');
+}
+
+/**
+ * **移行前の呼び出し用（日本語固定）。** タグ一覧・タグ編集・記録フォーム・選択シート・
+ * 使いかたの図・CSV など 9 ファイルがまだ参照している（どれもステップ 1 の対象外）。
+ */
+export const TAG_LABEL = tJa('common.tag');
 
 /** 群の見出し（§2.1）。「入力を減らす」とは別の群にする */
-export const TAG_SECTION_TITLE = '記録を分類する';
+export function tagSectionTitle(): string {
+  return t('settings.tag.title');
+}
 
 /** 群の下の注記 1 行（§2.1）。プリセットの注記（選ぶと欄に入る）と混ざらないようにする */
-export const TAG_SECTION_NOTE =
-  '記録にタグを付けておくと、あとから『洋服だけ』のように絞り込めます。';
+export function tagSectionNote(): string {
+  return t('settings.tag.note');
+}
 
 /**
  * 1 件も登録がないときの設定タブのカードの 1 行（§2.1）。
  * プリセットのカード（PRESET_CARD_EMPTY_LABEL）と同じ語 ── 同じ「まだ無い」状態を、
  * 群ごとに違う言い方で説明しない（PRESET_PICKER_EMPTY_TITLE と同じ扱い）。
+ * 辞書でも同じキー（common.notRegistered）を指すので、その関係は保たれている。
  */
-export const TAG_CARD_EMPTY_LABEL = PRESET_CARD_EMPTY_LABEL;
+export function tagCardEmptyLabel(): string {
+  return t('common.notRegistered');
+}
 
 /**
  * 一覧カード末尾の追加行（§2.2-3）と空表示のボタン（§2.2-4）:「＋ 追加」。
@@ -2641,41 +2706,82 @@ export function filterTagSearchEmptyBody(
 // ---- UI-SPEC §1.6-1 使いかた / §1.6-2 記録群 ----
 
 /** 設定の先頭の 1 行カードと、その下の注記（UI-SPEC §1.6-1） */
-export const HELP_LINK_LABEL = '使いかた';
-export const HELP_LINK_NOTE =
-  '各画面の右上の「？」からも、その画面の説明だけを開けます。';
+export function helpLinkLabel(): string {
+  return t('settings.help.label');
+}
+export function helpLinkNote(): string {
+  return t('settings.help.note');
+}
 
 /**
  * 記録まわりの設定の群（UI-SPEC §1.6-2）。見出しはタブ名と同じ語 ──
  * どのタブに効く設定なのかを、見出しとタブバーで別の語にしない。
+ * 辞書でもタブ名と同じキー（tabs.records）をひくので、その関係は保たれている。
  */
-export const RECORD_SETTINGS_SECTION_TITLE = RECORDS_TAB_LABEL;
+export function recordSettingsSectionTitle(): string {
+  return t('tabs.records');
+}
 
 /**
  * 新規作成時の種別（SPEC-V2 §3.4）。注記で**効く範囲**まで言う ──
  * 「既定の種別」だけだと、保存済みの記録の種別まで変わると読めてしまう。
  */
-export const DEFAULT_RECORD_KIND_LABEL = '新規作成時の種別';
-export const DEFAULT_RECORD_KIND_NOTE =
-  '新しく記録を追加するときに最初に選ばれている種別です。保存済みの記録の種別は変わりません。';
+export function defaultRecordKindLabel(): string {
+  return t('settings.recordKind.label');
+}
+export function defaultRecordKindNote(): string {
+  return t('settings.recordKind.note');
+}
+
+/**
+ * 表示言語の群（3 択: システム / 日本語 / English）。
+ *
+ * **言語の名前そのものは訳さない。** 英語表示のときに「Japanese」と出してしまうと、
+ * 日本語を読みたい人が母語で選択肢を探せなくなる ── 言語の一覧はその言語自身の表記で
+ * 並べるのが通例なので、下の 2 つはどちらの言語でも同じ固定値にする。
+ * 「システム」だけは決め方の説明なので、表示中の言語で出す。
+ */
+export function languageSectionTitle(): string {
+  return t('settings.language.title');
+}
+export function languageSectionNote(): string {
+  return t('settings.language.note');
+}
+export function languageSystemLabel(): string {
+  return t('settings.language.system');
+}
+export const LANGUAGE_JA_LABEL = '日本語';
+export const LANGUAGE_EN_LABEL = 'English';
 
 // ---- UI-SPEC §1.6-4 データ群 / §1.6-5 フッタ ----
 
-export const DATA_SECTION_TITLE = 'データ';
+export function dataSectionTitle(): string {
+  return t('settings.data.title');
+}
 
 /**
  * CSV 書き出し（SPEC-V3 §5.6）。**Step 6 で活性化した**ので「準備中」は付かない。
  * 定数そのものは残す ── 他に「準備中」で置いてある行が出たときに語が割れないようにする。
  */
-export const CSV_EXPORT_LABEL = '書き出し（CSV）';
+export function csvExportLabel(): string {
+  return t('settings.data.csvExport');
+}
+
+/**
+ * **移行前の呼び出し用（日本語固定）。**
+ * 書き出しシートの見出しと共有ダイアログの題（どちらもステップ 1 の対象外）が参照している。
+ */
+export const CSV_EXPORT_LABEL = tJa('settings.data.csvExport');
 export const PREPARING_LABEL = '準備中';
 
 /** 記録の件数（UI-SPEC §1.6-4）。値は presetCountLabel と同じ「N件」 */
-export const RECORD_COUNT_LABEL = '記録の件数';
+export function recordCountLabel(): string {
+  return t('settings.data.recordCount');
+}
 
 /** 設定タブ最下部のバージョン表記（UI-SPEC §1.6-5） */
 export function versionLabel(version: string): string {
-  return `バージョン ${version}`;
+  return t('settings.version', { version });
 }
 
 // ---- SPEC-V3 §5 CSV 書き出し ----
@@ -3279,7 +3385,15 @@ export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
 // 「どちらを押せば機種変更で困らないか」が読めなくなる。
 
 /** 設定タブ「データ」群の 3 行目（§5.1）。書き出し（CSV）の下に並ぶ */
-export const BACKUP_LABEL = 'バックアップと復元';
+export function backupLabel(): string {
+  return t('settings.data.backup');
+}
+
+/**
+ * **移行前の呼び出し用（日本語固定）。**
+ * バックアップ画面の見出し（BACKUP_SCREEN_TITLE）が参照している（ステップ 1 の対象外）。
+ */
+export const BACKUP_LABEL = tJa('settings.data.backup');
 
 /** バックアップ画面の見出し（§5.2） */
 export const BACKUP_SCREEN_TITLE = BACKUP_LABEL;
@@ -4367,4 +4481,6 @@ export const ONBOARDING_PREVIOUS_PAGE_LABEL = '前のページへ';
 export const ONBOARDING_NEXT_PAGE_LABEL = '次のページへ';
 
 /** 設定タブ「チュートリアルをもう一度見る」の行 */
-export const REPLAY_TUTORIAL_LABEL = 'チュートリアルをもう一度見る';
+export function replayTutorialLabel(): string {
+  return t('settings.replayTutorial.label');
+}
