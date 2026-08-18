@@ -374,7 +374,7 @@ export function OnboardingSaveFigure() {
           <View style={[styles.statusDot, { backgroundColor: colors.orange }]} />
           <Text style={[styles.statusLabel, { color: colors.orange }]}>{LISTING_STATUS_LABEL}</Text>
         </View>
-        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel(true)}</Text>
+        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel('ja', true)}</Text>
       </View>
 
       <View style={styles.photoRow}>

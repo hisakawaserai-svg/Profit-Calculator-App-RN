@@ -250,6 +250,68 @@ export const ja = {
     failed: '{{label}}のコピーに失敗しました',
   },
 
+  /** 記録の入力フォーム（RecordFormSheet。UI-SPEC §3） */
+  form: {
+    newTitle: '新しい記録',
+    editTitle: '記録を編集',
+    save: '保存',
+    itemName: '商品名',
+    itemNameCaption: '商品名（必須）',
+    itemNamePlaceholder: '例：えんぴつ',
+    /** 折りたたみの見出し。梱包材とその他をまとめた 1 行 */
+    envelopeAndOthers: '梱包材・その他',
+    memo: 'メモ',
+    /** 空のときだけ動詞を足す ── 「メモ」だけでは押せる行に見えない */
+    memoWrite: 'メモを書く',
+    unsetInput: '未入力',
+    targetProfitUnset: '決めていません',
+    /** 日付の節。出品中と売れた記録で欄名が変わる */
+    listedDate: '出品日',
+    soldDate: '販売日',
+    dateSection: '{{label}} {{date}}',
+    today: '今日（{{date}}）',
+    listedDatePickerNote: '今日より後は選べません',
+    soldDatePickerNote: '出品（{{date}}）より前と、今日より後は選べません',
+    soldDateSingleDayNote: '出品日（{{date}}）だけが選べます',
+    soldDateChipsNote: '出品日（{{date}}）より前は選べません',
+    /** 状態を切り替えるボタン。「売れた記録にする」「出品中にする」 */
+    switchStatus: '{{status}}にする',
+    /** 一覧の行の「− 送料」のような引き算の表記。記号は全角（additionLabel と対） */
+    deduction: '− {{name}}',
+  },
+
+  /** 商品写真（SPEC-V5） */
+  photo: {
+    field: '写真',
+    image: '商品写真',
+    add: '写真を選ぶ',
+    replace: '変更',
+    remove: '削除',
+    removeAccessibility: '写真を削除',
+    permissionDenied: '写真へのアクセスが許可されていません。',
+    openSettings: '設定を開く',
+    saveFailed: '写真を保存できませんでした。',
+  },
+
+  /** タグ（SPEC-V4）のうち、記録フォームの節と選択シート */
+  tag: {
+    add: '＋ 追加',
+    fieldEmpty: 'まだ付いていません',
+    emptyTitle: 'タグがありません',
+    pickerOpen: 'タグを選ぶ',
+    pickerSearchPlaceholder: 'タグを探す・作る',
+    pickerEmptyBody: '上の欄に名前を入れると、その場で作れます。',
+    pickerDone: '完了',
+    pickerEditLink: '設定で編集する ▸',
+    create: '＋『{{name}}』を作る',
+    removeAccessibility: '{{name}}を外す',
+    /** 保存が押せない理由（§2.3）。ボタンがグレーなだけでは理由が分からない */
+    errorNameRequired: '名前を入れてください',
+    errorNameTooLong: '名前は{{max}}文字までです',
+    errorNameHasSeparator: '「{{separator}}」は使えません',
+    errorNameDuplicated: '同じ名前のタグがあります',
+  },
+
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----
   settings: {
     /** §1.6-1: 見出しなしの 1 行カードと、その下の注記 */

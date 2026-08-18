@@ -403,8 +403,8 @@ describe('UI-SPEC §1.5 データタブの語', () => {
 
 describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
   it('控除行は記号を前置する', () => {
-    expect(deductionLabel(POSTAGE_LABEL)).toBe('− 送料');
-    expect(deductionLabel(PURCHASE_PRICE_LABEL)).toBe('− 仕入価格');
+    expect(deductionLabel('ja', POSTAGE_LABEL)).toBe('− 送料');
+    expect(deductionLabel('ja', PURCHASE_PRICE_LABEL)).toBe('− 仕入価格');
   });
 
   it('加算行（梱包材・その他）は ＋ を前置する', () => {
@@ -416,32 +416,32 @@ describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
   });
 
   it('記録フォームの手数料行は計算タブと同じ短縮形', () => {
-    expect(deductionLabel(commissionFieldLabel('ja', 10))).toBe('− 手数料 10%');
+    expect(deductionLabel('ja', commissionFieldLabel('ja', 10))).toBe('− 手数料 10%');
   });
 });
 
 describe('UI-SPEC §1.3-3 記録フォームの状態切替リンク', () => {
   it('リンクは切り替えた先の状態を名乗る', () => {
-    expect(switchStatusLabel(false)).toBe('出品中にする');
-    expect(switchStatusLabel(true)).toBe('売れた記録にする');
+    expect(switchStatusLabel('ja', false)).toBe('出品中にする');
+    expect(switchStatusLabel('ja', true)).toBe('売れた記録にする');
   });
 });
 
 describe('UI-SPEC §1.3-12 日付カードの見出し', () => {
   it('当日は「今日（…）」で包む', () => {
-    expect(todayDateLabel('2026/08/09')).toBe('今日（2026/08/09）');
+    expect(todayDateLabel('ja', '2026/08/09')).toBe('今日（2026/08/09）');
   });
 
   it('売却済みは販売日、出品中は出品日を畳んだ見出しに出す', () => {
-    expect(dateSectionLabel(true, '今日（2026/08/09）')).toBe('販売日 今日（2026/08/09）');
-    expect(dateSectionLabel(false, '2026/08/02')).toBe('出品日 2026/08/02');
+    expect(dateSectionLabel('ja', true, '今日（2026/08/09）')).toBe('販売日 今日（2026/08/09）');
+    expect(dateSectionLabel('ja', false, '2026/08/02')).toBe('出品日 2026/08/02');
   });
 });
 
 describe('UI-SPEC §1.3-13 メモの折りたたみ見出し', () => {
   it('未入力なら操作を促し、入力済みなら中身があることを示す', () => {
-    expect(memoSectionLabel('')).toBe('メモを書く');
-    expect(memoSectionLabel('傷あり')).toBe('メモ');
+    expect(memoSectionLabel('ja', '')).toBe('メモを書く');
+    expect(memoSectionLabel('ja', '傷あり')).toBe('メモ');
   });
 });
 
@@ -523,11 +523,11 @@ describe('UI-SPEC §8.10 カレンダーの語（案 16d）', () => {
   });
 
   it('選べない理由は両端を名指しする（淡いマスの説明を推測させない）', () => {
-    expect(soldDatePickerNote('8/2')).toBe('出品（8/2）より前と、今日より後は選べません');
+    expect(soldDatePickerNote('ja', '8/2')).toBe('出品（8/2）より前と、今日より後は選べません');
   });
 
   it('出品日が未来のときは選べる日が 1 日しかないと言う（§8.5 派生決定 3）', () => {
-    expect(soldDatePickerSingleDayNote('8/20')).toBe('出品日（8/20）だけが選べます');
+    expect(soldDatePickerSingleDayNote('ja', '8/20')).toBe('出品日（8/20）だけが選べます');
   });
 });
 
@@ -536,12 +536,12 @@ describe('UI-SPEC §8.10.1 行のチップの「選べない理由」', () => {
   const today = at(2026, 8, 10);
 
   it('行のチップは下限だけを名指しする（未来のチップは存在しないので触れない）', () => {
-    expect(soldDateChipsNote('8/9')).toBe('出品日（8/9）より前は選べません');
-    expect(soldDateChipsNote('8/9')).not.toContain('今日より後');
+    expect(soldDateChipsNote('ja', '8/9')).toBe('出品日（8/9）より前は選べません');
+    expect(soldDateChipsNote('ja', '8/9')).not.toContain('今日より後');
   });
 
   it('カレンダーの一行とは別の語 ── 行とシートで淡くなっているものが違う', () => {
-    const notes = soldDateNotes(at(2026, 8, 9), today);
+    const notes = soldDateNotes('ja', at(2026, 8, 9), today);
 
     expect(notes.chips).not.toBe(notes.calendar);
     expect(notes.calendar).toContain('今日より後');
@@ -549,11 +549,11 @@ describe('UI-SPEC §8.10.1 行のチップの「選べない理由」', () => {
 
   it('当日出品（選べるのが「今日」だけ）でも同じ言い方で説明が付く', () => {
     // 「昨日」「一昨日」が落ちる状態。理由が出ないと押せないのが不具合に見える
-    expect(soldDateNotes(today, today).chips).toBe('出品日（8/10）より前は選べません');
+    expect(soldDateNotes('ja', today, today).chips).toBe('出品日（8/10）より前は選べません');
   });
 
   it('出品日が未来なら「出品日だけが選べます」に寄せる（「より前」では説明にならない）', () => {
-    const notes = soldDateNotes(at(2026, 8, 20), today);
+    const notes = soldDateNotes('ja', at(2026, 8, 20), today);
 
     expect(notes.chips).toBe('出品日（8/20）だけが選べます');
     // 3 つとも落ちる状態なので、盤面と行で同じ言い方になる
@@ -720,10 +720,10 @@ describe('SPEC-V4 §2 タグの表示語', () => {
   });
 
   it('保存が押せない理由を 4 通り言い分ける（§1.3。重複はプリセットに無い理由）', () => {
-    expect(tagBlockedNote('name-required')).toBe('名前を入れてください');
-    expect(tagBlockedNote('name-too-long')).toBe('名前は12文字までです');
-    expect(tagBlockedNote('name-has-separator')).toBe('「・」は使えません');
-    expect(tagBlockedNote('name-duplicated')).toBe('同じ名前のタグがあります');
+    expect(tagBlockedNote('ja', 'name-required')).toBe('名前を入れてください');
+    expect(tagBlockedNote('ja', 'name-too-long')).toBe('名前は12文字までです');
+    expect(tagBlockedNote('ja', 'name-has-separator')).toBe('「・」は使えません');
+    expect(tagBlockedNote('ja', 'name-duplicated')).toBe('同じ名前のタグがあります');
   });
 });
 

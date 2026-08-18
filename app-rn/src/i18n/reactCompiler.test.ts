@@ -37,6 +37,11 @@ const MIGRATED_SCREENS = [
   'src/components/PeriodSheet.tsx',
   'src/components/RecordRow.tsx',
   'src/components/SearchBar.tsx',
+  // 区切り 2-3: 記録の入力フォーム
+  'src/screens/RecordFormSheet.tsx',
+  'src/components/PhotoField.tsx',
+  'src/components/TagChip.tsx',
+  'src/components/TagPickerSheet.tsx',
 ];
 
 /**

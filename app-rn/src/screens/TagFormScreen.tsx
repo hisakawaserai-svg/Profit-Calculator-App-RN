@@ -105,7 +105,7 @@ export function TagFormScreen({ tag }: Props) {
   const blockedNote =
     validation.valid || (validation.reason === 'name-required' && name === '')
       ? null
-      : tagBlockedNote(validation.reason);
+      : tagBlockedNote('ja', validation.reason);
 
   const save = useCallback(() => {
     if (!validation.valid) return;

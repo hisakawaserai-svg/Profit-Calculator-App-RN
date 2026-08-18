@@ -213,7 +213,7 @@ function ReceiptDeductionRow({
     <View style={styles.receiptRow}>
       <View style={styles.receiptLabelGroup}>
         <View style={[styles.dot, { backgroundColor: dotColor }]} />
-        <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel(label)}</Text>
+        <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel('ja', label)}</Text>
       </View>
       <LongPressCopy label={label} text={amount.toString()}>
         <Text
@@ -406,11 +406,11 @@ function SoldDateRow({
 
   // 当日は「今日（2026/08/10）」、それ以外は日付そのもの（§8.2。§1.3-12 と同じ規則）
   const isToday = daysBetween(value, today) === 0;
-  const text = isToday ? todayDateLabel(formatRecordDate(value)) : formatRecordDate(value);
+  const text = isToday ? todayDateLabel('ja', formatRecordDate(value)) : formatRecordDate(value);
   const range = saleDateRange(saleStartDate, today);
   const chips = dayChips({ today, range: { min: range.min, max: range.max }, selected: value });
   // 淡色のチップと理由の一行は 1 組（§8.10.5）。語は記録フォームの販売日の行と同じ
-  const notes = soldDateNotes(saleStartDate, today);
+  const notes = soldDateNotes('ja', saleStartDate, today);
 
   /** 行に触れた時点でハイライトは役目を終える（§8.3）。チップで直した場合も同じ */
   const changeValue = (next: Date) => {

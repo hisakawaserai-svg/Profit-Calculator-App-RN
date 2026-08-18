@@ -65,31 +65,31 @@ import { saveRecord } from '@/db/useRecords';
 import { useRecordTagIds, useTagList } from '@/db/useTags';
 import { formatRecordDate, formatYen } from '@/logic/format';
 import {
-  CANCEL_LABEL,
-  EDIT_RECORD_TITLE,
-  ENVELOPE_AND_OTHERS_FIELD_LABEL,
-  ENVELOPE_COST_LABEL,
-  ITEM_NAME_CAPTION,
-  ITEM_NAME_LABEL,
-  ITEM_NAME_PLACEHOLDER,
-  LISTED_DATE_FIELD_LABEL,
-  LISTED_DATE_PICKER_NOTE,
-  LISTING_STATUS_LABEL,
-  MEMO_LABEL,
-  NEW_RECORD_TITLE,
-  OTHERS_COST_LABEL,
-  POSTAGE_LABEL,
-  PURCHASE_PRICE_LABEL,
-  SALES_PRICE_LABEL,
-  SAVE_LABEL,
-  SOLD_DATE_FIELD_LABEL,
-  SOLD_RECORDS_LABEL,
-  TAG_ADD_LABEL,
-  TAG_FIELD_EMPTY_LABEL,
-  TAG_LABEL,
-  TAG_PICKER_OPEN_LABEL,
-  TARGET_PROFIT_UNSET_LABEL,
-  UNSET_INPUT_LABEL,
+  cancelLabel,
+  editRecordTitle,
+  envelopeAndOthersFieldLabel,
+  envelopeCostLabel,
+  itemNameCaption,
+  itemNameLabel,
+  itemNamePlaceholder,
+  listedDateFieldLabel,
+  listedDatePickerNote,
+  listingStatusLabel,
+  memoLabel,
+  newRecordTitle,
+  othersCostLabel,
+  postageLabel,
+  purchasePriceLabel,
+  salesPriceLabel,
+  saveLabel,
+  soldDateFieldLabel,
+  soldRecordsLabel,
+  tagAddLabel,
+  tagFieldEmptyLabel,
+  tagLabel,
+  tagPickerOpenLabel,
+  targetProfitUnsetLabel,
+  unsetInputLabel,
   additionLabel,
   targetProfitLabel,
   targetProfitSummary,
@@ -122,7 +122,7 @@ import {
   type RecordFormValues,
 } from '@/logic/recordForm';
 import { photoStore } from '@/media/expoPhotoFiles';
-import { getDefaultRecordKind } from '@/settings';
+import { getDefaultRecordKind , useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 伝票カードの行高（UI-SPEC §1.1-5 の 60px より詰める。1 枚に全部の金額が載るようにするため） */
@@ -193,6 +193,10 @@ function RecordForm({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   // タグの一覧（SPEC-V4 §3.1）。チップを描くのに名前と色が要るので、id だけでは足りない。
@@ -267,7 +271,7 @@ function RecordForm({
   }, [highlightSoldDate]);
 
   // SPEC §3.2: editingRecord の itemName が空なら「新規追加」、それ以外は「編集」
-  const title = record == null || record.itemName === '' ? NEW_RECORD_TITLE : EDIT_RECORD_TITLE;
+  const title = record == null || record.itemName === '' ? newRecordTitle(locale) : editRecordTitle(locale);
 
   const update = <K extends keyof RecordFormValues>(key: K, value: RecordFormValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -382,13 +386,13 @@ function RecordForm({
   // 日付欄は「今日」だけ青くして、既定値のまま出していることが分かるようにする（UI-SPEC §1.3-12）
   const dateText = (value: Date) =>
     daysBetween(value, today) === 0
-      ? todayDateLabel(formatRecordDate(value))
+      ? todayDateLabel(locale, formatRecordDate(value))
       : formatRecordDate(value);
   // 畳んだ見出しに出すのは、その状態で意味を持つほうの日付（出品中に販売日はない）
   const primaryDate = values.isSold ? values.saleDate : values.saleStartDate;
   // 出品日をこのフォームで動かせるので、範囲と「選べない理由」は入力中の出品日から引き直す（§8.5）
   const soldDateRange = saleDateRange(values.saleStartDate, today);
-  const soldDateNoteText = soldDateNotes(values.saleStartDate, today);
+  const soldDateNoteText = soldDateNotes(locale, values.saleStartDate, today);
 
   return (
     <KeyboardAvoidingView
@@ -404,7 +408,7 @@ function RecordForm({
       <View style={[styles.header, { borderBottomColor: colors.separator }]}>
         <View style={styles.headerLeft}>
           <Pressable onPress={handleCancel} hitSlop={8} accessibilityRole="button">
-            <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+            <Text style={[styles.headerButton, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
           </Pressable>
           {/* 案 `20c`: このフォームにも「？」を置く。販売日を選べなかった直後に開くのが
               いちばん役に立つので、シートは「日付のきまり」を先頭に出す */}
@@ -420,7 +424,7 @@ function RecordForm({
         </View>
         <Pressable onPress={handleSave} hitSlop={8} accessibilityRole="button">
           <Text style={[styles.headerButton, styles.saveButton, { color: colors.blue }]}>
-            {SAVE_LABEL}
+            {saveLabel(locale)}
           </Text>
         </Pressable>
       </View>
@@ -448,9 +452,9 @@ function RecordForm({
               ]}
               value={values.itemName}
               onChangeText={(value) => update('itemName', value)}
-              placeholder={ITEM_NAME_PLACEHOLDER}
+              placeholder={itemNamePlaceholder(locale)}
               placeholderTextColor={colors.mutedLabel}
-              accessibilityLabel={ITEM_NAME_LABEL}
+              accessibilityLabel={itemNameLabel(locale)}
               // 左の正方形のぶん、この欄は 1 行あたり 10 字ほどしか入らない。1 行のままだと
               // 長い商品名は**左へ流れて先頭が見えなくなる**ので、折り返して 2 行目に伸ばす
               // （欄の幅ではなく「打った字が全部見えるか」の方を取る）。
@@ -462,7 +466,7 @@ function RecordForm({
             <Text
               style={[styles.itemNameCaption, { color: hasError ? colors.red : colors.secondaryLabel }]}
               accessibilityRole={hasError ? 'alert' : undefined}>
-              {hasError ? ITEM_NAME_REQUIRED_MESSAGE : ITEM_NAME_CAPTION}
+              {hasError ? ITEM_NAME_REQUIRED_MESSAGE : itemNameCaption(locale)}
             </Text>
           </PhotoField>
 
@@ -471,7 +475,7 @@ function RecordForm({
 
           {/* 6. 販売価格。伝票の一番上で、ここから下へ引いていく */}
           <NumericField
-            label={SALES_PRICE_LABEL}
+            label={salesPriceLabel(locale)}
             value={values.salesPrice}
             onChangeValue={(value) => update('salesPrice', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
@@ -486,9 +490,9 @@ function RecordForm({
           {/* 7. 仕入価格は仕入品のときだけ（UI-SPEC §5-11。値は changeKind でクリア済み） */}
           {values.kind === 'sourced' && (
             <NumericField
-              label={deductionLabel(PURCHASE_PRICE_LABEL)}
+              label={deductionLabel(locale, purchasePriceLabel(locale))}
               // 電卓の見出しは「− 仕入価格の計算」ではなく「仕入価格の計算」（UI-SPEC §7.1）
-              calculatorLabel={PURCHASE_PRICE_LABEL}
+              calculatorLabel={purchasePriceLabel(locale)}
               value={values.purchasePrice}
               onChangeValue={(value) => update('purchasePrice', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
@@ -499,8 +503,8 @@ function RecordForm({
 
           {/* 8. 送料 */}
           <NumericField
-            label={deductionLabel(POSTAGE_LABEL)}
-            calculatorLabel={POSTAGE_LABEL}
+            label={deductionLabel(locale, postageLabel(locale))}
+            calculatorLabel={postageLabel(locale)}
             value={values.postage}
             onChangeValue={(value) => update('postage', value)}
             rowHeight={RECEIPT_ROW_HEIGHT}
@@ -521,7 +525,7 @@ function RecordForm({
               率の ± は行名と額の間に置き、行の形（左が名前・右が金額）を崩さない */}
           <View style={[styles.commissionRow, { height: RECEIPT_ROW_HEIGHT }]}>
             <Text style={[styles.rowLabel, { color: colors.label }]} numberOfLines={1}>
-              {deductionLabel(commissionFieldLabel('ja', values.commission))}
+              {deductionLabel(locale, commissionFieldLabel('ja', values.commission))}
             </Text>
             {/* タグボタンはラベルの直後（SPEC-V3 §4.4 / 設計案 29b）。± はそのまま残す */}
             <PresetTagButton
@@ -553,7 +557,7 @@ function RecordForm({
 
           {/* 10. 梱包材・その他。畳んだ状態では「未入力」か合計だけを出す（UI-SPEC §1.3-10） */}
           <CollapsibleSection
-            label={additionLabel('ja', ENVELOPE_AND_OTHERS_FIELD_LABEL)}
+            label={additionLabel('ja', envelopeAndOthersFieldLabel(locale))}
             tone="link"
             expanded={costsOpen}
             onToggle={() => setCostsOpen((open) => !open)}
@@ -563,11 +567,11 @@ function RecordForm({
                   styles.packingSummary,
                   { color: packingCost === 0 ? colors.mutedLabel : colors.red },
                 ]}>
-                {packingCost === 0 ? UNSET_INPUT_LABEL : formatYen(packingCost)}
+                {packingCost === 0 ? unsetInputLabel(locale) : formatYen(packingCost)}
               </Text>
             }>
             <NumericField
-              label={ENVELOPE_COST_LABEL}
+              label={envelopeCostLabel(locale)}
               value={values.envelopeCost}
               onChangeValue={(value) => update('envelopeCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
@@ -577,7 +581,7 @@ function RecordForm({
               canPickPackaging
             />
             <NumericField
-              label={OTHERS_COST_LABEL}
+              label={othersCostLabel(locale)}
               value={values.othersCost}
               onChangeValue={(value) => update('othersCost', value)}
               rowHeight={RECEIPT_ROW_HEIGHT}
@@ -640,7 +644,7 @@ function RecordForm({
                   styles.packingSummary,
                   { color: targetProfit == null ? colors.mutedLabel : colors.green },
                 ]}>
-                {targetProfitSummary(targetProfit)}
+                {targetProfitSummary(locale, targetProfit)}
               </Text>
             }>
             <NumericField
@@ -649,7 +653,7 @@ function RecordForm({
               onChangeValue={(value) => update('targetProfit', value)}
               // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は
               // 0 ではない。placeholder にも 0 を出さない
-              placeholder={TARGET_PROFIT_UNSET_LABEL}
+              placeholder={targetProfitUnsetLabel(locale)}
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.green }]}
               canOpenSettings={false}
@@ -660,7 +664,7 @@ function RecordForm({
         {/* 12. 日付カード（折りたたみ）。畳んだままでも操作対象の日付が読める */}
         <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
           <CollapsibleSection
-            label={dateSectionLabel(values.isSold, dateText(primaryDate))}
+            label={dateSectionLabel(locale, values.isSold, dateText(primaryDate))}
             expanded={datesOpen}
             onToggle={() => setDatesOpen((open) => !open)}>
             {/* 販売日は売却済みのときだけ（SPEC.md §3.2）。伝票の主役に近い順で販売日が先。
@@ -668,7 +672,7 @@ function RecordForm({
                 ピッカーを開いたときに範囲へ寄せる */}
             {values.isSold && (
               <DateField
-                label={SOLD_DATE_FIELD_LABEL}
+                label={soldDateFieldLabel(locale)}
                 value={values.saleDate}
                 onChangeValue={(value) => update('saleDate', value)}
                 today={today}
@@ -689,14 +693,14 @@ function RecordForm({
             {/* 出品日は過去に下限がなく、落ちるのは未来だけ（§8.10.4）。
                 チップが淡色になることは実際には起きない（今日より後のチップがないため） */}
             <DateField
-              label={LISTED_DATE_FIELD_LABEL}
+              label={listedDateFieldLabel(locale)}
               value={values.saleStartDate}
               onChangeValue={(value) => update('saleStartDate', value)}
               today={today}
               valueText={dateText(values.saleStartDate)}
               accent={daysBetween(values.saleStartDate, today) === 0}
               maxDate={today}
-              note={LISTED_DATE_PICKER_NOTE}
+              note={listedDatePickerNote(locale)}
             />
           </CollapsibleSection>
         </View>
@@ -704,7 +708,7 @@ function RecordForm({
         {/* 13. メモ（折りたたみ） */}
         <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
           <CollapsibleSection
-            label={memoSectionLabel(values.memo)}
+            label={memoSectionLabel(locale, values.memo)}
             expanded={memoOpen}
             onToggle={() => setMemoOpen((open) => !open)}>
             <TextInput
@@ -712,7 +716,7 @@ function RecordForm({
               value={values.memo}
               onChangeText={(value) => update('memo', value)}
               multiline
-              accessibilityLabel={MEMO_LABEL}
+              accessibilityLabel={memoLabel(locale)}
             />
           </CollapsibleSection>
         </View>
@@ -765,25 +769,29 @@ function TagSection({
   onOpenPicker: () => void;
   onRemove: (id: string) => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={styles.tagSection}>
       <View style={styles.tagSectionHeader}>
-        <Text style={[styles.tagSectionLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
+        <Text style={[styles.tagSectionLabel, { color: colors.label }]}>{tagLabel(locale)}</Text>
         <Pressable
           onPress={onOpenPicker}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={TAG_PICKER_OPEN_LABEL}
+          accessibilityLabel={tagPickerOpenLabel(locale)}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-          <Text style={[styles.tagAddLabel, { color: colors.blue }]}>{TAG_ADD_LABEL}</Text>
+          <Text style={[styles.tagAddLabel, { color: colors.blue }]}>{tagAddLabel(locale)}</Text>
         </Pressable>
       </View>
 
       {tags.length === 0 ? (
         <Text style={[styles.tagEmptyLabel, { color: colors.mutedLabel }]}>
-          {TAG_FIELD_EMPTY_LABEL}
+          {tagFieldEmptyLabel(locale)}
         </Text>
       ) : (
         <View style={styles.tagSectionChips}>
@@ -810,6 +818,10 @@ function StatusHeaderRow({
   colors: ThemeColors;
   onToggle: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const statusColor = isSold ? colors.green : colors.orange;
 
   return (
@@ -817,7 +829,7 @@ function StatusHeaderRow({
       <View style={styles.statusLabel}>
         <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
         <Text style={[styles.statusText, { color: statusColor }]}>
-          {isSold ? SOLD_RECORDS_LABEL : LISTING_STATUS_LABEL}
+          {isSold ? soldRecordsLabel(locale) : listingStatusLabel(locale)}
         </Text>
       </View>
       <Pressable
@@ -826,7 +838,7 @@ function StatusHeaderRow({
         accessibilityRole="button"
         style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
         <Text style={[styles.statusSwitch, { color: colors.blue }]}>
-          {switchStatusLabel(!isSold)}
+          {switchStatusLabel(locale, !isSold)}
         </Text>
       </Pressable>
     </View>

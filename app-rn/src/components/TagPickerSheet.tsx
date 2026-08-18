@@ -33,16 +33,17 @@ import type { Tag } from '@/db/schema';
 import { createTag, useTagList } from '@/db/useTags';
 import {
   presetCountLabel,
-  TAG_EMPTY_TITLE,
-  TAG_LABEL,
-  TAG_PICKER_DONE_LABEL,
-  TAG_PICKER_EDIT_LINK,
-  TAG_PICKER_EMPTY_BODY,
-  TAG_PICKER_SEARCH_PLACEHOLDER,
+  tagEmptyTitle,
+  tagLabel,
+  tagPickerDoneLabel,
+  tagPickerEditLink,
+  tagPickerEmptyBody,
+  tagPickerSearchPlaceholder,
   tagBlockedNote,
   tagCreateLabel,
 } from '@/logic/labels';
 import { nextTagColor, validateTag } from '@/logic/tag';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -74,6 +75,10 @@ export function TagPickerSheet({
   onTagsChanged,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const { tags, counts, refresh } = useTagList();
@@ -97,7 +102,7 @@ export function TagPickerSheet({
   const creatable = validation != null && validation.valid ? validation : null;
   const blockedNote =
     validation != null && !validation.valid && validation.reason !== 'name-duplicated'
-      ? tagBlockedNote(validation.reason)
+      ? tagBlockedNote(locale, validation.reason)
       : null;
 
   /** 並びは常に tags（sortOrder 昇順）のまま。チェックした順は持たない（§1.5） */
@@ -140,12 +145,12 @@ export function TagPickerSheet({
             <View style={styles.header}>
               <View style={styles.headerSide} />
               <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-                {TAG_LABEL}
+                {tagLabel(locale)}
               </Text>
               <View style={[styles.headerSide, styles.headerRight]}>
                 <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
                   <Text style={[styles.headerButton, { color: colors.blue }]}>
-                    {TAG_PICKER_DONE_LABEL}
+                    {tagPickerDoneLabel(locale)}
                   </Text>
                 </Pressable>
               </View>
@@ -155,7 +160,7 @@ export function TagPickerSheet({
             <SearchBar
               value={query}
               onChangeValue={setQuery}
-              placeholder={TAG_PICKER_SEARCH_PLACEHOLDER}
+              placeholder={tagPickerSearchPlaceholder(locale)}
               style={styles.search}
             />
 
@@ -178,7 +183,7 @@ export function TagPickerSheet({
                     { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.5 : 1 },
                   ]}>
                   <Text style={[styles.createLabel, { color: colors.blue }]} numberOfLines={1}>
-                    {tagCreateLabel(creatable.name)}
+                    {tagCreateLabel(locale, creatable.name)}
                   </Text>
                 </Pressable>
               )}
@@ -187,7 +192,7 @@ export function TagPickerSheet({
                   上に「＋『◯◯』を作る」が出ているのに「上の欄に名前を入れると…」と
                   案内し続けると、済んだ手順を読ませることになる */}
               {tags.length === 0 && keyword === '' ? (
-                <EmptyState title={TAG_EMPTY_TITLE} body={TAG_PICKER_EMPTY_BODY} />
+                <EmptyState title={tagEmptyTitle(locale)} body={tagPickerEmptyBody(locale)} />
               ) : (
                 visible.length > 0 && (
                   <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
@@ -218,7 +223,7 @@ export function TagPickerSheet({
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.editLink, { opacity: pressed ? 0.5 : 1 }]}>
                   <Text style={[styles.editLinkLabel, { color: colors.blue }]}>
-                    {TAG_PICKER_EDIT_LINK}
+                    {tagPickerEditLink(locale)}
                   </Text>
                 </Pressable>
               )}

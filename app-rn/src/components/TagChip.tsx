@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 
 import { tagRemoveAccessibilityLabel } from '@/logic/labels';
 import { resolvePresetTone } from '@/logic/preset';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 色の点の直径（§2.3）。名前の左に置く ── 金額の行に出ることはないので色が隣と競合しない */
@@ -56,6 +57,10 @@ type Props = {
 };
 
 export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder, style }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const isActive = variant === 'active';
   // 青ベタの上では色の点が地に負けるので白に落とす。**色は識別の補助**（§0.1）なので、
@@ -101,7 +106,7 @@ export function TagChip({ tag, variant = 'plain', onRemove, namePlaceholder, sty
           onPress={onRemove}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={tagRemoveAccessibilityLabel(tag.name)}
+          accessibilityLabel={tagRemoveAccessibilityLabel(locale, tag.name)}
           style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <Ionicons name="close" size={14} color={colors.secondaryLabel} />
         </Pressable>

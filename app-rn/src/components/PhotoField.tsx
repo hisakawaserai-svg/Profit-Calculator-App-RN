@@ -21,17 +21,18 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
-  PHOTO_ADD_LABEL,
-  PHOTO_IMAGE_LABEL,
-  PHOTO_OPEN_SETTINGS_LABEL,
-  PHOTO_PERMISSION_DENIED_MESSAGE,
-  PHOTO_REPLACE_LABEL,
-  PHOTO_SAVE_FAILED_MESSAGE,
-  PHOTO_SQUARE_LABEL,
+  photoAddLabel,
+  photoImageLabel,
+  photoOpenSettingsLabel,
+  photoPermissionDeniedMessage,
+  photoReplaceLabel,
+  photoSaveFailedMessage,
+  photoSquareLabel,
   photoRemoveAccessibilityLabel,
 } from '@/logic/labels';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { pickPhoto } from '@/media/photoPicker';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /**
@@ -60,6 +61,10 @@ type Props = {
 type Notice = 'denied' | 'failed' | null;
 
 export function PhotoField({ fileName, onChange, children }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [notice, setNotice] = useState<Notice>(null);
   /** カメラロールを開いてから保存が終わるまで。二重に開かせない */
@@ -92,7 +97,7 @@ export function PhotoField({ fileName, onChange, children }: Props) {
             onPress={handlePick}
             disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={uri == null ? PHOTO_ADD_LABEL : PHOTO_REPLACE_LABEL}
+            accessibilityLabel={uri == null ? photoAddLabel(locale) : photoReplaceLabel(locale)}
             style={({ pressed }) => [styles.squareFill, { opacity: pressed || busy ? 0.5 : 1 }]}>
             {uri == null ? (
               // 破線 ＋「写真」の語。**押せる場所であることを形で言う** ──
@@ -100,7 +105,7 @@ export function PhotoField({ fileName, onChange, children }: Props) {
               <View style={[styles.placeholder, { borderColor: colors.separator }]}>
                 <Ionicons name="image-outline" size={22} color={colors.blue} />
                 <Text style={[styles.placeholderLabel, { color: colors.blue }]}>
-                  {PHOTO_SQUARE_LABEL}
+                  {photoSquareLabel(locale)}
                 </Text>
               </View>
             ) : (
@@ -112,7 +117,7 @@ export function PhotoField({ fileName, onChange, children }: Props) {
                   { backgroundColor: colors.disabledBackground, borderColor: colors.separator },
                 ]}
                 contentFit="cover"
-                accessibilityLabel={PHOTO_IMAGE_LABEL}
+                accessibilityLabel={photoImageLabel(locale)}
                 transition={0}
               />
             )}
@@ -134,7 +139,7 @@ export function PhotoField({ fileName, onChange, children }: Props) {
               }}
               hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={photoRemoveAccessibilityLabel()}
+              accessibilityLabel={photoRemoveAccessibilityLabel(locale)}
               style={({ pressed }) => [styles.removeBadge, { opacity: pressed ? 0.5 : 1 }]}>
               <Ionicons name="close" size={14} color="#FFFFFF" />
             </Pressable>
@@ -150,17 +155,17 @@ export function PhotoField({ fileName, onChange, children }: Props) {
       {notice === 'denied' && (
         <View style={styles.notice}>
           <Text style={[styles.noticeText, { color: colors.red }]}>
-            {PHOTO_PERMISSION_DENIED_MESSAGE}
+            {photoPermissionDeniedMessage(locale)}
           </Text>
           <Pressable onPress={() => Linking.openSettings()} hitSlop={8} accessibilityRole="button">
             <Text style={[styles.noticeText, { color: colors.blue }]}>
-              {PHOTO_OPEN_SETTINGS_LABEL}
+              {photoOpenSettingsLabel(locale)}
             </Text>
           </Pressable>
         </View>
       )}
       {notice === 'failed' && (
-        <Text style={[styles.noticeText, { color: colors.red }]}>{PHOTO_SAVE_FAILED_MESSAGE}</Text>
+        <Text style={[styles.noticeText, { color: colors.red }]}>{photoSaveFailedMessage(locale)}</Text>
       )}
     </View>
   );

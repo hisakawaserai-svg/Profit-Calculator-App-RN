@@ -598,7 +598,7 @@ export function StatusToggleFigure() {
             {LISTING_STATUS_LABEL}
           </Text>
         </View>
-        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel(true)}</Text>
+        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel('ja', true)}</Text>
       </View>
     </PartFrame>
   );

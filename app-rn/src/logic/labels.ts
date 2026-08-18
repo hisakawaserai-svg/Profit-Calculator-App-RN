@@ -460,7 +460,7 @@ export function totalSalesAmountLabel(locale: Locale): string {
 // 旧 ENVELOPE_AND_OTHERS_LABEL（「梱包・その他」）は削除した。
 // 計算タブの内訳が帯グラフと同じ一覧（costBreakdown.parts）を使うようになり、
 // 帯の区画と行が 1 対 1 になったため ── まとめた 1 行には対応する区画も色もない。
-// 伝票・レシートのまとめ行は ENVELOPE_AND_OTHERS_FIELD_LABEL のままで、こちらは残る。
+// 伝票・レシートのまとめ行は t('form.envelopeAndOthers', 'ja') のままで、こちらは残る。
 
 /** 結果カード・固定バーの折りたたみ見出し（UI-SPEC §1.1-2 / §1.1-3a） */
 export function breakdownLabel(locale: Locale): string {
@@ -815,19 +815,19 @@ export function targetProfitLabel(locale: Locale, kind: RecordKind): string {
  * 0 は「目標は 0 円（赤字にならなければよい）」という目標そのもので、
  * 決めていない状態とは別のもの ── 金額として書くと、決めていない人の記録に
  * 「目標 0 円」という決めた覚えのない値が出ることになる（schema の targetProfit）。
- * 未入力の欄に出す `UNSET_INPUT_LABEL`（「未入力」）とも分ける ── 目標は
+ * 未入力の欄に出す `t('form.unsetInput', 'ja')`（「未入力」）とも分ける ── 目標は
  * 入れ忘れではなく「決めない」のが正しい選択でもあるため。
  */
-export const TARGET_PROFIT_UNSET_LABEL = '決めていません';
+export function targetProfitUnsetLabel(locale: Locale): string {
+  return t('form.targetProfitUnset', locale);
+}
 
 /**
  * 目標欄の折りたたみ見出しの右端に出す値（SPEC-V9 §2）。
  * 決めていなければ語、決めていれば金額。**null と 0 がここで見分けられる。**
  */
-export function targetProfitSummary(targetProfit: number | null): string {
-  return targetProfit == null
-    ? TARGET_PROFIT_UNSET_LABEL
-    : formatYen(targetProfit);
+export function targetProfitSummary(locale: Locale, targetProfit: number | null): string {
+  return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen(targetProfit);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1457,12 +1457,18 @@ export function bestTagOfTotalText(totalCount: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 記録フォームのシートヘッダ（UI-SPEC §1.3-2）。中央の見出しは新規と編集で出し分ける */
-export const NEW_RECORD_TITLE = '新しい記録';
-export const EDIT_RECORD_TITLE = '記録を編集';
+export function newRecordTitle(locale: Locale): string {
+  return t('form.newTitle', locale);
+}
+export function editRecordTitle(locale: Locale): string {
+  return t('form.editTitle', locale);
+}
 export function cancelLabel(locale: Locale): string {
   return t('action.cancel', locale);
 }
-export const SAVE_LABEL = '保存';
+export function saveLabel(locale: Locale): string {
+  return t('form.save', locale);
+}
 
 /**
  * レコード詳細のメタ行の状態バッジ（UI-SPEC §1.4-2）。
@@ -1483,7 +1489,7 @@ export const REVERT_TO_LISTING_BUTTON_LABEL = '出品中に戻す';
 
 /**
  * 売れた日の行のラベル（UI-SPEC §8.2）。売れた記録である限り常設する行の見出し。
- * 入力欄の SOLD_DATE_FIELD_LABEL（「販売日」）とは**あえて語を揃えない** ──
+ * 入力欄の t('form.soldDate', 'ja')（「販売日」）とは**あえて語を揃えない** ──
  * 行は「いつ売れたか」を読む場所、欄は日付を入れる場所で、役割が違う（§8.8）。
  */
 export const SOLD_DATE_ROW_LABEL = '売れた日';
@@ -1515,7 +1521,7 @@ export const WEEKDAY_LABELS = [
 /**
  * カレンダーの今日の印の読み上げ語（UI-SPEC §8.10）。
  * 印そのものは記号（今日 = 点、出品日 = 小さな旗）なので、読み上げにだけ語を出す。
- * 出品日の旗の語は LISTED_DATE_FIELD_LABEL をそのまま使う。
+ * 出品日の旗の語は t('form.listedDate', 'ja') をそのまま使う。
  */
 export const TODAY_MARKER_LABEL = '今日';
 
@@ -1543,9 +1549,15 @@ export const RELATIVE_DAY_LABELS = ['今日', '昨日', '一昨日'] as const;
 export const CHOOSE_MONTH_LABEL = '年月を選ぶ';
 
 /** 商品名の欄（UI-SPEC §1.3-4）。必須であることは欄名ではなくキャプションで示す（SPEC §5.2） */
-export const ITEM_NAME_LABEL = '商品名';
-export const ITEM_NAME_CAPTION = '商品名（必須）';
-export const ITEM_NAME_PLACEHOLDER = '例：えんぴつ';
+export function itemNameLabel(locale: Locale): string {
+  return t('form.itemName', locale);
+}
+export function itemNameCaption(locale: Locale): string {
+  return t('form.itemNameCaption', locale);
+}
+export function itemNamePlaceholder(locale: Locale): string {
+  return t('form.itemNamePlaceholder', locale);
+}
 
 /** 商品名が空のレコードの表示（一覧・レコード詳細） */
 export function untitledLabel(locale: Locale): string {
@@ -1557,10 +1569,14 @@ export function untitledLabel(locale: Locale): string {
  * 計算タブの内訳は帯グラフと同じ項目別の一覧（梱包材・その他は別の行）なので、
  * まとめた語を持つのは伝票・レシート側だけになった。
  */
-export const ENVELOPE_AND_OTHERS_FIELD_LABEL = '梱包材・その他';
+export function envelopeAndOthersFieldLabel(locale: Locale): string {
+  return t('form.envelopeAndOthers', locale);
+}
 
 /** 値の入っていない欄に出す語（UI-SPEC §1.3-10 / §1.4-4。40% グレーで出す） */
-export const UNSET_INPUT_LABEL = '未入力';
+export function unsetInputLabel(locale: Locale): string {
+  return t('form.unsetInput', locale);
+}
 
 /** 帯グラフの凡例の割合（例:「32%」）。整数に丸める ── 小数第 1 位まで読む場面ではない */
 export function percentLabel(ratio: number): string {
@@ -1611,12 +1627,18 @@ export function shortfallAmountLabel(shortfall: number): string {
 export const BREAKDOWN_BAR_UNPRICED_NOTE = '価格を入れると内訳が計算できます';
 
 /** メモ（UI-SPEC §1.3-13 / §1.4-6） */
-export const MEMO_LABEL = 'メモ';
+export function memoLabel(locale: Locale): string {
+  return t('form.memo', locale);
+}
 export const MEMO_EMPTY_LABEL = 'なし';
 
 /** 日付の欄名（UI-SPEC §1.3-12 / §1.4-2） */
-export const LISTED_DATE_FIELD_LABEL = '出品日';
-export const SOLD_DATE_FIELD_LABEL = '販売日';
+export function listedDateFieldLabel(locale: Locale): string {
+  return t('form.listedDate', locale);
+}
+export function soldDateFieldLabel(locale: Locale): string {
+  return t('form.soldDate', locale);
+}
 
 /**
  * 売れた日のカレンダーで**選べない理由**を出す一行（UI-SPEC §8.10）。
@@ -1624,16 +1646,16 @@ export const SOLD_DATE_FIELD_LABEL = '販売日';
  * 淡いマスを見た人が理由を自分で埋めずに済むようにする ── 旧ホイールは選択肢ごと消したため、
  * 「過去に入力した内容しか出てこない」と誤解された。制約（§8.5）をそのまま語にした行。
  */
-export function soldDatePickerNote(listedDateText: string): string {
-  return `出品（${listedDateText}）より前と、今日より後は選べません`;
+export function soldDatePickerNote(locale: Locale, listedDateText: string): string {
+  return t('form.soldDatePickerNote', locale, { date: listedDateText });
 }
 
 /**
  * 出品日が未来の記録での一行（UI-SPEC §8.5 派生決定 3）。
  * 選べる範囲が出品日 1 日しかないので、上の言い方では何も説明していないことになる。
  */
-export function soldDatePickerSingleDayNote(listedDateText: string): string {
-  return `${LISTED_DATE_FIELD_LABEL}（${listedDateText}）だけが選べます`;
+export function soldDatePickerSingleDayNote(locale: Locale, listedDateText: string): string {
+  return t('form.soldDateSingleDayNote', locale, { date: listedDateText });
 }
 
 /**
@@ -1645,8 +1667,8 @@ export function soldDatePickerSingleDayNote(listedDateText: string): string {
  * 行に「今日より後は選べません」と書くと、対応する淡いチップが画面になく、
  * 読んだ人は在りもしない選択肢を探すことになる。
  */
-export function soldDateChipsNote(listedDateText: string): string {
-  return `${LISTED_DATE_FIELD_LABEL}（${listedDateText}）より前は選べません`;
+export function soldDateChipsNote(locale: Locale, listedDateText: string): string {
+  return t('form.soldDateChipsNote', locale, { date: listedDateText });
 }
 
 /**
@@ -1660,19 +1682,20 @@ export function soldDateChipsNote(listedDateText: string): string {
  * そこでは「〜より前は選べません」が淡色の説明になっていない（§8.5 派生決定 3）。
  */
 export function soldDateNotes(
+  locale: Locale,
   saleStartDate: Date,
   today: Date,
 ): { calendar: string; chips: string } {
   const listedDateText = formatShortDate(saleStartDate);
 
   if (daysBetween(saleStartDate, today) < 0) {
-    const singleDay = soldDatePickerSingleDayNote(listedDateText);
+    const singleDay = soldDatePickerSingleDayNote(locale, listedDateText);
     return { calendar: singleDay, chips: singleDay };
   }
 
   return {
-    calendar: soldDatePickerNote(listedDateText),
-    chips: soldDateChipsNote(listedDateText),
+    calendar: soldDatePickerNote(locale, listedDateText),
+    chips: soldDateChipsNote(locale, listedDateText),
   };
 }
 
@@ -1683,7 +1706,9 @@ export function soldDateNotes(
  * 扱いをここでも通す ── 欄によって淡いマスの説明が出たり出なかったりすると、
  * 説明のない画面では欠落を不具合と読む。
  */
-export const LISTED_DATE_PICKER_NOTE = '今日より後は選べません';
+export function listedDatePickerNote(locale: Locale): string {
+  return t('form.listedDatePickerNote', locale);
+}
 
 /** レコード詳細の下端操作列（UI-SPEC §1.4-7）と削除の確認アラート（SPEC §5.4） */
 export const EDIT_RECORD_LABEL = '編集する';
@@ -1693,8 +1718,8 @@ export function deleteLabel(locale: Locale): string {
 export const DELETE_CONFIRM_TITLE = '削除しますか？';
 
 /** 伝票の控除行の行名（UI-SPEC §1.3-7〜9 / §1.4-4）:「− 送料」 */
-export function deductionLabel(name: string): string {
-  return `− ${name}`;
+export function deductionLabel(locale: Locale, name: string): string {
+  return t('form.deduction', locale, { name });
 }
 
 /** 伝票の加算行の行名（UI-SPEC §1.3-10）:「＋ 梱包材・その他」 */
@@ -1711,8 +1736,10 @@ export function commissionRowLabel(rate: number): string {
  * 記録フォームの状態切替リンク（UI-SPEC §1.3-3）:「出品中にする」/「売れた記録にする」。
  * 引数は**切り替えた先**の状態。見出し行には今の状態が出ているので、リンクは行き先を名乗る。
  */
-export function switchStatusLabel(toSold: boolean): string {
-  return `${toSold ? t('list.soldRecords', 'ja') : t('list.listingStatus', 'ja')}にする`;
+export function switchStatusLabel(locale: Locale, toSold: boolean): string {
+  return t('form.switchStatus', locale, {
+    status: t(toSold ? 'list.soldRecords' : 'list.listingStatus', locale),
+  });
 }
 
 /**
@@ -1721,13 +1748,16 @@ export function switchStatusLabel(toSold: boolean): string {
  * 畳んだままでも操作対象の日付が読めるようにする（optionalCostsLabel と同じ考え方）。
  * 出す日付は状態によって変わる ── 出品中には販売日がない（SPEC.md §3.2）ため。
  */
-export function dateSectionLabel(isSold: boolean, dateText: string): string {
-  return `${isSold ? SOLD_DATE_FIELD_LABEL : LISTED_DATE_FIELD_LABEL} ${dateText}`;
+export function dateSectionLabel(locale: Locale, isSold: boolean, dateText: string): string {
+  return t('form.dateSection', locale, {
+    label: t(isSold ? 'form.soldDate' : 'form.listedDate', locale),
+    date: dateText,
+  });
 }
 
 /** 当日の日付（UI-SPEC §1.3-12）:「今日（2026/08/09）」。判定は呼び出し側（暦日差 0） */
-export function todayDateLabel(dateText: string): string {
-  return `今日（${dateText}）`;
+export function todayDateLabel(locale: Locale, dateText: string): string {
+  return t('form.today', locale, { date: dateText });
 }
 
 /**
@@ -1738,15 +1768,15 @@ export function todayDateLabel(dateText: string): string {
  * 日付は M/d（メタ行と同じ形式。呼び出し側で formatShortDate する）。
  */
 export function revertToListingConfirmTitle(soldDateText: string): string {
-  return `${SOLD_DATE_FIELD_LABEL} ${soldDateText} が消えます。戻しますか？`;
+  return `${t('form.soldDate', 'ja')} ${soldDateText} が消えます。戻しますか？`;
 }
 
 /**
  * メモの折りたたみ見出し（UI-SPEC §1.3-13）。
  * 入力済みなら畳んだままでもそれが分かるよう語を変える（optionalCostsLabel と同じ考え方）。
  */
-export function memoSectionLabel(memo: string): string {
-  return memo === '' ? `${MEMO_LABEL}を書く` : MEMO_LABEL;
+export function memoSectionLabel(locale: Locale, memo: string): string {
+  return t(memo === '' ? 'form.memoWrite' : 'form.memo', locale);
 }
 
 /**
@@ -1928,17 +1958,17 @@ export function presetBlockedNote(
  * プリセットと違って**重複を咎める文言がある** ── タグは絞り込みの意味そのもので、
  * 同名が 2 つあると解除バーがどちらのことか言えなくなる（§1.3）。
  */
-export function tagBlockedNote(reason: TagInvalidReason): string {
+export function tagBlockedNote(locale: Locale, reason: TagInvalidReason): string {
   switch (reason) {
     case 'name-required':
-      return '名前を入れてください';
+      return t('tag.errorNameRequired', locale);
     case 'name-too-long':
-      return `名前は${TAG_NAME_MAX_LENGTH}文字までです`;
+      return t('tag.errorNameTooLong', locale, { max: TAG_NAME_MAX_LENGTH });
     // 理由を「CSV の区切りに使うから」まで言わない ── 打ち直す手は変わらない
     case 'name-has-separator':
-      return `「${TAG_NAME_SEPARATOR}」は使えません`;
+      return t('tag.errorNameHasSeparator', locale, { separator: TAG_NAME_SEPARATOR });
     case 'name-duplicated':
-      return '同じ名前のタグがあります';
+      return t('tag.errorNameDuplicated', locale);
   }
 }
 
@@ -2484,10 +2514,14 @@ export function tagCardEmptyLabel(locale: Locale): string {
  * プリセット（「＋ 送料を追加」）と違って種類名を冠さないのは、タグが 1 種類しかなく、
  * 画面の見出しが既に「タグ」だから。
  */
-export const TAG_ADD_LABEL = additionLabel('ja', '追加');
+export function tagAddLabel(locale: Locale): string {
+  return t('tag.add', locale);
+}
 
 /** 空表示（§2.2-4）。EmptyState の見出しと本文 */
-export const TAG_EMPTY_TITLE = 'タグがありません';
+export function tagEmptyTitle(locale: Locale): string {
+  return t('tag.emptyTitle', locale);
+}
 export const TAG_EMPTY_BODY = '記録を追加するときにも作れます。';
 
 /**
@@ -2575,14 +2609,16 @@ export function tagDeleteConfirmMessage(usageCount: number): string {
  * 記録フォームのタグの節の「＋ 追加」の読み上げ語（§3.1）。
  * 見出しの右のリンクなので、押した先が**選ぶ面**であることは語だけでは読めない。
  */
-export const TAG_PICKER_OPEN_LABEL = 'タグを選ぶ';
+export function tagPickerOpenLabel(locale: Locale): string {
+  return t('tag.pickerOpen', locale);
+}
 
 /**
  * チップの「✕」の読み上げ（§3.1）。記号 1 つなので、外れるのが**このタグだけ**
  * （記録は消えない）ことは語の側でしか言えない。
  */
-export function tagRemoveAccessibilityLabel(tagName: string): string {
-  return `${tagName}を外す`;
+export function tagRemoveAccessibilityLabel(locale: Locale, tagName: string): string {
+  return t('tag.removeAccessibility', locale, { name: tagName });
 }
 
 /**
@@ -2591,20 +2627,24 @@ export function tagRemoveAccessibilityLabel(tagName: string): string {
  * あちらは「タグそのものが 1 つも無い」、こちらは「この記録に付いていない」で、
  * 次にすることが違う（こちらは見出しの右の「＋ 追加」から選ぶ）。
  */
-export const TAG_FIELD_EMPTY_LABEL = 'まだ付いていません';
+export function tagFieldEmptyLabel(locale: Locale): string {
+  return t('tag.fieldEmpty', locale);
+}
 
 /**
  * 選択シートの検索欄（§3.2-2）。**「探す」だけでなく「作る」まで言う** ──
  * ここが新規作成の入口（§3.2-3）を兼ねていることは、打ち始めるまで画面に出ない。
  */
-export const TAG_PICKER_SEARCH_PLACEHOLDER = 'タグを探す・作る';
+export function tagPickerSearchPlaceholder(locale: Locale): string {
+  return t('tag.pickerSearchPlaceholder', locale);
+}
 
 /**
  * 検索語に完全一致する既存タグが無いときだけ先頭に出る行（§3.2-3）。
- * 「＋」を字で持つのは TAG_ADD_LABEL（additionLabel）と同じ扱い ── 記号も表示語のうち。
+ * 「＋」を字で持つのは t('tag.add', 'ja')（additionLabel）と同じ扱い ── 記号も表示語のうち。
  */
-export function tagCreateLabel(name: string): string {
-  return `＋『${name}』を作る`;
+export function tagCreateLabel(locale: Locale, name: string): string {
+  return t('tag.create', locale, { name });
 }
 
 /**
@@ -2612,28 +2652,33 @@ export function tagCreateLabel(name: string): string {
  * これは確定ではなく**閉じる**ボタン。プリセットの編集モードの「完了」と同じ語でよい
  * （どちらも「この面での操作を終える」の意）。
  */
-export const TAG_PICKER_DONE_LABEL = PRESET_EDIT_MODE_DONE_LABEL;
+export function tagPickerDoneLabel(locale: Locale): string {
+  return t('tag.pickerDone', locale);
+}
 
 /**
  * シート末尾のリンク（§3.2-5）。行き先はプリセットとは別（設定タブのタグ一覧）だが、
  * **語は同じ**にする ── 同じ「設定へ行って直す」動きを、シートごとに違う言い方で出さない。
  * 記録フォームから開いたときは出さない（RN の Modal の裏に遷移してしまうため）。
  */
-export const TAG_PICKER_EDIT_LINK = PRESET_PICKER_EDIT_LINK;
+export function tagPickerEditLink(locale: Locale): string {
+  return t('tag.pickerEditLink', locale);
+}
 
 /**
  * 1 件も登録がないときの選択シートの本文（§3.2）。一覧の空表示（TAG_EMPTY_BODY）と
  * 語を分けるのは、**ここには作る場所が既にある**から ── 「記録を追加するときにも作れます」は、
  * まさにその記録フォームの上で読むと行き先の分からない案内になる。
  */
-export const TAG_PICKER_EMPTY_BODY =
-  '上の欄に名前を入れると、その場で作れます。';
+export function tagPickerEmptyBody(locale: Locale): string {
+  return t('tag.pickerEmptyBody', locale);
+}
 
 // ---- SPEC-V4 §3.4 レコード詳細のタグ ----
 
 /**
  * 詳細画面のタグの節の見出し（設計案 32b）。メモと同じ「補足」の並びに置くので、
- * メモ（MEMO_LABEL）と同じ形の見出しを付ける ── 見出しの無いカードが 1 枚だけ挟まると、
+ * メモ（t('form.memo', 'ja')）と同じ形の見出しを付ける ── 見出しの無いカードが 1 枚だけ挟まると、
  * 何のカードなのかがチップの中身からしか読めない。
  */
 export const TAG_SECTION_LABEL = TAG_LABEL;
@@ -2675,7 +2720,7 @@ export const FILTER_CLEAR_ACTION_LABEL = `${FILTER_CLEAR_LABEL}する`;
  * シート右上（§4.2-1）。条件は選んだ瞬間から効くので、これは確定ではなく**閉じる**ボタン
  * （タグの選択シートの「完了」と同じ意味・同じ語）。
  */
-export const FILTER_DONE_LABEL = TAG_PICKER_DONE_LABEL;
+export const FILTER_DONE_LABEL = t('tag.pickerDone', 'ja');
 
 /** シートの節の見出し（§4.2-2〜4）。販売サイト・タグは既にある語をそのまま使う */
 export const FILTER_KIND_SECTION_LABEL = '種別';
@@ -2796,14 +2841,14 @@ export const FILTER_SITE_EMPTY_BODY =
 
 /**
  * タグの登録が 0 件のとき（§4.2.3 / 案 35d）。カードの中に 2 行で出す。
- * 見出しは一覧の空表示と同じ語（TAG_EMPTY_TITLE）── 同じ「1 件もない」を場所ごとに言い分けない。
+ * 見出しは一覧の空表示と同じ語（t('tag.emptyTitle', 'ja')）── 同じ「1 件もない」を場所ごとに言い分けない。
  *
  * **設定への導線は置かない。** この画面に来た用は「今ある記録を絞ること」で、設定へ飛ぶと
  * 用が中断するうえ、戻り道が記録タブではなく設定になる。記録フォーム側の選択シート（§3.2）には
  * 「設定で編集する ▸」があるが、あちらは**タグを作る・直す場所**で用が違うので揃えない。
  * 代わりに**どこで作れるか**だけを言う（行き先を指さずに、次に開く画面で目に入る場所を教える）。
  */
-export const FILTER_TAG_EMPTY_TITLE = TAG_EMPTY_TITLE;
+export const FILTER_TAG_EMPTY_TITLE = t('tag.emptyTitle', 'ja');
 export const FILTER_TAG_EMPTY_BODY =
   'タグは記録するときに、品名の下から作れます。付けたタグはここに並びます。';
 
@@ -2987,8 +3032,8 @@ export const TARGET_PROFIT_COLUMN = '目標利益';
  * 確定申告用（11 列）には足さない ── 帳簿に「目標」の欄は無い。
  */
 export const CSV_BACKUP_COLUMNS: readonly string[] = [
-  SOLD_DATE_FIELD_LABEL,
-  ITEM_NAME_LABEL,
+  t('form.soldDate', 'ja'),
+  t('form.itemName', 'ja'),
   t('amount.salesPrice', 'ja'),
   t('amount.purchasePrice', 'ja'),
   t('amount.postage', 'ja'),
@@ -3003,8 +3048,8 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
   RECORD_KIND_COLUMN,
   TAG_LABEL,
   RECORD_STATUS_COLUMN,
-  LISTED_DATE_FIELD_LABEL,
-  MEMO_LABEL,
+  t('form.listedDate', 'ja'),
+  t('form.memo', 'ja'),
   RECORD_ID_COLUMN,
 ];
 
@@ -3019,9 +3064,9 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
  * 収支は検算用に残す。**メモとタグは出さない**（帳簿に関係がなく、個人的な記述が混ざる）。
  */
 export const CSV_TAX_COLUMNS: readonly string[] = [
-  SOLD_DATE_FIELD_LABEL,
+  t('form.soldDate', 'ja'),
   presetTypeLabel('ja', 'site'),
-  ITEM_NAME_LABEL,
+  t('form.itemName', 'ja'),
   RECORD_KIND_COLUMN,
   t('amount.salesPrice', 'ja'),
   t('amount.purchasePrice', 'ja'),
@@ -3273,23 +3318,33 @@ export const EXPORT_SHARE_DIALOG_TITLE = CSV_EXPORT_LABEL;
  * 写真そのものを指す語（SPEC-V5 §3.1）。読み上げ語の組み立てにも使う。
  * **見出しの行は持たない** ── 欄は商品名の左の正方形 1 つに畳んだ（§3.1）。
  */
-export const PHOTO_FIELD_LABEL = '写真';
+export function photoFieldLabel(locale: Locale): string {
+  return t('photo.field', locale);
+}
 
 /** 写真が無いときに枠の中へ小さく出す語（§3.1）。破線の枠と対で「押せる場所」を示す */
-export const PHOTO_SQUARE_LABEL = PHOTO_FIELD_LABEL;
+export function photoSquareLabel(locale: Locale): string {
+  return t('photo.field', locale);
+}
 
 /** 写真が無いときにフォームの欄へ出す誘い（§3.1）。押すとカメラロールが開く */
-export const PHOTO_ADD_LABEL = '写真を選ぶ';
+export function photoAddLabel(locale: Locale): string {
+  return t('photo.add', locale);
+}
 
 /** 枠を押したときの動き（§3.1）。見た目の語ではなく読み上げ語として使う */
-export const PHOTO_REPLACE_LABEL = '変更';
+export function photoReplaceLabel(locale: Locale): string {
+  return t('photo.replace', locale);
+}
 
 /** 枠の右上の「✕」の読み上げ語（§3.1）。消えるのは記録ではなく写真 */
-export const PHOTO_REMOVE_LABEL = '削除';
+export function photoRemoveLabel(locale: Locale): string {
+  return t('photo.remove', locale);
+}
 
 /** 「✕」に読ませる文（§3.1）。消えるのが写真だけであることは、記号からは読み取れない */
-export function photoRemoveAccessibilityLabel(): string {
-  return `${PHOTO_FIELD_LABEL}を${PHOTO_REMOVE_LABEL}`;
+export function photoRemoveAccessibilityLabel(locale: Locale): string {
+  return t('photo.removeAccessibility', locale);
 }
 
 /**
@@ -3309,7 +3364,9 @@ export const PHOTO_ADD_FROM_DETAIL_LABEL = '写真を追加';
 export const PHOTO_VIEWER_CLOSE_LABEL = '閉じる';
 
 /** 一覧のサムネイル・詳細の写真の読み上げ語（§2.3）。商品名は呼び出し側が前に付ける */
-export const PHOTO_IMAGE_LABEL = '商品写真';
+export function photoImageLabel(locale: Locale): string {
+  return t('photo.image', locale);
+}
 
 /** 写真の無い行のサムネイル枠の読み上げ語（§2.3）。枠が「押せる何か」に見えないようにする */
 export const PHOTO_EMPTY_LABEL = '写真なし';
@@ -3318,14 +3375,19 @@ export const PHOTO_EMPTY_LABEL = '写真なし';
  * 写真へのアクセスを拒否されたとき（§3.3）。**「設定を開く」の口と対で出す** ──
  * アプリの中では直せないので、どこへ行けば直せるかまで言わないと詰む。
  */
-export const PHOTO_PERMISSION_DENIED_MESSAGE =
-  '写真へのアクセスが許可されていません。';
+export function photoPermissionDeniedMessage(locale: Locale): string {
+  return t('photo.permissionDenied', locale);
+}
 
 /** 上の文と対で出すリンク（§3.3）。iOS の設定アプリのこのアプリの画面を開く */
-export const PHOTO_OPEN_SETTINGS_LABEL = '設定を開く';
+export function photoOpenSettingsLabel(locale: Locale): string {
+  return t('photo.openSettings', locale);
+}
 
 /** 縮小・保存に失敗したとき（§3.3）。原因は端末側なので言えるのはここまで */
-export const PHOTO_SAVE_FAILED_MESSAGE = '写真を保存できませんでした。';
+export function photoSaveFailedMessage(locale: Locale): string {
+  return t('photo.saveFailed', locale);
+}
 
 // ---- 使いかたの図の中の語（HelpPartFigure / HelpDiagram。案 `19c` / `20a`） ----
 //
@@ -4053,7 +4115,7 @@ export const BACKUP_FOLDER_PICK_UNAVAILABLE =
 // 名前を書くと、そのサイトを使っていない人の画面に無関係な語が出る。
 //
 // **「¥0」を「決めていない」の意味で使わない**（§1.2）。目標に関わる語は必ず
-// `targetProfitSummary` / `TARGET_PROFIT_UNSET_LABEL` を通る。
+// `targetProfitSummary` / `t('form.targetProfitUnset', 'ja')` を通る。
 //
 // **「手取り」は使わない**（SPEC-V2 §7-8）。販売サイトが表示する「手取り」は梱包材費や
 // その他経費を含まず、このアプリの数字と食い違うため ── この画面でも例外にしない。
@@ -4386,7 +4448,7 @@ export const COST_BREAKDOWN_ROW_LABEL = '費用の内訳';
  */
 export function targetProfitRowValue(targetProfit: number | null): string {
   return targetProfit == null
-    ? TARGET_PROFIT_UNSET_LABEL
+    ? t('form.targetProfitUnset', 'ja')
     : `${formatYenSymbol(targetProfit)}（この記録だけ）`;
 }
 
@@ -4687,3 +4749,20 @@ export const LISTING_COUNT_LABEL = t('list.listingStatus', 'ja');
 // 帯グラフの節を移したぶんの日本語固定の写し（多言語化ステップ 2-1 の追補）
 export const KEPT_LABEL = t('amount.keptLong', 'ja');
 export const COMMISSION_LABEL = t('amount.commissionFull', 'ja');
+
+// ---- 記録フォームの節を移したぶんの日本語固定の写し（多言語化ステップ 2-3） ----
+export const SAVE_LABEL = t('form.save', 'ja');
+export const ITEM_NAME_LABEL = t('form.itemName', 'ja');
+export const ITEM_NAME_CAPTION = t('form.itemNameCaption', 'ja');
+export const ITEM_NAME_PLACEHOLDER = t('form.itemNamePlaceholder', 'ja');
+export const ENVELOPE_AND_OTHERS_FIELD_LABEL = t('form.envelopeAndOthers', 'ja');
+export const MEMO_LABEL = t('form.memo', 'ja');
+export const UNSET_INPUT_LABEL = t('form.unsetInput', 'ja');
+export const TARGET_PROFIT_UNSET_LABEL = t('form.targetProfitUnset', 'ja');
+export const LISTED_DATE_FIELD_LABEL = t('form.listedDate', 'ja');
+export const SOLD_DATE_FIELD_LABEL = t('form.soldDate', 'ja');
+export const PHOTO_FIELD_LABEL = t('photo.field', 'ja');
+export const PHOTO_IMAGE_LABEL = t('photo.image', 'ja');
+export const TAG_EMPTY_TITLE = t('tag.emptyTitle', 'ja');
+export const TAG_ADD_LABEL = t('tag.add', 'ja');
+export const PHOTO_SQUARE_LABEL = t('photo.field', 'ja');
