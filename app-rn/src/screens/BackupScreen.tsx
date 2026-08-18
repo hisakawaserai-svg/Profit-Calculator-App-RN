@@ -390,7 +390,7 @@ export function BackupScreen() {
       if (result.canceled || result.result == null) return;
 
       const file = result.result;
-      showArchive(readBackupZip(file), file.name);
+      showArchive(readBackupZip(locale, file), file.name);
     } catch (error) {
       // ZIP として開けなかった（壊れている・そもそも ZIP ではない）。
       // ここではファイルの中身が何も読めていないので、名前も作成日も出せない
@@ -400,7 +400,7 @@ export function BackupScreen() {
       }
       throw error;
     }
-  }, [showArchive]);
+  }, [showArchive, locale]);
 
   const pickFolder = useCallback(async () => {
     try {

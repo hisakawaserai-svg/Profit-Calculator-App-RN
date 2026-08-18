@@ -20,7 +20,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { CLOSE_LABEL } from '@/logic/labels';
+import { closeLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 /** 幕の濃さ。明暗どちらの外観でも同じ（下の画面を沈めるのが役目で、地色ではない） */
 const BACKDROP_COLOR = 'rgba(0, 0, 0, 0.3)';
@@ -42,6 +43,9 @@ type Props = {
 };
 
 export function SheetModal({ visible = true, onClose, children }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const { height } = useWindowDimensions();
   // ref ではなく state で持つ（値は差し替えない）。React Compiler の下では
   // 描画中に ref の中身を読めないため、補間の元になる値は state 側に置く
@@ -106,7 +110,7 @@ export function SheetModal({ visible = true, onClose, children }: Props) {
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={close}
-        accessibilityLabel={CLOSE_LABEL}
+        accessibilityLabel={closeLabel(locale)}
       />
       {/* シートは下端合わせ。box-none で、シートを外したタップは下の幕へ抜ける */}
       <Animated.View

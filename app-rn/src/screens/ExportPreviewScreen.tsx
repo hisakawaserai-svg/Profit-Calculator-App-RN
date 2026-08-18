@@ -30,7 +30,7 @@ import {
 import { useExportPreview, useExportTable } from '@/db/useExport';
 import { fromExportParams, type ExportRouteParams } from '@/logic/exportPeriod';
 import {
-  CSV_SHIPPING_MATERIAL_NOTE,
+  csvShippingMaterialNote,
   exportPreviewBackLabel,
   exportPreviewScrollHint,
   exportPreviewScreenMetaLabel,
@@ -106,7 +106,7 @@ export function ExportPreviewScreen() {
           **ヘッダ行には入れない** ── 列名は表計算ソフトがそのまま項目名にするので、
           注記が混ざると開いたときに邪魔になる */}
       <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
-        {CSV_SHIPPING_MATERIAL_NOTE}
+        {csvShippingMaterialNote(locale)}
       </Text>
       <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
         {exportPreviewScrollHint(locale)}

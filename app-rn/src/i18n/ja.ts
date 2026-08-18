@@ -849,6 +849,7 @@ export const ja = {
     errorCopy: 'この内容をコピーする',
     errorCopyToast: 'エラーの内容',
     csvInsideNote: '中身はCSVですが、確認用です。編集して読み込むことは想定していません。',
+    brokenZipMessage: 'ファイルを開けませんでした。壊れている可能性があります。',
     noCsvMessage: '選んだファイルはバックアップではないようです。バックアップの ZIP か、それを解凍したフォルダを選んでください。',
     unsupportedVersion: 'このバックアップの形式（バージョン {{version}}）には対応していません。アプリを更新してください。',
     missingFile: '{{file}} が見つかりません。',
@@ -874,6 +875,7 @@ export const ja = {
   /** CSV の書き出し（SPEC-V3 §5） */
   export: {
     sheetTitle: '書き出し（CSV）',
+    shippingMaterialNote: '送料には{{material}}の代金を含みます',
     submit: '書き出す',
     cancel: 'キャンセル',
     kindSection: '種類',

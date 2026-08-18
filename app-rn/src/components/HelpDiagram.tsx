@@ -123,11 +123,11 @@ import {
   presetUnitPriceLabel,
   presetUsePriceLabel,
   purchasePriceLabel,
-  RECORD_KIND_COLUMN,
+  filterKindSectionLabel,
   salesPriceLabel,
   tagLabel,
   targetPreviewRoomLabel,
-  TARGET_PROFIT_COLUMN,
+  targetProfitLabel,
   targetProfitUnsetLabel,
   totalProfitLabel,
   chartBarLegendLabel,
@@ -970,14 +970,14 @@ export function PackBuyFigure() {
 function duplicateCopiedLabels(locale: Locale): string[] {
   return [
     itemNameLabel(locale),
-    RECORD_KIND_COLUMN,
+    filterKindSectionLabel(locale),
     purchasePriceLabel(locale),
     postageLabel(locale),
     commissionLabel(locale),
     envelopeCostLabel(locale),
     othersCostLabel(locale),
     tagLabel(locale),
-    TARGET_PROFIT_COLUMN,
+    targetProfitLabel(locale, 'sourced'),
   ];
 }
 

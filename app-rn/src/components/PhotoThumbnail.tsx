@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
-import { photoEmptyLabel, PHOTO_IMAGE_LABEL } from '@/logic/labels';
+import { photoEmptyLabel, photoImageLabel } from '@/logic/labels';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
@@ -43,7 +43,7 @@ export function PhotoThumbnail({ fileName }: { fileName: string | null }) {
       style={[styles.frame, styles.outline, { backgroundColor: colors.disabledBackground, borderColor: colors.separator }]}
       // 正方形の枠に横長・縦長のどちらが来ても中身が歪まないよう、はみ出す側を切る
       contentFit="cover"
-      accessibilityLabel={PHOTO_IMAGE_LABEL}
+      accessibilityLabel={photoImageLabel(locale)}
       // 一覧をスクロールしている間に淡く現れる演出は入れない（行が点滅して見える）
       transition={0}
     />

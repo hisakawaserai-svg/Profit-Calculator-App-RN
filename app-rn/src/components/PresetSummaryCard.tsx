@@ -13,7 +13,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Preset, PresetType } from '@/db/schema';
 import {
-  PRESET_CARD_EMPTY_LABEL,
+  presetCardEmptyLabel,
   presetCountLabel,
   presetOverflowLabel,
   presetTypeLabel,
@@ -73,7 +73,7 @@ export function PresetSummaryCard({ type, presets }: Props) {
 
         {presets.length === 0 ? (
           <Text style={[styles.empty, { color: colors.mutedLabel }]}>
-            {PRESET_CARD_EMPTY_LABEL}
+            {presetCardEmptyLabel(locale)}
           </Text>
         ) : (
           <View style={styles.preview}>

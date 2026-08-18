@@ -91,4 +91,7 @@ export const MIGRATED_FILES = [
   'src/components/PhotoThumbnail.tsx',
   'src/components/PlaceholderScreen.tsx',
   'src/components/RecordBreakdownBar.tsx',
+  'src/components/AddRecordButton.tsx',
+  'src/components/SheetModal.tsx',
+  'src/components/PresetSummaryCard.tsx',
 ] as const;

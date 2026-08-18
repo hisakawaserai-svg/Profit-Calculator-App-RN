@@ -696,6 +696,7 @@ export const en: Translations = {
     errorCopy: 'Copy this message',
     errorCopyToast: 'the error message',
     csvInsideNote: 'The contents are CSV, but they are there to be checked. Editing them and importing is not supported.',
+    brokenZipMessage: 'The file could not be opened. It may be damaged.',
     noCsvMessage: 'The file you chose does not look like a backup. Please choose the backup ZIP, or a folder you unzipped it into.',
     unsupportedVersion: 'This backup format (version {{version}}) is not supported. Please update the app.',
     missingFile: '{{file}} is missing.',
@@ -718,6 +719,7 @@ export const en: Translations = {
   },
   export: {
     sheetTitle: 'Export (CSV)',
+    shippingMaterialNote: 'Shipping includes the cost of {{material}}',
     submit: 'Export',
     cancel: 'Cancel',
     kindSection: 'Type',

@@ -7,7 +7,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable } from 'react-native';
 
-import { ADD_RECORD_ACTION_LABEL } from '@/logic/labels';
+import { addRecordActionLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -15,10 +16,13 @@ type Props = {
 };
 
 export function AddRecordButton({ onPress }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel={ADD_RECORD_ACTION_LABEL}>
+    <Pressable onPress={onPress} hitSlop={8} accessibilityLabel={addRecordActionLabel(locale)}>
       <Ionicons name="add" size={26} color={colors.blue} />
     </Pressable>
   );

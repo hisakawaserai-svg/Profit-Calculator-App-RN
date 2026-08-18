@@ -2199,7 +2199,9 @@ export function presetOverflowLabel(count: number): string {
  * （設定タブの一覧に載るカードだが、部品そのものの移行はステップ 2）。
  * 設定タブのタグのカードは同じ語を `tagCardEmptyLabel()` から取る。
  */
-export const PRESET_CARD_EMPTY_LABEL = t('common.notRegistered', 'ja');
+export function presetCardEmptyLabel(locale: Locale): string {
+  return t('common.notRegistered', locale);
+}
 
 // ---- SPEC-V3 §3.2 一覧画面 ----
 
@@ -3625,7 +3627,9 @@ export function exportPreviewMetaLabel(
  * 列名は表計算ソフトがそのまま項目名として使うので、注記が混ざると邪魔になる。
  * 画面の側で 1 行言えば、CSV の中身を汚さずに済む。
  */
-export const CSV_SHIPPING_MATERIAL_NOTE = `送料には${shippingMaterialLabel('ja')}の代金を含みます`;
+export function csvShippingMaterialNote(locale: Locale): string {
+  return t('export.shippingMaterialNote', locale, { material: shippingMaterialLabel(locale) });
+}
 
 /** 表の下の 1 行（案 `40a`）。横スクロールできることは形からは読めないので語で言う */
 export function exportPreviewScrollHint(locale: Locale): string {
@@ -4802,8 +4806,9 @@ export function backupNoCsvMessage(locale: Locale): string {
 }
 
 /** ZIP として開けなかったとき（壊れている・別形式） */
-export const BACKUP_BROKEN_ZIP_MESSAGE =
-  'ファイルを開けませんでした。壊れている可能性があります。';
+export function backupBrokenZipMessage(locale: Locale): string {
+  return t('backup.brokenZipMessage', locale);
+}
 
 /** フォルダ選択そのものが使えない端末（Directory.pickDirectoryAsync が無い経路） */
 export function backupFolderPickUnavailable(locale: Locale): string {

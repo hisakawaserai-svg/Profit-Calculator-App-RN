@@ -26,7 +26,8 @@ import {
   selectBackupFiles,
   selectPhotoNames,
 } from '@/logic/backup';
-import { BACKUP_BROKEN_ZIP_MESSAGE, backupNoCsvMessage } from '@/logic/labels';
+import { backupBrokenZipMessage, backupNoCsvMessage } from '@/logic/labels';
+import type { Locale } from '@/settings/language';
 
 /** ZIP の MIME / UTI。共有シートの受け手が種類を判断するのに使う */
 export const BACKUP_MIME_TYPE = 'application/zip';
@@ -95,13 +96,13 @@ export type BackupArchive = {
  * `__MACOSX/` や `.DS_Store` を落とすのも含めて、その判断は
  * logic/backup.ts の `classifyBackupEntry` が持つ（純粋関数なのでテストできる）。
  */
-export function readBackupZip(file: File): BackupArchive {
+export function readBackupZip(locale: Locale, file: File): BackupArchive {
   let unzipped: Record<string, Uint8Array>;
   try {
     unzipped = unzipSync(file.bytesSync());
   } catch {
     // 壊れている・そもそも ZIP ではない。中身までは言えない
-    throw new BackupError(BACKUP_BROKEN_ZIP_MESSAGE);
+    throw new BackupError(backupBrokenZipMessage(locale));
   }
 
   const textEntries: [string, string][] = [];
