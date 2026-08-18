@@ -82,6 +82,11 @@ export function SegmentedControl({
             ]}>
             <Text
               numberOfLines={1}
+              // 幅の狭い枠（使いかたの図など）に英語を入れると 1 行に収まらない。
+              // 高さは固定なので折り返さず、**縮めて収める** ── 途中で「…」に切ると、
+              // 何を選ぶ口なのかが読めなくなる。日本語は元から収まるので見た目は変わらない
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
               style={[styles.label, { color: labelColor, fontWeight: selected ? '600' : '400' }]}>
               {option}
             </Text>
