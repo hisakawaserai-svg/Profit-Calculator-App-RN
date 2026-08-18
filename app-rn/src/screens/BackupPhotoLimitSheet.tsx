@@ -19,16 +19,17 @@ import { BottomActionBar } from '@/components/BottomActionBar';
 import { SheetModal } from '@/components/SheetModal';
 import { photoLimitMarkerRatio } from '@/logic/backupView';
 import {
-  BACKUP_CREATE_WITHOUT_PHOTOS_LABEL,
-  BACKUP_LIMIT_CANCEL_LABEL,
-  BACKUP_PHOTO_LIMIT_BAR_MIN,
-  BACKUP_PHOTO_LIMIT_MESSAGE,
-  BACKUP_PHOTO_LIMIT_TITLE,
+  backupCreateWithoutPhotosLabel,
+  backupLimitCancelLabel,
+  backupPhotoLimitBarMin,
+  backupPhotoLimitMessage,
+  backupPhotoLimitTitle,
   backupPhotoLimitBarLabel,
   backupPhotoLimitBarMax,
   backupPhotoLimitFooter,
   formatByteSize,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -52,6 +53,9 @@ export function BackupPhotoLimitSheet({
   onCreateWithoutPhotos,
   onCancel,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const markerRatio = photoLimitMarkerRatio(photos.bytes, limit);
 
@@ -62,19 +66,19 @@ export function BackupPhotoLimitSheet({
           {/* iOS のシートと同じつまみ。下に引いて閉じられることの印 */}
           <View style={[styles.grabber, { backgroundColor: colors.separator }]} />
 
-          <Text style={[styles.title, { color: colors.label }]}>{BACKUP_PHOTO_LIMIT_TITLE}</Text>
+          <Text style={[styles.title, { color: colors.label }]}>{backupPhotoLimitTitle(locale)}</Text>
           <Text style={[styles.message, { color: colors.label }]}>
-            {BACKUP_PHOTO_LIMIT_MESSAGE}
+            {backupPhotoLimitMessage(locale)}
           </Text>
 
           {/* 棒の全長 ＝ 今の写真の量。その中に上限の目盛りを引く（logic/backupView.ts） */}
           <View style={[styles.chart, { borderColor: colors.separator }]}>
             <View style={styles.chartHead}>
               <Text style={[styles.chartLabel, { color: colors.label }]}>
-                {backupPhotoLimitBarLabel(photos.count)}
+                {backupPhotoLimitBarLabel(locale, photos.count)}
               </Text>
               <Text style={[styles.chartAmount, { color: colors.red }]}>
-                {formatByteSize(photos.bytes)}
+                {formatByteSize(locale, photos.bytes)}
               </Text>
             </View>
 
@@ -86,27 +90,27 @@ export function BackupPhotoLimitSheet({
 
             <View style={styles.chartFoot}>
               <Text style={[styles.scale, { color: colors.secondaryLabel }]}>
-                {BACKUP_PHOTO_LIMIT_BAR_MIN}
+                {backupPhotoLimitBarMin(locale)}
               </Text>
               <Text style={[styles.scale, { color: colors.secondaryLabel }]}>
-                {backupPhotoLimitBarMax(limit)}
+                {backupPhotoLimitBarMax(locale, limit)}
               </Text>
             </View>
           </View>
 
           <Text style={[styles.footer, { color: colors.secondaryLabel }]}>
-            {backupPhotoLimitFooter(counts)}
+            {backupPhotoLimitFooter(locale, counts)}
           </Text>
 
           <BottomActionBar
-            label={BACKUP_CREATE_WITHOUT_PHOTOS_LABEL}
+            label={backupCreateWithoutPhotosLabel(locale)}
             onPress={() => {
               // 閉じ切ってから作り始める（シートが残ったまま進捗が出ると、
               // どちらの画面の進捗なのかが読めない）
               close();
               onCreateWithoutPhotos();
             }}
-            secondary={{ label: BACKUP_LIMIT_CANCEL_LABEL, onPress: close }}
+            secondary={{ label: backupLimitCancelLabel(locale), onPress: close }}
             variant="plain"
           />
         </View>

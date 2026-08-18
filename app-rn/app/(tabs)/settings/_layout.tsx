@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
-import { EXPORT_PREVIEW_SCREEN_TITLE } from '@/logic/labels';
+import { exportPreviewScreenTitle } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 // 設定タブの中の Stack。設定 → 使いかた のプッシュ遷移を持つ（UI-SPEC §2 / §5-9）。
 // タブ側のヘッダーは (tabs)/_layout.tsx で切ってあるので、ヘッダーはこの Stack が出す。
@@ -28,6 +29,9 @@ export const unstable_settings = {
 };
 
 export default function SettingsLayout() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
     <Stack>
       {/* 起点。options は渡さない ── 見出しは index.tsx 側の Stack.Screen に任せる */}
@@ -37,7 +41,7 @@ export default function SettingsLayout() {
           `<Stack.Screen options>` より先に効いてルート名（`export-preview`）が出てしまう */}
       <Stack.Screen
         name="export-preview"
-        options={{ presentation: 'card', title: EXPORT_PREVIEW_SCREEN_TITLE }}
+        options={{ presentation: 'card', title: exportPreviewScreenTitle(locale) }}
       />
     </Stack>
   );

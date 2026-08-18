@@ -26,7 +26,7 @@ import {
   selectBackupFiles,
   selectPhotoNames,
 } from '@/logic/backup';
-import { BACKUP_BROKEN_ZIP_MESSAGE, BACKUP_NO_CSV_MESSAGE } from '@/logic/labels';
+import { BACKUP_BROKEN_ZIP_MESSAGE, backupNoCsvMessage } from '@/logic/labels';
 
 /** ZIP の MIME / UTI。共有シートの受け手が種類を判断するのに使う */
 export const BACKUP_MIME_TYPE = 'application/zip';
@@ -119,7 +119,7 @@ export function readBackupZip(file: File): BackupArchive {
   }
 
   const files = selectBackupFiles(textEntries);
-  if (files.size === 0) throw new BackupError(BACKUP_NO_CSV_MESSAGE);
+  if (files.size === 0) throw new BackupError(backupNoCsvMessage('ja'));
   return { files, photos };
 }
 
@@ -155,7 +155,7 @@ export function readBackupDirectory(directory: Directory): BackupArchive {
   collect(directory, '', 2);
 
   const files = selectBackupFiles(textEntries);
-  if (files.size === 0) throw new BackupError(BACKUP_NO_CSV_MESSAGE);
+  if (files.size === 0) throw new BackupError(backupNoCsvMessage('ja'));
   return { files, photos };
 }
 

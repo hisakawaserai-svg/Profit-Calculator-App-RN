@@ -32,13 +32,13 @@ import {
   backupFieldCountMessage,
   backupMissingFileMessage,
   BACKUP_EMPTY_FILE_MESSAGE,
-  BACKUP_NO_CSV_MESSAGE,
+  backupNoCsvMessage,
   backupUnsupportedVersionMessage,
   backupUnknownRecordRefMessage,
   backupUnknownTagRefMessage,
-  BACKUP_DATE_ERROR,
-  BACKUP_NUMBER_ERROR,
-  BACKUP_BOOLEAN_ERROR,
+  backupDateError,
+  backupNumberError,
+  backupBooleanError,
   BACKUP_ENUM_ERROR,
 } from './labels';
 
@@ -536,7 +536,7 @@ function parseTable(
   const header = rows[0];
   const expected = columns.map((column) => column.name);
   if (header.length !== expected.length || header.some((name, i) => name !== expected[i])) {
-    throw new BackupError(backupColumnMismatchMessage(fileName, expected, header));
+    throw new BackupError(backupColumnMismatchMessage('ja', fileName, expected, header));
   }
 
   return rows.slice(1).map((cells, index) => {
@@ -544,7 +544,7 @@ function parseTable(
     const lineNumber = index + 2;
     if (cells.length !== expected.length) {
       throw new BackupError(
-        backupFieldCountMessage(fileName, lineNumber, expected.length, cells.length),
+        backupFieldCountMessage('ja', fileName, lineNumber, expected.length, cells.length),
       );
     }
 
@@ -567,26 +567,26 @@ function validateField(
 ): void {
   const fail = (reason: string) => {
     throw new BackupError(
-      backupColumnErrorMessage(fileName, lineNumber, column.label ?? column.name, reason),
+      backupColumnErrorMessage('ja', fileName, lineNumber, column.label ?? column.name, reason),
     );
   };
 
   switch (column.type) {
     case 'number':
-      if (parseNumberField(value) == null) fail(BACKUP_NUMBER_ERROR);
+      if (parseNumberField(value) == null) fail(backupNumberError('ja'));
       return;
     case 'numberOrEmpty':
       // 空欄は「値が無い」（SPEC-V9 §3）。0 と書いてあれば 0 として通る
-      if (value !== '' && parseNumberField(value) == null) fail(BACKUP_NUMBER_ERROR);
+      if (value !== '' && parseNumberField(value) == null) fail(backupNumberError('ja'));
       return;
     case 'boolean':
-      if (value !== '0' && value !== '1') fail(BACKUP_BOOLEAN_ERROR);
+      if (value !== '0' && value !== '1') fail(backupBooleanError('ja'));
       return;
     case 'date':
-      if (!isValidDbDate(value)) fail(BACKUP_DATE_ERROR);
+      if (!isValidDbDate(value)) fail(backupDateError('ja'));
       return;
     case 'dateOrEmpty':
-      if (value !== '' && !isValidDbDate(value)) fail(BACKUP_DATE_ERROR);
+      if (value !== '' && !isValidDbDate(value)) fail(backupDateError('ja'));
       return;
     case 'enum':
       if (!column.values?.includes(value)) fail(BACKUP_ENUM_ERROR(column.values ?? []));
@@ -594,7 +594,7 @@ function validateField(
     case 'text':
       if (column.required === true && value.trim() === '') {
         throw new BackupError(
-          backupEmptyColumnMessage(fileName, lineNumber, column.label ?? column.name),
+          backupEmptyColumnMessage('ja', fileName, lineNumber, column.label ?? column.name),
         );
       }
       return;
@@ -730,7 +730,7 @@ export function readBackupContents(
   photoNames: ReadonlySet<string> = new Set(),
 ): BackupContents {
   for (const name of BACKUP_FILES) {
-    if (!files.has(name)) throw new BackupError(backupMissingFileMessage(name));
+    if (!files.has(name)) throw new BackupError(backupMissingFileMessage('ja', name));
   }
 
   const preview = readBackupInfo(files.get(BACKUP_INFO_FILE)!);
@@ -799,7 +799,7 @@ function readBackupInfo(text: string): BackupPreview {
   const info = rows[0];
   const version = Number(info.format_version);
   if (version < BACKUP_MIN_SUPPORTED_VERSION || version > BACKUP_FORMAT_VERSION) {
-    throw new BackupError(backupUnsupportedVersionMessage(version));
+    throw new BackupError(backupUnsupportedVersionMessage('ja', version));
   }
 
   return {
@@ -854,16 +854,16 @@ function validateReferences(tables: BackupTables): void {
   tables.recordTags.forEach((row, index) => {
     const lineNumber = index + 2;
     if (!recordIds.has(row.record_id)) {
-      throw new BackupError(backupUnknownRecordRefMessage(lineNumber, row.record_id));
+      throw new BackupError(backupUnknownRecordRefMessage('ja', lineNumber, row.record_id));
     }
     if (!tagIds.has(row.tag_id)) {
-      throw new BackupError(backupUnknownTagRefMessage(lineNumber, row.tag_id));
+      throw new BackupError(backupUnknownTagRefMessage('ja', lineNumber, row.tag_id));
     }
   });
 }
 
 /** ZIP にも解凍フォルダにも CSV が 1 つも無かったとき（§3.1）。画面が使う */
-export const BACKUP_NO_CSV_ERROR = BACKUP_NO_CSV_MESSAGE;
+export const BACKUP_NO_CSV_ERROR = backupNoCsvMessage('ja');
 
 // ---- ファイル名（§1.1） ----
 

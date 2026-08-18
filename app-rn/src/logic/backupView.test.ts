@@ -131,13 +131,13 @@ describe('案 53f 一番新しい記録', () => {
   });
 
   it('文は日付と商品名を名指しする', () => {
-    expect(backupNewestRecordNote('2026-08-11T09:00:00.000', 'ワンピース 白')).toBe(
+    expect(backupNewestRecordNote('ja', '2026-08-11T09:00:00.000', 'ワンピース 白')).toBe(
       '中で一番新しい記録は 2026年8月11日「ワンピース 白」です。見覚えがなければ、別の人のファイルです。',
     );
   });
 
   it('商品名が空なら一覧と同じ「無題」', () => {
-    expect(backupNewestRecordNote('2026-08-11T09:00:00.000', '')).toContain('「無題」');
+    expect(backupNewestRecordNote('ja', '2026-08-11T09:00:00.000', '')).toContain('「無題」');
   });
 });
 
@@ -178,39 +178,39 @@ const TODAY = new Date(2026, 7, 14);
 
 describe('案 53f 作成日の相対表示', () => {
   it('きょう', () => {
-    expect(backupRelativeDayLabel('2026-08-14T09:00:00.000', TODAY)).toBe('きょう');
+    expect(backupRelativeDayLabel('ja', '2026-08-14T09:00:00.000', TODAY)).toBe('きょう');
   });
 
   it('きのう', () => {
-    expect(backupRelativeDayLabel('2026-08-13T23:59:00.000', TODAY)).toBe('きのう');
+    expect(backupRelativeDayLabel('ja', '2026-08-13T23:59:00.000', TODAY)).toBe('きのう');
   });
 
   it('おとといより前は日付だけで足りる', () => {
-    expect(backupRelativeDayLabel('2026-08-12T09:00:00.000', TODAY)).toBe(null);
+    expect(backupRelativeDayLabel('ja', '2026-08-12T09:00:00.000', TODAY)).toBe(null);
   });
 
   it('月をまたいでも「きのう」', () => {
-    expect(backupRelativeDayLabel('2026-07-31T09:00:00.000', new Date(2026, 7, 1))).toBe('きのう');
+    expect(backupRelativeDayLabel('ja', '2026-07-31T09:00:00.000', new Date(2026, 7, 1))).toBe('きのう');
   });
 
   it('カードの 2 行目（写真あり）', () => {
-    expect(backupPreviewCreatedLine('2026-08-13T14:30:00.000', TODAY, true)).toBe(
+    expect(backupPreviewCreatedLine('ja', '2026-08-13T14:30:00.000', TODAY, true)).toBe(
       '作成日 2026年8月13日（きのう）',
     );
   });
 
   it('写真の入っていないファイルはここでも言う（§4.6）', () => {
-    expect(backupPreviewCreatedLine('2026-08-13T14:30:00.000', TODAY, false)).toBe(
+    expect(backupPreviewCreatedLine('ja', '2026-08-13T14:30:00.000', TODAY, false)).toBe(
       '作成日 2026年8月13日（きのう）・写真なし',
     );
   });
 
   it('前回作った日（案 53a）', () => {
-    expect(backupLastCreatedNote('2026-07-02T10:00:00.000')).toBe('前回作ったのは 2026年7月2日');
+    expect(backupLastCreatedNote('ja', '2026-07-02T10:00:00.000')).toBe('前回作ったのは 2026年7月2日');
   });
 
   it('一度も作っていないことは隠さない', () => {
-    expect(backupLastCreatedNote(null)).toBe('まだ一度も作っていません');
+    expect(backupLastCreatedNote('ja', null)).toBe('まだ一度も作っていません');
   });
 });
 
@@ -218,15 +218,15 @@ describe('案 53f 作成日の相対表示', () => {
 
 describe('案 53k 復元の結果', () => {
   it('全部そろえば枚数だけ', () => {
-    expect(backupRestoredPhotoValue(20, 0)).toBe('20枚');
+    expect(backupRestoredPhotoValue('ja', 20, 0)).toBe('20枚');
   });
 
   it('欠けたぶんは括弧で添える', () => {
-    expect(backupRestoredPhotoValue(17, 3)).toBe('17枚（3枚は復元できず）');
+    expect(backupRestoredPhotoValue('ja', 17, 3)).toBe('17枚（3枚は復元できず）');
   });
 
   it('注記は理由と、その記録がどうなったかを言う', () => {
-    expect(backupMissingPhotoNote(3)).toBe(
+    expect(backupMissingPhotoNote('ja', 3)).toBe(
       '写真3枚はファイルの中に無いか壊れていたため、その3件は写真なしの記録として入りました。金額や日付は入っています。',
     );
   });

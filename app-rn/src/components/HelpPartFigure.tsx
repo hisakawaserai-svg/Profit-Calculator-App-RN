@@ -41,9 +41,9 @@ import {
   PRICING_EXAMPLE_SIMULATED_PRICE,
 } from '@/logic/helpFigureExample';
 import {
-  BACKUP_PHOTO_EXCLUDE_DETAIL,
-  BACKUP_PHOTO_EXCLUDE_LABEL,
-  BACKUP_PHOTO_INCLUDE_LABEL,
+  backupPhotoExcludeDetail,
+  backupPhotoExcludeLabel,
+  backupPhotoIncludeLabel,
   COLOR_UNUSED_SECTION_LABEL,
   COLOR_USED_SECTION_LABEL,
   COMMISSION_LABEL,
@@ -52,8 +52,8 @@ import {
   DATA_MODE_PROFIT_LABEL,
   DATA_MODE_TAG_LABEL,
   ENVELOPE_COST_LABEL,
-  EXPORT_PREVIEW_CARD_TITLE,
-  EXPORT_TARGET_OPTIONS,
+  exportPreviewCardTitle,
+  exportTargetOptions,
   HELP_FIGURE_ADD_RECORD_NOTE,
   HELP_FIGURE_BREAKDOWN_NOTE,
   HELP_FIGURE_CALCULATOR_NOTE,
@@ -97,7 +97,7 @@ import {
   SIMULATOR_NOTE,
   SOLD_RECORDS_LABEL,
   SORT_SHEET_TITLE,
-  TAG_LABEL,
+  tagLabel,
   TAG_SECTION_LIST_MODE_LABEL,
   TAG_SECTION_OVERLAY_MODE_LABEL,
   TARGET_PROFIT_UNSET_LABEL,
@@ -520,10 +520,10 @@ export function PhotoIncludeFigure() {
       <ChoiceCardPair
         options={[
           {
-            label: BACKUP_PHOTO_INCLUDE_LABEL,
-            detail: backupPhotoIncludeDetail(53, 8.2 * 1024 * 1024),
+            label: backupPhotoIncludeLabel('ja'),
+            detail: backupPhotoIncludeDetail('ja', 53, 8.2 * 1024 * 1024),
           },
-          { label: BACKUP_PHOTO_EXCLUDE_LABEL, detail: BACKUP_PHOTO_EXCLUDE_DETAIL },
+          { label: backupPhotoExcludeLabel('ja'), detail: backupPhotoExcludeDetail('ja') },
         ]}
         selectedIndex={0}
         onChange={noop}
@@ -633,7 +633,7 @@ export function TagRowFigure() {
   return (
     <PartFrame note={HELP_FIGURE_TAG_ROW_NOTE}>
       <View style={styles.tagRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{tagLabel('ja')}</Text>
         <TagChip tag={{ name: '洋服', colorKey: 'red' }} variant="selected" />
         <View style={[styles.plusBox, { borderColor: colors.separator }]}>
           <Ionicons name="add" size={16} color={colors.blue} />
@@ -763,7 +763,7 @@ export function ExportTargetFigure() {
   return (
     <PartFrame note={HELP_FIGURE_EXPORT_TARGET_NOTE}>
       <SegmentedControl
-        options={EXPORT_TARGET_OPTIONS.map((option) => option.label)}
+        options={exportTargetOptions('ja').map((option) => option.label)}
         selectedIndex={0}
         onChange={noop}
       />
@@ -779,11 +779,11 @@ export function ExportPreviewFigure() {
     <PartFrame note={HELP_FIGURE_EXPORT_PREVIEW_NOTE}>
       <View style={styles.previewHead}>
         <Text style={[styles.fieldLabel, { color: colors.label }]}>
-          {EXPORT_PREVIEW_CARD_TITLE}
+          {exportPreviewCardTitle('ja')}
         </Text>
         <View style={styles.grow} />
         <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-          {exportPreviewMetaLabel(3, 18)}
+          {exportPreviewMetaLabel('ja', 3, 18)}
         </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
       </View>

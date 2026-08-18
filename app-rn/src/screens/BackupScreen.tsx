@@ -82,46 +82,46 @@ import {
 } from '@/logic/backup';
 import { backupDiffRows, exceedsPhotoLimit, newestBackupRecord } from '@/logic/backupView';
 import {
-  BACKUP_COUNT_PRESETS_LABEL,
-  BACKUP_COUNT_RECORDS_LABEL,
-  BACKUP_COUNT_TAGS_LABEL,
-  BACKUP_CREATE_BUTTON_LABEL,
-  BACKUP_CREATE_FAILED_MESSAGE,
-  BACKUP_CREATE_NOTE,
-  BACKUP_CREATE_SECTION_TITLE,
-  BACKUP_CREATE_WITHOUT_PHOTOS_LABEL,
-  BACKUP_CREATING_LABEL,
-  BACKUP_CSV_INSIDE_NOTE,
-  BACKUP_ERROR_COPY_TOAST_LABEL,
-  BACKUP_FOLDER_PICK_UNAVAILABLE,
+  backupCountPresetsLabel,
+  backupCountRecordsLabel,
+  backupCountTagsLabel,
+  backupCreateButtonLabel,
+  backupCreateFailedMessage,
+  backupCreateNote,
+  backupCreateSectionTitle,
+  backupCreateWithoutPhotosLabel,
+  backupCreatingLabel,
+  backupCsvInsideNote,
+  backupErrorCopyToastLabel,
+  backupFolderPickUnavailable,
   BACKUP_INFO_FILE,
-  BACKUP_NO_PHOTO_WARNING,
-  BACKUP_PHOTO_EXCLUDE_DETAIL,
-  BACKUP_PHOTO_EXCLUDE_LABEL,
-  BACKUP_PHOTO_INCLUDE_LABEL,
-  BACKUP_PHOTO_SECTION_TITLE,
-  BACKUP_PICK_FILE_LABEL,
-  BACKUP_PICK_FOLDER_LABEL,
-  BACKUP_PREVIEW_BACK_LABEL,
-  BACKUP_PREVIEW_SCREEN_TITLE,
-  BACKUP_PROGRESS_WAIT_NOTE,
-  BACKUP_RESTORE_NOTE,
-  BACKUP_RESTORE_SECTION_TITLE,
-  BACKUP_RESTORING_LABEL,
-  BACKUP_RESULT_SCREEN_TITLE,
-  BACKUP_SCREEN_TITLE,
-  BACKUP_SHARE_DIALOG_TITLE,
-  BACKUP_SHARING_UNAVAILABLE,
+  backupNoPhotoWarning,
+  backupPhotoExcludeDetail,
+  backupPhotoExcludeLabel,
+  backupPhotoIncludeLabel,
+  backupPhotoSectionTitle,
+  backupPickFileLabel,
+  backupPickFolderLabel,
+  backupPreviewBackLabel,
+  backupPreviewScreenTitle,
+  backupProgressWaitNote,
+  backupRestoreNote,
+  backupRestoreSectionTitle,
+  backupRestoringLabel,
+  backupResultScreenTitle,
+  backupScreenTitle,
+  backupShareDialogTitle,
+  backupSharingUnavailable,
   backupCountChipLabel,
   backupErrorCopyText,
   backupLastCreatedNote,
   backupPhotoIncludeDetail,
   backupPhotoProgressLabel,
-  CLOSE_LABEL,
+  closeLabel,
   copiedMessage,
   copyFailedMessage,
 } from '@/logic/labels';
-import { useSettings } from '@/settings';
+import { useSettings , useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import { BackupPhotoLimitSheet } from './BackupPhotoLimitSheet';
@@ -206,6 +206,9 @@ function yieldToRender(): Promise<void> {
 }
 
 export function BackupScreen() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const { lastBackupAt, setLastBackupAt } = useSettings();
@@ -261,8 +264,8 @@ export function BackupScreen() {
           label: progress.label,
           note:
             progress.total === 0
-              ? BACKUP_PROGRESS_WAIT_NOTE
-              : `${backupPhotoProgressLabel(progress.done, progress.total)}　${BACKUP_PROGRESS_WAIT_NOTE}`,
+              ? backupProgressWaitNote(locale)
+              : `${backupPhotoProgressLabel(locale, progress.done, progress.total)}　${backupProgressWaitNote(locale)}`,
         };
 
   // ---- バックアップを作る（§5.3 / 案 53a） ----
@@ -288,16 +291,16 @@ export function BackupScreen() {
   /** 実際に ZIP を作って共有シートへ渡す。写真を含めるかは呼び出し側が決める（§4.4） */
   const buildAndShare = useCallback(
     async (withPhotos: boolean) => {
-      setProgress({ done: 0, total: 0, label: BACKUP_CREATING_LABEL });
+      setProgress({ done: 0, total: 0, label: backupCreatingLabel(locale) });
       try {
         if (!(await Sharing.isAvailableAsync())) {
-          Alert.alert(BACKUP_SHARING_UNAVAILABLE);
+          Alert.alert(backupSharingUnavailable(locale));
           return;
         }
 
         const createdAt = new Date();
         const tables = backupRepository.dump();
-        const photos = withPhotos ? await readPhotos(BACKUP_CREATING_LABEL) : [];
+        const photos = withPhotos ? await readPhotos(backupCreatingLabel(locale)) : [];
         const files = new Map<string, string>([
           [
             BACKUP_INFO_FILE,
@@ -326,16 +329,16 @@ export function BackupScreen() {
         await Sharing.shareAsync(uri, {
           mimeType: BACKUP_MIME_TYPE,
           UTI: BACKUP_UTI,
-          dialogTitle: BACKUP_SHARE_DIALOG_TITLE,
+          dialogTitle: backupShareDialogTitle(locale),
         });
       } catch {
         // 原因は端末側（容量・共有先の失敗）なので、言えるのは「できなかった」まで
-        Alert.alert(BACKUP_CREATE_FAILED_MESSAGE);
+        Alert.alert(backupCreateFailedMessage(locale));
       } finally {
         setProgress(null);
       }
     },
-    [readPhotos, setLastBackupAt],
+    [readPhotos, setLastBackupAt, locale],
   );
 
   /**
@@ -420,15 +423,15 @@ export function BackupScreen() {
       // 「使えません」と出す方が害が大きい
       if (isCancellation(error)) return;
 
-      Alert.alert(BACKUP_FOLDER_PICK_UNAVAILABLE);
+      Alert.alert(backupFolderPickUnavailable(locale));
     }
-  }, [showArchive]);
+  }, [showArchive, locale]);
 
   // ---- 置き換える（§4.5 / 案 53f → 53k） ----
 
   const runRestore = useCallback(
     async (picked: PickedBackup) => {
-      setProgress({ done: 0, total: picked.photos.size, label: BACKUP_RESTORING_LABEL });
+      setProgress({ done: 0, total: picked.photos.size, label: backupRestoringLabel(locale) });
       try {
         // **DB が先、写真が後**（§4.5）── 逆にすると、DB の書き込みが巻き戻ったときに
         // 「記録は残っているのに写真だけ消えた」状態になる。repository.remove が
@@ -449,7 +452,7 @@ export function BackupScreen() {
         let done = 0;
         for (const [name, bytes] of picked.photos) {
           done += 1;
-          setProgress({ done, total: picked.photos.size, label: BACKUP_RESTORING_LABEL });
+          setProgress({ done, total: picked.photos.size, label: backupRestoringLabel(locale) });
           await yieldToRender();
           try {
             photoStore.write(name, bytes);
@@ -495,21 +498,21 @@ export function BackupScreen() {
         setProgress(null);
       }
     },
-    [refreshCurrent],
+    [refreshCurrent, locale],
   );
 
   // ---- エラーの内容をコピーする（案 53h） ----
 
   const copyError = useCallback(async (reason: string) => {
     try {
-      await Clipboard.setStringAsync(backupErrorCopyText(reason));
+      await Clipboard.setStringAsync(backupErrorCopyText(locale, reason));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.show({ type: 'success', text1: copiedMessage('ja', BACKUP_ERROR_COPY_TOAST_LABEL) });
+      Toast.show({ type: 'success', text1: copiedMessage(locale, backupErrorCopyToastLabel(locale)) });
     } catch {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Toast.show({ type: 'error', text1: copyFailedMessage('ja', BACKUP_ERROR_COPY_TOAST_LABEL) });
+      Toast.show({ type: 'error', text1: copyFailedMessage(locale, backupErrorCopyToastLabel(locale)) });
     }
-  }, []);
+  }, [locale]);
 
   const backToCreate = useCallback(() => setStage({ kind: 'create' }), []);
 
@@ -519,12 +522,12 @@ export function BackupScreen() {
     const previewHeader = (
       <Stack.Screen
         options={{
-          title: BACKUP_PREVIEW_SCREEN_TITLE,
+          title: backupPreviewScreenTitle(locale),
           // 標準の戻るは設定画面まで戻ってしまう。ここで戻りたいのは作る画面
           headerBackVisible: false,
           headerLeft: () =>
             busy ? null : (
-              <BackupHeaderBack label={BACKUP_PREVIEW_BACK_LABEL} onPress={backToCreate} />
+              <BackupHeaderBack label={backupPreviewBackLabel(locale)} onPress={backToCreate} />
             ),
           // **前の状態が置いた右上のボタンを必ず消す。** react-navigation の options は
           // 積み重なるので、書かない項目は前の画面のまま残る（完了画面の「閉じる」が
@@ -589,13 +592,13 @@ export function BackupScreen() {
       <>
         <Stack.Screen
           options={{
-            title: BACKUP_RESULT_SCREEN_TITLE,
+            title: backupResultScreenTitle(locale),
             headerBackVisible: false,
             headerLeft: undefined,
             // 読み込みは終わっているので、閉じる先は作る画面（もう一度作れる場所）
             headerRight: () => (
               <Pressable onPress={backToCreate} accessibilityRole="button" hitSlop={8}>
-                <Text style={[styles.headerAction, { color: colors.blue }]}>{CLOSE_LABEL}</Text>
+                <Text style={[styles.headerAction, { color: colors.blue }]}>{closeLabel(locale)}</Text>
               </Pressable>
             ),
           }}
@@ -621,7 +624,7 @@ export function BackupScreen() {
           ここは標準の「‹ 設定」に戻す */}
       <Stack.Screen
         options={{
-          title: BACKUP_SCREEN_TITLE,
+          title: backupScreenTitle(locale),
           headerBackVisible: true,
           headerLeft: undefined,
           // 実行中は押せる口を下端の帯だけに絞る（画面全体を触れなくするのと同じ理由）
@@ -640,24 +643,24 @@ export function BackupScreen() {
           pointerEvents={busy ? 'none' : 'auto'}>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground, opacity: busy ? 0.4 : 1 }]}>
             <Text style={[styles.cardTitle, { color: colors.label }]}>
-              {BACKUP_CREATE_SECTION_TITLE}
+              {backupCreateSectionTitle(locale)}
             </Text>
             <Text style={[styles.body14, { color: colors.secondaryLabel }]}>
-              {BACKUP_CREATE_NOTE}
+              {backupCreateNote(locale)}
             </Text>
 
             {/* 件数の帯（案 53a）。**何が入るのか**を数で見せる */}
             <View style={[styles.counts, { borderTopColor: colors.separator }]}>
               {[
-                [BACKUP_COUNT_RECORDS_LABEL, current.records],
-                [BACKUP_COUNT_TAGS_LABEL, current.tags],
-                [BACKUP_COUNT_PRESETS_LABEL, current.presets],
+                [backupCountRecordsLabel(locale), current.records],
+                [backupCountTagsLabel(locale), current.tags],
+                [backupCountPresetsLabel(locale), current.presets],
               ].map(([label, count]) => (
                 <Text
                   key={label}
                   numberOfLines={1}
                   style={[styles.countChip, { color: colors.label }]}>
-                  {backupCountChipLabel(String(label), Number(count))}
+                  {backupCountChipLabel(locale, String(label), Number(count))}
                 </Text>
               ))}
             </View>
@@ -668,15 +671,15 @@ export function BackupScreen() {
           {hasPhotos && (
             <View style={[styles.card, { backgroundColor: colors.secondaryBackground, opacity: busy ? 0.4 : 1 }]}>
               <Text style={[styles.cardTitle, { color: colors.label }]}>
-                {BACKUP_PHOTO_SECTION_TITLE}
+                {backupPhotoSectionTitle(locale)}
               </Text>
               <ChoiceCardPair
                 options={[
                   {
-                    label: BACKUP_PHOTO_INCLUDE_LABEL,
-                    detail: backupPhotoIncludeDetail(current.photos, current.bytes),
+                    label: backupPhotoIncludeLabel(locale),
+                    detail: backupPhotoIncludeDetail(locale, current.photos, current.bytes),
                   },
-                  { label: BACKUP_PHOTO_EXCLUDE_LABEL, detail: BACKUP_PHOTO_EXCLUDE_DETAIL },
+                  { label: backupPhotoExcludeLabel(locale), detail: backupPhotoExcludeDetail(locale) },
                 ]}
                 selectedIndex={includePhotos ? 0 : 1}
                 onChange={(index) => setIncludePhotos(index === 0)}
@@ -684,12 +687,12 @@ export function BackupScreen() {
               />
               {/* **選んだ場所のすぐ下**に出す（案 53b）。カードの外に置くと、
                   選んだ瞬間の視線から外れる */}
-              {excluded && <NoticeCard tone="warning" body={BACKUP_NO_PHOTO_WARNING} />}
+              {excluded && <NoticeCard tone="warning" body={backupNoPhotoWarning(locale)} />}
             </View>
           )}
 
           <Text style={[styles.outerNote, { color: colors.secondaryLabel, opacity: busy ? 0.4 : 1 }]}>
-            {BACKUP_CSV_INSIDE_NOTE}
+            {backupCsvInsideNote(locale)}
           </Text>
 
           {/* 復元の入口。**作る側と同じ画面に置く**（§5.2）── 機種変更では
@@ -697,21 +700,21 @@ export function BackupScreen() {
               渡された側が探すことになる */}
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground, opacity: busy ? 0.4 : 1 }]}>
             <Text style={[styles.cardTitle, { color: colors.label }]}>
-              {BACKUP_RESTORE_SECTION_TITLE}
+              {backupRestoreSectionTitle(locale)}
             </Text>
             <Text style={[styles.body14, { color: colors.secondaryLabel }]}>
-              {BACKUP_RESTORE_NOTE}
+              {backupRestoreNote(locale)}
             </Text>
-            <PickButton label={BACKUP_PICK_FILE_LABEL} onPress={() => void pickFile()} disabled={busy} />
-            <PickButton label={BACKUP_PICK_FOLDER_LABEL} onPress={() => void pickFolder()} disabled={busy} />
+            <PickButton label={backupPickFileLabel(locale)} onPress={() => void pickFile()} disabled={busy} />
+            <PickButton label={backupPickFolderLabel(locale)} onPress={() => void pickFolder()} disabled={busy} />
           </View>
         </ScrollView>
 
         <BottomActionBar
-          label={excluded ? BACKUP_CREATE_WITHOUT_PHOTOS_LABEL : BACKUP_CREATE_BUTTON_LABEL}
+          label={excluded ? backupCreateWithoutPhotosLabel(locale) : backupCreateButtonLabel(locale)}
           onPress={createBackup}
           progress={bottomProgress}
-          note={backupLastCreatedNote(lastBackupAt)}
+          note={backupLastCreatedNote(locale, lastBackupAt)}
         />
       </View>
 

@@ -48,14 +48,14 @@ import { analyzePricing } from '@/logic/pricing';
 import {
   achievementBadgeTierName,
   achievementName,
-  BACKUP_CREATE_BUTTON_LABEL,
-  BACKUP_DIFF_CURRENT_HEADER,
-  BACKUP_DIFF_FILE_HEADER,
-  BACKUP_PREVIEW_PHOTOS_LABEL,
-  BACKUP_PREVIEW_PRESETS_LABEL,
-  BACKUP_PREVIEW_RECORDS_LABEL,
-  BACKUP_PREVIEW_TAGS_LABEL,
-  BACKUP_RESTORE_SECTION_TITLE,
+  backupCreateButtonLabel,
+  backupDiffCurrentHeader,
+  backupDiffFileHeader,
+  backupCountPhotosLabel,
+  backupCountPresetsLabel,
+  backupCountRecordsLabel,
+  backupCountTagsLabel,
+  backupRestoreSectionTitle,
   COMMISSION_LABEL,
   COMMISSION_SHORT_LABEL,
   CUMULATIVE_PROFIT_LABEL,
@@ -110,8 +110,8 @@ import {
   HELP_FIGURE_TARGET_ROW_TITLE,
   HELP_FIGURE_TARGET_SUBTITLE,
   HELP_FIGURE_TOTAL_CAPTION,
-  ITEM_NAME_LABEL,
-  MEMO_LABEL,
+  itemNameLabel,
+  memoLabel,
   OTHERS_COST_LABEL,
   PHOTO_FIELD_LABEL,
   POSTAGE_LABEL,
@@ -123,7 +123,7 @@ import {
   PURCHASE_PRICE_LABEL,
   RECORD_KIND_COLUMN,
   SALES_PRICE_LABEL,
-  TAG_LABEL,
+  tagLabel,
   TARGET_PREVIEW_ROOM_LABEL,
   TARGET_PROFIT_COLUMN,
   TARGET_PROFIT_UNSET_LABEL,
@@ -660,8 +660,8 @@ const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] 
   { key: 'basic', label: HELP_FIGURE_CSV_BASIC_LABEL, backup: true, tax: true },
   { key: 'site', label: HELP_FIGURE_CSV_SITE_LABEL, backup: true, tax: true },
   { key: 'breakdown', label: HELP_FIGURE_CSV_BREAKDOWN_LABEL, backup: true, tax: true },
-  { key: 'memo', label: MEMO_LABEL, backup: true, tax: false },
-  { key: 'tag', label: TAG_LABEL, backup: true, tax: false },
+  { key: 'memo', label: memoLabel('ja'), backup: true, tax: false },
+  { key: 'tag', label: tagLabel('ja'), backup: true, tax: false },
 ];
 
 /**
@@ -709,10 +709,10 @@ export function CsvKindsFigure() {
  * 減る行があってはじめて「今あるものに足されるのではない」が図から読める。
  */
 const BACKUP_DIFF_ROWS: { key: string; label: string; current: number; file: number }[] = [
-  { key: 'records', label: BACKUP_PREVIEW_RECORDS_LABEL, current: 53, file: 21 },
-  { key: 'tags', label: BACKUP_PREVIEW_TAGS_LABEL, current: 8, file: 5 },
-  { key: 'presets', label: BACKUP_PREVIEW_PRESETS_LABEL, current: 6, file: 6 },
-  { key: 'photos', label: BACKUP_PREVIEW_PHOTOS_LABEL, current: 31, file: 12 },
+  { key: 'records', label: backupCountRecordsLabel('ja'), current: 53, file: 21 },
+  { key: 'tags', label: backupCountTagsLabel('ja'), current: 8, file: 5 },
+  { key: 'presets', label: backupCountPresetsLabel('ja'), current: 6, file: 6 },
+  { key: 'photos', label: backupCountPhotosLabel('ja'), current: 31, file: 12 },
 ];
 
 /**
@@ -731,9 +731,9 @@ export function BackupPreviewFigure() {
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
         <Text style={[styles.csvKind, { color: colors.label }]}>
-          {BACKUP_DIFF_CURRENT_HEADER}
+          {backupDiffCurrentHeader('ja')}
         </Text>
-        <Text style={[styles.csvKind, { color: colors.label }]}>{BACKUP_DIFF_FILE_HEADER}</Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>{backupDiffFileHeader('ja')}</Text>
       </View>
       {BACKUP_DIFF_ROWS.map((row) => (
         <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
@@ -906,25 +906,25 @@ export function PackBuyFigure() {
  * 数を減らして書くわけにもいかない ── 2 列に分けて、左を読めば「打ち直さずに済むもの」、
  * 右を読めば「自分で入れるもの」が塊として見える形にする。
  *
- * **欄の名前は画面の表示語をそのまま使う**（ITEM_NAME_LABEL など）。図の中で言い換えると、
+ * **欄の名前は画面の表示語をそのまま使う**（itemNameLabel('ja') など）。図の中で言い換えると、
  * 記録の画面と見比べたときに対応が取れない。
  */
 const DUPLICATE_COPIED_LABELS = [
-  ITEM_NAME_LABEL,
+  itemNameLabel('ja'),
   RECORD_KIND_COLUMN,
   PURCHASE_PRICE_LABEL,
   POSTAGE_LABEL,
   COMMISSION_LABEL,
   ENVELOPE_COST_LABEL,
   OTHERS_COST_LABEL,
-  TAG_LABEL,
+  tagLabel('ja'),
   TARGET_PROFIT_COLUMN,
 ];
 
 const DUPLICATE_SKIPPED_LABELS = [
   SALES_PRICE_LABEL,
   PHOTO_FIELD_LABEL,
-  MEMO_LABEL,
+  memoLabel('ja'),
   HELP_FIGURE_DUPLICATE_DATE_LABEL,
   HELP_FIGURE_DUPLICATE_STATUS_LABEL,
 ];
@@ -977,7 +977,7 @@ export function BackupMigrateFigure() {
     { key: 'file', label: HELP_FIGURE_FILE_LABEL, icon: 'document-outline' as const },
     { key: 'new', label: HELP_FIGURE_MIGRATE_NEW_LABEL, icon: 'phone-portrait-outline' as const },
   ];
-  const actions = [BACKUP_CREATE_BUTTON_LABEL, BACKUP_RESTORE_SECTION_TITLE];
+  const actions = [backupCreateButtonLabel('ja'), backupRestoreSectionTitle('ja')];
 
   return (
     <FigureFrame subtitle={HELP_FIGURE_MIGRATE_SUBTITLE}>
@@ -1073,7 +1073,7 @@ export function GroupingFigure() {
         {/* 商品名は消えない。**実際の関数に作らせる** ── 図に「クッション ほか2件」と
             書き写すと、まとめ方の書式を直したときにここだけ古い形が残る */}
         <Text style={[styles.groupName, { color: colors.label }]}>
-          {csvDayItemNames(before.map((row) => row.name))}
+          {csvDayItemNames('ja', before.map((row) => row.name))}
         </Text>
         <Text style={[styles.groupAmount, { color: colors.blue }]}>950</Text>
       </View>

@@ -31,14 +31,18 @@ import { useExportPreview, useExportTable } from '@/db/useExport';
 import { fromExportParams, type ExportRouteParams } from '@/logic/exportPeriod';
 import {
   CSV_SHIPPING_MATERIAL_NOTE,
-  EXPORT_PREVIEW_BACK_LABEL,
-  EXPORT_PREVIEW_SCROLL_HINT,
+  exportPreviewBackLabel,
+  exportPreviewScrollHint,
   exportPreviewScreenMetaLabel,
   exportSummaryLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 export function ExportPreviewScreen() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<Partial<ExportRouteParams>>();
@@ -53,7 +57,7 @@ export function ExportPreviewScreen() {
   // 見出しに出す件数は**シートの下端と同じ 1 本**から取る（同じ書き出しなので数が割れない）
   const preview = useExportPreview(filter, kind, grouping);
 
-  const width = useMemo(() => csvTableWidth(table.header), [table.header]);
+  const width = useMemo(() => csvTableWidth(locale, table.header), [table.header, locale]);
 
   // 見出し（「プレビュー」）と push の指定は設定タブの _layout.tsx が持つ ──
   // レイアウト側で screen を宣言すると、そちらが先に効くため
@@ -61,10 +65,10 @@ export function ExportPreviewScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.head}>
         <Text style={[styles.headLabel, { color: colors.label }]} numberOfLines={1}>
-          {exportSummaryLabel(period, includeListing)}
+          {exportSummaryLabel(locale, period, includeListing)}
         </Text>
         <Text style={[styles.headMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {exportPreviewScreenMetaLabel(
+          {exportPreviewScreenMetaLabel(locale, 
             table.header.length,
             preview.recordCount,
             preview.rowCount,
@@ -105,7 +109,7 @@ export function ExportPreviewScreen() {
         {CSV_SHIPPING_MATERIAL_NOTE}
       </Text>
       <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
-        {EXPORT_PREVIEW_SCROLL_HINT}
+        {exportPreviewScrollHint(locale)}
       </Text>
 
       {/* 案 40c: 下端は行き先を名指しする。ヘッダの「‹ 戻る」と同じことをするが、
@@ -118,7 +122,7 @@ export function ExportPreviewScreen() {
           { backgroundColor: colors.highlightBackground, opacity: pressed ? 0.7 : 1 },
         ]}>
         <Text style={[styles.backLabel, { color: colors.blue }]}>
-          {EXPORT_PREVIEW_BACK_LABEL}
+          {exportPreviewBackLabel(locale)}
         </Text>
       </Pressable>
     </View>

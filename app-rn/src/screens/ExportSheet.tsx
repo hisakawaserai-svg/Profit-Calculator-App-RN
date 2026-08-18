@@ -43,33 +43,34 @@ import { useMonthsWithRecords } from '@/db/useRecords';
 import { toCsvFileContent, type CsvExportKind, type CsvGrouping, type CsvTable } from '@/logic/csv';
 import { exportFileName, toExportParams } from '@/logic/exportPeriod';
 import {
-  EXPORT_CANCEL_LABEL,
-  EXPORT_FAILED_MESSAGE,
-  EXPORT_GROUPING_OPTIONS,
-  EXPORT_GROUPING_NOTES,
-  EXPORT_GROUPING_SECTION_LABEL,
-  EXPORT_KIND_NOTES,
-  EXPORT_KIND_OPTIONS,
-  EXPORT_KIND_SECTION_LABEL,
-  EXPORT_NOT_RESTORABLE_NOTE,
-  EXPORT_PERIOD_SECTION_LABEL,
-  EXPORT_PREVIEW_CARD_TITLE,
-  EXPORT_PREVIEW_OPEN_LABEL,
-  EXPORT_PREVIEW_SCROLL_HINT,
-  EXPORT_SHARE_DIALOG_TITLE,
-  EXPORT_SHARING_UNAVAILABLE,
-  EXPORT_SHEET_TITLE,
-  EXPORT_SUBMIT_LABEL,
-  EXPORT_TARGET_OPTIONS,
-  EXPORT_TARGET_SECTION_LABEL,
-  EXPORT_TAX_NOTICE,
-  EXPORT_TAX_NOTICE_OPEN_LABEL,
+  exportCancelLabel,
+  exportFailedMessage,
+  exportGroupingOptions,
+  exportGroupingNote,
+  exportGroupingSectionLabel,
+  exportKindNote,
+  exportKindOptions,
+  exportKindSectionLabel,
+  exportNotRestorableNote,
+  exportPeriodSectionLabel,
+  exportPreviewCardTitle,
+  exportPreviewOpenLabel,
+  exportPreviewScrollHint,
+  exportShareDialogTitle,
+  exportSharingUnavailable,
+  exportSheetTitle,
+  exportSubmitLabel,
+  exportTargetOptions,
+  exportTargetSectionLabel,
+  exportTaxNotice,
+  exportTaxNoticeOpenLabel,
   exportCountLabel,
   exportEmptyNote,
   exportPreviewMetaLabel,
   exportSummaryLabel,
 } from '@/logic/labels';
 import type { Period } from '@/logic/period';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** CSV の MIME / UTI。共有先（メール・ファイル）が種類を判断するのに使う */
@@ -77,6 +78,9 @@ const CSV_MIME_TYPE = 'text/csv';
 const CSV_UTI = 'public.comma-separated-values-text';
 
 export function ExportSheet() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
 
@@ -109,7 +113,7 @@ export function ExportSheet() {
     setBusy(true);
     try {
       if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert(EXPORT_SHARING_UNAVAILABLE);
+        Alert.alert(exportSharingUnavailable(locale));
         return;
       }
       // 本文を組み立てるのは押した瞬間の 1 回だけ（useExport.ts の loadExportCsv 参照）
@@ -122,11 +126,11 @@ export function ExportSheet() {
       await Sharing.shareAsync(file.uri, {
         mimeType: CSV_MIME_TYPE,
         UTI: CSV_UTI,
-        dialogTitle: EXPORT_SHARE_DIALOG_TITLE,
+        dialogTitle: exportShareDialogTitle(locale),
       });
     } catch {
       // 原因は端末側（容量・共有先の失敗）なので、言えるのは「できなかった」まで
-      Alert.alert(EXPORT_FAILED_MESSAGE);
+      Alert.alert(exportFailedMessage(locale));
     } finally {
       setBusy(false);
     }
@@ -134,15 +138,15 @@ export function ExportSheet() {
 
   const screenOptions = useMemo(
     () => ({
-      title: EXPORT_SHEET_TITLE,
+      title: exportSheetTitle(locale),
       // モーダルで出すので戻る導線が自動では付かない。**「キャンセル」は書き出さずに閉じるだけ**
       headerLeft: () => (
         <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button">
-          <Text style={[styles.headerButton, { color: colors.blue }]}>{EXPORT_CANCEL_LABEL}</Text>
+          <Text style={[styles.headerButton, { color: colors.blue }]}>{exportCancelLabel(locale)}</Text>
         </Pressable>
       ),
     }),
-    [router, colors.blue],
+    [router, colors.blue, locale],
   );
 
   return (
@@ -151,11 +155,11 @@ export function ExportSheet() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={styles.content}>
           {/* §5.2 の改訂: 2 種類のどちらを書き出すか。列もファイル名もここで決まる */}
-          <Section label={EXPORT_KIND_SECTION_LABEL} note={EXPORT_KIND_NOTES[kind]}>
+          <Section label={exportKindSectionLabel(locale)} note={exportKindNote(locale, kind)}>
             <SegmentedControl
-              options={EXPORT_KIND_OPTIONS.map((option) => option.label)}
-              selectedIndex={EXPORT_KIND_OPTIONS.findIndex((option) => option.value === kind)}
-              onChange={(index) => setKind(EXPORT_KIND_OPTIONS[index].value)}
+              options={exportKindOptions(locale).map((option) => option.label)}
+              selectedIndex={exportKindOptions(locale).findIndex((option) => option.value === kind)}
+              onChange={(index) => setKind(exportKindOptions(locale)[index].value)}
             />
           </Section>
 
@@ -165,7 +169,7 @@ export function ExportSheet() {
               **種類に関わらず常に出す**（確定申告用はなおさら戻せない）。
               §5.8 の注意書き（確定申告用のときだけ）とは別物なので、節は分けたまま */}
           <Text style={[styles.note, styles.crossNote, { color: colors.secondaryLabel }]}>
-            {EXPORT_NOT_RESTORABLE_NOTE}
+            {exportNotRestorableNote(locale)}
           </Text>
 
           {/* §5.8: 確定申告用のときだけ出す固定の注意書き。
@@ -175,19 +179,19 @@ export function ExportSheet() {
             <Pressable
               onPress={() => setShowHelp(true)}
               accessibilityRole="button"
-              accessibilityLabel={`${EXPORT_TAX_NOTICE} ${EXPORT_TAX_NOTICE_OPEN_LABEL}`}
+              accessibilityLabel={`${exportTaxNotice(locale)} ${exportTaxNoticeOpenLabel(locale)}`}
               style={({ pressed }) => [
                 styles.notice,
                 { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.6 : 1 },
               ]}>
               <Ionicons name="alert-circle-outline" size={18} color={colors.orange} />
-              <Text style={[styles.noticeText, { color: colors.label }]}>{EXPORT_TAX_NOTICE}</Text>
+              <Text style={[styles.noticeText, { color: colors.label }]}>{exportTaxNotice(locale)}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
             </Pressable>
           )}
 
           {/* §5.5 の改訂: 記録タブ・データタブと**同じ盤面**。ここで作り直さない */}
-          <Section label={EXPORT_PERIOD_SECTION_LABEL}>
+          <Section label={exportPeriodSectionLabel(locale)}>
             <View style={styles.period}>
               <PeriodPicker
                 period={period}
@@ -202,26 +206,26 @@ export function ExportSheet() {
           {/* §5.2.2: 確定申告用のときだけ。データ保存用では節ごと出さない */}
           {kind === 'tax' && (
             <Section
-              label={EXPORT_GROUPING_SECTION_LABEL}
-              note={EXPORT_GROUPING_NOTES[grouping]}>
+              label={exportGroupingSectionLabel(locale)}
+              note={exportGroupingNote(locale, grouping)}>
               <SegmentedControl
-                options={EXPORT_GROUPING_OPTIONS.map((option) => option.label)}
-                selectedIndex={EXPORT_GROUPING_OPTIONS.findIndex(
+                options={exportGroupingOptions(locale).map((option) => option.label)}
+                selectedIndex={exportGroupingOptions(locale).findIndex(
                   (option) => option.value === grouping,
                 )}
-                onChange={(index) => setGrouping(EXPORT_GROUPING_OPTIONS[index].value)}
+                onChange={(index) => setGrouping(exportGroupingOptions(locale)[index].value)}
               />
             </Section>
           )}
 
           {/* §5.5-3: 既定は「売れた記録のみ」（決定 §8-9） */}
-          <Section label={EXPORT_TARGET_SECTION_LABEL}>
+          <Section label={exportTargetSectionLabel(locale)}>
             <SegmentedControl
-              options={EXPORT_TARGET_OPTIONS.map((option) => option.label)}
-              selectedIndex={EXPORT_TARGET_OPTIONS.findIndex(
+              options={exportTargetOptions(locale).map((option) => option.label)}
+              selectedIndex={exportTargetOptions(locale).findIndex(
                 (option) => option.value === includeListing,
               )}
-              onChange={(index) => setIncludeListing(EXPORT_TARGET_OPTIONS[index].value)}
+              onChange={(index) => setIncludeListing(exportTargetOptions(locale)[index].value)}
             />
           </Section>
 
@@ -248,17 +252,17 @@ export function ExportSheet() {
           ]}>
           <View style={styles.footerLine}>
             <Text style={[styles.footerLabel, { color: colors.secondaryLabel }]} numberOfLines={1}>
-              {exportSummaryLabel(period, includeListing)}
+              {exportSummaryLabel(locale, period, includeListing)}
             </Text>
             <Text style={[styles.footerCount, { color: colors.label }]}>
-              {exportCountLabel(preview.recordCount, preview.rowCount)}
+              {exportCountLabel(locale, preview.recordCount, preview.rowCount)}
             </Text>
           </View>
 
           {/* 0 件のときだけ。**切り替えれば書き出せる**ことを示す（数字だけでは原因が読めない） */}
           {empty && (
             <Text style={[styles.footerNote, { color: colors.secondaryLabel }]}>
-              {exportEmptyNote(preview.listingCount)}
+              {exportEmptyNote(locale, preview.listingCount)}
             </Text>
           )}
 
@@ -279,7 +283,7 @@ export function ExportSheet() {
                 styles.submitLabel,
                 { color: empty || busy ? colors.disabledContent : '#FFFFFF' },
               ]}>
-              {EXPORT_SUBMIT_LABEL}
+              {exportSubmitLabel(locale)}
             </Text>
           </Pressable>
         </View>
@@ -302,16 +306,19 @@ export function ExportSheet() {
  * **横に動かす操作は始まりで責任を取らない**ので、タップはカードの Pressable に届く。
  */
 function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={styles.section}>
       <View style={styles.previewHead}>
         <Text style={[styles.sectionLabel, styles.previewTitle, { color: colors.label }]}>
-          {EXPORT_PREVIEW_CARD_TITLE}
+          {exportPreviewCardTitle(locale)}
         </Text>
         <Text style={[styles.previewMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {exportPreviewMetaLabel(table.rows.length, table.header.length)}
+          {exportPreviewMetaLabel(locale, table.rows.length, table.header.length)}
         </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
       </View>
@@ -319,7 +326,7 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${EXPORT_PREVIEW_CARD_TITLE}・${EXPORT_PREVIEW_OPEN_LABEL}`}
+        accessibilityLabel={`${exportPreviewCardTitle(locale)}・${exportPreviewOpenLabel(locale)}`}
         style={({ pressed }) => [
           styles.previewCard,
           { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
@@ -356,7 +363,7 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
         </View>
 
         <Text style={[styles.previewHint, { color: colors.secondaryLabel }]}>
-          {EXPORT_PREVIEW_SCROLL_HINT}
+          {exportPreviewScrollHint(locale)}
         </Text>
       </Pressable>
     </View>

@@ -13,7 +13,7 @@
 //   売上記録_2026-08.csv / 売上記録_2025.csv / 売上記録_全期間.csv
 
 import type { CsvExportKind, CsvGrouping } from './csv';
-import { CSV_ALL_PERIOD_FILE_LABEL, CSV_FILE_BASE_NAMES } from './labels';
+import { csvAllPeriodFileLabel, csvFileBaseName } from './labels';
 import { periodKind, type Period } from './period';
 
 /** 拡張子。共有シートの受け手（メール・ファイル）はこれで種類を判断する */
@@ -25,12 +25,12 @@ const CSV_EXTENSION = '.csv';
  * 全期間だけはキーが無い（null）ので語を当てる。
  */
 export function exportPeriodSlug(period: Period): string {
-  return periodKind(period) === 'all' ? CSV_ALL_PERIOD_FILE_LABEL : (period as string);
+  return periodKind(period) === 'all' ? csvAllPeriodFileLabel('ja') : (period as string);
 }
 
 /** 共有シートに出るファイル名（§5.4）。`確定申告_2026-08.csv` */
 export function exportFileName(kind: CsvExportKind, period: Period): string {
-  return `${CSV_FILE_BASE_NAMES[kind]}_${exportPeriodSlug(period)}${CSV_EXTENSION}`;
+  return `${csvFileBaseName('ja', kind)}_${exportPeriodSlug(period)}${CSV_EXTENSION}`;
 }
 
 // ---- 全画面プレビューへ渡す条件（§5.9・案 `40c`） ----

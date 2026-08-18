@@ -17,20 +17,21 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BottomActionBar } from '@/components/BottomActionBar';
 import {
-  BACKUP_COUNT_PHOTOS_LABEL,
-  BACKUP_COUNT_PRESETS_LABEL,
-  BACKUP_COUNT_RECORDS_LABEL,
-  BACKUP_COUNT_TAGS_LABEL,
-  BACKUP_MISSING_PHOTO_LIST_TITLE,
-  BACKUP_RESTORED_TITLE,
-  BACKUP_RESULT_OPEN_RECORDS_LABEL,
+  backupCountPhotosLabel,
+  backupCountPresetsLabel,
+  backupCountRecordsLabel,
+  backupCountTagsLabel,
+  backupMissingPhotoListTitle,
+  backupRestoredTitle,
+  backupResultOpenRecordsLabel,
   backupDayLabel,
   backupMissingPhotoNote,
   backupMissingPhotoRecordsLabel,
   backupRestoredPhotoValue,
   presetCountLabel,
-  UNTITLED_LABEL,
+  untitledLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 写真が戻らなかった記録 1 件（一覧に出すぶんだけ） */
@@ -59,6 +60,9 @@ export function BackupResultView({
   missingRecords,
   onOpenRecords,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   /** 欠けた記録の一覧を開いているか。**画面は増やさない**（ここで開いて閉じられる） */
   const [listOpen, setListOpen] = useState(false);
@@ -70,17 +74,17 @@ export function BackupResultView({
         <View style={[styles.badge, { backgroundColor: colors.successBackground }]}>
           <Ionicons name="checkmark" size={34} color={colors.green} />
         </View>
-        <Text style={[styles.title, { color: colors.label }]}>{BACKUP_RESTORED_TITLE}</Text>
+        <Text style={[styles.title, { color: colors.label }]}>{backupRestoredTitle(locale)}</Text>
 
         {/* 件数は**DB から数え直したもの**（§5.6）。入ったことを数で確かめられるようにする */}
         <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
           {[
-            { label: BACKUP_COUNT_RECORDS_LABEL, value: presetCountLabel('ja', counts.records) },
-            { label: BACKUP_COUNT_TAGS_LABEL, value: presetCountLabel('ja', counts.tags) },
-            { label: BACKUP_COUNT_PRESETS_LABEL, value: presetCountLabel('ja', counts.presets) },
+            { label: backupCountRecordsLabel(locale), value: presetCountLabel(locale, counts.records) },
+            { label: backupCountTagsLabel(locale), value: presetCountLabel(locale, counts.tags) },
+            { label: backupCountPresetsLabel(locale), value: presetCountLabel(locale, counts.presets) },
             {
-              label: BACKUP_COUNT_PHOTOS_LABEL,
-              value: backupRestoredPhotoValue(photos, missingPhotos),
+              label: backupCountPhotosLabel(locale),
+              value: backupRestoredPhotoValue(locale, photos, missingPhotos),
               alert: missing,
             },
           ].map((row, index) => (
@@ -96,7 +100,7 @@ export function BackupResultView({
 
         {missing && (
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {backupMissingPhotoNote(missingPhotos)}
+            {backupMissingPhotoNote(locale, missingPhotos)}
           </Text>
         )}
 
@@ -105,15 +109,15 @@ export function BackupResultView({
         {missing && listOpen && (
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <Text style={[styles.listTitle, { color: colors.secondaryLabel }]}>
-              {BACKUP_MISSING_PHOTO_LIST_TITLE}
+              {backupMissingPhotoListTitle(locale)}
             </Text>
             {missingRecords.map((record) => (
               <View key={record.id} style={[styles.listRow, { borderTopColor: colors.separator }]}>
                 <Text style={[styles.listName, { color: colors.label }]} numberOfLines={1}>
-                  {record.itemName.trim() === '' ? UNTITLED_LABEL : record.itemName}
+                  {record.itemName.trim() === '' ? untitledLabel(locale) : record.itemName}
                 </Text>
                 <Text style={[styles.listDate, { color: colors.secondaryLabel }]}>
-                  {backupDayLabel(record.date)}
+                  {backupDayLabel(locale, record.date)}
                 </Text>
               </View>
             ))}
@@ -122,12 +126,12 @@ export function BackupResultView({
       </ScrollView>
 
       <BottomActionBar
-        label={BACKUP_RESULT_OPEN_RECORDS_LABEL}
+        label={backupResultOpenRecordsLabel(locale)}
         onPress={onOpenRecords}
         secondary={
           missing && !listOpen
             ? {
-                label: backupMissingPhotoRecordsLabel(missingPhotos),
+                label: backupMissingPhotoRecordsLabel(locale, missingPhotos),
                 onPress: () => setListOpen(true),
               }
             : undefined

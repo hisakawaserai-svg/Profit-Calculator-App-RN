@@ -15,14 +15,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
-  ITEM_NAME_LABEL,
-  LISTED_DATE_FIELD_LABEL,
-  MEMO_LABEL,
-  RECORD_ID_COLUMN,
+  itemNameLabel,
+  listedDateFieldLabel,
+  memoLabel,
+  recordIdColumn,
   presetTypeLabel,
-  SOLD_DATE_FIELD_LABEL,
-  TAG_LABEL,
+  soldDateFieldLabel,
+  tagLabel,
 } from '@/logic/labels';
+import { useLocale, type Locale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 1 行の高さ。**固定にする**（FlatList の getItemLayout が要るため。§5.9） */
@@ -38,25 +39,29 @@ const DEFAULT_COLUMN_WIDTH = 96;
  * 幅を広く取る列。**列名で引く**（`labels.ts` の語がそのままヘッダになっている。§5.3）。
  * ここに無い列は既定幅。列を足しても表は壊れない（既定に落ちるだけ）。
  */
-const WIDE_COLUMN_WIDTHS: Record<string, number> = {
+// **モジュールスコープで畳まない** ── 列名は locale で決まるので、
+// import 時に作ると言語を切り替えても幅の対応表が前の言語のまま残る
+function wideColumnWidths(locale: Locale): Record<string, number> {
+  return {
   // 日付は `2026-08-09` の 10 文字が**必ず 1 行に収まる**幅にする ── 日付が
   // 「2026-08-…」と切れると、この表で確かめたい「どの日の行か」がまさに読めなくなる
-  [SOLD_DATE_FIELD_LABEL]: 112,
-  [LISTED_DATE_FIELD_LABEL]: 112,
-  [ITEM_NAME_LABEL]: 150,
-  [presetTypeLabel('ja', 'site')]: 120,
-  [TAG_LABEL]: 130,
-  [MEMO_LABEL]: 170,
-  [RECORD_ID_COLUMN]: 250,
-};
+    [soldDateFieldLabel(locale)]: 112,
+    [listedDateFieldLabel(locale)]: 112,
+    [itemNameLabel(locale)]: 150,
+    [presetTypeLabel('ja', 'site')]: 120,
+    [tagLabel(locale)]: 130,
+    [memoLabel(locale)]: 170,
+    [recordIdColumn(locale)]: 250,
+  };
+}
 
-export function csvColumnWidth(columnName: string): number {
-  return WIDE_COLUMN_WIDTHS[columnName] ?? DEFAULT_COLUMN_WIDTH;
+export function csvColumnWidth(locale: Locale, columnName: string): number {
+  return wideColumnWidths(locale)[columnName] ?? DEFAULT_COLUMN_WIDTH;
 }
 
 /** 表の全幅。横スクロールの中身の幅になる（列ごとの幅の和） */
-export function csvTableWidth(header: readonly string[]): number {
-  return header.reduce((total, name) => total + csvColumnWidth(name), 0);
+export function csvTableWidth(locale: Locale, header: readonly string[]): number {
+  return header.reduce((total, name) => total + csvColumnWidth(locale, name), 0);
 }
 
 /**
@@ -67,6 +72,9 @@ export function csvTableWidth(header: readonly string[]): number {
  * カードの地（`secondaryBackground`）とは違う色なので、不透明にしても見出しとして区別が付く。
  */
 export function CsvHeaderRow({ header }: { header: readonly string[] }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -79,7 +87,7 @@ export function CsvHeaderRow({ header }: { header: readonly string[] }) {
       {header.map((name) => (
         <Text
           key={name}
-          style={[styles.cell, styles.headerCell, { width: csvColumnWidth(name), color: colors.secondaryLabel }]}
+          style={[styles.cell, styles.headerCell, { width: csvColumnWidth(locale, name), color: colors.secondaryLabel }]}
           numberOfLines={1}>
           {name}
         </Text>
@@ -101,6 +109,9 @@ export function CsvDataRow({
   cells: readonly string[];
   showSeparator: boolean;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -112,7 +123,7 @@ export function CsvDataRow({
       {header.map((name, index) => (
         <Text
           key={name}
-          style={[styles.cell, { width: csvColumnWidth(name), color: colors.label }]}
+          style={[styles.cell, { width: csvColumnWidth(locale, name), color: colors.label }]}
           numberOfLines={1}>
           {cells[index] ?? ''}
         </Text>

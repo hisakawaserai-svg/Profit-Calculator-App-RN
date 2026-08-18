@@ -33,7 +33,7 @@ import type { RecordKind, SaleRecord } from '@/db/schema';
 
 import {
   CSV_BACKUP_COLUMNS,
-  CSV_KIND_MIXED_LABEL,
+  csvKindMixedLabel,
   CSV_LISTING_STATUS_VALUE,
   CSV_SOLD_STATUS_VALUE,
   CSV_TAG_SEPARATOR,
@@ -241,7 +241,7 @@ export function groupRecordsByDay(records: readonly SaleRecord[]): CsvDayGroup[]
 function dayKindField(records: readonly SaleRecord[]): string {
   const kinds = new Set<RecordKind>(records.map((record) => record.kind));
   const [only] = [...kinds];
-  return kinds.size === 1 ? recordKindLabel('ja', only) : CSV_KIND_MIXED_LABEL;
+  return kinds.size === 1 ? recordKindLabel('ja', only) : csvKindMixedLabel('ja');
 }
 
 // ---- 行の組み立て ----
@@ -306,7 +306,7 @@ function taxDayRow(group: CsvDayGroup): string[] {
     // 出品中の行は販売日を空のままにする（グループを状態で分けてある理由。CsvDayGroup 参照）
     group.isSold ? group.day : '',
     csvDaySiteNames(group.records.map((record) => record.siteName)),
-    csvDayItemNames(group.records.map((record) => record.itemName)),
+    csvDayItemNames('ja', group.records.map((record) => record.itemName)),
     dayKindField(group.records),
     toAmountField(amounts.salesPrice),
     toAmountField(amounts.purchasePrice),

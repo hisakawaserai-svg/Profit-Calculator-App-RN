@@ -12,9 +12,9 @@ import type { SaleRecord } from '@/db/schema';
 import {
   COMMISSION_RATE_COLUMN,
   ENVELOPE_COST_LABEL,
-  MEMO_LABEL,
+  memoLabel,
   POSTAGE_LABEL,
-  TAG_LABEL,
+  tagLabel,
 } from '@/logic/labels';
 
 import {
@@ -201,7 +201,7 @@ describe('§5.3 値: 記録の内容がそのまま列に入る', () => {
 
   it('タグが 1 件も付いていない記録は空文字（SPEC-V4 §5.2）', () => {
     const csv = buildCsv({ kind: 'backup', grouping: 'record', records: [record()] });
-    expect(dataRows(csv)[0][csvColumns('backup').indexOf(TAG_LABEL)]).toBe('');
+    expect(dataRows(csv)[0][csvColumns('backup').indexOf(tagLabel('ja'))]).toBe('');
   });
 });
 
@@ -475,7 +475,7 @@ describe('§5.9 プレビューと書き出しが同じデータを見る（案 
     const table = buildCsvTable(params);
 
     expect(table.rows[0][1]).toBe('えんぴつ,2本');
-    expect(table.rows[0][table.header.indexOf(MEMO_LABEL)]).toBe('傷あり\n値下げ済み');
+    expect(table.rows[0][table.header.indexOf(memoLabel('ja'))]).toBe('傷あり\n値下げ済み');
     // ファイル側は同じ値を引用して書く
     expect(buildCsv(params)).toContain('"えんぴつ,2本"');
   });

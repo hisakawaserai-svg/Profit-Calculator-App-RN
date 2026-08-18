@@ -77,7 +77,7 @@ import {
   REVERT_TO_LISTING_CONFIRM_LABEL,
   SALES_PRICE_LABEL,
   SOLD_BADGE_LABEL,
-  SOLD_DATE_FIELD_LABEL,
+  soldDateFieldLabel,
   SOLD_DATE_ROW_LABEL,
   SOLD_RECORDS_LABEL,
   UNDO_LABEL,
@@ -489,7 +489,7 @@ describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () 
 
   it('常設の行は「売れた日」。入力欄の「販売日」とは語を揃えない（§8.2）', () => {
     expect(SOLD_DATE_ROW_LABEL).toBe('売れた日');
-    expect(SOLD_DATE_ROW_LABEL).not.toBe(SOLD_DATE_FIELD_LABEL);
+    expect(SOLD_DATE_ROW_LABEL).not.toBe(soldDateFieldLabel('ja'));
   });
 
   it('押した直後のバーは本文と取り消しの 2 語（§8.3）', () => {

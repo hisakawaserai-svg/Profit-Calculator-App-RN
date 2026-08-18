@@ -31,9 +31,9 @@ import {
   selectBackupFiles,
 } from './backup';
 import {
-  BACKUP_ERROR_HINT,
-  BACKUP_ERROR_TITLE,
-  BACKUP_ERROR_UNCHANGED_NOTE,
+  backupErrorHint,
+  backupErrorTitle,
+  backupErrorUnchangedNote,
   BACKUP_INFO_FILE,
   backupErrorCopyText,
   backupPhotoIncludeDetail,
@@ -411,24 +411,24 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
 
 describe('§3.3 エラーの文言', () => {
   it('コピーする文は題名から始まる（画面と同じ 3 行を持ち出せる）', () => {
-    const text = backupErrorCopyText('records.csv 501行目：「仕入価格」が正しい数値ではありません。');
+    const text = backupErrorCopyText('ja', 'records.csv 501行目：「仕入価格」が正しい数値ではありません。');
 
-    expect(text.startsWith(BACKUP_ERROR_TITLE)).toBe(true);
+    expect(text.startsWith(backupErrorTitle('ja'))).toBe(true);
   });
 
   it('コピーする文の最後は必ず「変更されていません」（§3.3 の 3 行目）', () => {
-    expect(backupErrorCopyText('なにか')).toMatch(
-      new RegExp(`${BACKUP_ERROR_UNCHANGED_NOTE}$`),
+    expect(backupErrorCopyText('ja', 'なにか')).toMatch(
+      new RegExp(`${backupErrorUnchangedNote('ja')}$`),
     );
   });
 
   it('題名・理由・対処・無事だったことの 4 行になる（案 53h）', () => {
     const reason = 'records.csv 501行目：「仕入価格」が正しい数値ではありません。';
 
-    expect(backupErrorCopyText(reason)).toBe(
+    expect(backupErrorCopyText('ja', reason)).toBe(
       'バックアップを読み込めませんでした。\n' +
         'records.csv 501行目：「仕入価格」が正しい数値ではありません。\n' +
-        `${BACKUP_ERROR_HINT}\n` +
+        `${backupErrorHint('ja')}\n` +
         '現在のデータは変更されていません。',
     );
   });
@@ -823,23 +823,23 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
 
 describe('§4.4 サイズの表示', () => {
   it('MB は小数 1 桁', () => {
-    expect(formatByteSize(8.6 * 1024 * 1024)).toBe('8.6MB');
+    expect(formatByteSize('ja', 8.6 * 1024 * 1024)).toBe('8.6MB');
   });
 
   it('割り切れるときは小数を落とす（上限の 50MB に .0 を出さない）', () => {
-    expect(formatByteSize(50 * 1024 * 1024)).toBe('50MB');
+    expect(formatByteSize('ja', 50 * 1024 * 1024)).toBe('50MB');
   });
 
   it('1MB 未満は KB', () => {
-    expect(formatByteSize(320 * 1024)).toBe('320KB');
+    expect(formatByteSize('ja', 320 * 1024)).toBe('320KB');
   });
 
   it('ごく小さいものは「1KB未満」', () => {
-    expect(formatByteSize(200)).toBe('1KB未満');
+    expect(formatByteSize('ja', 200)).toBe('1KB未満');
   });
 
   it('「含める」の下に枚数と合計サイズを出す（案 53a）', () => {
-    expect(backupPhotoIncludeDetail(53, 8.2 * 1024 * 1024)).toBe('53枚・8.2MB');
+    expect(backupPhotoIncludeDetail('ja', 53, 8.2 * 1024 * 1024)).toBe('53枚・8.2MB');
   });
 
   it('上限は 50MB（§4.4 / §6.2 のメモリ実測が根拠）', () => {

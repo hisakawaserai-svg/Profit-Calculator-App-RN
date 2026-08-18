@@ -57,4 +57,12 @@ export const MIGRATED_FILES = [
   'src/components/AchievementToastHost.tsx',
   'src/components/AchievementsSection.tsx',
   'src/components/StrikeAchievementBadge.tsx',
+  // 区切り 8: バックアップと書き出し
+  'src/screens/BackupScreen.tsx',
+  'src/screens/BackupPhotoLimitSheet.tsx',
+  'src/screens/BackupPreviewView.tsx',
+  'src/screens/BackupResultView.tsx',
+  'src/screens/ExportPreviewScreen.tsx',
+  'src/screens/ExportSheet.tsx',
+  'src/components/CsvTable.tsx',
 ] as const;

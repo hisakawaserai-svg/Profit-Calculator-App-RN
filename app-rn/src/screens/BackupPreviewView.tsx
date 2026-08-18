@@ -23,16 +23,16 @@ import { BottomActionBar } from '@/components/BottomActionBar';
 import { NoticeCard } from '@/components/NoticeCard';
 import { isLargeDecrease, type BackupDiffRow, type BackupSideCounts } from '@/logic/backupView';
 import {
-  BACKUP_DIFF_CURRENT_HEADER,
-  BACKUP_DIFF_FILE_HEADER,
-  BACKUP_ERROR_COPY_LABEL,
-  BACKUP_ERROR_HINT,
-  BACKUP_ERROR_TITLE,
-  BACKUP_ERROR_UNCHANGED_NOTE,
-  BACKUP_NO_PHOTO_IN_FILE_TITLE,
-  BACKUP_PICK_ANOTHER_FILE_LABEL,
-  BACKUP_REPLACE_ALL_LABEL,
-  BACKUP_REPLACE_WITHOUT_PHOTOS_LABEL,
+  backupDiffCurrentHeader,
+  backupDiffFileHeader,
+  backupErrorCopyLabel,
+  backupErrorHint,
+  backupErrorTitle,
+  backupErrorUnchangedNote,
+  backupNoPhotoInFileTitle,
+  backupPickAnotherFileLabel,
+  backupReplaceAllLabel,
+  backupReplaceWithoutPhotosLabel,
   backupLargeDecreaseNote,
   backupNewestRecordNote,
   backupNoPhotoInFileBody,
@@ -41,6 +41,7 @@ import {
   photoCountLabel,
   presetCountLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import type { BottomBarProgress } from '@/components/BottomActionBar';
@@ -59,6 +60,9 @@ function FileCard({
   today: Date;
   dimmed?: boolean;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 止まった画面では、読めなかったファイルのカードを**不活性のまま残す**（案 53h）──
   // 消すと「何を選んだのか」まで画面から消える
@@ -72,7 +76,7 @@ function FileCard({
       </Text>
       {createdAt != null && (
         <Text style={[styles.fileMeta, { color: sub }]}>
-          {backupPreviewCreatedLine(createdAt, today, hasPhotos)}
+          {backupPreviewCreatedLine(locale, createdAt, today, hasPhotos)}
         </Text>
       )}
     </View>
@@ -109,6 +113,9 @@ export function BackupPreviewView({
   onPickAnother,
   progress,
 }: PreviewProps) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const busy = progress != null;
 
@@ -132,11 +139,11 @@ export function BackupPreviewView({
           <View style={styles.diffHead}>
             <View style={styles.diffLabel} />
             <Text style={[styles.diffHeadText, { color: colors.secondaryLabel }]}>
-              {BACKUP_DIFF_CURRENT_HEADER}
+              {backupDiffCurrentHeader(locale)}
             </Text>
             <View style={styles.arrowSpace} />
             <Text style={[styles.diffHeadText, styles.diffNext, { color: colors.secondaryLabel }]}>
-              {BACKUP_DIFF_FILE_HEADER}
+              {backupDiffFileHeader(locale)}
             </Text>
           </View>
 
@@ -145,29 +152,29 @@ export function BackupPreviewView({
           ))}
         </View>
 
-        {shrinks && <NoticeCard tone="warning" body={backupLargeDecreaseNote(current.records, file.records)} />}
+        {shrinks && <NoticeCard tone="warning" body={backupLargeDecreaseNote(locale, current.records, file.records)} />}
 
         {losesPhotos && (
           <NoticeCard
             tone="danger"
-            title={BACKUP_NO_PHOTO_IN_FILE_TITLE}
-            body={backupNoPhotoInFileBody(current.photos)}
+            title={backupNoPhotoInFileTitle(locale)}
+            body={backupNoPhotoInFileBody(locale, current.photos)}
           />
         )}
 
         {newest != null && (
           <Text style={[styles.newest, { color: colors.secondaryLabel }]}>
-            {backupNewestRecordNote(newest.date, newest.itemName)}
+            {backupNewestRecordNote(locale, newest.date, newest.itemName)}
           </Text>
         )}
       </View>
 
       <BottomActionBar
-        label={file.photos === 0 ? BACKUP_REPLACE_WITHOUT_PHOTOS_LABEL : BACKUP_REPLACE_ALL_LABEL}
+        label={file.photos === 0 ? backupReplaceWithoutPhotosLabel(locale) : backupReplaceAllLabel(locale)}
         tone="destructive"
         onPress={onReplace}
-        warning={backupReplaceWarning(current.records)}
-        secondary={{ label: BACKUP_PICK_ANOTHER_FILE_LABEL, onPress: onPickAnother }}
+        warning={backupReplaceWarning(locale, current.records)}
+        secondary={{ label: backupPickAnotherFileLabel(locale), onPress: onPickAnother }}
         progress={progress}
       />
     </View>
@@ -176,9 +183,12 @@ export function BackupPreviewView({
 
 /** 差の 1 行（「記録　8件 → 53件」）。**減る行だけを赤くする** */
 function DiffRow({ row }: { row: BackupDiffRow }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const value = (count: number) =>
-    row.unit === 'photo' ? photoCountLabel(count) : presetCountLabel('ja', count);
+    row.unit === 'photo' ? photoCountLabel(locale, count) : presetCountLabel(locale, count);
 
   return (
     <View style={[styles.diffRow, { borderTopColor: colors.separator }]}>
@@ -219,18 +229,21 @@ export function BackupErrorView({
   onPickAnother,
   onCopy,
 }: ErrorProps) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
-        <NoticeCard tone="danger" title={BACKUP_ERROR_TITLE} icon={false}>
+        <NoticeCard tone="danger" title={backupErrorTitle(locale)} icon={false}>
           <Text style={[styles.reason, { color: colors.label }]}>{reason}</Text>
-          <Text style={[styles.hint, { color: colors.secondaryLabel }]}>{BACKUP_ERROR_HINT}</Text>
+          <Text style={[styles.hint, { color: colors.secondaryLabel }]}>{backupErrorHint(locale)}</Text>
 
           {/* **3 行目だけは緑にする。** 赤の中に同じ色で埋めると読み飛ばされるが、
               失敗したときに一番知りたいのは「壊れていないか」 */}
-          <NoticeCard tone="success" body={BACKUP_ERROR_UNCHANGED_NOTE} />
+          <NoticeCard tone="success" body={backupErrorUnchangedNote(locale)} />
         </NoticeCard>
 
         {/* 選んだファイルは不活性のまま残す（何を選んだのかを画面から消さない）。
@@ -246,9 +259,9 @@ export function BackupErrorView({
       </View>
 
       <BottomActionBar
-        label={BACKUP_PICK_ANOTHER_FILE_LABEL}
+        label={backupPickAnotherFileLabel(locale)}
         onPress={onPickAnother}
-        secondary={{ label: BACKUP_ERROR_COPY_LABEL, onPress: onCopy }}
+        secondary={{ label: backupErrorCopyLabel(locale), onPress: onCopy }}
       />
     </View>
   );

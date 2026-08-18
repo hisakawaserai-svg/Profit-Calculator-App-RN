@@ -12,10 +12,10 @@
 
 import type { BackupRow } from './backup';
 import {
-  BACKUP_PREVIEW_PHOTOS_LABEL,
-  BACKUP_PREVIEW_PRESETS_LABEL,
-  BACKUP_PREVIEW_RECORDS_LABEL,
-  BACKUP_PREVIEW_TAGS_LABEL,
+  backupCountPhotosLabel,
+  backupCountPresetsLabel,
+  backupCountRecordsLabel,
+  backupCountTagsLabel,
 } from './labels';
 
 /** 差の表の片側 1 列ぶん（今の端末 / ファイル）。**写真も同じ表に並べる**（案 53f） */
@@ -63,10 +63,10 @@ export function backupDiffRows(
   ): BackupDiffRow => ({ label, current: from, next: to, unit, decreasing: to < from });
 
   return [
-    row(BACKUP_PREVIEW_RECORDS_LABEL, 'count', current.records, next.records),
-    row(BACKUP_PREVIEW_TAGS_LABEL, 'count', current.tags, next.tags),
-    row(BACKUP_PREVIEW_PRESETS_LABEL, 'count', current.presets, next.presets),
-    row(BACKUP_PREVIEW_PHOTOS_LABEL, 'photo', current.photos, next.photos),
+    row(backupCountRecordsLabel('ja'), 'count', current.records, next.records),
+    row(backupCountTagsLabel('ja'), 'count', current.tags, next.tags),
+    row(backupCountPresetsLabel('ja'), 'count', current.presets, next.presets),
+    row(backupCountPhotosLabel('ja'), 'photo', current.photos, next.photos),
   ];
 }
 

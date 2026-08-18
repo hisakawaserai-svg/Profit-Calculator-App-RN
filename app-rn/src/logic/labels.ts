@@ -3177,7 +3177,9 @@ export const CSV_SOLD_STATUS_VALUE = t('detail.soldBadge', 'ja');
 export const CSV_LISTING_STATUS_VALUE = t('list.listingStatus', 'ja');
 
 /** 記録 ID の列（§5.3-18）。再書き出し時の突き合わせ用 */
-export const RECORD_ID_COLUMN = '記録ID';
+export function recordIdColumn(locale: Locale): string {
+  return t('export.recordIdColumn', locale);
+}
 
 /**
  * タグの列の区切り（SPEC-V4 §5.2）。**タグ名で使えない 1 文字**を予約してある（§1.3）ので、
@@ -3216,7 +3218,7 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
   RECORD_STATUS_COLUMN,
   t('form.listedDate', 'ja'),
   t('form.memo', 'ja'),
-  RECORD_ID_COLUMN,
+  t('export.recordIdColumn', 'ja'),
 ];
 
 /**
@@ -3244,7 +3246,9 @@ export const CSV_TAX_COLUMNS: readonly string[] = [
 ];
 
 /** 日ごとにまとめた行の種別（§5.2.2）。同じ種別だけなら種別名が入る */
-export const CSV_KIND_MIXED_LABEL = '混在';
+export function csvKindMixedLabel(locale: Locale): string {
+  return t('export.kindMixed', locale);
+}
 
 /**
  * 日ごとにまとめた行の販売サイト（§5.2.2）:「フリマA ほか1件」。
@@ -3263,44 +3267,63 @@ export function csvDaySiteNames(siteNames: readonly string[]): string {
  * **こちらは記録の件数**で数える（同じ商品名が 3 件なら「ほか2件」）── 何件ぶんの
  * 金額が 1 行に入っているかが読めるようにするため。空の商品名は一覧と同じ「無題」。
  */
-export function csvDayItemNames(itemNames: readonly string[]): string {
+export function csvDayItemNames(locale: Locale, itemNames: readonly string[]): string {
   if (itemNames.length === 0) return '';
-  const head = itemNames[0] === '' ? t('list.untitled', 'ja') : itemNames[0];
+  const head = itemNames[0] === '' ? t('list.untitled', locale) : itemNames[0];
   if (itemNames.length === 1) return head;
   return `${head} ${presetOverflowLabel(itemNames.length - 1)}`;
 }
 
 /** ファイル名の先頭（§5.4）。種類で変える ── 後から見て何の書き出しか読めるように */
-export const CSV_FILE_BASE_NAMES: Record<'backup' | 'tax', string> = {
-  backup: '売上記録',
-  tax: '確定申告',
-};
+const CSV_FILE_BASE_KEYS = {
+  backup: 'export.fileBaseBackup',
+  tax: 'export.fileBaseTax',
+} as const satisfies Record<'backup' | 'tax', TranslationKey>;
+
+export function csvFileBaseName(locale: Locale, kind: 'backup' | 'tax'): string {
+  return t(CSV_FILE_BASE_KEYS[kind], locale);
+}
 
 /** ファイル名の期間の部分（全期間のときだけ期間キーが無い） */
-export const CSV_ALL_PERIOD_FILE_LABEL = t('period.all', 'ja');
+export function csvAllPeriodFileLabel(locale: Locale): string {
+  return t('export.allPeriodFile', locale);
+}
 
 // ---- SPEC-V3 §5.7 書き出しシート（ExportSheet） ----
 
 /** シートの見出し。設定タブの行と同じ語（押した先が同じものだと読める） */
-export const EXPORT_SHEET_TITLE = CSV_EXPORT_LABEL;
+export function exportSheetTitle(locale: Locale): string {
+  return t('export.sheetTitle', locale);
+}
 
 /** ヘッダ左。書き出さずに閉じる（§5.7） */
-export const EXPORT_CANCEL_LABEL = 'キャンセル';
+export function exportCancelLabel(locale: Locale): string {
+  return t('export.cancel', locale);
+}
 
 /** 節の見出し（§5.7 の並び: 種類 → 期間 → まとめ方 → 対象） */
-export const EXPORT_KIND_SECTION_LABEL = '種類';
-export const EXPORT_PERIOD_SECTION_LABEL = '期間';
-export const EXPORT_GROUPING_SECTION_LABEL = 'まとめ方';
-export const EXPORT_TARGET_SECTION_LABEL = '対象';
+export function exportKindSectionLabel(locale: Locale): string {
+  return t('export.kindSection', locale);
+}
+export function exportPeriodSectionLabel(locale: Locale): string {
+  return t('export.periodSection', locale);
+}
+export function exportGroupingSectionLabel(locale: Locale): string {
+  return t('export.groupingSection', locale);
+}
+export function exportTargetSectionLabel(locale: Locale): string {
+  return t('export.targetSection', locale);
+}
 
 /** 種類の 2 択（§5.2 の改訂）。既定は先頭（データ保存用） */
-export const EXPORT_KIND_OPTIONS: readonly {
-  value: 'backup' | 'tax';
-  label: string;
-}[] = [
-  { value: 'backup', label: 'データ保存用' },
-  { value: 'tax', label: '確定申告用' },
-];
+export function exportKindOptions(
+  locale: Locale,
+): readonly { value: 'backup' | 'tax'; label: string }[] {
+  return [
+    { value: 'backup', label: t('export.kindBackup', locale) },
+    { value: 'tax', label: t('export.kindTax', locale) },
+  ];
+}
 
 /**
  * 種類の節の下の 1 行。選んでいる方が何のためのものかを言う（列の一覧までは出さない）。
@@ -3308,13 +3331,16 @@ export const EXPORT_KIND_OPTIONS: readonly {
  * **「バックアップにも使えます」を外した**（SPEC-V8 §0.2）── SPEC-V3 §5.2 の時点では
  * 唯一の書き出しだったので正しかったが、**SPEC-V8 で本物の復元が入って嘘になった。**
  * この CSV は読み戻せない（計算値が入り、写真・資材費の 3 列が無く、時刻が落ちている）。
- * 下の EXPORT_NOT_RESTORABLE_NOTE と同じ画面に並ぶので、残すと真っ向から矛盾する。
+ * 下の exportNotRestorableNote('ja') と同じ画面に並ぶので、残すと真っ向から矛盾する。
  */
-export const EXPORT_KIND_NOTES: Record<'backup' | 'tax', string> = {
-  backup:
-    'メモやタグも含めて、記録した内容をすべて書き出します。表計算で見るための形です。',
-  tax: '帳簿に要る列だけを書き出します。メモとタグは出しません。',
-};
+const EXPORT_KIND_NOTE_KEYS = {
+  backup: 'export.kindBackupNote',
+  tax: 'export.kindTaxNote',
+} as const satisfies Record<'backup' | 'tax', TranslationKey>;
+
+export function exportKindNote(locale: Locale, kind: 'backup' | 'tax'): string {
+  return t(EXPORT_KIND_NOTE_KEYS[kind], locale);
+}
 
 /**
  * 書き出し画面に出す**復元との関係**（SPEC-V8 §0.2 / §5.1）。
@@ -3325,51 +3351,61 @@ export const EXPORT_KIND_NOTES: Record<'backup' | 'tax', string> = {
  *
  * 行き先（「バックアップと復元」）を名指しするのは、否定だけで終わらせないため。
  */
-export const EXPORT_NOT_RESTORABLE_NOTE =
-  'このCSVは復元には使えません。機種変更などでデータを移すときは「バックアップと復元」をお使いください。';
+export function exportNotRestorableNote(locale: Locale): string {
+  return t('export.notRestorableNote', locale);
+}
 
 /** まとめ方の 2 択（§5.2.2）。**確定申告用のときだけ出す** */
-export const EXPORT_GROUPING_OPTIONS: readonly {
-  value: 'record' | 'day';
-  label: string;
-}[] = [
-  { value: 'record', label: '1件ずつ' },
-  { value: 'day', label: '日ごとにまとめる' },
-];
+export function exportGroupingOptions(
+  locale: Locale,
+): readonly { value: 'record' | 'day'; label: string }[] {
+  return [
+    { value: 'record', label: t('export.groupingRecord', locale) },
+    { value: 'day', label: t('export.groupingDay', locale) },
+  ];
+}
 
 /** まとめ方の節の下の 1 行 */
-export const EXPORT_GROUPING_NOTES: Record<'record' | 'day', string> = {
-  record: '1行に1件ずつ書き出します。',
-  day: '同じ日の記録を1行に合算します。商品名は「えんぴつ ほか2件」の形になります。',
-};
+const EXPORT_GROUPING_NOTE_KEYS = {
+  record: 'export.groupingRecordNote',
+  day: 'export.groupingDayNote',
+} as const satisfies Record<'record' | 'day', TranslationKey>;
+
+export function exportGroupingNote(locale: Locale, grouping: 'record' | 'day'): string {
+  return t(EXPORT_GROUPING_NOTE_KEYS[grouping], locale);
+}
 
 /**
  * 対象の 2 択（§5.5-3）。既定は「売れた記録のみ」（決定 §8-9）──
  * 申告も集計も確定した金額しか扱わないため。
  */
-export const EXPORT_TARGET_OPTIONS: readonly {
-  value: boolean;
-  label: string;
-}[] = [
-  { value: false, label: `${t('list.soldRecords', 'ja')}のみ` },
-  { value: true, label: `${t('list.listingStatus', 'ja')}も含める` },
-];
+export function exportTargetOptions(
+  locale: Locale,
+): readonly { value: boolean; label: string }[] {
+  return [
+    { value: false, label: t('export.targetSoldOnly', locale) },
+    { value: true, label: t('export.targetIncludeListing', locale) },
+  ];
+}
 
 /** 実行ボタン（§5.7）。**期間シートと違い確定ボタンを置く**（取り消せない操作なので） */
-export const EXPORT_SUBMIT_LABEL = '書き出す';
+export function exportSubmitLabel(locale: Locale): string {
+  return t('export.submit', locale);
+}
 
 /**
  * 下端の左（§5.7）:「2026年8月・売れた記録」。期間名は月バーと同じ書式（periodTitle）。
  * **押す前に何が出るかを読ませる行**なので、効いている条件をそのまま並べる。
  */
 export function exportSummaryLabel(
+  locale: Locale,
   period: Period,
   includeListing: boolean,
 ): string {
-  const target = includeListing
-    ? `${t('list.soldRecords', 'ja')}と${t('list.listingStatus', 'ja')}`
-    : t('list.soldRecords', 'ja');
-  return `${periodTitle('ja', period)}・${target}`;
+  return t('export.summary', locale, {
+    period: periodTitle(locale, period),
+    target: t(includeListing ? 'export.summaryTargetBoth' : 'export.targetSoldOnly', locale),
+  });
 }
 
 /**
@@ -3378,11 +3414,14 @@ export function exportSummaryLabel(
  * 変わったことがその場で読めるように両方出す。同じ数のときは括弧を出さない。
  */
 export function exportCountLabel(
+  locale: Locale,
   recordCount: number,
   rowCount: number,
 ): string {
-  const count = presetCountLabel('ja', recordCount);
-  return rowCount === recordCount ? count : `${count}（${rowCount}行）`;
+  const count = presetCountLabel(locale, recordCount);
+  return rowCount === recordCount
+    ? count
+    : t('export.countLabelWithRows', locale, { count, rows: rowCount });
 }
 
 /**
@@ -3392,10 +3431,10 @@ export function exportCountLabel(
  * 対象の切り替えか、どちらで直るのかが読めない。出品中の記録が 1 件も無いときは
  * 2 文目を足さない（言うことがない）。
  */
-export function exportEmptyNote(listingCount: number): string {
-  const head = 'この期間に対象の記録がありません。';
-  if (listingCount === 0) return head;
-  return `${head}${t('list.listingStatus', 'ja')}の記録は${presetCountLabel('ja', listingCount)}あります。`;
+export function exportEmptyNote(locale: Locale, listingCount: number): string {
+  return listingCount === 0
+    ? t('export.emptyNote', locale)
+    : t('export.emptyNoteWithListing', locale, { count: listingCount });
 }
 
 /**
@@ -3404,19 +3443,26 @@ export function exportEmptyNote(listingCount: number): string {
  * 「不用品なら非課税」と読み切られると、課税対象のものを申告から落とす事故になる。
  * **押すとヘルプの「確定申告に使うときの注意」が開く**（UI-SPEC Step 6 で繋いだ）。
  */
-export const EXPORT_TAX_NOTICE =
-  '不用品でも、課税対象になる場合があります。書き出したあとで仕分けてください。';
+export function exportTaxNotice(locale: Locale): string {
+  return t('export.taxNotice', locale);
+}
 
 /** 上のバナーが押せることを読み上げに足す語（見た目のシェブロンだけでは伝わらないため） */
-export const EXPORT_TAX_NOTICE_OPEN_LABEL = '詳しい説明を開く';
+export function exportTaxNoticeOpenLabel(locale: Locale): string {
+  return t('export.taxNoticeOpen', locale);
+}
 
 // ---- SPEC-V3 §5.9 プレビュー（案 `40a` ＋ `40c`） ----
 
 /** シートの中のカードの見出し（案 `40a`）。「プレビュー」ではなく**何の表かを言う** */
-export const EXPORT_PREVIEW_CARD_TITLE = '書き出す表';
+export function exportPreviewCardTitle(locale: Locale): string {
+  return t('export.previewCardTitle', locale);
+}
 
 /** 全画面（案 `40c`）のヘッダ */
-export const EXPORT_PREVIEW_SCREEN_TITLE = 'プレビュー';
+export function exportPreviewScreenTitle(locale: Locale): string {
+  return t('export.previewScreenTitle', locale);
+}
 
 /**
  * カード見出しの右（案 `40a`）:「先頭3行・全18列」。
@@ -3424,10 +3470,11 @@ export const EXPORT_PREVIEW_SCREEN_TITLE = 'プレビュー';
  * 出す行が 3 行に満たないときは実際の数を出す（「先頭3行」と出て 2 行しか無いと数が食い違う）。
  */
 export function exportPreviewMetaLabel(
+  locale: Locale,
   shownRows: number,
   columnCount: number,
 ): string {
-  return `先頭${shownRows}行・全${columnCount}列`;
+  return t('export.previewMeta', locale, { rows: shownRows, columns: columnCount });
 }
 
 /**
@@ -3438,13 +3485,19 @@ export function exportPreviewMetaLabel(
 export const CSV_SHIPPING_MATERIAL_NOTE = `送料には${SHIPPING_MATERIAL_LABEL}の代金を含みます`;
 
 /** 表の下の 1 行（案 `40a`）。横スクロールできることは形からは読めないので語で言う */
-export const EXPORT_PREVIEW_SCROLL_HINT = '横に動かすと残りの列が見えます';
+export function exportPreviewScrollHint(locale: Locale): string {
+  return t('export.previewScrollHint', locale);
+}
 
 /** カードを押すと全画面が開くことの読み上げ語（見た目は右端の `›`） */
-export const EXPORT_PREVIEW_OPEN_LABEL = '全部見る';
+export function exportPreviewOpenLabel(locale: Locale): string {
+  return t('export.previewOpen', locale);
+}
 
 /** 全画面の下端のボタン（案 `40c`）。行き先を名指しする（「閉じる」とは言わない） */
-export const EXPORT_PREVIEW_BACK_LABEL = 'シートに戻る';
+export function exportPreviewBackLabel(locale: Locale): string {
+  return t('export.previewBack', locale);
+}
 
 /**
  * 全画面の上の行の右（案 `40c`）:「全11列・8件（4行）」。
@@ -3452,23 +3505,31 @@ export const EXPORT_PREVIEW_BACK_LABEL = 'シートに戻る';
  * 同じ書き出しを指しているので、画面が変わっても読む値が変わらないようにする。
  */
 export function exportPreviewScreenMetaLabel(
+  locale: Locale,
   columnCount: number,
   recordCount: number,
   rowCount: number,
 ): string {
-  return `全${columnCount}列・${exportCountLabel(recordCount, rowCount)}`;
+  return t('export.previewScreenMeta', locale, {
+    columns: columnCount,
+    count: exportCountLabel(locale, recordCount, rowCount),
+  });
 }
 
 /** 共有シートが使えない端末（§5.6）。書き出しの経路が共有シートしかないので、押した後に出る */
-export const EXPORT_SHARING_UNAVAILABLE =
-  'この端末では共有シートを開けませんでした。';
+export function exportSharingUnavailable(locale: Locale): string {
+  return t('export.sharingUnavailable', locale);
+}
 
 /** 書き出しに失敗したとき（§5.6）。原因は端末側なので、言えるのは「できなかった」まで */
-export const EXPORT_FAILED_MESSAGE =
-  '書き出せませんでした。もう一度お試しください。';
+export function exportFailedMessage(locale: Locale): string {
+  return t('export.failed', locale);
+}
 
 /** 共有シートの見出し（Android / Web のみ表示される。expo-sharing の dialogTitle） */
-export const EXPORT_SHARE_DIALOG_TITLE = CSV_EXPORT_LABEL;
+export function exportShareDialogTitle(locale: Locale): string {
+  return t('export.sheetTitle', locale);
+}
 
 // 状態カードの補足行（旧 statusCardTimelineText。UI-SPEC §8.9）は**置かない**。
 // §8.9 が実装時送りにしていた重複の整理を、実機で見て「補足行を落とす」と決めたため ──
@@ -3768,7 +3829,7 @@ export function helpFigurePackUseNote(size: string, price: string): string {
 export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
   const columns = kind === 'backup' ? CSV_BACKUP_COLUMNS : CSV_TAX_COLUMNS;
   const label =
-    EXPORT_KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '';
+    exportKindOptions('ja').find((option) => option.value === kind)?.label ?? '';
   return `${label}\n${columns.length} 列`;
 }
 
@@ -3785,12 +3846,14 @@ export function backupLabel(locale: Locale): string {
 
 /**
  * **移行前の呼び出し用（日本語固定）。**
- * バックアップ画面の見出し（BACKUP_SCREEN_TITLE）が参照している（ステップ 1 の対象外）。
+ * バックアップ画面の見出し（backupScreenTitle('ja')）が参照している（ステップ 1 の対象外）。
  */
 export const BACKUP_LABEL = t('settings.data.backup', 'ja');
 
 /** バックアップ画面の見出し（§5.2） */
-export const BACKUP_SCREEN_TITLE = BACKUP_LABEL;
+export function backupScreenTitle(locale: Locale): string {
+  return t('backup.screenTitle', locale);
+}
 
 /** backup-info.csv のファイル名（§1.2）。logic/backup.ts と画面の両方が使う */
 export const BACKUP_INFO_FILE = 'backup-info.csv';
@@ -3801,8 +3864,12 @@ export const BACKUP_INFO_FILE = 'backup-info.csv';
 // カード 1 が「何ができるか」、カード 2 が「写真をどうするか」、
 // 押す口は下端に 1 つだけ ── 親指の届く場所に、押せるものを 1 つに絞る。
 
-export const BACKUP_CREATE_SECTION_TITLE = 'バックアップを作る';
-export const BACKUP_CREATE_BUTTON_LABEL = 'バックアップを作る';
+export function backupCreateSectionTitle(locale: Locale): string {
+  return t('backup.createSection', locale);
+}
+export function backupCreateButtonLabel(locale: Locale): string {
+  return t('backup.createButton', locale);
+}
 
 /**
  * 作る側の説明（案 53a）。**行き先（新しい端末）まで書く。**
@@ -3811,23 +3878,32 @@ export const BACKUP_CREATE_BUTTON_LABEL = 'バックアップを作る';
  * 文では「何のために作るのか」だけを言う ── 機種変更で困らないためのものだ、と
  * 分かる位置に置かないと、隣の「書き出し（CSV）」との違いが読めない。
  */
-export const BACKUP_CREATE_NOTE =
-  '今あるデータをまとめて1つのファイルにします。機種を変えるときは、このファイルを新しい端末に渡してください。';
+export function backupCreateNote(locale: Locale): string {
+  return t('backup.createNote', locale);
+}
 
 /** 件数の帯（案 53a）。「記録 53件」の形で 3 つ並べる */
-export const BACKUP_COUNT_RECORDS_LABEL = '記録';
-export const BACKUP_COUNT_TAGS_LABEL = 'タグ';
-export const BACKUP_COUNT_PRESETS_LABEL = 'プリセット';
-export const BACKUP_COUNT_PHOTOS_LABEL = '写真';
+export function backupCountRecordsLabel(locale: Locale): string {
+  return t('backup.countRecords', locale);
+}
+export function backupCountTagsLabel(locale: Locale): string {
+  return t('backup.countTags', locale);
+}
+export function backupCountPresetsLabel(locale: Locale): string {
+  return t('backup.countPresets', locale);
+}
+export function backupCountPhotosLabel(locale: Locale): string {
+  return t('backup.countPhotos', locale);
+}
 
 /** 「記録 53件」（帯の 1 つ）。ラベルと数の間は半角空き 1 つ */
-export function backupCountChipLabel(label: string, count: number): string {
-  return `${label} ${presetCountLabel('ja', count)}`;
+export function backupCountChipLabel(locale: Locale, label: string, count: number): string {
+  return t('backup.countChip', locale, { label, count: presetCountLabel(locale, count) });
 }
 
 /** 写真の枚数（「31枚」）。件（記録・タグ・プリセット）とは単位を変える */
-export function photoCountLabel(count: number): string {
-  return `${count}枚`;
+export function photoCountLabel(locale: Locale, count: number): string {
+  return t('backup.photoCount', locale, { count });
 }
 
 // ---- 写真を含めるか（SPEC-V8 §4 / 案 53a） ----
@@ -3837,17 +3913,28 @@ export function photoCountLabel(count: number): string {
 // 2 択なら選択肢の中に枚数とサイズを書けるので、「含めるとは何のことか」が
 // 選ぶ瞬間に目に入る。既定は左の「含める」（バックアップは全部戻せるのが本来）。
 
-export const BACKUP_PHOTO_SECTION_TITLE = '商品の写真';
-export const BACKUP_PHOTO_INCLUDE_LABEL = '含める';
-export const BACKUP_PHOTO_EXCLUDE_LABEL = '含めない';
+export function backupPhotoSectionTitle(locale: Locale): string {
+  return t('backup.photoSection', locale);
+}
+export function backupPhotoIncludeLabel(locale: Locale): string {
+  return t('backup.photoInclude', locale);
+}
+export function backupPhotoExcludeLabel(locale: Locale): string {
+  return t('backup.photoExclude', locale);
+}
 
 /** 「含める」の下に出す実測（53枚・8.2MB）。**合計サイズは実体を読まずに出す**（§4.4） */
-export function backupPhotoIncludeDetail(count: number, bytes: number): string {
-  return `${photoCountLabel(count)}・${formatByteSize(bytes)}`;
+export function backupPhotoIncludeDetail(locale: Locale, count: number, bytes: number): string {
+  return t('backup.photoIncludeDetail', locale, {
+    photos: photoCountLabel(locale, count),
+    size: formatByteSize(locale, bytes),
+  });
 }
 
 /** 「含めない」の下に出す利点。否定の選択肢にも選ぶ理由を書く */
-export const BACKUP_PHOTO_EXCLUDE_DETAIL = 'ファイルが軽い';
+export function backupPhotoExcludeDetail(locale: Locale): string {
+  return t('backup.photoExcludeDetail', locale);
+}
 
 /**
  * バイト数を読める形に。MB は小数 1 桁、KB 未満は「1KB未満」に丸める。
@@ -3855,26 +3942,29 @@ export const BACKUP_PHOTO_EXCLUDE_DETAIL = 'ファイルが軽い';
  * **割り切れるときは小数を落とす**（`50.0MB` ではなく `50MB`）── 上限のように
  * 定数として出す数字に `.0` が付くと、意味のない桁を読ませることになる。
  */
-export function formatByteSize(bytes: number): string {
+export function formatByteSize(locale: Locale, bytes: number): string {
   const mb = bytes / 1024 / 1024;
-  if (mb >= 1) return `${Number(mb.toFixed(1))}MB`;
+  if (mb >= 1) return t('backup.sizeMb', locale, { value: Number(mb.toFixed(1)) });
   const kb = bytes / 1024;
-  if (kb >= 1) return `${Math.round(kb)}KB`;
-  return '1KB未満';
+  if (kb >= 1) return t('backup.sizeKb', locale, { value: Math.round(kb) });
+  return t('backup.sizeUnderKb', locale);
 }
 
 /**
  * **写真が入らないことの警告（案 53b）。** 選択カードの**直下**に出す。
  *
  * 「含めない」を選んだ**その瞬間**に、選んだ場所のすぐ下で言う ── 作ったあとに
- * 気付いても遅い。下端のボタン名（BACKUP_CREATE_WITHOUT_PHOTOS_LABEL）と合わせて
+ * 気付いても遅い。下端のボタン名（backupCreateWithoutPhotosLabel('ja')）と合わせて
  * **2 か所**で言うのは、片方だけでは押す前の視線に入らないことがあるため。
  */
-export const BACKUP_NO_PHOTO_WARNING =
-  'このバックアップに写真は含まれません。新しい端末で写真は表示されなくなります。';
+export function backupNoPhotoWarning(locale: Locale): string {
+  return t('backup.noPhotoWarning', locale);
+}
 
 /** 上限に当たった人の逃げ道（§4.4）。**否定で終わらせない** */
-export const BACKUP_CREATE_WITHOUT_PHOTOS_LABEL = '写真なしで作る';
+export function backupCreateWithoutPhotosLabel(locale: Locale): string {
+  return t('backup.createWithoutPhotos', locale);
+}
 
 /**
  * 中身が CSV であることの位置づけ（SPEC-V8 §0.3 / §10）。
@@ -3886,11 +3976,12 @@ export const BACKUP_CREATE_WITHOUT_PHOTOS_LABEL = '写真なしで作る';
  * **「編集できません」とは言わない**（§10）── 禁止する実装は入れておらず、
  * 検証を通れば読み込める。言えるのは「想定していない」まで。
  *
- * 写真の警告（BACKUP_NO_PHOTO_WARNING）とは重さが違うので**カードの外に小さく置く** ──
+ * 写真の警告（backupNoPhotoWarning('ja')）とは重さが違うので**カードの外に小さく置く** ──
  * あちらは知らないと失う（写真が戻らない）が、こちらは知らなくても損はしない。
  */
-export const BACKUP_CSV_INSIDE_NOTE =
-  '中身はCSVですが、確認用です。編集して読み込むことは想定していません。';
+export function backupCsvInsideNote(locale: Locale): string {
+  return t('backup.csvInsideNote', locale);
+}
 
 // ---- 作っている間（案 53a 右） ----
 //
@@ -3898,15 +3989,19 @@ export const BACKUP_CSV_INSIDE_NOTE =
 // 反応が消えて「効いたのか」が読めない。進捗は写真の枚数で数える ──
 // 止まって見える時間のほとんどが写真の読み出しなので、そこだけが動けば十分。
 
-export const BACKUP_CREATING_LABEL = '作っています...';
+export function backupCreatingLabel(locale: Locale): string {
+  return t('backup.creating', locale);
+}
 
 /** 「写真 34枚目 / 53枚」。**何枚目まで進んだか**を出す（率は出さない） */
-export function backupPhotoProgressLabel(done: number, total: number): string {
-  return `写真 ${done}枚目 / ${photoCountLabel(total)}`;
+export function backupPhotoProgressLabel(locale: Locale, done: number, total: number): string {
+  return t('backup.photoProgress', locale, { done, total: photoCountLabel(locale, total) });
 }
 
 /** 進捗の右に添える 1 語。**待てば終わる**ことだけを言う */
-export const BACKUP_PROGRESS_WAIT_NOTE = 'このままお待ちください';
+export function backupProgressWaitNote(locale: Locale): string {
+  return t('backup.progressWaitNote', locale);
+}
 
 /**
  * 下端のボタンの下に出す 1 行（案 53a）。
@@ -3914,22 +4009,32 @@ export const BACKUP_PROGRESS_WAIT_NOTE = 'このままお待ちください';
  * **「前回」を出すのは、間隔が空いたことに自分で気付けるようにするため。**
  * 通知も催促もしないので、思い出す手がかりはこの 1 行しかない。
  */
-export function backupLastCreatedNote(createdAt: string | null): string {
-  if (createdAt == null) return 'まだ一度も作っていません';
-  return `前回作ったのは ${backupDayLabel(createdAt)}`;
+export function backupLastCreatedNote(locale: Locale, createdAt: string | null): string {
+  if (createdAt == null) return t('backup.lastCreatedNever', locale);
+  return t('backup.lastCreated', locale, { date: backupDayLabel(locale, createdAt) });
 }
 
 /** 「2026年7月2日」。保存形式 "YYYY-MM-DDTHH:mm:ss.SSS" から日付だけを出す */
-export function backupDayLabel(date: string): string {
+export function backupDayLabel(locale: Locale, date: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
   if (match == null) return date;
   const [, year, month, day] = match;
-  return `${year}年${Number(month)}月${Number(day)}日`;
+  return t('backup.dayLabel', locale, {
+    year,
+    month: locale === 'en' ? formatMonthCell(locale, Number(month)) : Number(month),
+    day: Number(day),
+  });
 }
 
-export const BACKUP_SHARE_DIALOG_TITLE = 'バックアップを保存';
-export const BACKUP_CREATE_FAILED_MESSAGE = 'バックアップを作れませんでした。';
-export const BACKUP_SHARING_UNAVAILABLE = 'この端末では共有できません。';
+export function backupShareDialogTitle(locale: Locale): string {
+  return t('backup.shareDialogTitle', locale);
+}
+export function backupCreateFailedMessage(locale: Locale): string {
+  return t('backup.createFailed', locale);
+}
+export function backupSharingUnavailable(locale: Locale): string {
+  return t('backup.sharingUnavailable', locale);
+}
 
 // ---- 画面 2: 上限を超えたとき（§4.4 / 案 53e） ----
 //
@@ -3938,22 +4043,27 @@ export const BACKUP_SHARING_UNAVAILABLE = 'この端末では共有できませ�
 // **下からのシート**で受け止める ── ダイアログより文を長く書けて、
 // 棒グラフで「あと少しなのか、大幅に超えているのか」まで見せられる。
 
-export const BACKUP_PHOTO_LIMIT_TITLE = '写真が多すぎます';
+export function backupPhotoLimitTitle(locale: Locale): string {
+  return t('backup.photoLimitTitle', locale);
+}
 
 /** 何が起きるのかを、起きる順に 1 文で。「上限」の語より先に結果を言う */
-export const BACKUP_PHOTO_LIMIT_MESSAGE =
-  '写真を全部入れると、作っている途中でアプリが止まってしまいます。';
+export function backupPhotoLimitMessage(locale: Locale): string {
+  return t('backup.photoLimitMessage', locale);
+}
 
 /** 棒グラフの左の見出し（「今の写真 53枚」） */
-export function backupPhotoLimitBarLabel(count: number): string {
-  return `今の写真 ${photoCountLabel(count)}`;
+export function backupPhotoLimitBarLabel(locale: Locale, count: number): string {
+  return t('backup.photoLimitBarLabel', locale, { photos: photoCountLabel(locale, count) });
 }
 
 /** 棒グラフの下の目盛り（左端は 0、右端は上限） */
-export const BACKUP_PHOTO_LIMIT_BAR_MIN = '0';
+export function backupPhotoLimitBarMin(locale: Locale): string {
+  return t('backup.photoLimitBarMin', locale);
+}
 
-export function backupPhotoLimitBarMax(limit: number): string {
-  return `上限 ${formatByteSize(limit)}`;
+export function backupPhotoLimitBarMax(locale: Locale, limit: number): string {
+  return t('backup.photoLimitBarMax', locale, { size: formatByteSize(locale, limit) });
 }
 
 /**
@@ -3963,15 +4073,11 @@ export function backupPhotoLimitBarMax(limit: number): string {
  * 数字が無いと「写真が入らないなら意味がない」と読まれて、
  * バックアップそのものを取らずに終わる。
  */
-export function backupPhotoLimitFooter(counts: {
-  records: number;
-  tags: number;
-  presets: number;
-}): string {
-  return (
-    `写真なしでも、記録${counts.records}件・タグ${counts.tags}件・プリセット${counts.presets}件は` +
-    `すべて新しい端末に移せます。写真だけは「写真」アプリなどに保存してください。`
-  );
+export function backupPhotoLimitFooter(
+  locale: Locale,
+  counts: { records: number; tags: number; presets: number },
+): string {
+  return t('backup.photoLimitFooter', locale, counts);
 }
 
 /**
@@ -3981,17 +4087,26 @@ export function backupPhotoLimitFooter(counts: {
  * 「そのまま作る」か「写真を減らしてから戻る」かを選べるようにするため、
  * **同じ行き止まりに戻さない**。
  */
-export const BACKUP_LIMIT_CANCEL_LABEL = 'やめる';
+export function backupLimitCancelLabel(locale: Locale): string {
+  return t('backup.limitCancel', locale);
+}
 
 // ---- 復元するものを選ぶ（§5.4） ----
 
-export const BACKUP_RESTORE_SECTION_TITLE = '復元する';
-export const BACKUP_PICK_FILE_LABEL = 'バックアップのファイルを選ぶ';
-export const BACKUP_PICK_FOLDER_LABEL = '解凍したフォルダを選ぶ';
+export function backupRestoreSectionTitle(locale: Locale): string {
+  return t('backup.restoreSection', locale);
+}
+export function backupPickFileLabel(locale: Locale): string {
+  return t('backup.pickFile', locale);
+}
+export function backupPickFolderLabel(locale: Locale): string {
+  return t('backup.pickFolder', locale);
+}
 
 /** 2 つの選び方がある理由を 1 行で（§3.1 / 決定 §8-2） */
-export const BACKUP_RESTORE_NOTE =
-  'バックアップの ZIP ファイルか、それを解凍したフォルダを選びます。中身を確認するために解凍したあとでも復元できます。';
+export function backupRestoreNote(locale: Locale): string {
+  return t('backup.restoreNote', locale);
+}
 
 // ---- 画面 3: プレビュー（§5.4 / 案 53f / 53g） ----
 //
@@ -3999,18 +4114,26 @@ export const BACKUP_RESTORE_NOTE =
 // 数字で並べられず、閉じると理由が残らない。この 1 枚が確認そのもので、
 // **「今の端末 → ファイル」の差**を出すのが、間違ったファイルに気付く一番強い手がかり。
 
-export const BACKUP_PREVIEW_SCREEN_TITLE = '読み込む中身';
-export const BACKUP_PREVIEW_BACK_LABEL = '戻る';
+export function backupPreviewScreenTitle(locale: Locale): string {
+  return t('backup.previewScreenTitle', locale);
+}
+export function backupPreviewBackLabel(locale: Locale): string {
+  return t('backup.previewBack', locale);
+}
 
 /** 差の表の 2 つの列見出し */
-export const BACKUP_DIFF_CURRENT_HEADER = '今の端末';
-export const BACKUP_DIFF_FILE_HEADER = 'ファイル';
+export function backupDiffCurrentHeader(locale: Locale): string {
+  return t('backup.diffCurrentHeader', locale);
+}
+export function backupDiffFileHeader(locale: Locale): string {
+  return t('backup.diffFileHeader', locale);
+}
 
 /** 差の表の行の名前（§4.4）。**写真の行は 0 枚でも出す** ── 差の表では 0 に意味がある */
-export const BACKUP_PREVIEW_RECORDS_LABEL = BACKUP_COUNT_RECORDS_LABEL;
-export const BACKUP_PREVIEW_TAGS_LABEL = BACKUP_COUNT_TAGS_LABEL;
-export const BACKUP_PREVIEW_PRESETS_LABEL = BACKUP_COUNT_PRESETS_LABEL;
-export const BACKUP_PREVIEW_PHOTOS_LABEL = BACKUP_COUNT_PHOTOS_LABEL;
+export const BACKUP_PREVIEW_RECORDS_LABEL = t('backup.countRecords', 'ja');
+export const BACKUP_PREVIEW_TAGS_LABEL = t('backup.countTags', 'ja');
+export const BACKUP_PREVIEW_PRESETS_LABEL = t('backup.countPresets', 'ja');
+export const BACKUP_PREVIEW_PHOTOS_LABEL = t('backup.countPhotos', 'ja');
 
 /**
  * ファイルのカードの 2 行目（案 53f / 53g）。
@@ -4020,20 +4143,21 @@ export const BACKUP_PREVIEW_PHOTOS_LABEL = BACKUP_COUNT_PHOTOS_LABEL;
  * 写真の入っていないファイルは、ここでも `・写真なし` と言う（§4.6）。
  */
 export function backupPreviewCreatedLine(
+  locale: Locale,
   createdAt: string,
   today: Date,
   hasPhotos: boolean,
 ): string {
-  const relative = backupRelativeDayLabel(createdAt, today);
+  const relative = backupRelativeDayLabel(locale, createdAt, today);
+  const plain = backupDayLabel(locale, createdAt);
   const day =
-    relative == null
-      ? backupDayLabel(createdAt)
-      : `${backupDayLabel(createdAt)}（${relative}）`;
-  return hasPhotos ? `作成日 ${day}` : `作成日 ${day}・写真なし`;
+    relative == null ? plain : t('backup.dayWithRelative', locale, { day: plain, relative });
+  return t(hasPhotos ? 'backup.createdLine' : 'backup.createdLineNoPhoto', locale, { day });
 }
 
 /** きょう / きのう / それ以前は null（日付だけで足りる） */
 export function backupRelativeDayLabel(
+  locale: Locale,
   createdAt: string,
   today: Date,
 ): string | null {
@@ -4043,8 +4167,8 @@ export function backupRelativeDayLabel(
   const created = new Date(Number(year), Number(month) - 1, Number(day));
   const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const days = Math.round((base.getTime() - created.getTime()) / 86_400_000);
-  if (days === 0) return 'きょう';
-  if (days === 1) return 'きのう';
+  if (days === 0) return t('backup.relativeToday', locale);
+  if (days === 1) return t('backup.relativeYesterday', locale);
   return null;
 }
 
@@ -4055,9 +4179,13 @@ export function backupRelativeDayLabel(
  * 商品名 1 つを出せば、見覚えがあるかどうかで一瞬で分かる ──
  * 件数の一致より強い手がかりで、しかも読むのに 1 秒もかからない。
  */
-export function backupNewestRecordNote(date: string, itemName: string): string {
-  const name = itemName.trim() === '' ? t('list.untitled', 'ja') : itemName;
-  return `中で一番新しい記録は ${backupDayLabel(date)}「${name}」です。見覚えがなければ、別の人のファイルです。`;
+export function backupNewestRecordNote(
+  locale: Locale,
+  date: string,
+  itemName: string,
+): string {
+  const name = itemName.trim() === '' ? t('list.untitled', locale) : itemName;
+  return t('backup.newestRecordNote', locale, { day: backupDayLabel(locale, date), name });
 }
 
 /**
@@ -4066,54 +4194,72 @@ export function backupNewestRecordNote(date: string, itemName: string): string {
  * 赤い数字は「減る」ことしか言わないので、**減り幅が大きいときだけ**
  * 言葉でも言う ── 古いバックアップを選んでいる典型がここに出る。
  */
-export function backupLargeDecreaseNote(current: number, next: number): string {
-  return (
-    `記録が${presetCountLabel('ja', current)}から${presetCountLabel('ja', next)}に減ります。` +
-    `古いバックアップを選んでいないか確かめてください。`
-  );
+export function backupLargeDecreaseNote(
+  locale: Locale,
+  current: number,
+  next: number,
+): string {
+  return t('backup.largeDecreaseNote', locale, {
+    current,
+    next,
+  });
 }
 
 /** 写真の入っていないファイルから戻すとき（案 53g）。**損失が二重なので 2 文に分ける** */
-export const BACKUP_NO_PHOTO_IN_FILE_TITLE =
-  'このファイルに写真は入っていません。';
+export function backupNoPhotoInFileTitle(locale: Locale): string {
+  return t('backup.noPhotoInFileTitle', locale);
+}
 
-export function backupNoPhotoInFileBody(devicePhotos: number): string {
-  return (
-    `写真は復元されません。今この端末にある写真${photoCountLabel(devicePhotos)}も、` +
-    `いっしょに削除されます。`
-  );
+export function backupNoPhotoInFileBody(locale: Locale, devicePhotos: number): string {
+  return t('backup.noPhotoInFileBody', locale, { photos: photoCountLabel(locale, devicePhotos) });
 }
 
 /** 赤いボタンの上に置く警告（案 53f）。**取り消せないことを最後に言う** */
-export function backupReplaceWarning(records: number): string {
-  return (
-    `今あるデータ（記録${presetCountLabel('ja', records)}）はすべて消えて、` +
-    `ファイルの中身に置き換わります。元には戻せません。`
-  );
+export function backupReplaceWarning(locale: Locale, records: number): string {
+  // 記録の数なので recordCountValue（英語は records）。汎用の items にしない
+  return t('backup.replaceWarning', locale, { count: records });
 }
 
-export const BACKUP_REPLACE_ALL_LABEL = 'すべて置き換える';
+export function backupReplaceAllLabel(locale: Locale): string {
+  return t('backup.replaceAll', locale);
+}
 
 /** 写真の入っていないファイルのとき（案 53g）。**ボタン名でも写真のことを言う** */
-export const BACKUP_REPLACE_WITHOUT_PHOTOS_LABEL = '写真なしで置き換える';
+export function backupReplaceWithoutPhotosLabel(locale: Locale): string {
+  return t('backup.replaceWithoutPhotos', locale);
+}
 
-export const BACKUP_PICK_ANOTHER_FILE_LABEL = '別のファイルを選ぶ';
+export function backupPickAnotherFileLabel(locale: Locale): string {
+  return t('backup.pickAnotherFile', locale);
+}
 
 /** 復元の最中（写真を書き戻している間）。作るときと同じ形で出す */
-export const BACKUP_RESTORING_LABEL = '読み込んでいます...';
+export function backupRestoringLabel(locale: Locale): string {
+  return t('backup.restoring', locale);
+}
 
 // ---- 画面 5: 復元できたとき（§5.6 / 案 53k） ----
 
-export const BACKUP_RESULT_SCREEN_TITLE = '読み込みの結果';
-export const BACKUP_RESTORED_TITLE = '復元しました。';
+export function backupResultScreenTitle(locale: Locale): string {
+  return t('backup.resultScreenTitle', locale);
+}
+export function backupRestoredTitle(locale: Locale): string {
+  return t('backup.restoredTitle', locale);
+}
 
 /** 写真の行（案 53k）。**欠けたぶんは括弧で添える**（行そのものは消さない） */
 export function backupRestoredPhotoValue(
+  locale: Locale,
   restored: number,
   missing: number,
 ): string {
-  if (missing === 0) return photoCountLabel(restored);
-  return `${photoCountLabel(restored)}（${photoCountLabel(missing)}は復元できず）`;
+  const shown = photoCountLabel(locale, restored);
+  return missing === 0
+    ? shown
+    : t('backup.restoredPhotoValueWithMissing', locale, {
+        restored: shown,
+        missing: photoCountLabel(locale, missing),
+      });
 }
 
 /**
@@ -4123,22 +4269,26 @@ export function backupRestoredPhotoValue(
  * 復元そのものは成功していて、金額も日付も入っている（§4.3）。
  * 言うのは「なぜ欠けたか」と「その記録はどうなったか」の 2 つ。
  */
-export function backupMissingPhotoNote(missing: number): string {
-  return (
-    `写真${photoCountLabel(missing)}はファイルの中に無いか壊れていたため、` +
-    `その${presetCountLabel('ja', missing)}は写真なしの記録として入りました。金額や日付は入っています。`
-  );
+export function backupMissingPhotoNote(locale: Locale, missing: number): string {
+  return t('backup.missingPhotoNote', locale, {
+    photos: photoCountLabel(locale, missing),
+    count: missing,
+  });
 }
 
-export const BACKUP_RESULT_OPEN_RECORDS_LABEL = '記録を見る';
+export function backupResultOpenRecordsLabel(locale: Locale): string {
+  return t('backup.resultOpenRecords', locale);
+}
 
 /** 欠けた写真があるときだけ出す 2 つ目の口（案 53k） */
-export function backupMissingPhotoRecordsLabel(missing: number): string {
-  return `写真がなかった${presetCountLabel('ja', missing)}を見る`;
+export function backupMissingPhotoRecordsLabel(locale: Locale, missing: number): string {
+  return t('backup.missingPhotoRecords', locale, { count: missing });
 }
 
 /** 欠けた記録の一覧（上の口を押したときに開く）の見出し */
-export const BACKUP_MISSING_PHOTO_LIST_TITLE = '写真がなかった記録';
+export function backupMissingPhotoListTitle(locale: Locale): string {
+  return t('backup.missingPhotoListTitle', locale);
+}
 
 // ---- 画面 4: エラー（§3.3 / 案 53h） ----
 //
@@ -4155,8 +4305,12 @@ export const BACKUP_MISSING_PHOTO_LIST_TITLE = '写真がなかった記録';
 // 画面の中の赤枠のカードに出し、**3 行目だけは緑の帯に分ける**
 // （赤の中に埋めると「無事だった」ことが読み飛ばされる）。
 
-export const BACKUP_ERROR_TITLE = 'バックアップを読み込めませんでした。';
-export const BACKUP_ERROR_UNCHANGED_NOTE = '現在のデータは変更されていません。';
+export function backupErrorTitle(locale: Locale): string {
+  return t('backup.errorTitle', locale);
+}
+export function backupErrorUnchangedNote(locale: Locale): string {
+  return t('backup.errorUnchangedNote', locale);
+}
 
 /**
  * 理由の下に置く 1 文（案 53h）。**部分的に入っていないことと、次の一手**を言う。
@@ -4164,8 +4318,9 @@ export const BACKUP_ERROR_UNCHANGED_NOTE = '現在のデータは変更されて
  * 「1か所でも」と言い切るのは §3.2 の約束（1 件でもエラーがあれば一切読み込まない）
  * そのもので、利用者から見れば「途中まで入った」を疑わなくていい根拠になる。
  */
-export const BACKUP_ERROR_HINT =
-  '1か所でも読めない値があると、途中まで入れることはしません。ファイルを作り直すか、別のファイルを選んでください。';
+export function backupErrorHint(locale: Locale): string {
+  return t('backup.errorHint', locale);
+}
 
 /**
  * 「この内容をコピーする」で持ち出す文（案 53h）。
@@ -4174,43 +4329,64 @@ export const BACKUP_ERROR_HINT =
  * 行番号と列名が落ちると調べようがない。**長押しではなく普通のボタン**にしてあるのは、
  * 長押しは金額の行（LongPressCopy）でだけ使う作法にしているため。
  */
-export function backupErrorCopyText(reason: string): string {
+export function backupErrorCopyText(locale: Locale, reason: string): string {
   return [
-    BACKUP_ERROR_TITLE,
+    backupErrorTitle(locale),
     reason,
-    BACKUP_ERROR_HINT,
-    BACKUP_ERROR_UNCHANGED_NOTE,
+    backupErrorHint(locale),
+    backupErrorUnchangedNote(locale),
   ].join('\n');
 }
 
 /** コピーできたときのトーストに出す語（copiedMessage に渡す） */
-export const BACKUP_ERROR_COPY_LABEL = 'この内容をコピーする';
-export const BACKUP_ERROR_COPY_TOAST_LABEL = 'エラーの内容';
+export function backupErrorCopyLabel(locale: Locale): string {
+  return t('backup.errorCopy', locale);
+}
+export function backupErrorCopyToastLabel(locale: Locale): string {
+  return t('backup.errorCopyToast', locale);
+}
 
 /** 「records.csv 501行目：「仕入価格」が正しい数値ではありません。」（§3.3 の例） */
 export function backupColumnErrorMessage(
+  locale: Locale,
   fileName: string,
   lineNumber: number,
   columnLabel: string,
   reason: string,
 ): string {
-  return `${fileName} ${lineNumber}行目：「${columnLabel}」${reason}`;
+  return t('backup.columnError', locale, {
+    file: fileName,
+    line: lineNumber,
+    column: columnLabel,
+    reason,
+  });
 }
 
-export const BACKUP_NUMBER_ERROR = 'が正しい数値ではありません。';
-export const BACKUP_DATE_ERROR = 'が正しい日付ではありません。';
-export const BACKUP_BOOLEAN_ERROR = 'が 0 か 1 ではありません。';
+export function backupNumberError(locale: Locale): string {
+  return t('backup.numberError', locale);
+}
+export function backupDateError(locale: Locale): string {
+  return t('backup.dateError', locale);
+}
+export function backupBooleanError(locale: Locale): string {
+  return t('backup.booleanError', locale);
+}
 
 export function BACKUP_ENUM_ERROR(values: readonly string[]): string {
   return `が ${values.join(' / ')} のどれでもありません。`;
 }
 
 export function backupEmptyColumnMessage(
+  locale: Locale,
   fileName: string,
   lineNumber: number,
   columnLabel: string,
 ): string {
-  return `${fileName} ${lineNumber}行目：「${columnLabel}」が空です。`;
+  return t('backup.emptyColumn', locale, {
+    file: fileName,
+    line: lineNumber,
+    column: columnLabel,
+  });
 }
 
 /**
@@ -4221,64 +4397,84 @@ export function backupEmptyColumnMessage(
  * 出すのは**最初に食い違った 1 か所**だけ ── 直すべき場所はそこから辿れる。
  */
 export function backupColumnMismatchMessage(
+  locale: Locale,
   fileName: string,
   expected: readonly string[],
   actual: readonly string[],
 ): string {
   if (expected.length !== actual.length) {
-    return `${fileName} の列の数が違います。必要な列は ${expected.length} ですが、ファイルには ${actual.length} あります。`;
+    return t('backup.columnCountMismatch', locale, {
+      file: fileName,
+      expected: expected.length,
+      actual: actual.length,
+    });
   }
   const index = expected.findIndex((name, i) => name !== actual[i]);
-  return `${fileName} の列名が違います。${index + 1} 列目は「${expected[index]}」のはずですが「${actual[index]}」になっています。`;
+  return t('backup.columnNameMismatch', locale, {
+    file: fileName,
+    index: index + 1,
+    expected: expected[index],
+    actual: actual[index],
+  });
 }
 
 export function backupFieldCountMessage(
+  locale: Locale,
   fileName: string,
   lineNumber: number,
   expected: number,
   actual: number,
 ): string {
-  return `${fileName} ${lineNumber}行目：項目の数が ${expected} ではなく ${actual} です。`;
+  return t('backup.fieldCount', locale, {
+    file: fileName,
+    line: lineNumber,
+    expected,
+    actual,
+  });
 }
 
-export function backupMissingFileMessage(fileName: string): string {
-  return `${fileName} が見つかりません。`;
+export function backupMissingFileMessage(locale: Locale, fileName: string): string {
+  return t('backup.missingFile', locale, { file: fileName });
 }
 
 export function BACKUP_EMPTY_FILE_MESSAGE(fileName: string): string {
   return `${fileName} が空です。`;
 }
 
-export function backupUnsupportedVersionMessage(version: number): string {
-  return `このバックアップの形式（バージョン ${version}）には対応していません。アプリを更新してください。`;
+export function backupUnsupportedVersionMessage(locale: Locale, version: number): string {
+  return t('backup.unsupportedVersion', locale, { version });
 }
 
 /** 参照先が無い中間行（§3.2）。**FK が効かないぶんの検査** */
 export function backupUnknownRecordRefMessage(
+  locale: Locale,
   lineNumber: number,
   recordId: string,
 ): string {
-  return `record_tags.csv ${lineNumber}行目：記録ID「${recordId}」が records.csv にありません。`;
+  return t('backup.unknownRecordRef', locale, { line: lineNumber, id: recordId });
 }
 
 export function backupUnknownTagRefMessage(
+  locale: Locale,
   lineNumber: number,
   tagId: string,
 ): string {
-  return `record_tags.csv ${lineNumber}行目：タグID「${tagId}」が tags.csv にありません。`;
+  return t('backup.unknownTagRef', locale, { line: lineNumber, id: tagId });
 }
 
 /** 選んだものがバックアップに見えないとき（§3.1） */
-export const BACKUP_NO_CSV_MESSAGE =
-  '選んだファイルはバックアップではないようです。バックアップの ZIP か、それを解凍したフォルダを選んでください。';
+export function backupNoCsvMessage(locale: Locale): string {
+  return t('backup.noCsvMessage', locale);
+}
 
 /** ZIP として開けなかったとき（壊れている・別形式） */
 export const BACKUP_BROKEN_ZIP_MESSAGE =
   'ファイルを開けませんでした。壊れている可能性があります。';
 
 /** フォルダ選択そのものが使えない端末（Directory.pickDirectoryAsync が無い経路） */
-export const BACKUP_FOLDER_PICK_UNAVAILABLE =
-  'この端末ではフォルダを選べません。ZIP ファイルのまま選んでください。';
+export function backupFolderPickUnavailable(locale: Locale): string {
+  return t('backup.folderPickUnavailable', locale);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 価格と利益の分析「いくらで売る？」（SPEC-V9 §9）の表示語。
