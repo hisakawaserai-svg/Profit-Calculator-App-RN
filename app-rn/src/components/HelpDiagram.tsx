@@ -56,78 +56,80 @@ import {
   backupCountRecordsLabel,
   backupCountTagsLabel,
   backupRestoreSectionTitle,
-  COMMISSION_LABEL,
-  COMMISSION_SHORT_LABEL,
-  CUMULATIVE_PROFIT_LABEL,
-  ENVELOPE_COST_LABEL,
-  EXPENSES_LABEL,
-  FORMULA_TARGET_LABEL,
-  HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE,
-  HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL,
-  HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL,
-  HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE,
-  HELP_FIGURE_BACKUP_REPLACE_NOTE,
-  HELP_FIGURE_COST_PARTS_SUBTITLE,
-  HELP_FIGURE_CSV_BASIC_LABEL,
-  HELP_FIGURE_CSV_BREAKDOWN_LABEL,
-  HELP_FIGURE_CSV_KINDS_SUBTITLE,
-  HELP_FIGURE_CSV_SITE_LABEL,
-  HELP_FIGURE_DAY_GROUP_SUBTITLE,
-  HELP_FIGURE_EXCLUDED_LABEL,
-  HELP_FIGURE_FILE_LABEL,
-  HELP_FIGURE_GROUPED_LABEL,
-  HELP_FIGURE_HIT_LABEL,
-  HELP_FIGURE_INCLUDED_LABEL,
-  HELP_FIGURE_KEPT_LABEL,
-  HELP_FIGURE_MISS_LABEL,
-  HELP_FIGURE_DUPLICATE_COPIED_LABEL,
-  HELP_FIGURE_DUPLICATE_DATE_LABEL,
-  HELP_FIGURE_DUPLICATE_SKIPPED_LABEL,
-  HELP_FIGURE_DUPLICATE_STATUS_LABEL,
-  HELP_FIGURE_DUPLICATE_SUBTITLE,
-  HELP_FIGURE_MIGRATE_NEW_LABEL,
-  HELP_FIGURE_MIGRATE_OLD_LABEL,
-  HELP_FIGURE_MIGRATE_SUBTITLE,
-  HELP_FIGURE_NONE_MARK,
-  HELP_FIGURE_ONE_BY_ONE_LABEL,
-  HELP_FIGURE_PACK_AREA_LABEL,
-  HELP_FIGURE_PACK_QUANTITY_LABEL,
-  HELP_FIGURE_PACK_SUBTITLE,
-  HELP_FIGURE_PACK_USAGE_LABEL,
-  HELP_FIGURE_PURCHASE_NOTE,
-  HELP_FIGURE_PURCHASE_SHORT_LABEL,
-  HELP_FIGURE_POSTAGE_NOTE,
-  HELP_FIGURE_COMMISSION_NOTE,
-  HELP_FIGURE_ENVELOPE_NOTE,
-  HELP_FIGURE_OTHERS_NOTE,
-  HELP_FIGURE_ROUNDING_SUBTITLE,
-  HELP_FIGURE_ROUND_FIRST_LABEL,
-  HELP_FIGURE_ROUND_LAST_LABEL,
-  HELP_FIGURE_SALE_DATE_RANGE_LABEL,
-  HELP_FIGURE_SCREEN_LABEL,
-  HELP_FIGURE_SITE_AMOUNT_SUBTITLE,
-  HELP_FIGURE_TARGET_PROFIT_LABEL,
-  HELP_FIGURE_TARGET_ROW_TITLE,
-  HELP_FIGURE_TARGET_SUBTITLE,
-  HELP_FIGURE_TOTAL_CAPTION,
+  commissionLabel,
+  commissionShortLabel,
+  cumulativeProfitLabel,
+  envelopeCostLabel,
+  expensesLabel,
+  formulaTargetLabel,
+  helpFigureAchievementKindsSubtitle,
+  helpFigureAchievementLadderLabel,
+  helpFigureAchievementOnceLabel,
+  helpFigureBackupPreviewSubtitle,
+  helpFigureBackupReplaceNote,
+  helpFigureCostPartsSubtitle,
+  helpFigureCsvBasicLabel,
+  helpFigureCsvBreakdownLabel,
+  helpFigureCsvKindsSubtitle,
+  helpFigureCsvSiteLabel,
+  helpFigureDayGroupSubtitle,
+  helpFigureExcludedLabel,
+  helpFigureSample,
+  helpFigureFileLabel,
+  helpFigureGroupedLabel,
+  helpFigureHitLabel,
+  helpFigureIncludedLabel,
+  helpFigureKeptLabel,
+  helpFigureMissLabel,
+  helpFigureDuplicateCopiedLabel,
+  helpFigureDuplicateDateLabel,
+  helpFigureDuplicateSkippedLabel,
+  helpFigureDuplicateStatusLabel,
+  helpFigureDuplicateSubtitle,
+  helpFigureMigrateNewLabel,
+  helpFigureMigrateOldLabel,
+  helpFigureMigrateSubtitle,
+  helpFigureNoneMark,
+  helpFigureOneByOneLabel,
+  helpFigurePackAreaLabel,
+  helpFigurePackQuantityLabel,
+  helpFigurePackSubtitle,
+  helpFigurePackUsageLabel,
+  helpFigurePurchaseNote,
+  helpFigurePurchaseShortLabel,
+  helpFigurePostageNote,
+  helpFigureCommissionNote,
+  helpFigureEnvelopeNote,
+  helpFigureEnvelopeOthersPart,
+  helpFigureOthersNote,
+  helpFigureRoundingSubtitle,
+  helpFigureRoundFirstLabel,
+  helpFigureRoundLastLabel,
+  helpFigureSaleDateRangeLabel,
+  helpFigureScreenLabel,
+  helpFigureSiteAmountSubtitle,
+  helpFigureTargetProfitLabel,
+  helpFigureTargetRowTitle,
+  helpFigureTargetSubtitle,
+  helpFigureTotalCaption,
   itemNameLabel,
   memoLabel,
-  OTHERS_COST_LABEL,
-  PHOTO_FIELD_LABEL,
-  POSTAGE_LABEL,
+  othersCostLabel,
+  photoFieldLabel,
+  postageLabel,
   presetAreaUnitPriceLabel,
   presetCalcMethodOptions,
   presetPackPriceFieldLabel,
   presetUnitPriceLabel,
   presetUsePriceLabel,
-  PURCHASE_PRICE_LABEL,
+  purchasePriceLabel,
   RECORD_KIND_COLUMN,
-  SALES_PRICE_LABEL,
+  salesPriceLabel,
   tagLabel,
-  TARGET_PREVIEW_ROOM_LABEL,
+  targetPreviewRoomLabel,
   TARGET_PROFIT_COLUMN,
-  TARGET_PROFIT_UNSET_LABEL,
-  TOTAL_PROFIT_LABEL,
+  targetProfitUnsetLabel,
+  totalProfitLabel,
   chartBarLegendLabel,
   csvDayItemNames,
   helpFigureAppAmountMeasure,
@@ -143,6 +145,8 @@ import {
   profitLabel,
   recordKindLabel,
 } from '@/logic/labels';
+import type { Locale } from '@/settings/language';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 題材にする 1 件（説明用の固定値）。4 つの図で共通 */
@@ -175,7 +179,8 @@ const APP_AMOUNT = SITE_AMOUNT - OTHERS;
 const PURCHASED_AMOUNT = APP_AMOUNT - PURCHASE;
 
 /** 図の金額表記。**3 桁区切りを入れる**（案 `20a` の原寸が「1,500円」で描かれている） */
-const yen = (value: number) => `${groupDigits(value)}円`;
+const yen = (locale: Locale, value: number) =>
+  locale === 'en' ? `¥${groupDigits(value)}` : `${groupDigits(value)}円`;
 
 const BAR_HEIGHT = 38;
 const BAR_RADIUS = 6;
@@ -288,6 +293,9 @@ function FigureFrame({
  * 引き算の順番も色の意味も変わらないことが、並べた形そのものから読める。
  */
 export function KindComparisonFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const deductions: Segment[] = [
     { key: 'commission', amount: COMMISSION, tone: 'commission' },
@@ -296,8 +304,8 @@ export function KindComparisonFigure() {
   ];
 
   return (
-    <FigureFrame subtitle={helpFigureBothSoldSubtitle(yen(SALES_PRICE))}>
-      <Text style={[styles.rowTitle, { color: colors.label }]}>{recordKindLabel('ja', 'used')}</Text>
+    <FigureFrame subtitle={helpFigureBothSoldSubtitle(locale, yen(locale, SALES_PRICE))}>
+      <Text style={[styles.rowTitle, { color: colors.label }]}>{recordKindLabel(locale, 'used')}</Text>
       <HelpBar
         segments={[
           ...deductions,
@@ -305,20 +313,20 @@ export function KindComparisonFigure() {
             key: 'kept',
             amount: APP_AMOUNT,
             tone: 'kept',
-            label: `${profitLabel('ja', 'used')} ${yen(APP_AMOUNT)}`,
+            label: `${profitLabel(locale, 'used')} ${yen(locale, APP_AMOUNT)}`,
           },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `${EXPENSES_LABEL} ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${commissionShortLabel(locale)} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${postageLabel(locale)} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `${expensesLabel(locale)} ${OTHERS}` },
         ]}
       />
 
       <Text style={[styles.rowTitle, styles.rowTitleSpaced, { color: colors.label }]}>
-        {helpFigureSourcedRowTitle(yen(PURCHASE))}
+        {helpFigureSourcedRowTitle(locale, yen(locale, PURCHASE))}
       </Text>
       <HelpBar
         segments={[
@@ -327,13 +335,13 @@ export function KindComparisonFigure() {
             key: 'purchase',
             amount: PURCHASE,
             tone: 'dark',
-            label: `${HELP_FIGURE_PURCHASE_SHORT_LABEL} ${PURCHASE}`,
+            label: `${helpFigurePurchaseShortLabel(locale)} ${PURCHASE}`,
           },
           {
             key: 'kept',
             amount: PURCHASED_AMOUNT,
             tone: 'kept',
-            label: `${profitLabel('ja', 'sourced')} ${yen(PURCHASED_AMOUNT)}`,
+            label: `${profitLabel(locale, 'sourced')} ${yen(locale, PURCHASED_AMOUNT)}`,
           },
         ]}
       />
@@ -349,6 +357,9 @@ export function KindComparisonFigure() {
  * （SPEC-V2 §5.3: 1 件は種別語、2 件以上は中立語）。
  */
 export function TermsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -356,13 +367,13 @@ export function TermsFigure() {
       <View style={styles.termsRow}>
         <View style={styles.termsSingles}>
           <TermBox
-            label={helpFigureSingleRecordLabel('used')}
-            value={profitLabel('ja', 'used')}
+            label={helpFigureSingleRecordLabel(locale, 'used')}
+            value={profitLabel(locale, 'used')}
             valueColor={colors.green}
           />
           <TermBox
-            label={helpFigureSingleRecordLabel('sourced')}
-            value={profitLabel('ja', 'sourced')}
+            label={helpFigureSingleRecordLabel(locale, 'sourced')}
+            value={profitLabel(locale, 'sourced')}
             valueColor={colors.green}
           />
         </View>
@@ -373,10 +384,10 @@ export function TermsFigure() {
             { borderColor: colors.blue, backgroundColor: colors.highlightBackground },
           ]}>
           <Text style={[styles.termsTotalCaption, { color: colors.secondaryLabel }]}>
-            {HELP_FIGURE_TOTAL_CAPTION}
+            {helpFigureTotalCaption(locale)}
           </Text>
           <Text style={[styles.termsTotalValue, { color: colors.blue }]}>
-            {TOTAL_PROFIT_LABEL}
+            {totalProfitLabel(locale)}
           </Text>
         </View>
       </View>
@@ -411,34 +422,37 @@ function TermBox({
  * 帯を 2 本並べると「別々の計算」に見えてしまう。
  */
 export function SiteAmountFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_SITE_AMOUNT_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureSiteAmountSubtitle(locale)}>
       <HelpBar
         segments={[
           { key: 'commission', amount: COMMISSION, tone: 'commission' },
           { key: 'postage', amount: POSTAGE, tone: 'light' },
           { key: 'others', amount: OTHERS, tone: 'mid' },
-          { key: 'kept', amount: APP_AMOUNT, tone: 'kept', label: HELP_FIGURE_KEPT_LABEL },
+          { key: 'kept', amount: APP_AMOUNT, tone: 'kept', label: helpFigureKeptLabel(locale) },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `${ENVELOPE_COST_LABEL}ほか ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${commissionShortLabel(locale)} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${postageLabel(locale)} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: helpFigureEnvelopeOthersPart(locale, String(OTHERS)) },
         ]}
       />
 
       <View style={styles.measures}>
         <Measure
           color={colors.secondaryLabel}
-          text={helpFigureSiteAmountMeasure(yen(SITE_AMOUNT))}
+          text={helpFigureSiteAmountMeasure(locale, yen(locale, SITE_AMOUNT))}
         />
         <Measure
           color={colors.blue}
-          text={helpFigureAppAmountMeasure(yen(APP_AMOUNT))}
+          text={helpFigureAppAmountMeasure(locale, yen(locale, APP_AMOUNT))}
         />
       </View>
     </FigureFrame>
@@ -464,6 +478,9 @@ function Measure({ color, text }: { color: string; text: string }) {
  * 出品日は説明用の固定値（8/1）で、実際の記録とは連動しない。
  */
 export function SaleDateRangeFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -477,7 +494,7 @@ export function SaleDateRangeFigure() {
         </View>
         <View style={[styles.rangeAllowed, { backgroundColor: colors.highlightBackground }]}>
           <Text style={[styles.rangeAllowedText, { color: colors.blue }]}>
-            {HELP_FIGURE_SALE_DATE_RANGE_LABEL}
+            {helpFigureSaleDateRangeLabel(locale)}
           </Text>
         </View>
       </View>
@@ -500,12 +517,15 @@ export function SaleDateRangeFigure() {
  * 別の絵にすると「2 つの計算がある」と読まれる。
  */
 export function ReversePriceFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_TARGET_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureTargetSubtitle(locale)}>
       <Text style={[styles.rowTitle, { color: colors.label }]}>
-        {HELP_FIGURE_TARGET_ROW_TITLE}
+        {helpFigureTargetRowTitle(locale)}
       </Text>
       <HelpBar
         segments={[
@@ -516,22 +536,22 @@ export function ReversePriceFigure() {
             key: 'kept',
             amount: APP_AMOUNT,
             tone: 'kept',
-            label: `${HELP_FIGURE_TARGET_PROFIT_LABEL} ${yen(APP_AMOUNT)}`,
+            label: `${helpFigureTargetProfitLabel(locale)} ${yen(locale, APP_AMOUNT)}`,
           },
         ]}
       />
       <HelpLegend
         items={[
-          { key: 'commission', tone: 'commission', text: `${COMMISSION_SHORT_LABEL} ${COMMISSION}` },
-          { key: 'postage', tone: 'light', text: `${POSTAGE_LABEL} ${POSTAGE}` },
-          { key: 'others', tone: 'mid', text: `${EXPENSES_LABEL} ${OTHERS}` },
+          { key: 'commission', tone: 'commission', text: `${commissionShortLabel(locale)} ${COMMISSION}` },
+          { key: 'postage', tone: 'light', text: `${postageLabel(locale)} ${POSTAGE}` },
+          { key: 'others', tone: 'mid', text: `${expensesLabel(locale)} ${OTHERS}` },
         ]}
       />
       {/* 帯の全体が販売価格であることを、幅いっぱいの線で名指しする */}
       <View style={styles.totalMeasure}>
         <View style={[styles.totalLine, { backgroundColor: colors.blue }]} />
         <Text style={[styles.totalText, { color: colors.label }]}>
-          {helpFigureTotalPriceMeasure(yen(SALES_PRICE))}
+          {helpFigureTotalPriceMeasure(locale, yen(locale, SALES_PRICE))}
         </Text>
       </View>
     </FigureFrame>
@@ -548,25 +568,35 @@ export function ReversePriceFigure() {
  * チップは実物（`TagChip`）を使う ── 図の中だけの見た目を作ると、
  * 画面で探すときに手がかりにならない。
  */
-/** 図 6 の題材（作り物のタグ）。見出しが「「洋服」と「食器」を選ぶと」と名指すので、
-    名前は 1 か所に置いて図と見出しで食い違わないようにする */
-const OR_TAGS = {
-  first: { name: '洋服', colorKey: 'red' },
-  second: { name: '食器', colorKey: 'blue' },
-  other: { name: '本', colorKey: 'green' },
-};
+/**
+ * 図 6 の題材（作り物のタグ）。見出しが「「洋服」と「食器」を選ぶと」と名指すので、
+ * 名前は 1 か所に置いて図と見出しで食い違わないようにする。
+ * **関数にしてある** ── 名前は locale で決まるので、配列のまま持つと言語を切り替えても残る。
+ */
+function orTags(locale: Locale) {
+  const sample = helpFigureSample(locale);
+  return {
+    first: { name: sample.tagClothes, colorKey: 'red' },
+    second: { name: sample.tagTableware, colorKey: 'blue' },
+    other: { name: sample.tagBooks, colorKey: 'green' },
+  };
+}
 
 export function TagFilterOrFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
+  const tags = orTags(locale);
   const rows: { key: string; tags: { name: string; colorKey: string }[]; hit: boolean }[] = [
-    { key: 'a', tags: [OR_TAGS.first], hit: true },
-    { key: 'b', tags: [OR_TAGS.second], hit: true },
-    { key: 'ab', tags: [OR_TAGS.first, OR_TAGS.second], hit: true },
-    { key: 'none', tags: [OR_TAGS.other], hit: false },
+    { key: 'a', tags: [tags.first], hit: true },
+    { key: 'b', tags: [tags.second], hit: true },
+    { key: 'ab', tags: [tags.first, tags.second], hit: true },
+    { key: 'none', tags: [tags.other], hit: false },
   ];
 
   return (
-    <FigureFrame subtitle={helpFigureTagOrSubtitle(OR_TAGS.first.name, OR_TAGS.second.name)}>
+    <FigureFrame subtitle={helpFigureTagOrSubtitle(locale, tags.first.name, tags.second.name)}>
       {rows.map((row) => (
         <View key={row.key} style={[styles.orRow, { borderColor: colors.separator }]}>
           <View style={styles.orTags}>
@@ -576,7 +606,7 @@ export function TagFilterOrFigure() {
           </View>
           <Text
             style={[styles.orMark, { color: row.hit ? colors.green : colors.disabledContent }]}>
-            {row.hit ? HELP_FIGURE_HIT_LABEL : HELP_FIGURE_MISS_LABEL}
+            {row.hit ? helpFigureHitLabel(locale) : helpFigureMissLabel(locale)}
           </Text>
         </View>
       ))}
@@ -595,6 +625,9 @@ const CHART_DAYS = [450, 0, 1085, 320, 0, 780];
  * 線の色はデータタブの実物と同じ indigo にする（図で覚えた色がそのまま使える）。
  */
 export function ChartReadingFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const max = Math.max(...CHART_DAYS);
   // 累計は棒を左から足したもの。折れ線の頂点はその高さに置く
@@ -641,13 +674,13 @@ export function ChartReadingFigure() {
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
           <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>
-            {chartBarLegendLabel('ja', 'day')}
+            {chartBarLegendLabel(locale, 'day')}
           </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: colors.indigo }]} />
           <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>
-            {CUMULATIVE_PROFIT_LABEL}
+            {cumulativeProfitLabel(locale)}
           </Text>
         </View>
       </View>
@@ -656,13 +689,18 @@ export function ChartReadingFigure() {
 }
 
 /** 図 8 の比較（実際の列数。SPEC-V3 §5.3） */
-const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] = [
-  { key: 'basic', label: HELP_FIGURE_CSV_BASIC_LABEL, backup: true, tax: true },
-  { key: 'site', label: HELP_FIGURE_CSV_SITE_LABEL, backup: true, tax: true },
-  { key: 'breakdown', label: HELP_FIGURE_CSV_BREAKDOWN_LABEL, backup: true, tax: true },
-  { key: 'memo', label: memoLabel('ja'), backup: true, tax: false },
-  { key: 'tag', label: tagLabel('ja'), backup: true, tax: false },
-];
+// 関数にしてある ── 配列のまま持つと import 時に畳まれ、言語を切り替えても文字列が残る
+function csvRows(
+  locale: Locale,
+): { key: string; label: string; backup: boolean; tax: boolean }[] {
+  return [
+    { key: 'basic', label: helpFigureCsvBasicLabel(locale), backup: true, tax: true },
+    { key: 'site', label: helpFigureCsvSiteLabel(locale), backup: true, tax: true },
+    { key: 'breakdown', label: helpFigureCsvBreakdownLabel(locale), backup: true, tax: true },
+    { key: 'memo', label: memoLabel(locale), backup: true, tax: false },
+    { key: 'tag', label: tagLabel(locale), backup: true, tax: false },
+  ];
+}
 
 /**
  * 図 8: 書き出しの 2 種類（データページ）。
@@ -672,29 +710,32 @@ const CSV_ROWS: { key: string; label: string; backup: boolean; tax: boolean }[] 
  * 「確定申告用は情報が足りない版」ではなく「帳簿に関係のない記述を持ち込まない版」だと読める。
  */
 export function CsvKindsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_CSV_KINDS_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureCsvKindsSubtitle(locale)}>
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
         <Text style={[styles.csvKind, { color: colors.label }]}>
-          {helpFigureCsvKindLabel('backup')}
+          {helpFigureCsvKindLabel(locale, 'backup')}
         </Text>
         <Text style={[styles.csvKind, { color: colors.label }]}>
-          {helpFigureCsvKindLabel('tax')}
+          {helpFigureCsvKindLabel(locale, 'tax')}
         </Text>
       </View>
-      {CSV_ROWS.map((row) => (
+      {csvRows(locale).map((row) => (
         <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
           <Text style={[styles.csvLabel, styles.csvLabelCol, { color: colors.label }]}>
             {row.label}
           </Text>
           <Text style={[styles.csvMark, { color: row.backup ? colors.green : colors.disabledContent }]}>
-            {row.backup ? HELP_FIGURE_INCLUDED_LABEL : HELP_FIGURE_NONE_MARK}
+            {row.backup ? helpFigureIncludedLabel(locale) : helpFigureNoneMark(locale)}
           </Text>
           <Text style={[styles.csvMark, { color: row.tax ? colors.green : colors.disabledContent }]}>
-            {row.tax ? HELP_FIGURE_INCLUDED_LABEL : HELP_FIGURE_EXCLUDED_LABEL}
+            {row.tax ? helpFigureIncludedLabel(locale) : helpFigureExcludedLabel(locale)}
           </Text>
         </View>
       ))}
@@ -708,12 +749,16 @@ export function CsvKindsFigure() {
  * 増える側の例にすると、置き換えでも足し算でも同じ結果に見えてしまう ──
  * 減る行があってはじめて「今あるものに足されるのではない」が図から読める。
  */
-const BACKUP_DIFF_ROWS: { key: string; label: string; current: number; file: number }[] = [
-  { key: 'records', label: backupCountRecordsLabel('ja'), current: 53, file: 21 },
-  { key: 'tags', label: backupCountTagsLabel('ja'), current: 8, file: 5 },
-  { key: 'presets', label: backupCountPresetsLabel('ja'), current: 6, file: 6 },
-  { key: 'photos', label: backupCountPhotosLabel('ja'), current: 31, file: 12 },
-];
+function backupDiffRows(
+  locale: Locale,
+): { key: string; label: string; current: number; file: number }[] {
+  return [
+    { key: 'records', label: backupCountRecordsLabel(locale), current: 53, file: 21 },
+    { key: 'tags', label: backupCountTagsLabel(locale), current: 8, file: 5 },
+    { key: 'presets', label: backupCountPresetsLabel(locale), current: 6, file: 6 },
+    { key: 'photos', label: backupCountPhotosLabel(locale), current: 31, file: 12 },
+  ];
+}
 
 /**
  * 図 8b: 復元する前のプレビュー（残すページ）。
@@ -724,18 +769,21 @@ const BACKUP_DIFF_ROWS: { key: string; label: string; current: number; file: num
  * どちらへ動くのかが色から読めなくなる。
  */
 export function BackupPreviewFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureBackupPreviewSubtitle(locale)}>
       <View style={styles.csvHead}>
         <View style={styles.csvLabelCol} />
         <Text style={[styles.csvKind, { color: colors.label }]}>
-          {backupDiffCurrentHeader('ja')}
+          {backupDiffCurrentHeader(locale)}
         </Text>
-        <Text style={[styles.csvKind, { color: colors.label }]}>{backupDiffFileHeader('ja')}</Text>
+        <Text style={[styles.csvKind, { color: colors.label }]}>{backupDiffFileHeader(locale)}</Text>
       </View>
-      {BACKUP_DIFF_ROWS.map((row) => (
+      {backupDiffRows(locale).map((row) => (
         <View key={row.key} style={[styles.csvRow, { borderTopColor: colors.separator }]}>
           <Text style={[styles.csvLabel, styles.csvLabelCol, { color: colors.label }]}>
             {row.label}
@@ -754,30 +802,34 @@ export function BackupPreviewFigure() {
         </View>
       ))}
       <Text style={[styles.figureNote, { color: colors.secondaryLabel }]}>
-        {HELP_FIGURE_BACKUP_REPLACE_NOTE}
+        {helpFigureBackupReplaceNote(locale)}
       </Text>
     </FigureFrame>
   );
 }
 
 /** 図 9 の 5 項目。色は帯の語彙のまま（オレンジは手数料だけ・他はグレー） */
-const EXPENSE_ITEMS: { key: string; tone: ToneKey; name: string; note: string }[] = [
-  {
-    key: 'purchase',
-    tone: 'dark',
-    name: PURCHASE_PRICE_LABEL,
-    note: HELP_FIGURE_PURCHASE_NOTE,
-  },
-  { key: 'postage', tone: 'light', name: POSTAGE_LABEL, note: HELP_FIGURE_POSTAGE_NOTE },
-  {
-    key: 'commission',
-    tone: 'commission',
-    name: COMMISSION_LABEL,
-    note: HELP_FIGURE_COMMISSION_NOTE,
-  },
-  { key: 'envelope', tone: 'mid', name: ENVELOPE_COST_LABEL, note: HELP_FIGURE_ENVELOPE_NOTE },
-  { key: 'others', tone: 'mid', name: OTHERS_COST_LABEL, note: HELP_FIGURE_OTHERS_NOTE },
-];
+function expenseItems(
+  locale: Locale,
+): { key: string; tone: ToneKey; name: string; note: string }[] {
+  return [
+    {
+      key: 'purchase',
+      tone: 'dark',
+      name: purchasePriceLabel(locale),
+      note: helpFigurePurchaseNote(locale),
+    },
+    { key: 'postage', tone: 'light', name: postageLabel(locale), note: helpFigurePostageNote(locale) },
+    {
+      key: 'commission',
+      tone: 'commission',
+      name: commissionLabel(locale),
+      note: helpFigureCommissionNote(locale),
+    },
+    { key: 'envelope', tone: 'mid', name: envelopeCostLabel(locale), note: helpFigureEnvelopeNote(locale) },
+    { key: 'others', tone: 'mid', name: othersCostLabel(locale), note: helpFigureOthersNote(locale) },
+  ];
+}
 
 /**
  * 図 9: 経費にふくまれるもの（ことばページ）。
@@ -788,11 +840,14 @@ const EXPENSE_ITEMS: { key: string; tone: ToneKey; name: string; note: string }[
  * 色は帯の語彙のまま置く（オレンジは手数料だけ・他はグレー）ので、帯と突き合わせて読める。
  */
 export function ExpenseItemsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_COST_PARTS_SUBTITLE}>
-      {EXPENSE_ITEMS.map((item) => (
+    <FigureFrame subtitle={helpFigureCostPartsSubtitle(locale)}>
+      {expenseItems(locale).map((item) => (
         <View key={item.key} style={styles.expenseRow}>
           <View style={[styles.expenseDot, { backgroundColor: toneColor(item.tone, colors) }]} />
           <View style={styles.expenseText}>
@@ -813,8 +868,11 @@ export function ExpenseItemsFigure() {
  * 打つのは左の 2 つで、右は自動で出るものだと読める。
  */
 export function PackBuyFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
-  const [individualMethod, areaMethod, usageMethod] = presetCalcMethodOptions('ja');
+  const [individualMethod, areaMethod, usageMethod] = presetCalcMethodOptions(locale);
   const packArea = (PACK_HEIGHT_CM * PACK_WIDTH_CM) / SQUARE_CM_PER_M2;
   const useArea = (USE_HEIGHT_CM * USE_WIDTH_CM) / SQUARE_CM_PER_M2;
 
@@ -825,27 +883,27 @@ export function PackBuyFigure() {
       key: 'individual',
       method: individualMethod,
       price: PACK_PRICE,
-      divisorLabel: HELP_FIGURE_PACK_QUANTITY_LABEL,
+      divisorLabel: helpFigurePackQuantityLabel(locale),
       divisor: `${PACK_QUANTITY}`,
-      resultLabel: presetUnitPriceLabel('ja'),
+      resultLabel: presetUnitPriceLabel(locale),
       result: presetUnitPrice(PACK_PRICE, PACK_QUANTITY),
     },
     {
       key: 'area',
       method: areaMethod,
       price: ROLL_PRICE,
-      divisorLabel: HELP_FIGURE_PACK_AREA_LABEL,
+      divisorLabel: helpFigurePackAreaLabel(locale),
       divisor: `${packArea}㎡`,
-      resultLabel: presetAreaUnitPriceLabel('ja'),
+      resultLabel: presetAreaUnitPriceLabel(locale),
       result: presetAreaUnitPrice(ROLL_PRICE, PACK_HEIGHT_CM, PACK_WIDTH_CM),
     },
     {
       key: 'usage',
       method: usageMethod,
       price: ROLL_PRICE,
-      divisorLabel: HELP_FIGURE_PACK_USAGE_LABEL,
+      divisorLabel: helpFigurePackUsageLabel(locale),
       divisor: `${USAGE_COUNT}`,
-      resultLabel: presetUsePriceLabel('ja'),
+      resultLabel: presetUsePriceLabel(locale),
       result: presetUnitPrice(ROLL_PRICE, USAGE_COUNT),
     },
   ];
@@ -858,7 +916,7 @@ export function PackBuyFigure() {
   );
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_PACK_SUBTITLE}>
+    <FigureFrame subtitle={helpFigurePackSubtitle(locale)}>
       {rows.map((row, index) => (
         <View key={row.key}>
           <Text
@@ -871,7 +929,7 @@ export function PackBuyFigure() {
           </Text>
           <View style={styles.formulaRow}>
             <FormulaBox
-              label={presetPackPriceFieldLabel('ja')}
+              label={presetPackPriceFieldLabel(locale)}
               value={groupDigits(row.price)}
               colors={colors}
             />
@@ -880,7 +938,7 @@ export function PackBuyFigure() {
             <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
             <FormulaBox
               label={row.resultLabel}
-              value={row.result == null ? HELP_FIGURE_NONE_MARK : formatUnitYen('ja', row.result)}
+              value={row.result == null ? helpFigureNoneMark(locale) : formatUnitYen(locale, row.result)}
               colors={colors}
               highlight
             />
@@ -892,7 +950,7 @@ export function PackBuyFigure() {
           下に 1 行で添える（1㎡ あたりのままでも経費には入る、は本文が言う） */}
       {usePrice != null && (
         <Text style={[styles.figureNote, styles.rowTitleSpaced, { color: colors.secondaryLabel }]}>
-          {helpFigurePackUseNote(`${useArea}㎡`, formatUnitYen('ja', usePrice))}
+          {helpFigurePackUseNote(locale, `${useArea}㎡`, formatUnitYen(locale, usePrice))}
         </Text>
       )}
     </FigureFrame>
@@ -906,40 +964,47 @@ export function PackBuyFigure() {
  * 数を減らして書くわけにもいかない ── 2 列に分けて、左を読めば「打ち直さずに済むもの」、
  * 右を読めば「自分で入れるもの」が塊として見える形にする。
  *
- * **欄の名前は画面の表示語をそのまま使う**（itemNameLabel('ja') など）。図の中で言い換えると、
+ * **欄の名前は画面の表示語をそのまま使う**（itemNameLabel(locale) など）。図の中で言い換えると、
  * 記録の画面と見比べたときに対応が取れない。
  */
-const DUPLICATE_COPIED_LABELS = [
-  itemNameLabel('ja'),
-  RECORD_KIND_COLUMN,
-  PURCHASE_PRICE_LABEL,
-  POSTAGE_LABEL,
-  COMMISSION_LABEL,
-  ENVELOPE_COST_LABEL,
-  OTHERS_COST_LABEL,
-  tagLabel('ja'),
-  TARGET_PROFIT_COLUMN,
-];
+function duplicateCopiedLabels(locale: Locale): string[] {
+  return [
+    itemNameLabel(locale),
+    RECORD_KIND_COLUMN,
+    purchasePriceLabel(locale),
+    postageLabel(locale),
+    commissionLabel(locale),
+    envelopeCostLabel(locale),
+    othersCostLabel(locale),
+    tagLabel(locale),
+    TARGET_PROFIT_COLUMN,
+  ];
+}
 
-const DUPLICATE_SKIPPED_LABELS = [
-  SALES_PRICE_LABEL,
-  PHOTO_FIELD_LABEL,
-  memoLabel('ja'),
-  HELP_FIGURE_DUPLICATE_DATE_LABEL,
-  HELP_FIGURE_DUPLICATE_STATUS_LABEL,
-];
+function duplicateSkippedLabels(locale: Locale): string[] {
+  return [
+    salesPriceLabel(locale),
+    photoFieldLabel(locale),
+    memoLabel(locale),
+    helpFigureDuplicateDateLabel(locale),
+    helpFigureDuplicateStatusLabel(locale),
+  ];
+}
 
 export function DuplicateFieldsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_DUPLICATE_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureDuplicateSubtitle(locale)}>
       <View style={styles.duplicateRow}>
         <View style={styles.duplicateCol}>
           <Text style={[styles.duplicateHead, { color: colors.green }]}>
-            {HELP_FIGURE_DUPLICATE_COPIED_LABEL}
+            {helpFigureDuplicateCopiedLabel(locale)}
           </Text>
-          {DUPLICATE_COPIED_LABELS.map((label) => (
+          {duplicateCopiedLabels(locale).map((label) => (
             <Text key={label} style={[styles.duplicateItem, { color: colors.label }]}>
               {label}
             </Text>
@@ -950,9 +1015,9 @@ export function DuplicateFieldsFigure() {
 
         <View style={styles.duplicateCol}>
           <Text style={[styles.duplicateHead, { color: colors.secondaryLabel }]}>
-            {HELP_FIGURE_DUPLICATE_SKIPPED_LABEL}
+            {helpFigureDuplicateSkippedLabel(locale)}
           </Text>
-          {DUPLICATE_SKIPPED_LABELS.map((label) => (
+          {duplicateSkippedLabels(locale).map((label) => (
             <Text key={label} style={[styles.duplicateItem, { color: colors.mutedLabel }]}>
               {label}
             </Text>
@@ -971,16 +1036,19 @@ export function DuplicateFieldsFigure() {
  * 形から読めるようにする。横に並べると 3 つの箱と 2 本の矢印で 1 行が詰まる。
  */
 export function BackupMigrateFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const steps = [
-    { key: 'old', label: HELP_FIGURE_MIGRATE_OLD_LABEL, icon: 'phone-portrait-outline' as const },
-    { key: 'file', label: HELP_FIGURE_FILE_LABEL, icon: 'document-outline' as const },
-    { key: 'new', label: HELP_FIGURE_MIGRATE_NEW_LABEL, icon: 'phone-portrait-outline' as const },
+    { key: 'old', label: helpFigureMigrateOldLabel(locale), icon: 'phone-portrait-outline' as const },
+    { key: 'file', label: helpFigureFileLabel(locale), icon: 'document-outline' as const },
+    { key: 'new', label: helpFigureMigrateNewLabel(locale), icon: 'phone-portrait-outline' as const },
   ];
-  const actions = [backupCreateButtonLabel('ja'), backupRestoreSectionTitle('ja')];
+  const actions = [backupCreateButtonLabel(locale), backupRestoreSectionTitle(locale)];
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_MIGRATE_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureMigrateSubtitle(locale)}>
       {steps.map((step, index) => (
         <View key={step.key}>
           <View
@@ -1045,17 +1113,21 @@ function FormulaBox({
  * 文だと読み飛ばされるが、まとめた後の行から商品名が消えているのを見れば分かる。
  */
 export function GroupingFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
+  const sample = helpFigureSample(locale);
   const before = [
-    { key: 'a', name: 'クッション', amount: 450 },
-    { key: 'b', name: 'マグカップ', amount: 320 },
-    { key: 'c', name: '絵本', amount: 180 },
+    { key: 'a', name: sample.itemCushion, amount: 450 },
+    { key: 'b', name: sample.itemMug, amount: 320 },
+    { key: 'c', name: sample.itemPictureBook, amount: 180 },
   ];
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_DAY_GROUP_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureDayGroupSubtitle(locale)}>
       <Text style={[styles.rowTitle, { color: colors.label }]}>
-        {HELP_FIGURE_ONE_BY_ONE_LABEL}
+        {helpFigureOneByOneLabel(locale)}
       </Text>
       {before.map((row) => (
         <View key={row.key} style={[styles.groupRow, { borderColor: colors.separator }]}>
@@ -1066,14 +1138,14 @@ export function GroupingFigure() {
       ))}
 
       <Text style={[styles.rowTitle, styles.rowTitleSpaced, { color: colors.label }]}>
-        {HELP_FIGURE_GROUPED_LABEL}
+        {helpFigureGroupedLabel(locale)}
       </Text>
       <View style={[styles.groupRow, { borderColor: colors.blue }]}>
         <Text style={[styles.groupDate, { color: colors.secondaryLabel }]}>8/12</Text>
         {/* 商品名は消えない。**実際の関数に作らせる** ── 図に「クッション ほか2件」と
             書き写すと、まとめ方の書式を直したときにここだけ古い形が残る */}
         <Text style={[styles.groupName, { color: colors.label }]}>
-          {csvDayItemNames('ja', before.map((row) => row.name))}
+          {csvDayItemNames(locale, before.map((row) => row.name))}
         </Text>
         <Text style={[styles.groupAmount, { color: colors.blue }]}>950</Text>
       </View>
@@ -1089,25 +1161,28 @@ export function GroupingFigure() {
  * 2 本の道を並べたときにいちばん短く伝わる。
  */
 export function RoundingFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_ROUNDING_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureRoundingSubtitle(locale)}>
       <View style={[styles.roundRow, { borderColor: colors.separator }]}>
         <Text style={[styles.roundWho, { color: colors.label }]}>
-          {HELP_FIGURE_FILE_LABEL}
+          {helpFigureFileLabel(locale)}
         </Text>
         <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
-          {HELP_FIGURE_ROUND_FIRST_LABEL}
+          {helpFigureRoundFirstLabel(locale)}
         </Text>
         <Text style={[styles.roundValue, { color: colors.label }]}>20</Text>
       </View>
       <View style={[styles.roundRow, { borderColor: colors.separator }]}>
         <Text style={[styles.roundWho, { color: colors.label }]}>
-          {HELP_FIGURE_SCREEN_LABEL}
+          {helpFigureScreenLabel(locale)}
         </Text>
         <Text style={[styles.roundHow, { color: colors.secondaryLabel }]}>
-          {HELP_FIGURE_ROUND_LAST_LABEL}
+          {helpFigureRoundLastLabel(locale)}
         </Text>
         <Text style={[styles.roundValue, { color: colors.label }]}>21</Text>
       </View>
@@ -1133,17 +1208,20 @@ const TARGET_ROOM_CASES: { key: string; targetProfit: number | null }[] = [
  * 「¥0」と出すと「もう下げられない」と読め、決めていない人に根拠のない下げ止まりを見せる。
  */
 export function TargetRoomFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <FigureFrame
-      subtitle={helpFigureTargetRoomSubtitle(formatYenSymbol(PRICING_EXAMPLE.salesPrice))}>
+      subtitle={helpFigureTargetRoomSubtitle(locale, formatYenSymbol(PRICING_EXAMPLE.salesPrice))}>
       <View style={styles.roomHead}>
         <Text style={[styles.roomHeadLabel, styles.roomTargetCol, { color: colors.secondaryLabel }]}>
-          {FORMULA_TARGET_LABEL}
+          {formulaTargetLabel(locale)}
         </Text>
         <Text style={[styles.roomHeadLabel, styles.roomValueCol, { color: colors.secondaryLabel }]}>
-          {TARGET_PREVIEW_ROOM_LABEL}
+          {targetPreviewRoomLabel(locale)}
         </Text>
       </View>
       {TARGET_ROOM_CASES.map((item) => {
@@ -1156,7 +1234,7 @@ export function TargetRoomFigure() {
           <View key={item.key} style={[styles.roomRow, { borderTopColor: colors.separator }]}>
             <Text style={[styles.roomTarget, styles.roomTargetCol, { color: colors.label }]}>
               {item.targetProfit == null
-                ? TARGET_PROFIT_UNSET_LABEL
+                ? targetProfitUnsetLabel(locale)
                 : formatYenSymbol(item.targetProfit)}
             </Text>
             <Text
@@ -1165,7 +1243,7 @@ export function TargetRoomFigure() {
                 styles.roomValueCol,
                 { color: shows ? colors.label : colors.disabledContent },
               ]}>
-              {shows ? formatYenSymbol(analysis.room) : HELP_FIGURE_NONE_MARK}
+              {shows ? formatYenSymbol(analysis.room) : helpFigureNoneMark(locale)}
             </Text>
           </View>
         );
@@ -1193,13 +1271,16 @@ export function TargetRoomFigure() {
  * 並べる実績は `logic/helpFigureExample.ts`（段位が飛んでいないことを試験してある）。
  */
 export function AchievementKindsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const isDark = useColorScheme() === 'dark';
 
   return (
-    <FigureFrame subtitle={HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE}>
+    <FigureFrame subtitle={helpFigureAchievementKindsSubtitle(locale)}>
       <Text style={[styles.achievementGroupLabel, { color: colors.secondaryLabel }]}>
-        {HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL}
+        {helpFigureAchievementLadderLabel(locale)}
       </Text>
       {ACHIEVEMENT_LADDER_IDS.map((id) => (
         <AchievementTierRow key={id} id={id} isDark={isDark} />
@@ -1211,7 +1292,7 @@ export function AchievementKindsFigure() {
           styles.achievementOnceLabel,
           { color: colors.secondaryLabel },
         ]}>
-        {HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL}
+        {helpFigureAchievementOnceLabel(locale)}
       </Text>
       {/* 単発にも★と段位はある。違うのは「5 つ並んで登るか、1 つで終わるか」だけ */}
       <AchievementTierRow id={ACHIEVEMENT_ONCE_ID} isDark={isDark} />
@@ -1221,6 +1302,9 @@ export function AchievementKindsFigure() {
 
 /** 1 段ぶん。上に実績名、下に★と段位名（実物の実績詳細と同じ並び） */
 function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const difficulty = achievementDifficulty(id);
   const tier = achievementBadgeTier(id);
@@ -1230,7 +1314,7 @@ function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean
 
   return (
     <View style={styles.achievementRow}>
-      <Text style={[styles.achievementName, { color: colors.label }]}>{achievementName('ja', id)}</Text>
+      <Text style={[styles.achievementName, { color: colors.label }]}>{achievementName(locale, id)}</Text>
       <View style={styles.achievementTierLine}>
         <View style={styles.achievementStars}>
           {Array.from({ length: ACHIEVEMENT_STAR_COUNT }, (_, index) => (
@@ -1243,7 +1327,7 @@ function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean
           ))}
         </View>
         <Text style={[styles.achievementTierName, { color: tierTextColor }]}>
-          {achievementBadgeTierName('ja', tier)}
+          {achievementBadgeTierName(locale, tier)}
         </Text>
       </View>
     </View>

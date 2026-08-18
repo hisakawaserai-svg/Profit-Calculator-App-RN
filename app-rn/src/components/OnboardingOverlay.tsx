@@ -33,23 +33,23 @@ import {
   OnboardingTargetFigure,
 } from '@/components/OnboardingFigure';
 import {
-  CALC_SCREEN_TITLE,
-  DATA_TAB_LABEL,
-  ONBOARDING_ACHIEVEMENTS_NOTE,
-  ONBOARDING_NEXT_PAGE_LABEL,
-  ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS,
-  ONBOARDING_PACKAGING_PRESET_BODY_PREFIX,
-  ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX,
-  ONBOARDING_PREVIOUS_PAGE_LABEL,
-  ONBOARDING_SIMULATOR_NOTE_EMPHASIS,
-  ONBOARDING_SIMULATOR_NOTE_PREFIX,
-  ONBOARDING_SIMULATOR_NOTE_SUFFIX,
-  ONBOARDING_SKIP_LABEL,
-  ONBOARDING_START_LABEL,
+  calcScreenTitle,
+  dataTabLabel,
+  onboardingNextPageLabel,
   onboardingPageIndicatorText,
-  RECORDS_TAB_LABEL,
+  onboardingPreviousPageLabel,
+  onboardingSkipLabel,
+  onboardingStartLabel,
+  onboardingText,
+  recordsTabLabel,
 } from '@/logic/labels';
-import { ONBOARDING_PAGES, type OnboardingPage } from '@/logic/onboardingContent';
+import {
+  ONBOARDING_PAGE_IDS,
+  onboardingPages,
+  type OnboardingPage,
+} from '@/logic/onboardingContent';
+import type { Locale } from '@/settings/language';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 type Props = {
@@ -69,7 +69,7 @@ const FIGURES: Record<OnboardingPage['id'], () => React.JSX.Element> = {
   achievements: OnboardingAchievementsFigure,
 };
 
-const LAST_PAGE_INDEX = ONBOARDING_PAGES.length - 1;
+const LAST_PAGE_INDEX = ONBOARDING_PAGE_IDS.length - 1;
 
 /** ヘッダ見本の「？」は押せない（読むだけの図。OnboardingFigure.tsx の noop と同じ理由） */
 const noop = () => {};
@@ -79,7 +79,9 @@ const noop = () => {};
  * 実際にヘッダへヘルプボタンを持つ画面から 3 つ選んである
  * （app/(tabs)/(calc)/index.tsx・RecordListScreen.tsx・DataScreen.tsx）。
  */
-const ONBOARDING_HELP_SCREEN_TITLES = [CALC_SCREEN_TITLE, RECORDS_TAB_LABEL, DATA_TAB_LABEL];
+function onboardingHelpScreenTitles(locale: Locale): readonly string[] {
+  return [calcScreenTitle(locale), recordsTabLabel(locale), dataTabLabel(locale)];
+}
 
 /**
  * 図の枠の高さ。全ページ共通の固定値にすることで、直下の見出し・本文の開始位置が
@@ -99,6 +101,10 @@ export function OnboardingOverlay({ visible, onDone }: Props) {
 }
 
 function OnboardingContent({ onDone }: { onDone: () => void }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+  const pages = onboardingPages(locale);
+
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -140,10 +146,10 @@ function OnboardingContent({ onDone }: { onDone: () => void }) {
         <Text
           style={[styles.pageIndicator, { color: colors.secondaryLabel }]}
           accessibilityElementsHidden>
-          {onboardingPageIndicatorText(index, ONBOARDING_PAGES.length)}
+          {onboardingPageIndicatorText(locale, index, pages.length)}
         </Text>
         <Pressable onPress={onDone} hitSlop={8} accessibilityRole="button">
-          <Text style={[styles.skipLabel, { color: colors.blue }]}>{ONBOARDING_SKIP_LABEL}</Text>
+          <Text style={[styles.skipLabel, { color: colors.blue }]}>{onboardingSkipLabel(locale)}</Text>
         </Pressable>
       </View>
 
@@ -154,11 +160,11 @@ function OnboardingContent({ onDone }: { onDone: () => void }) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}>
-        {ONBOARDING_PAGES.map((page) => {
+        {pages.map((page) => {
           const Figure = FIGURES[page.id];
           return (
             <View key={page.id} style={{ width }}>
-              <OnboardingPageView page={page} colors={colors}>
+              <OnboardingPageView page={page} colors={colors} locale={locale}>
                 <Figure />
               </OnboardingPageView>
             </View>
@@ -179,11 +185,12 @@ function OnboardingContent({ onDone }: { onDone: () => void }) {
               enabled={index > 0}
               onPress={() => goToIndex(index - 1)}
               colors={colors}
+              locale={locale}
             />
           </View>
 
           <View style={styles.dots}>
-            {ONBOARDING_PAGES.map((page, dotIndex) => (
+            {pages.map((page, dotIndex) => (
               <View
                 key={page.id}
                 style={[
@@ -203,10 +210,16 @@ function OnboardingContent({ onDone }: { onDone: () => void }) {
                   styles.startButton,
                   { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
                 ]}>
-                <Text style={styles.startButtonLabel}>{ONBOARDING_START_LABEL}</Text>
+                <Text style={styles.startButtonLabel}>{onboardingStartLabel(locale)}</Text>
               </Pressable>
             ) : (
-              <NavArrow direction="forward" enabled onPress={() => goToIndex(index + 1)} colors={colors} />
+              <NavArrow
+                direction="forward"
+                enabled
+                onPress={() => goToIndex(index + 1)}
+                colors={colors}
+                locale={locale}
+              />
             )}
           </View>
         </View>
@@ -220,11 +233,13 @@ function NavArrow({
   enabled,
   onPress,
   colors,
+  locale,
 }: {
   direction: 'back' | 'forward';
   enabled: boolean;
   onPress: () => void;
   colors: ThemeColors;
+  locale: Locale;
 }) {
   return (
     <Pressable
@@ -233,7 +248,7 @@ function NavArrow({
       hitSlop={12}
       accessibilityRole="button"
       accessibilityState={{ disabled: !enabled }}
-      accessibilityLabel={direction === 'back' ? ONBOARDING_PREVIOUS_PAGE_LABEL : ONBOARDING_NEXT_PAGE_LABEL}
+      accessibilityLabel={direction === 'back' ? onboardingPreviousPageLabel(locale) : onboardingNextPageLabel(locale)}
       style={({ pressed }) => [
         styles.navArrow,
         { opacity: !enabled ? 0 : pressed ? 0.5 : 1 },
@@ -250,12 +265,15 @@ function NavArrow({
 function OnboardingPageView({
   page,
   colors,
+  locale,
   children,
 }: {
   page: OnboardingPage;
   colors: ThemeColors;
+  locale: Locale;
   children: React.ReactNode;
 }) {
+  const text = onboardingText(locale);
   const isLastPage = page.id === 'achievements';
   const isSimulatorPage = page.id === 'simulator';
   const isPackagingPresetPage = page.id === 'packagingPreset';
@@ -280,11 +298,11 @@ function OnboardingPageView({
             （構成の指定「電卓を強調して」）。他のページは page.body をそのまま出す */}
         {isPackagingPresetPage ? (
           <Text style={[styles.body, { color: colors.secondaryLabel }]}>
-            {ONBOARDING_PACKAGING_PRESET_BODY_PREFIX}
+            {text.packagingPresetPrefix}
             <Text style={[styles.bodyEmphasis, { color: colors.blue }]}>
-              {ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS}
+              {text.packagingPresetEmphasis}
             </Text>
-            {ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX}
+            {text.packagingPresetSuffix}
           </Text>
         ) : (
           <Text style={[styles.body, { color: colors.secondaryLabel }]}>{page.body}</Text>
@@ -296,7 +314,7 @@ function OnboardingPageView({
                 計算タブとかを再現して」）。3 つとも実物にヘルプボタンを持つ画面
                 （app/(tabs)/(calc)/index.tsx・RecordListScreen.tsx・DataScreen.tsx） */}
             <View style={styles.headerPreviewRow}>
-              {ONBOARDING_HELP_SCREEN_TITLES.map((title) => (
+              {onboardingHelpScreenTitles(locale).map((title) => (
                 <View
                   key={title}
                   style={[styles.headerPreviewChip, { backgroundColor: colors.barBackground }]}
@@ -312,7 +330,7 @@ function OnboardingPageView({
               ))}
             </View>
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-              {ONBOARDING_ACHIEVEMENTS_NOTE}
+              {text.achievementsNote}
             </Text>
           </>
         )}
@@ -320,11 +338,11 @@ function OnboardingPageView({
             （構成の指定「目標の純利益を入力を強調して」） */}
         {isSimulatorPage && (
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {ONBOARDING_SIMULATOR_NOTE_PREFIX}
+            {text.simulatorNotePrefix}
             <Text style={[styles.noteEmphasis, { color: colors.blue }]}>
-              {ONBOARDING_SIMULATOR_NOTE_EMPHASIS}
+              {text.simulatorNoteEmphasis}
             </Text>
-            {ONBOARDING_SIMULATOR_NOTE_SUFFIX}
+            {text.simulatorNoteSuffix}
           </Text>
         )}
       </View>

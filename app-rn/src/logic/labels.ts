@@ -1974,11 +1974,13 @@ export function calcPickPackagingLabel(locale: Locale): string {
  * このシートは電卓の上に重なって出るので、閉じると電卓に戻ることが語から読める方がよい。
  * 「‹」はアイコンで出す。
  */
-export const CALC_PICKER_BACK_LABEL = '電卓';
+export function calcPickerBackLabel(locale: Locale): string {
+  return t('preset.pickerBack', locale);
+}
 
 /** 複数選択シートの合計行（§4.5-3）。選んだ数を「点」で数える（金額と混ざらない単位） */
-export function presetPickedCountLabel(count: number): string {
-  return `選択中${count}点`;
+export function presetPickedCountLabel(locale: Locale, count: number): string {
+  return t('preset.pickedCount', locale, { count });
 }
 
 /** 四則の記号（§7.1）。画面には `*` `/` を出さない */
@@ -2437,9 +2439,11 @@ export function shippingTotalNote(locale: Locale): string {
  * 押す前に読めるようにするため。左は増えない側なので額を持たない。
  * 既定（行そのものを押したとき）は右 ＝ 資材を使う側。
  */
-export const SHIPPING_ONLY_LABEL = '送料のみ';
-export function withShippingMaterialLabel(amount: string): string {
-  return `＋資材 ${amount}`;
+export function shippingOnlyLabel(locale: Locale): string {
+  return t('preset.shippingOnly', locale);
+}
+export function withShippingMaterialLabel(locale: Locale, amount: string): string {
+  return t('preset.withShippingMaterial', locale, { amount });
 }
 
 export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
@@ -2677,14 +2681,20 @@ export function presetTagStateLabel(
  * 本文は一覧の空表示（presetEmptyBody）と同じ文。同じ「登録がない」状態を、
  * 出てくる場所ごとに違う言い方で説明しない。
  */
-export const PRESET_PICKER_EMPTY_TITLE = PRESET_CARD_EMPTY_LABEL;
+export function presetPickerEmptyTitle(locale: Locale): string {
+  return t('common.notRegistered', locale);
+}
 
 /**
  * シート末尾のリンク（§4.3-3）。登録があるときは「編集する」、0 件のときは「追加する」。
  * 「▸」を字で持つのは presetAddLabel の「＋」と同じ扱い（記号も表示語のうち）。
  */
-export const PRESET_PICKER_EDIT_LINK = '設定で編集する ▸';
-export const PRESET_PICKER_ADD_LINK = '設定で追加する ▸';
+export function presetPickerEditLink(locale: Locale): string {
+  return t('preset.pickerEditLink', locale);
+}
+export function presetPickerAddLink(locale: Locale): string {
+  return t('preset.pickerAddLink', locale);
+}
 
 /**
  * リンクを出せない場所（記録フォーム。RN の Modal の裏に遷移してしまう）での空表示の本文。
@@ -2693,8 +2703,11 @@ export const PRESET_PICKER_ADD_LINK = '設定で追加する ▸';
  * **押せないリンクの代わりに、行き先を文で名指しする** ── 押せる青字がないので、
  * 反応しないボタンを探させることにはならない。
  */
-export function presetPickerEmptyBodyWithoutLink(type: PresetType): string {
-  return `${presetEmptyBody('ja', type)}\n設定タブの「${PRESET_SECTION_TITLE}」から追加できます。`;
+export function presetPickerEmptyBodyWithoutLink(locale: Locale, type: PresetType): string {
+  return t('preset.pickerEmptyBodyWithoutLink', locale, {
+    body: presetEmptyBody(locale, type),
+    section: t('settings.preset.title', locale),
+  });
 }
 
 /**
@@ -2982,6 +2995,7 @@ export function filterClearActionLabel(locale: Locale): string {
 export const FILTER_DONE_LABEL = t('tag.pickerDone', 'ja');
 
 /** シートの節の見出し（§4.2-2〜4）。販売サイト・タグは既にある語をそのまま使う */
+/** 「種別」の見出し（絞り込みの節。複製で写る欄の図もこれを使う） */
 export function filterKindSectionLabel(locale: Locale): string {
   return t('filter.kindSection', locale);
 }
@@ -3750,76 +3764,152 @@ export function photoSaveFailedMessage(locale: Locale): string {
 // 金額・商品名・タグ名などの**作り物のデータ**（「洋服」「クッション」「800」）は
 // 図の中に残す ── あれは語ではなく題材で、図ごとに読みやすい値を選ぶものだから。
 
+/**
+ * 図の中の合成（「梱包材ほか 50」）。envelopeCostLabel を図の側で連結すると
+ * 英語で語順が崩れるので、1 文としてここで組む。
+ */
+export function helpFigureEnvelopeOthersPart(locale: Locale, amount: string): string {
+  return t('helpFigure.envelopeOthersPart', locale, {
+    envelope: t('amount.envelopeCostInline', locale),
+    amount,
+  });
+}
+
+/**
+ * 図の題材（作り物の商品名・タグ名・プリセット名）。**金額や件数は図が持つ**が、
+ * 語は辞書から引く ── 英語表示のときに図の中だけ日本語が残らないようにする。
+ */
+export function helpFigureSample(locale: Locale) {
+  return {
+    parcel: t('helpFigure.sampleParcel', locale),
+    flatRate: t('helpFigure.sampleFlatRate', locale),
+    tagClothes: t('helpFigure.sampleTagClothes', locale),
+    tagTableware: t('helpFigure.sampleTagTableware', locale),
+    tagBooks: t('helpFigure.sampleTagBooks', locale),
+    itemCushion: t('helpFigure.sampleItemCushion', locale),
+    itemMug: t('helpFigure.sampleItemMug', locale),
+    itemPictureBook: t('helpFigure.sampleItemPictureBook', locale),
+  };
+}
+
 /** 部品の下に 1 行付ける説明（HelpPartFigure の PartFrame の note） */
-export const HELP_FIGURE_MODE_PROFIT_NOTE = 'この 2 つで切り替えます';
-export const HELP_FIGURE_MODE_TARGET_NOTE =
-  'こちらに切り替えると、ほしい利益から販売価格を出します';
-export const HELP_FIGURE_CALCULATOR_NOTE = '青いボタンを押すと電卓が開きます';
+export function helpFigureModeProfitNote(locale: Locale): string {
+  return t('helpFigure.modeProfitNote', locale);
+}
+export function helpFigureModeTargetNote(locale: Locale): string {
+  return t('helpFigure.modeTargetNote', locale);
+}
+export function helpFigureCalculatorNote(locale: Locale): string {
+  return t('helpFigure.calculatorNote', locale);
+}
 /** 手数料の行だけ電卓ボタンが無いこと（金額の欄と並べて読む） */
-export const HELP_FIGURE_COMMISSION_FIELD_NOTE =
-  'ここだけ電卓が出ません。「−」「＋」で 1% ずつ動かします';
-export const HELP_FIGURE_BREAKDOWN_NOTE =
-  '「内訳」を押すと、この帯と項目ごとの金額が出ます';
-export const HELP_FIGURE_PRESET_TAG_NOTE =
-  'タグの印を押すと、登録した値から選べます';
+export function helpFigureCommissionFieldNote(locale: Locale): string {
+  return t('helpFigure.commissionFieldNote', locale);
+}
+export function helpFigureBreakdownNote(locale: Locale): string {
+  return t('helpFigure.breakdownNote', locale);
+}
+export function helpFigurePresetTagNote(locale: Locale): string {
+  return t('helpFigure.presetTagNote', locale);
+}
 /** 45b の 2 択（SPEC-V6 §3）。**押した側の額がそのまま欄に入る**ことを言う */
-export const HELP_FIGURE_SHIPPING_MATERIAL_NOTE =
-  '資材の代金を登録した送料だけ、この 2 つが出ます';
-export const HELP_FIGURE_ADD_RECORD_NOTE =
-  '記録タブの左下・タブバーの上にあります';
-export const HELP_FIGURE_KIND_SELECTOR_NOTE = '記録の画面のここで選びます';
-export const HELP_FIGURE_STATUS_TOGGLE_NOTE =
-  '左が今の状態、右を押すともう一方に変わります';
-export const HELP_FIGURE_PHOTO_NOTE =
-  '空の枠を押すと写真を選べます。付いた写真は右上の「✕」で外せます';
-export const HELP_FIGURE_TAG_ROW_NOTE =
-  '「＋」を押すと選べます。まだ無いタグはその場で作れます';
-export const HELP_FIGURE_MONTH_BAR_NOTE =
-  '「◀」「▶」で前後の月へ。月の名前を押すと期間を選べます';
-export const HELP_FIGURE_FILTER_ENTRY_NOTE =
-  '右端の「▽」から開きます。効いている間は青くなります';
-export const HELP_FIGURE_SEARCH_SORT_NOTE = '左が商品名でさがす、右が並び替え';
-export const HELP_FIGURE_SOLD_LISTING_NOTE =
-  '上の合計も、選んだほうの記録で計算されます';
-export const HELP_FIGURE_PRESET_LIST_NOTE =
-  '設定タブの「入力を減らす」に、この形で並びます';
+export function helpFigureShippingMaterialNote(locale: Locale): string {
+  return t('helpFigure.shippingMaterialNote', locale);
+}
+export function helpFigureAddRecordNote(locale: Locale): string {
+  return t('helpFigure.addRecordNote', locale);
+}
+export function helpFigureKindSelectorNote(locale: Locale): string {
+  return t('helpFigure.kindSelectorNote', locale);
+}
+export function helpFigureStatusToggleNote(locale: Locale): string {
+  return t('helpFigure.statusToggleNote', locale);
+}
+export function helpFigurePhotoNote(locale: Locale): string {
+  return t('helpFigure.photoNote', locale);
+}
+export function helpFigureTagRowNote(locale: Locale): string {
+  return t('helpFigure.tagRowNote', locale);
+}
+export function helpFigureMonthBarNote(locale: Locale): string {
+  return t('helpFigure.monthBarNote', locale);
+}
+export function helpFigureFilterEntryNote(locale: Locale): string {
+  return t('helpFigure.filterEntryNote', locale);
+}
+export function helpFigureSearchSortNote(locale: Locale): string {
+  return t('helpFigure.searchSortNote', locale);
+}
+export function helpFigureSoldListingNote(locale: Locale): string {
+  return t('helpFigure.soldListingNote', locale);
+}
+export function helpFigurePresetListNote(locale: Locale): string {
+  return t('helpFigure.presetListNote', locale);
+}
 /** 目標欄（SPEC-V9 §2）。**空欄が 0 ではない**ことだけを言う */
-export const HELP_FIGURE_TARGET_FIELD_NOTE =
-  '入れていないときは「決めていません」。「¥0」とは別のものです';
+export function helpFigureTargetFieldNote(locale: Locale): string {
+  return t('helpFigure.targetFieldNote', locale);
+}
 /** 価格ライン（§9.6）。**目盛りは目標の有無で 2 点にも 3 点にもなる**ことを言う */
-export const HELP_FIGURE_PRICE_LINE_NOTE =
-  '目標を決めていない記録では、真ん中の目盛りが出ません';
+export function helpFigurePriceLineNote(locale: Locale): string {
+  return t('helpFigure.priceLineNote', locale);
+}
 /** シミュレーター（§9.9）。図では動かせないことを断る */
-export const HELP_FIGURE_SIMULATOR_NOTE =
-  'つまみを動かすと、その価格での見込みが上に出ます（この図では動きません）';
+export function helpFigureSimulatorNote(locale: Locale): string {
+  return t('helpFigure.simulatorNote', locale);
+}
 /** データタブの 3 択（案 3c）。**押す場所**を言う */
-export const HELP_FIGURE_DATA_MODES_NOTE = 'グラフのカードの上端にあります';
+export function helpFigureDataModesNote(locale: Locale): string {
+  return t('helpFigure.dataModesNote', locale);
+}
 /** タグ別の 2 択（案 1b）。カードの右上という位置が見落とされやすい */
-export const HELP_FIGURE_TAG_VIEW_NOTE = 'タグのカードの右上で切り替えます';
+export function helpFigureTagViewNote(locale: Locale): string {
+  return t('helpFigure.tagViewNote', locale);
+}
 /** 写真を含めるか（SPEC-V8 §4）。**既定と、含めなかったときの結果**を言う */
-export const HELP_FIGURE_PHOTO_INCLUDE_NOTE =
-  '既定は「含める」。「含めない」で作ると、そのファイルから写真は戻せません';
+export function helpFigurePhotoIncludeNote(locale: Locale): string {
+  return t('helpFigure.photoIncludeNote', locale);
+}
 /** バッジの文字（設計案 49c）。専用の入力欄が無いことを言う */
-export const HELP_FIGURE_PRESET_BADGE_NOTE = 'バッジそのものを押すと文字を直せます';
+export function helpFigurePresetBadgeNote(locale: Locale): string {
+  return t('helpFigure.presetBadgeNote', locale);
+}
 /** 記録詳細の帯（§4）。凡例の代わりが下の丸であることを言う */
-export const HELP_FIGURE_RECORD_BAR_NOTE =
-  '帯の色は、下の行に付いた同じ色の丸が表します';
+export function helpFigureRecordBarNote(locale: Locale): string {
+  return t('helpFigure.recordBarNote', locale);
+}
 /** 色の 2 群（設計案 50c）。上下の意味だけを言う（使い切ったときの形は本文が持つ） */
-export const HELP_FIGURE_COLOR_GROUPS_NOTE =
-  '上がまだ使っていない色、下が使用中。どちらも押して選べます';
-export const HELP_FIGURE_EXPORT_TARGET_NOTE = `既定は「${t('list.soldRecords', 'ja')}のみ」です`;
-export const HELP_FIGURE_EXPORT_PREVIEW_NOTE = '押すと全部の行を見られます';
+export function helpFigureColorGroupsNote(locale: Locale): string {
+  return t('helpFigure.colorGroupsNote', locale);
+}
+export function helpFigureExportTargetNote(locale: Locale): string {
+  return t('helpFigure.exportTargetNote', locale, { soldRecords: t('list.soldRecords', locale) });
+}
+export function helpFigureExportPreviewNote(locale: Locale): string {
+  return t('helpFigure.exportPreviewNote', locale);
+}
 
 /** 図の中で 2 つを並べて見せるときの見出し（絞り込みの入口・⌕ と ⇅） */
-export const HELP_FIGURE_FILTER_OFF_CAPTION = '絞り込みなし';
-export const HELP_FIGURE_FILTER_ON_CAPTION = '絞り込み中';
-export const HELP_FIGURE_SEARCH_CAPTION = 'さがす';
+export function helpFigureFilterOffCaption(locale: Locale): string {
+  return t('helpFigure.filterOffCaption', locale);
+}
+export function helpFigureFilterOnCaption(locale: Locale): string {
+  return t('helpFigure.filterOnCaption', locale);
+}
+export function helpFigureSearchCaption(locale: Locale): string {
+  return t('helpFigure.searchCaption', locale);
+}
 
 /** 抽象的な図（HelpDiagram）の見出し。図が何の場面を描いているかを言う */
-export const HELP_FIGURE_KIND_SUBTITLE_SUFFIX = 'で売れたとき';
-export const HELP_FIGURE_SITE_AMOUNT_SUBTITLE =
-  '同じ 1 件を、どこまで引いた金額で見ているか';
-export const HELP_FIGURE_TARGET_SUBTITLE = 'ほしい利益が先に決まっているとき';
+export function helpFigureKindSubtitle(locale: Locale, kind: RecordKind): string {
+  return t('helpFigure.kindSubtitle', locale, { kind: recordKindLabel(locale, kind) });
+}
+export function helpFigureSiteAmountSubtitle(locale: Locale): string {
+  return t('helpFigure.siteAmountSubtitle', locale);
+}
+export function helpFigureTargetSubtitle(locale: Locale): string {
+  return t('helpFigure.targetSubtitle', locale);
+}
 /**
  * 書き出し（CSV）2 種の図の見出し。
  *
@@ -3828,48 +3918,102 @@ export const HELP_FIGURE_TARGET_SUBTITLE = 'ほしい利益が先に決まって
  * 本物の「バックアップと復元」が入ったあとは、定数名だけ読むとあちらの図に見える。
  * 表示文言は変えていない。
  */
-export const HELP_FIGURE_CSV_KINDS_SUBTITLE = '減るのはメモとタグだけ';
-export const HELP_FIGURE_COST_PARTS_SUBTITLE =
-  'このアプリが販売価格から引くのは、この 5 つ';
-export const HELP_FIGURE_DAY_GROUP_SUBTITLE = '同じ日に 3 件売れたとき';
+export function helpFigureCsvKindsSubtitle(locale: Locale): string {
+  return t('helpFigure.csvKindsSubtitle', locale);
+}
+export function helpFigureCostPartsSubtitle(locale: Locale): string {
+  return t('helpFigure.costPartsSubtitle', locale);
+}
+export function helpFigureDayGroupSubtitle(locale: Locale): string {
+  return t('helpFigure.dayGroupSubtitle', locale);
+}
 /** 復元前のプレビュー（SPEC-V8 §5.4）。**置き換えであることを図の題で言う** */
-export const HELP_FIGURE_BACKUP_PREVIEW_SUBTITLE =
-  '古いファイルを選んでしまったとき';
-export const HELP_FIGURE_BACKUP_REPLACE_NOTE =
-  '赤い数字は減るもの。押すとこの中身に置き換わります';
+export function helpFigureBackupPreviewSubtitle(locale: Locale): string {
+  return t('helpFigure.backupPreviewSubtitle', locale);
+}
+export function helpFigureBackupReplaceNote(locale: Locale): string {
+  return t('helpFigure.backupReplaceNote', locale);
+}
 /** 実績の 2 とおり（案 3c）。段を登るものと 1 回だけのもの */
-export const HELP_FIGURE_ACHIEVEMENT_KINDS_SUBTITLE = '実績には 2 とおりある';
-export const HELP_FIGURE_ACHIEVEMENT_LADDER_LABEL = '5 段階で登るもの（⚡一撃の例）';
-export const HELP_FIGURE_ACHIEVEMENT_ONCE_LABEL = '条件を満たすと 1 回だけ付くもの';
+export function helpFigureAchievementKindsSubtitle(locale: Locale): string {
+  return t('helpFigure.achievementKindsSubtitle', locale);
+}
+export function helpFigureAchievementLadderLabel(locale: Locale): string {
+  return t('helpFigure.achievementLadderLabel', locale);
+}
+export function helpFigureAchievementOnceLabel(locale: Locale): string {
+  return t('helpFigure.achievementOnceLabel', locale);
+}
 
 /** 帯・行の中の語（図にしか無いもの。画面に出る語は定数を共有する） */
-export const HELP_FIGURE_KEPT_LABEL = '残る分';
-export const HELP_FIGURE_TARGET_PROFIT_LABEL = 'ほしい利益';
-export const HELP_FIGURE_SALE_DATE_RANGE_LABEL = '販売日に選べる範囲';
-export const HELP_FIGURE_TARGET_ROW_TITLE = 'ほしい利益から逆に足す';
-export const HELP_FIGURE_HIT_LABEL = '出る';
-export const HELP_FIGURE_MISS_LABEL = '出ない';
-export const HELP_FIGURE_INCLUDED_LABEL = '入る';
-export const HELP_FIGURE_EXCLUDED_LABEL = '入らない';
-export const HELP_FIGURE_NONE_MARK = '－';
-export const HELP_FIGURE_FILE_LABEL = 'ファイル';
-export const HELP_FIGURE_SCREEN_LABEL = '画面';
+export function helpFigureKeptLabel(locale: Locale): string {
+  return t('helpFigure.keptLabel', locale);
+}
+export function helpFigureTargetProfitLabel(locale: Locale): string {
+  return t('helpFigure.targetProfitLabel', locale);
+}
+export function helpFigureSaleDateRangeLabel(locale: Locale): string {
+  return t('helpFigure.saleDateRangeLabel', locale);
+}
+export function helpFigureTargetRowTitle(locale: Locale): string {
+  return t('helpFigure.targetRowTitle', locale);
+}
+export function helpFigureHitLabel(locale: Locale): string {
+  return t('helpFigure.hitLabel', locale);
+}
+export function helpFigureMissLabel(locale: Locale): string {
+  return t('helpFigure.missLabel', locale);
+}
+export function helpFigureIncludedLabel(locale: Locale): string {
+  return t('helpFigure.includedLabel', locale);
+}
+export function helpFigureExcludedLabel(locale: Locale): string {
+  return t('helpFigure.excludedLabel', locale);
+}
+export function helpFigureNoneMark(locale: Locale): string {
+  return t('helpFigure.noneMark', locale);
+}
+export function helpFigureFileLabel(locale: Locale): string {
+  return t('helpFigure.fileLabel', locale);
+}
+export function helpFigureScreenLabel(locale: Locale): string {
+  return t('helpFigure.screenLabel', locale);
+}
 
 /** CSV に何が入るかの表（§5.2 の列を 5 つの束にまとめたもの） */
-export const HELP_FIGURE_CSV_BASIC_LABEL = '日付・商品名・金額';
-export const HELP_FIGURE_CSV_SITE_LABEL = '販売サイト・種別';
-export const HELP_FIGURE_CSV_BREAKDOWN_LABEL = '経費の内わけ';
+export function helpFigureCsvBasicLabel(locale: Locale): string {
+  return t('helpFigure.csvBasicLabel', locale);
+}
+export function helpFigureCsvSiteLabel(locale: Locale): string {
+  return t('helpFigure.csvSiteLabel', locale);
+}
+export function helpFigureCsvBreakdownLabel(locale: Locale): string {
+  return t('helpFigure.csvBreakdownLabel', locale);
+}
 
 /** 5 つの経費それぞれの説明（名前の側は画面と同じ定数を使う） */
-export const HELP_FIGURE_PURCHASE_NOTE = `売るために買ったお金（${recordKindLabel('ja', 'used')}では出ません）`;
-export const HELP_FIGURE_POSTAGE_NOTE = '発送にかかったお金';
-export const HELP_FIGURE_COMMISSION_NOTE = '販売サイトに引かれるお金';
-export const HELP_FIGURE_ENVELOPE_NOTE = '箱・封筒・テープなど';
-export const HELP_FIGURE_OTHERS_NOTE = '交通費など、上に当てはまらないもの';
+export function helpFigurePurchaseNote(locale: Locale): string {
+  return t('helpFigure.purchaseNote', locale, { kind: recordKindLabel(locale, 'used') });
+}
+export function helpFigurePostageNote(locale: Locale): string {
+  return t('helpFigure.postageNote', locale);
+}
+export function helpFigureCommissionNote(locale: Locale): string {
+  return t('helpFigure.commissionNote', locale);
+}
+export function helpFigureEnvelopeNote(locale: Locale): string {
+  return t('helpFigure.envelopeNote', locale);
+}
+export function helpFigureOthersNote(locale: Locale): string {
+  return t('helpFigure.othersNote', locale);
+}
 
 /** 図の見出しのうち、題材の金額や語をそのまま含むもの（値は図が持つ） */
-export function helpFigureBothSoldSubtitle(price: string): string {
-  return `どちらも${t('amount.salesPrice', 'ja')} ${price}で売れたとき`;
+export function helpFigureBothSoldSubtitle(locale: Locale, price: string): string {
+  return t('helpFigure.bothSoldSubtitle', locale, {
+    salesPrice: t('amount.salesPriceInline', locale),
+    price,
+  });
 }
 /**
  * 目標と下げ幅の図の見出し（SPEC-V9 §1.2 / §4.3）。**同じ 1 件だと題で言う** ──
@@ -3878,60 +4022,114 @@ export function helpFigureBothSoldSubtitle(price: string): string {
  * 金額を引数で受けるのは、図が持つ題材（`PRICING_EXAMPLE`）と食い違わせないため ──
  * 見出しに「¥5,000」と書き込んでしまうと、題材を変えたときに題だけが古い額を主張する。
  */
-export function helpFigureTargetRoomSubtitle(price: string): string {
-  return `同じ記録（今の価格 ${price}）で、目標だけを変えたとき`;
+export function helpFigureTargetRoomSubtitle(locale: Locale, price: string): string {
+  return t('helpFigure.targetRoomSubtitle', locale, { price });
 }
-export function helpFigureSourcedRowTitle(purchasePrice: string): string {
-  return `${recordKindLabel('ja', 'sourced')}（${t('amount.purchasePrice', 'ja')} ${purchasePrice}）`;
+export function helpFigureSourcedRowTitle(locale: Locale, purchasePrice: string): string {
+  return t('helpFigure.sourcedRowTitle', locale, {
+    kind: recordKindLabel(locale, 'sourced'),
+    purchasePrice: t('amount.purchasePrice', locale),
+    price: purchasePrice,
+  });
 }
-export function helpFigureSingleRecordLabel(kind: RecordKind): string {
-  return `${recordKindLabel('ja', kind)} 1 件`;
+export function helpFigureSingleRecordLabel(locale: Locale, kind: RecordKind): string {
+  return t('helpFigure.singleRecordLabel', locale, { kind: recordKindLabel(locale, kind) });
 }
-export function helpFigureSiteAmountMeasure(amount: string): string {
-  return `サイトの表示 ${amount}（${t('amount.commissionShort', 'ja')}と${t('amount.postage', 'ja')}まで）`;
+export function helpFigureSiteAmountMeasure(locale: Locale, amount: string): string {
+  return t('helpFigure.siteAmountMeasure', locale, {
+    amount,
+    commission: t('amount.commissionShort', locale),
+    postage: t('amount.postageInline', locale),
+  });
 }
-export function helpFigureAppAmountMeasure(amount: string): string {
-  return `このアプリ ${amount}（${t('amount.envelopeCost', 'ja')}ほかも引く）`;
+export function helpFigureAppAmountMeasure(locale: Locale, amount: string): string {
+  return t('helpFigure.appAmountMeasure', locale, {
+    amount,
+    envelope: t('amount.envelopeCostInline', locale),
+  });
 }
-export function helpFigureTotalPriceMeasure(price: string): string {
-  return `これが${t('amount.salesPrice', 'ja')} ${price}`;
+export function helpFigureTotalPriceMeasure(locale: Locale, price: string): string {
+  return t('helpFigure.totalPriceMeasure', locale, {
+    salesPrice: t('amount.salesPriceInline', locale),
+    price,
+  });
 }
-export function helpFigureTagOrSubtitle(first: string, second: string): string {
-  return `「${first}」と「${second}」を選ぶと`;
+export function helpFigureTagOrSubtitle(locale: Locale, first: string, second: string): string {
+  return t('helpFigure.tagOrSubtitle', locale, { first, second });
 }
 
 /**
  * 図: 複製で写るもの・写らないもの（記録ページ）。
  * 欄の名前は画面の表示語をそのまま使い、ここでは**群の見出しと、値が変わる 2 つ**だけ持つ。
  */
-export const HELP_FIGURE_DUPLICATE_SUBTITLE = '複製元から新しい記録へ';
-export const HELP_FIGURE_DUPLICATE_COPIED_LABEL = '写る';
-export const HELP_FIGURE_DUPLICATE_SKIPPED_LABEL = '写らない';
-export const HELP_FIGURE_DUPLICATE_DATE_LABEL = '日付（今日から）';
-export const HELP_FIGURE_DUPLICATE_STATUS_LABEL = `状態（${t('list.listingStatus', 'ja')}から）`;
+export function helpFigureDuplicateSubtitle(locale: Locale): string {
+  return t('helpFigure.duplicateSubtitle', locale);
+}
+export function helpFigureDuplicateCopiedLabel(locale: Locale): string {
+  return t('helpFigure.duplicateCopiedLabel', locale);
+}
+export function helpFigureDuplicateSkippedLabel(locale: Locale): string {
+  return t('helpFigure.duplicateSkippedLabel', locale);
+}
+export function helpFigureDuplicateDateLabel(locale: Locale): string {
+  return t('helpFigure.duplicateDateLabel', locale);
+}
+export function helpFigureDuplicateStatusLabel(locale: Locale): string {
+  return t('helpFigure.duplicateStatusLabel', locale, { status: t('list.listingStatus', locale) });
+}
 
 /**
  * 図: 機種変更の 1 往復（残すページ）。
  * **端末どうしが直接つながらない**ことを、間にファイルを挟んだ形で見せる。
  */
-export const HELP_FIGURE_MIGRATE_SUBTITLE = 'ファイルを 1 往復させる';
-export const HELP_FIGURE_MIGRATE_OLD_LABEL = '古い端末';
-export const HELP_FIGURE_MIGRATE_NEW_LABEL = '新しい端末';
+export function helpFigureMigrateSubtitle(locale: Locale): string {
+  return t('helpFigure.migrateSubtitle', locale);
+}
+export function helpFigureMigrateOldLabel(locale: Locale): string {
+  return t('helpFigure.migrateOldLabel', locale);
+}
+export function helpFigureMigrateNewLabel(locale: Locale): string {
+  return t('helpFigure.migrateNewLabel', locale);
+}
 
 /** 図の中だけで使う短縮形・補助の語 */
-export const HELP_FIGURE_TOTAL_CAPTION = '2 件以上をまとめた金額';
-export const HELP_FIGURE_PURCHASE_SHORT_LABEL = '仕入';
-export const HELP_FIGURE_PACK_QUANTITY_LABEL = '入数';
-export const HELP_FIGURE_PACK_SUBTITLE = '購入価格を何で割るかだけが違う';
+export function helpFigureTotalCaption(locale: Locale): string {
+  return t('helpFigure.totalCaption', locale);
+}
+export function helpFigurePurchaseShortLabel(locale: Locale): string {
+  return t('helpFigure.purchaseShortLabel', locale);
+}
+export function helpFigurePackQuantityLabel(locale: Locale): string {
+  return t('helpFigure.packQuantityLabel', locale);
+}
+export function helpFigurePackSubtitle(locale: Locale): string {
+  return t('helpFigure.packSubtitle', locale);
+}
 /** 面積方式の 2 段目（1㎡ あたり → 1 回あたり）。cm の 2 値は掛けたあとの ㎡ で見せる */
-export const HELP_FIGURE_PACK_AREA_LABEL = '購入サイズ';
-export const HELP_FIGURE_PACK_USE_LABEL = '平均使用サイズ';
-export const HELP_FIGURE_PACK_USAGE_LABEL = '想定使用回数';
-export const HELP_FIGURE_ONE_BY_ONE_LABEL = '1 件ずつ';
-export const HELP_FIGURE_GROUPED_LABEL = '日ごとにまとめる';
-export const HELP_FIGURE_ROUNDING_SUBTITLE = '10.4 円と 10.4 円の 2 件なら';
-export const HELP_FIGURE_ROUND_FIRST_LABEL = '10 ＋ 10（先に丸める）';
-export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
+export function helpFigurePackAreaLabel(locale: Locale): string {
+  return t('helpFigure.packAreaLabel', locale);
+}
+export function helpFigurePackUseLabel(locale: Locale): string {
+  return t('helpFigure.packUseLabel', locale);
+}
+export function helpFigurePackUsageLabel(locale: Locale): string {
+  return t('helpFigure.packUsageLabel', locale);
+}
+export function helpFigureOneByOneLabel(locale: Locale): string {
+  return t('helpFigure.oneByOneLabel', locale);
+}
+export function helpFigureGroupedLabel(locale: Locale): string {
+  return t('helpFigure.groupedLabel', locale);
+}
+export function helpFigureRoundingSubtitle(locale: Locale): string {
+  return t('helpFigure.roundingSubtitle', locale);
+}
+export function helpFigureRoundFirstLabel(locale: Locale): string {
+  return t('helpFigure.roundFirstLabel', locale);
+}
+export function helpFigureRoundLastLabel(locale: Locale): string {
+  return t('helpFigure.roundLastLabel', locale);
+}
 
 /**
  * 図 8（書き出しの 2 種類）の見出し（案 `20a`）。**列数は実際の列の並びから数える** ──
@@ -3941,15 +4139,20 @@ export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
  * 図 12（梱包材の 3 方式）の 2 段目。面積方式だけは 1㎡ あたりのあとに **1 回あたり**が続くので、
  * 表の下に 1 行だけ添える。**語を組み立てるのはここ**（図の側で文を作らない）。
  */
-export function helpFigurePackUseNote(size: string, price: string): string {
-  return `${HELP_FIGURE_PACK_USE_LABEL} ${size} を入れると ${presetUsePriceLabel('ja')} ${price}`;
+export function helpFigurePackUseNote(locale: Locale, size: string, price: string): string {
+  return t('helpFigure.packUseNote', locale, {
+    useLabel: helpFigurePackUseLabel(locale),
+    size,
+    usePrice: presetUsePriceLabel(locale),
+    price,
+  });
 }
 
-export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {
+export function helpFigureCsvKindLabel(locale: Locale, kind: 'backup' | 'tax'): string {
   const columns = kind === 'backup' ? CSV_BACKUP_COLUMNS : CSV_TAX_COLUMNS;
   const label =
-    exportKindOptions('ja').find((option) => option.value === kind)?.label ?? '';
-  return `${label}\n${columns.length} 列`;
+    exportKindOptions(locale).find((option) => option.value === kind)?.label ?? '';
+  return t('helpFigure.csvKindLabel', locale, { label, count: columns.length });
 }
 
 // ---- SPEC-V8 バックアップと復元 ----
@@ -5259,78 +5462,67 @@ export function fixDateLabel(locale: Locale): string {
 // 4 ページ横スワイプ。文言は各ページの見出し・本文と、共通の操作（スキップ・はじめる）だけ。
 // 図の中の題材（金額・実績のジャンル）は onboardingContent.ts が持つ。
 
-export const ONBOARDING_SKIP_LABEL = 'スキップ';
-export const ONBOARDING_START_LABEL = 'はじめる';
-
-export const ONBOARDING_CALC_TITLE = '入れた分だけ、利益が見える';
-export const ONBOARDING_CALC_BODY =
-  '販売価格・送料・手数料を入れると、その場で手元に残る金額が計算されます。';
-
-export const ONBOARDING_TARGET_TITLE = '目標から逆算もできる';
-export const ONBOARDING_TARGET_BODY =
-  '欲しい利益を入れれば、必要な販売価格がわかります。そのまま記録にも残せます。';
-/** 逆算の図の末尾に出す、記録追加が成立したことを示す一言（記録フォームの保存とは別の、図の中だけの言葉） */
-export const ONBOARDING_RECORD_ADDED_LABEL = '記録に追加されました';
-
-export const ONBOARDING_SAVE_TITLE = '写真やタグも一緒に残せる';
-export const ONBOARDING_SAVE_BODY =
-  '商品名だけで保存できます。写真・タグ・種別もまとめて記録に残せます。';
-
-export const ONBOARDING_PRESET_TITLE = 'よく使う値はプリセットに';
-export const ONBOARDING_PRESET_BODY =
-  '販売サイト・送料は欄の横の印から、梱包材は電卓の中から選べます。電卓からの入力もいつでも使えます。';
-
-export const ONBOARDING_SIMULATOR_TITLE = '出品中でも、値下げを試せる';
-export const ONBOARDING_SIMULATOR_BODY =
-  '今の価格から動かして、見込みの利益をその場で確認できます。動かしても記録は変わりません。';
-/**
- * 目標利益ライン（帯グラフの目盛り）が条件つきで出ることの注記（PriceLine.tsx の
- * priceLineTicks 参照。目標が無いときは目標の点を作らない仕様）。
- * 3 つに分けてあるのは、条件の核心（「目標の純利益を入力」しているかどうか）を
- * 強調して見せるため（構成の指定）── EMPHASIS だけ色・太さを変えて描く。
- * 3 つをこの順でつなぐと ONBOARDING_SIMULATOR_NOTE と同じ 1 文になる。
- */
-export const ONBOARDING_SIMULATOR_NOTE_PREFIX = '目標のラインは、その記録に';
-export const ONBOARDING_SIMULATOR_NOTE_EMPHASIS = '目標の純利益（仕入品では「目標利益」）を入力';
-export const ONBOARDING_SIMULATOR_NOTE_SUFFIX = 'しているときだけ出ます。';
-export const ONBOARDING_SIMULATOR_NOTE =
-  ONBOARDING_SIMULATOR_NOTE_PREFIX + ONBOARDING_SIMULATOR_NOTE_EMPHASIS + ONBOARDING_SIMULATOR_NOTE_SUFFIX;
-
-export const ONBOARDING_PACKAGING_PRESET_TITLE = '梱包材はまとめ買いも自動計算';
-/**
- * 呼び出し場所（「電卓の中から」）を強調して見せる（構成の指定）ため 3 つに分けてある。
- * 3 つをこの順でつなぐと ONBOARDING_PACKAGING_PRESET_BODY と同じ 1 文になる。
- *
- * 登録場所（設定タブの「${PRESET_SECTION_TITLE}」）を明記してあるのは、それを書かないと
- * 「電卓の中から選んで呼び出せます」だけでは**登録自体も電卓から行う**と勘違いされかねない
- * ため（構成の指定「設定・入力することが書かれていないため勘違いしそう」）。文言は
- * presetPickerEmptyBodyWithoutLink と同じ「設定タブの「入力を減らす」」の言い回しに揃えてある。
- */
-export const ONBOARDING_PACKAGING_PRESET_BODY_PREFIX = `設定タブの「${PRESET_SECTION_TITLE}」で入数と購入価格を登録しておくだけで、1個あたりの金額を自動で計算します。次からは`;
-export const ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS = '電卓の中から';
-export const ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX = '選んで呼び出せます。';
-export const ONBOARDING_PACKAGING_PRESET_BODY =
-  ONBOARDING_PACKAGING_PRESET_BODY_PREFIX +
-  ONBOARDING_PACKAGING_PRESET_BODY_EMPHASIS +
-  ONBOARDING_PACKAGING_PRESET_BODY_SUFFIX;
-
-export const ONBOARDING_DATA_TITLE = '3つの見かたで販売を振り返る';
-export const ONBOARDING_DATA_BODY = '収支・タグ・実績。見たい角度でこれまでの販売がわかります。';
-
-export const ONBOARDING_ACHIEVEMENTS_TITLE = '続けるほど実績が増えていく';
-export const ONBOARDING_ACHIEVEMENTS_BODY =
-  '販売を重ねるごとに、新しい実績が解除されていきます。';
-export const ONBOARDING_ACHIEVEMENTS_NOTE =
-  '困ったときは各画面の「？」、または設定の「使いかた」からいつでも確認できます。';
-
-/** ページ右上の進み具合の読み上げ（achievementPageIndicatorText と同じ形） */
-export function onboardingPageIndicatorText(index: number, total: number): string {
-  return `${index + 1} / ${total}`;
+export function onboardingSkipLabel(locale: Locale): string {
+  return t('onboarding.skip', locale);
+}
+export function onboardingStartLabel(locale: Locale): string {
+  return t('onboarding.start', locale);
+}
+export function onboardingPreviousPageLabel(locale: Locale): string {
+  return t('onboarding.previousPage', locale);
+}
+export function onboardingNextPageLabel(locale: Locale): string {
+  return t('onboarding.nextPage', locale);
+}
+export function onboardingPageIndicatorText(
+  locale: Locale,
+  index: number,
+  total: number,
+): string {
+  return t('onboarding.pageIndicator', locale, { index: index + 1, total });
 }
 
-/** 下端の戻る・次へ矢印の読み上げ語（ACHIEVEMENT_DETAIL_PREVIOUS/NEXT_LABEL と同じ形） */
-export const ONBOARDING_PREVIOUS_PAGE_LABEL = '前のページへ';
-export const ONBOARDING_NEXT_PAGE_LABEL = '次のページへ';
+/**
+ * チュートリアルの 7 枚。**3 つに割ってある注記は、核心だけ色と太さを変えて描くため**
+ * （つなぐと 1 文になる）。画面側でつなぐのではなく、割ったまま渡す。
+ */
+export function onboardingText(locale: Locale) {
+  const section = t('settings.preset.title', locale);
+  return {
+    calcTitle: t('onboarding.calcTitle', locale),
+    calcBody: t('onboarding.calcBody', locale),
+    targetTitle: t('onboarding.targetTitle', locale),
+    targetBody: t('onboarding.targetBody', locale),
+    recordAdded: t('onboarding.recordAdded', locale),
+    saveTitle: t('onboarding.saveTitle', locale),
+    saveBody: t('onboarding.saveBody', locale),
+    presetTitle: t('onboarding.presetTitle', locale),
+    presetBody: t('onboarding.presetBody', locale),
+    simulatorTitle: t('onboarding.simulatorTitle', locale),
+    simulatorBody: t('onboarding.simulatorBody', locale),
+    simulatorNotePrefix: t('onboarding.simulatorNotePrefix', locale),
+    simulatorNoteEmphasis: t('onboarding.simulatorNoteEmphasis', locale),
+    simulatorNoteSuffix: t('onboarding.simulatorNoteSuffix', locale),
+    packagingPresetTitle: t('onboarding.packagingPresetTitle', locale),
+    packagingPresetPrefix: t('onboarding.packagingPresetPrefix', locale, { section }),
+    packagingPresetEmphasis: t('onboarding.packagingPresetEmphasis', locale),
+    packagingPresetSuffix: t('onboarding.packagingPresetSuffix', locale),
+    // 3 つをつないだ 1 文（強調の描き分けが要らない場所で使う）
+    packagingPresetBody:
+      t('onboarding.packagingPresetPrefix', locale, { section }) +
+      t('onboarding.packagingPresetEmphasis', locale) +
+      t('onboarding.packagingPresetSuffix', locale),
+    simulatorNote:
+      t('onboarding.simulatorNotePrefix', locale) +
+      t('onboarding.simulatorNoteEmphasis', locale) +
+      t('onboarding.simulatorNoteSuffix', locale),
+    dataTitle: t('onboarding.dataTitle', locale),
+    dataBody: t('onboarding.dataBody', locale),
+    achievementsTitle: t('onboarding.achievementsTitle', locale),
+    achievementsBody: t('onboarding.achievementsBody', locale),
+    achievementsNote: t('onboarding.achievementsNote', locale),
+  };
+}
 
 /** 設定タブ「チュートリアルをもう一度見る」の行 */
 export function replayTutorialLabel(locale: Locale): string {

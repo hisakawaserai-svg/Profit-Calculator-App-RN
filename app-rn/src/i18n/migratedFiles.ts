@@ -75,4 +75,11 @@ export const MIGRATED_FILES = [
   'src/components/PackBuyFields.tsx',
   'src/components/PresetRow.tsx',
   'src/components/PresetSummaryCard.tsx',
+  'src/components/PresetPickerSheet.tsx',
+  'src/components/PresetMultiPickerSheet.tsx',
+  // 区切り 10: 使いかたとチュートリアル
+  'src/components/OnboardingOverlay.tsx',
+  'src/components/OnboardingFigure.tsx',
+  'src/components/HelpPartFigure.tsx',
+  'src/components/HelpDiagram.tsx',
 ] as const;

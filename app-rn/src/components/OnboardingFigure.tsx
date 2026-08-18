@@ -35,37 +35,37 @@ import { costBreakdown, requiredPriceResult, type CalcFormValues } from '@/logic
 import { formatCalcTotal, formatUnitYen, formatYenSymbol } from '@/logic/format';
 import { PRICING_EXAMPLE, PRICING_EXAMPLE_SIMULATED_PRICE } from '@/logic/helpFigureExample';
 import {
-  CALC_PICK_PACKAGING_LABEL,
-  CALC_PICKER_BACK_LABEL,
-  CALC_SUBMIT_LABEL,
-  CUMULATIVE_PROFIT_LABEL,
-  DATA_MODE_ACHIEVEMENTS_LABEL,
-  DATA_MODE_PROFIT_LABEL,
-  DATA_MODE_TAG_LABEL,
-  ENVELOPE_COST_LABEL,
-  EXPENSES_LABEL,
-  ITEM_NAME_CAPTION,
-  LISTING_STATUS_LABEL,
-  ONBOARDING_RECORD_ADDED_LABEL,
+  calcPickPackagingLabel,
+  calcPickerBackLabel,
+  calcSubmitLabel,
+  cumulativeProfitLabel,
+  dataModeAchievementsLabel,
+  dataModeProfitLabel,
+  dataModeTagLabel,
+  envelopeCostLabel,
+  expensesLabel,
+  itemNameCaption,
+  listingStatusLabel,
   periodProfitLabel,
-  POSTAGE_LABEL,
+  postageLabel,
   presetPickedCountLabel,
   presetPickerTitle,
+  onboardingText,
   pricingHeroAmount,
-  PROFIT_TREND_LABEL,
+  profitTrendLabel,
   profitLabel,
   profitTabLabel,
-  REQUIRED_SALES_PRICE_LABEL,
-  SALES_PRICE_LABEL,
-  ADD_RECORD_FAB_LABEL,
-  SAVE_LABEL,
-  SHIPPING_ONLY_LABEL,
+  requiredSalesPriceLabel,
+  salesPriceLabel,
+  addRecordFabLabel,
+  saveLabel,
+  shippingOnlyLabel,
   simulatorProfitNote,
-  SIMULATOR_NOTE,
-  TAG_LABEL,
-  TARGET_TAB_LABEL,
-  TOTAL_PROFIT_LABEL,
-  TOTAL_SALES_LABEL,
+  simulatorNote,
+  tagLabel,
+  targetTabLabel,
+  totalProfitLabel,
+  totalSalesLabel,
   commissionFieldLabel,
   switchStatusLabel,
   targetProfitLabel,
@@ -77,16 +77,17 @@ import {
   ONBOARDING_CALC_EXAMPLE,
   ONBOARDING_CHART_PROFITS,
   ONBOARDING_DATA_EXAMPLE,
-  ONBOARDING_ITEM_NAME_EXAMPLE,
+  onboardingItemNameExample,
   ONBOARDING_PACKAGING_PRESET_EXAMPLE,
   ONBOARDING_SHIPPING_PRESET_EXAMPLE,
   ONBOARDING_SITE_PRESET_EXAMPLE,
-  ONBOARDING_TAG_EXAMPLE,
+  onboardingTagExample,
   ONBOARDING_TARGET_PROFIT_EXAMPLE,
 } from '@/logic/onboardingContent';
 import { presetUnitPrice } from '@/logic/preset';
 import { commissionCost, netProfit } from '@/logic/profit';
 import { analyzePricing } from '@/logic/pricing';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 図の中の部品は触れない。押せると「ここで設定できる」と読まれる（HelpPartFigure と同じ） */
@@ -154,6 +155,9 @@ function ResultBlock({
  * 1 項目だけだと帯グラフの区画が 1 色に潰れ、「内訳」の絵として意味を持たないため。
  */
 export function OnboardingCalcFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { salesPrice, postage, envelopeCost, commission } = ONBOARDING_CALC_EXAMPLE;
   const costs = {
@@ -165,7 +169,7 @@ export function OnboardingCalcFigure() {
     commission,
   };
   const profit = netProfit(costs);
-  const breakdown = costBreakdown('ja', costs, 'used');
+  const breakdown = costBreakdown(locale, costs, 'used');
 
   return (
     <View style={styles.figureStack}>
@@ -173,16 +177,16 @@ export function OnboardingCalcFigure() {
           （構成の指定） */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <SegmentedControl
-          options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
+          options={[profitTabLabel(locale, 'used'), targetTabLabel(locale)]}
           selectedIndex={0}
           onChange={noop}
         />
         <View style={styles.rows}>
-          <FieldRow label={SALES_PRICE_LABEL} value={formatYenSymbol(salesPrice)} colors={colors} />
-          <FieldRow label={POSTAGE_LABEL} value={formatYenSymbol(postage)} colors={colors} />
-          <FieldRow label={ENVELOPE_COST_LABEL} value={formatYenSymbol(envelopeCost)} colors={colors} />
+          <FieldRow label={salesPriceLabel(locale)} value={formatYenSymbol(salesPrice)} colors={colors} />
+          <FieldRow label={postageLabel(locale)} value={formatYenSymbol(postage)} colors={colors} />
+          <FieldRow label={envelopeCostLabel(locale)} value={formatYenSymbol(envelopeCost)} colors={colors} />
           <FieldRow
-            label={commissionFieldLabel('ja', commission)}
+            label={commissionFieldLabel(locale, commission)}
             value={formatYenSymbol(commissionCost(costs))}
             colors={colors}
           />
@@ -194,7 +198,7 @@ export function OnboardingCalcFigure() {
       {/* カード 2: 結果 */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <ResultBlock
-          label={profitLabel('ja', 'used')}
+          label={profitLabel(locale, 'used')}
           amount={formatYenSymbol(profit)}
           amountColor={profit >= 0 ? colors.green : colors.red}
           colors={colors}
@@ -212,6 +216,9 @@ export function OnboardingCalcFigure() {
  * が読めるようにする。
  */
 export function OnboardingTargetFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { postage, envelopeCost, commission } = ONBOARDING_CALC_EXAMPLE;
   const values: CalcFormValues = {
@@ -225,7 +232,7 @@ export function OnboardingTargetFigure() {
     commission,
     siteName: '',
   };
-  const result = requiredPriceResult('ja', values);
+  const result = requiredPriceResult(locale, values);
 
   return (
     <View style={styles.figureStack}>
@@ -233,13 +240,13 @@ export function OnboardingTargetFigure() {
           読ませる（構成の指定） */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <SegmentedControl
-          options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
+          options={[profitTabLabel(locale, 'used'), targetTabLabel(locale)]}
           selectedIndex={1}
           onChange={noop}
         />
         <View style={styles.rows}>
           <FieldRow
-            label={targetProfitLabel('ja', 'used')}
+            label={targetProfitLabel(locale, 'used')}
             value={formatYenSymbol(ONBOARDING_TARGET_PROFIT_EXAMPLE)}
             colors={colors}
           />
@@ -251,7 +258,7 @@ export function OnboardingTargetFigure() {
       {/* カード 2: 結果 + 記録する操作 */}
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <ResultBlock
-          label={REQUIRED_SALES_PRICE_LABEL}
+          label={requiredSalesPriceLabel(locale)}
           amount={formatYenSymbol(result.requiredPrice)}
           amountColor={colors.blue}
           colors={colors}
@@ -259,7 +266,7 @@ export function OnboardingTargetFigure() {
         <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
 
         <View style={[styles.saveButton, { backgroundColor: colors.blue }]}>
-          <Text style={styles.saveButtonLabel}>{ADD_RECORD_FAB_LABEL}</Text>
+          <Text style={styles.saveButtonLabel}>{addRecordFabLabel(locale)}</Text>
         </View>
       </View>
 
@@ -270,7 +277,7 @@ export function OnboardingTargetFigure() {
         <View style={styles.successRow}>
           <Ionicons name="checkmark-circle" size={18} color={colors.green} />
           <Text style={[styles.successLabel, { color: colors.label }]} numberOfLines={1}>
-            {ONBOARDING_RECORD_ADDED_LABEL}
+            {onboardingText(locale).recordAdded}
           </Text>
           <Text style={[styles.successAmount, { color: colors.green }]} numberOfLines={1}>
             +{formatYenSymbol(ONBOARDING_TARGET_PROFIT_EXAMPLE)}
@@ -295,6 +302,9 @@ export function OnboardingTargetFigure() {
  * した（実際の見た目の食い違いを指摘されて修正）。
  */
 export function OnboardingPresetFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { materialCost } = ONBOARDING_SHIPPING_PRESET_EXAMPLE;
   const { envelopeCost } = ONBOARDING_CALC_EXAMPLE;
@@ -310,7 +320,7 @@ export function OnboardingPresetFigure() {
           preset={ONBOARDING_SHIPPING_PRESET_EXAMPLE}
           belowName={
             <SegmentedControl
-              options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen('ja', materialCost))]}
+              options={[shippingOnlyLabel(locale), withShippingMaterialLabel(locale, formatUnitYen(locale, materialCost))]}
               selectedIndex={1}
               onChange={noop}
             />
@@ -324,7 +334,7 @@ export function OnboardingPresetFigure() {
             実物の NumericField（envelopeCost 欄は presetType を渡していない）と同じ形で出す */}
         <View style={styles.presetFieldRow}>
           <Text style={[styles.fieldLabel, { color: colors.label }]} numberOfLines={1}>
-            {ENVELOPE_COST_LABEL}
+            {envelopeCostLabel(locale)}
           </Text>
           <View style={styles.grow} />
           <Text style={[styles.fieldValue, { color: colors.label }]} numberOfLines={1}>
@@ -338,7 +348,7 @@ export function OnboardingPresetFigure() {
         <View style={[styles.pickPackagingRow, { borderTopColor: colors.separator }]}>
           <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
           <Text style={[styles.pickPackagingLabel, { color: colors.blue }]}>
-            {CALC_PICK_PACKAGING_LABEL}
+            {calcPickPackagingLabel(locale)}
           </Text>
         </View>
       </View>
@@ -356,6 +366,9 @@ export function OnboardingPresetFigure() {
  * 商品名は「実際に入れた状態」が伝わるよう、記入済みの例（ONBOARDING_ITEM_NAME_EXAMPLE）を出す。
  */
 export function OnboardingSaveFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { salesPrice, postage, commission } = ONBOARDING_CALC_EXAMPLE;
   const commissionAmount = commissionCost({
@@ -372,20 +385,20 @@ export function OnboardingSaveFigure() {
       <View style={styles.statusRow}>
         <View style={styles.statusLeft}>
           <View style={[styles.statusDot, { backgroundColor: colors.orange }]} />
-          <Text style={[styles.statusLabel, { color: colors.orange }]}>{LISTING_STATUS_LABEL}</Text>
+          <Text style={[styles.statusLabel, { color: colors.orange }]}>{listingStatusLabel(locale)}</Text>
         </View>
-        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel('ja', true)}</Text>
+        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel(locale, true)}</Text>
       </View>
 
       <View style={styles.photoRow}>
         <PhotoThumbnail fileName={null} />
         <View style={styles.grow}>
           <Text style={[styles.fieldLabel, { color: colors.label }]}>
-            {ONBOARDING_ITEM_NAME_EXAMPLE}
+            {onboardingItemNameExample(locale)}
           </Text>
           <View style={[styles.underline, { backgroundColor: colors.blue }]} />
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {ITEM_NAME_CAPTION}
+            {itemNameCaption(locale)}
           </Text>
         </View>
       </View>
@@ -393,22 +406,22 @@ export function OnboardingSaveFigure() {
       <RecordKindSelector kind="used" onChange={noop} />
 
       <View style={styles.rows}>
-        <FieldRow label={SALES_PRICE_LABEL} value={formatYenSymbol(salesPrice)} colors={colors} />
-        <FieldRow label={POSTAGE_LABEL} value={formatYenSymbol(postage)} colors={colors} />
+        <FieldRow label={salesPriceLabel(locale)} value={formatYenSymbol(salesPrice)} colors={colors} />
+        <FieldRow label={postageLabel(locale)} value={formatYenSymbol(postage)} colors={colors} />
         <FieldRow
-          label={commissionFieldLabel('ja', commission)}
+          label={commissionFieldLabel(locale, commission)}
           value={formatYenSymbol(commissionAmount)}
           colors={colors}
         />
       </View>
 
       <View style={styles.tagRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>{TAG_LABEL}</Text>
-        <TagChip tag={{ name: ONBOARDING_TAG_EXAMPLE, colorKey: 'blue' }} variant="selected" />
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{tagLabel(locale)}</Text>
+        <TagChip tag={{ name: onboardingTagExample(locale), colorKey: 'blue' }} variant="selected" />
       </View>
 
       <View style={[styles.saveButton, { backgroundColor: colors.blue }]}>
-        <Text style={styles.saveButtonLabel}>{SAVE_LABEL}</Text>
+        <Text style={styles.saveButtonLabel}>{saveLabel(locale)}</Text>
       </View>
     </View>
   );
@@ -422,6 +435,9 @@ export function OnboardingSaveFigure() {
  * 別の場面の図になってしまうため（HelpPartFigure.SimulatorFigure のコメントと同じ理由）。
  */
 export function OnboardingSimulatorFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const analysis = analyzePricing(PRICING_EXAMPLE);
   const simulated = analyzePricing({
@@ -433,7 +449,7 @@ export function OnboardingSimulatorFigure() {
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
       <PriceLine analysis={analysis} />
 
-      <Text style={[styles.caption, { color: colors.secondaryLabel }]}>{SIMULATOR_NOTE}</Text>
+      <Text style={[styles.caption, { color: colors.secondaryLabel }]}>{simulatorNote(locale)}</Text>
 
       <View style={styles.simulatorRow}>
         <Text style={[styles.simulatorPrice, { color: colors.label }]}>
@@ -444,7 +460,7 @@ export function OnboardingSimulatorFigure() {
             {pricingHeroAmount(simulated.current?.netProfit ?? 0)}
           </Text>
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {simulatorProfitNote('ja', simulated.current?.profitRate ?? null)}
+            {simulatorProfitNote(locale, simulated.current?.profitRate ?? null)}
           </Text>
         </View>
       </View>
@@ -512,19 +528,22 @@ const CHART_LINE_PADDING = 8;
  * 額は DataSummaryBar.tsx 冒頭コメントの例と同じ（収支 ¥12,685 / 売上 ¥15,145 / 経費 ¥2,460）。
  */
 export function OnboardingDataFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
   const { period, earliestMonthKey, currentMonthKey, totalNetProfit, totalSales, totalExpenses } =
     ONBOARDING_DATA_EXAMPLE;
 
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel('ja', period),
+    label: periodProfitLabel(locale, period),
     value: formatYenSymbol(totalNetProfit),
     color: totalNetProfit >= 0 ? colors.green : colors.red,
   };
   const contextValues: [DataSummaryValue, DataSummaryValue] = [
-    { label: TOTAL_SALES_LABEL, value: formatYenSymbol(totalSales), color: colors.blue },
-    { label: EXPENSES_LABEL, value: formatYenSymbol(totalExpenses), color: colors.red },
+    { label: totalSalesLabel(locale), value: formatYenSymbol(totalSales), color: colors.blue },
+    { label: expensesLabel(locale), value: formatYenSymbol(totalExpenses), color: colors.red },
   ];
   const chartData = ONBOARDING_CHART_PROFITS.map((value) => ({
     value,
@@ -552,7 +571,7 @@ export function OnboardingDataFigure() {
 
       <View style={styles.dataChartBlock}>
         <DataModeTabs
-          options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+          options={[dataModeProfitLabel(locale), dataModeTagLabel(locale), dataModeAchievementsLabel(locale)]}
           selectedIndex={0}
           onChange={noop}
         />
@@ -560,10 +579,10 @@ export function OnboardingDataFigure() {
         {/* 見出しの右に凡例（構成の指定「収支の推移の横に置いて」）。緑=日別の棒・青=重ねた
             累計収支の折れ線 */}
         <View style={styles.chartHeaderRow}>
-          <Text style={[styles.chartTitle, { color: colors.label }]}>{PROFIT_TREND_LABEL}</Text>
+          <Text style={[styles.chartTitle, { color: colors.label }]}>{profitTrendLabel(locale)}</Text>
           <View style={styles.chartLegend}>
-            <LegendDot color={colors.green} label={TOTAL_PROFIT_LABEL} colors={colors} />
-            <LegendDot color={colors.blue} label={CUMULATIVE_PROFIT_LABEL} colors={colors} />
+            <LegendDot color={colors.green} label={totalProfitLabel(locale)} colors={colors} />
+            <LegendDot color={colors.blue} label={cumulativeProfitLabel(locale)} colors={colors} />
           </View>
         </View>
 
@@ -691,6 +710,9 @@ function exampleAchievement(id: Achievement['id']): Achievement {
  * PresetRow）・下端の合計行という構成だけをカード 1 と同じ 1 件のプリセットで組み直した。
  */
 export function OnboardingPackagingPresetFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { name, initial, colorKey, packPrice, packQuantity } = ONBOARDING_PACKAGING_PRESET_EXAMPLE;
   const unitPrice = presetUnitPrice(packPrice, packQuantity) ?? 0;
@@ -724,11 +746,11 @@ export function OnboardingPackagingPresetFigure() {
           <View style={styles.pickerHeaderSide}>
             <Ionicons name="chevron-back" size={18} color={colors.blue} />
             <Text style={[styles.pickerBackLabel, { color: colors.blue }]}>
-              {CALC_PICKER_BACK_LABEL}
+              {calcPickerBackLabel(locale)}
             </Text>
           </View>
           <Text style={[styles.pickerTitle, { color: colors.label }]} numberOfLines={1}>
-            {presetPickerTitle('ja', 'packaging')}
+            {presetPickerTitle(locale, 'packaging')}
           </Text>
           <View style={styles.pickerHeaderSide} />
         </View>
@@ -743,14 +765,14 @@ export function OnboardingPackagingPresetFigure() {
         <View style={[styles.pickerFooter, { borderTopColor: colors.separator }]}>
           <View style={styles.grow}>
             <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-              {presetPickedCountLabel(1)}
+              {presetPickedCountLabel(locale, 1)}
             </Text>
             <Text style={[styles.pickerTotal, { color: colors.label }]}>
-              {formatCalcTotal('ja', unitPrice)}
+              {formatCalcTotal(locale, unitPrice)}
             </Text>
           </View>
           <View style={[styles.pickerSubmit, { backgroundColor: colors.blue }]}>
-            <Text style={styles.pickerSubmitLabel}>{CALC_SUBMIT_LABEL}</Text>
+            <Text style={styles.pickerSubmitLabel}>{calcSubmitLabel(locale)}</Text>
           </View>
         </View>
       </View>

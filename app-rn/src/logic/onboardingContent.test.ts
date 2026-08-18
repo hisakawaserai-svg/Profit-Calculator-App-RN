@@ -9,19 +9,21 @@ import {
   ONBOARDING_CALC_EXAMPLE,
   ONBOARDING_CHART_PROFITS,
   ONBOARDING_DATA_EXAMPLE,
-  ONBOARDING_ITEM_NAME_EXAMPLE,
+  onboardingItemNameExample,
   ONBOARDING_PACKAGING_PRESET_EXAMPLE,
-  ONBOARDING_PAGES,
+  onboardingPages,
   ONBOARDING_SHIPPING_PRESET_EXAMPLE,
   ONBOARDING_SITE_PRESET_EXAMPLE,
-  ONBOARDING_TAG_EXAMPLE,
+  onboardingTagExample,
   ONBOARDING_TARGET_PROFIT_EXAMPLE,
 } from './onboardingContent';
 
+const PAGES = onboardingPages('ja');
+
 describe('初回起動チュートリアルの構成', () => {
   it('8 ページぶんある（計算 → 逆算 → 保存の仕方 → 値下げ → データ → プリセット → 梱包材のまとめ買い → 実績）', () => {
-    expect(ONBOARDING_PAGES).toHaveLength(8);
-    expect(ONBOARDING_PAGES.map((page) => page.id)).toEqual([
+    expect(PAGES).toHaveLength(8);
+    expect(PAGES.map((page) => page.id)).toEqual([
       'calc',
       'target',
       'save',
@@ -34,9 +36,9 @@ describe('初回起動チュートリアルの構成', () => {
   });
 
   it('ページの id・見出し・本文が重複していない', () => {
-    expect(new Set(ONBOARDING_PAGES.map((page) => page.id)).size).toBe(8);
-    expect(new Set(ONBOARDING_PAGES.map((page) => page.title)).size).toBe(8);
-    expect(new Set(ONBOARDING_PAGES.map((page) => page.body)).size).toBe(8);
+    expect(new Set(PAGES.map((page) => page.id)).size).toBe(8);
+    expect(new Set(PAGES.map((page) => page.title)).size).toBe(8);
+    expect(new Set(PAGES.map((page) => page.body)).size).toBe(8);
   });
 
   it('梱包材のまとめ買い計算の題材は 500円 ÷ 10個 = 1個あたり50円（presetUnitPrice と同じ割り算）', () => {
@@ -45,14 +47,14 @@ describe('初回起動チュートリアルの構成', () => {
   });
 
   it('梱包材のまとめ買い計算のページは実績の直前（終盤）に置いてある', () => {
-    const packagingIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'packagingPreset');
-    const achievementsIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'achievements');
+    const packagingIndex = PAGES.findIndex((page) => page.id === 'packagingPreset');
+    const achievementsIndex = PAGES.findIndex((page) => page.id === 'achievements');
     expect(packagingIndex).toBe(achievementsIndex - 1);
   });
 
   it('プリセットのページは梱包材のまとめ買い計算の直前に置いてある', () => {
-    const presetIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'preset');
-    const packagingIndex = ONBOARDING_PAGES.findIndex((page) => page.id === 'packagingPreset');
+    const presetIndex = PAGES.findIndex((page) => page.id === 'preset');
+    const packagingIndex = PAGES.findIndex((page) => page.id === 'packagingPreset');
     expect(presetIndex).toBe(packagingIndex - 1);
   });
 
@@ -103,8 +105,8 @@ describe('初回起動チュートリアルの構成', () => {
   });
 
   it('商品名の例とタグの例が空でなく、内容が食い違わない（腕時計 → アクセサリー）', () => {
-    expect(ONBOARDING_ITEM_NAME_EXAMPLE.length).toBeGreaterThan(0);
-    expect(ONBOARDING_TAG_EXAMPLE.length).toBeGreaterThan(0);
-    expect(ONBOARDING_ITEM_NAME_EXAMPLE).not.toBe(ONBOARDING_TAG_EXAMPLE);
+    expect(onboardingItemNameExample('ja').length).toBeGreaterThan(0);
+    expect(onboardingTagExample('ja').length).toBeGreaterThan(0);
+    expect(onboardingItemNameExample('ja')).not.toBe(onboardingTagExample('ja'));
   });
 });

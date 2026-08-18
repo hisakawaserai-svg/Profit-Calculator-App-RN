@@ -46,62 +46,63 @@ import {
   backupPhotoIncludeLabel,
   colorUnusedSectionLabel,
   colorUsedSectionLabel,
-  COMMISSION_LABEL,
+  commissionLabel,
   customColorLabel,
-  DATA_MODE_ACHIEVEMENTS_LABEL,
-  DATA_MODE_PROFIT_LABEL,
-  DATA_MODE_TAG_LABEL,
-  ENVELOPE_COST_LABEL,
+  dataModeAchievementsLabel,
+  dataModeProfitLabel,
+  dataModeTagLabel,
+  envelopeCostLabel,
   exportPreviewCardTitle,
   exportTargetOptions,
-  HELP_FIGURE_ADD_RECORD_NOTE,
-  HELP_FIGURE_BREAKDOWN_NOTE,
-  HELP_FIGURE_CALCULATOR_NOTE,
-  HELP_FIGURE_COMMISSION_FIELD_NOTE,
-  HELP_FIGURE_COLOR_GROUPS_NOTE,
-  HELP_FIGURE_DATA_MODES_NOTE,
-  HELP_FIGURE_EXPORT_PREVIEW_NOTE,
-  HELP_FIGURE_EXPORT_TARGET_NOTE,
-  HELP_FIGURE_FILTER_ENTRY_NOTE,
-  HELP_FIGURE_FILTER_OFF_CAPTION,
-  HELP_FIGURE_FILTER_ON_CAPTION,
-  HELP_FIGURE_KIND_SELECTOR_NOTE,
-  HELP_FIGURE_MODE_PROFIT_NOTE,
-  HELP_FIGURE_MODE_TARGET_NOTE,
-  HELP_FIGURE_MONTH_BAR_NOTE,
-  HELP_FIGURE_PHOTO_INCLUDE_NOTE,
-  HELP_FIGURE_PHOTO_NOTE,
-  HELP_FIGURE_PRESET_BADGE_NOTE,
-  HELP_FIGURE_PRESET_LIST_NOTE,
-  HELP_FIGURE_PRESET_TAG_NOTE,
-  HELP_FIGURE_PRICE_LINE_NOTE,
-  HELP_FIGURE_RECORD_BAR_NOTE,
-  HELP_FIGURE_SEARCH_CAPTION,
-  HELP_FIGURE_SEARCH_SORT_NOTE,
-  HELP_FIGURE_SHIPPING_MATERIAL_NOTE,
-  HELP_FIGURE_SIMULATOR_NOTE,
-  HELP_FIGURE_SOLD_LISTING_NOTE,
-  HELP_FIGURE_STATUS_TOGGLE_NOTE,
-  HELP_FIGURE_TAG_ROW_NOTE,
-  HELP_FIGURE_TAG_VIEW_NOTE,
-  HELP_FIGURE_TARGET_FIELD_NOTE,
-  ITEM_NAME_CAPTION,
-  ITEM_NAME_PLACEHOLDER,
-  KEPT_SHORT_LABEL,
-  LISTING_COUNT_LABEL,
-  LISTING_STATUS_LABEL,
-  POSTAGE_LABEL,
+  helpFigureAddRecordNote,
+  helpFigureBreakdownNote,
+  helpFigureCalculatorNote,
+  helpFigureCommissionFieldNote,
+  helpFigureColorGroupsNote,
+  helpFigureDataModesNote,
+  helpFigureExportPreviewNote,
+  helpFigureExportTargetNote,
+  helpFigureFilterEntryNote,
+  helpFigureFilterOffCaption,
+  helpFigureSample,
+  helpFigureFilterOnCaption,
+  helpFigureKindSelectorNote,
+  helpFigureModeProfitNote,
+  helpFigureModeTargetNote,
+  helpFigureMonthBarNote,
+  helpFigurePhotoIncludeNote,
+  helpFigurePhotoNote,
+  helpFigurePresetBadgeNote,
+  helpFigurePresetListNote,
+  helpFigurePresetTagNote,
+  helpFigurePriceLineNote,
+  helpFigureRecordBarNote,
+  helpFigureSearchCaption,
+  helpFigureSearchSortNote,
+  helpFigureShippingMaterialNote,
+  helpFigureSimulatorNote,
+  helpFigureSoldListingNote,
+  helpFigureStatusToggleNote,
+  helpFigureTagRowNote,
+  helpFigureTagViewNote,
+  helpFigureTargetFieldNote,
+  itemNameCaption,
+  itemNamePlaceholder,
+  keptShortLabel,
+  listingCountLabel,
+  listingStatusLabel,
+  postageLabel,
   presetInitialHint,
-  RECORDS_TAB_LABEL,
-  SHIPPING_ONLY_LABEL,
-  SIMULATOR_NOTE,
-  SOLD_RECORDS_LABEL,
-  SORT_SHEET_TITLE,
+  recordsTabLabel,
+  shippingOnlyLabel,
+  simulatorNote,
+  soldRecordsLabel,
+  sortSheetTitle,
   tagLabel,
-  TAG_SECTION_LIST_MODE_LABEL,
-  TAG_SECTION_OVERLAY_MODE_LABEL,
-  TARGET_PROFIT_UNSET_LABEL,
-  TARGET_TAB_LABEL,
+  tagSectionListModeLabel,
+  tagSectionOverlayModeLabel,
+  targetProfitUnsetLabel,
+  targetTabLabel,
   backupPhotoIncludeDetail,
   colorUserLabel,
   commissionFieldLabel,
@@ -115,6 +116,7 @@ import {
 } from '@/logic/labels';
 import { PRESET_COLOR_HEXES, PRESET_COLOR_KEYS } from '@/logic/preset';
 import { analyzePricing } from '@/logic/pricing';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 図の中の部品は触れない。押せると「ここで設定できる」と読まれる */
@@ -138,10 +140,13 @@ function PartFrame({ children, note }: { children: React.ReactNode; note?: strin
 
 /** 結果カード先頭の 2 択（実物の SegmentedControl） */
 export function ModeProfitFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_MODE_PROFIT_NOTE}>
+    <PartFrame note={helpFigureModeProfitNote(locale)}>
       <SegmentedControl
-        options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
+        options={[profitTabLabel(locale, 'used'), targetTabLabel(locale)]}
         selectedIndex={0}
         onChange={noop}
       />
@@ -150,10 +155,13 @@ export function ModeProfitFigure() {
 }
 
 export function ModeTargetFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_MODE_TARGET_NOTE}>
+    <PartFrame note={helpFigureModeTargetNote(locale)}>
       <SegmentedControl
-        options={[profitTabLabel('ja', 'used'), TARGET_TAB_LABEL]}
+        options={[profitTabLabel(locale, 'used'), targetTabLabel(locale)]}
         selectedIndex={1}
         onChange={noop}
       />
@@ -163,12 +171,15 @@ export function ModeTargetFigure() {
 
 /** 金額の欄の右の電卓ボタン。行の形ごと出す（ボタンだけでは場所が分からない） */
 export function CalculatorButtonFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_CALCULATOR_NOTE}>
+    <PartFrame note={helpFigureCalculatorNote(locale)}>
       <View style={styles.fieldRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>{POSTAGE_LABEL}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{postageLabel(locale)}</Text>
         <Text style={[styles.fieldValue, { color: colors.label }]}>215</Text>
         <Ionicons name="calculator" size={22} color={colors.blue} />
       </View>
@@ -184,10 +195,13 @@ export function CalculatorButtonFigure() {
  * 説明する前に読める。± は実物と同じ 1% 刻みで、押しても動かない（noop）。
  */
 export function CommissionFieldFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_COMMISSION_FIELD_NOTE}>
+    <PartFrame note={helpFigureCommissionFieldNote(locale)}>
       <Stepper
-        label={commissionFieldLabel('ja', DEFAULT_COMMISSION)}
+        label={commissionFieldLabel(locale, DEFAULT_COMMISSION)}
         value={DEFAULT_COMMISSION}
         minimumValue={MIN_COMMISSION}
         maximumValue={MAX_COMMISSION}
@@ -199,14 +213,17 @@ export function CommissionFieldFigure() {
 
 /** 内訳の帯（実物の CostProportionBar）。図の題材と同じ 1,500 円の 1 件 */
 export function BreakdownFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_BREAKDOWN_NOTE}>
+    <PartFrame note={helpFigureBreakdownNote(locale)}>
       <CostProportionBar
         parts={[
-          { key: 'commission', label: COMMISSION_LABEL, amount: 150 },
-          { key: 'postage', label: POSTAGE_LABEL, amount: 215 },
-          { key: 'envelopeCost', label: ENVELOPE_COST_LABEL, amount: 50 },
-          { key: 'kept', label: KEPT_SHORT_LABEL, amount: 1085 },
+          { key: 'commission', label: commissionLabel(locale), amount: 150 },
+          { key: 'postage', label: postageLabel(locale), amount: 215 },
+          { key: 'envelopeCost', label: envelopeCostLabel(locale), amount: 50 },
+          { key: 'kept', label: keptShortLabel(locale), amount: 1085 },
         ]}
         kept={1085}
         deducted={415}
@@ -217,12 +234,15 @@ export function BreakdownFigure() {
 
 /** 金額の欄の横のタグの印（プリセットの入口） */
 export function PresetTagFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_PRESET_TAG_NOTE}>
+    <PartFrame note={helpFigurePresetTagNote(locale)}>
       <View style={styles.fieldRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>{POSTAGE_LABEL}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{postageLabel(locale)}</Text>
         <Ionicons name="pricetag-outline" size={18} color={colors.blue} />
         <Ionicons name="chevron-down" size={14} color={colors.blue} />
         <View style={styles.grow} />
@@ -242,14 +262,17 @@ export function PresetTagFigure() {
  * 「押す前に見えていた数字と、あとで欄に入る数字を食い違わせない」という 45b の要点が消える。
  */
 export function ShippingMaterialFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const materialCost = 100;
 
   return (
-    <PartFrame note={HELP_FIGURE_SHIPPING_MATERIAL_NOTE}>
+    <PartFrame note={helpFigureShippingMaterialNote(locale)}>
       <PresetRow
         preset={{
           type: 'shipping',
-          name: '宅配 60サイズ',
+          name: helpFigureSample(locale).parcel,
           initial: '60',
           colorKey: 'green',
           // 「＋資材」を選んだ側の額（210 ＋ 100）。副題は 2 択が言うので materialCost は伏せる
@@ -258,7 +281,7 @@ export function ShippingMaterialFigure() {
         }}
         belowName={
           <SegmentedControl
-            options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen('ja', materialCost))]}
+            options={[shippingOnlyLabel(locale), withShippingMaterialLabel(locale, formatUnitYen(locale, materialCost))]}
             selectedIndex={1}
             onChange={noop}
           />
@@ -273,20 +296,23 @@ export function ShippingMaterialFigure() {
  *
  * **空欄の見え方そのものが図の中身**なので、金額の入った状態は描かない ──
  * この項目でつまずくのは「入れていないのに 0 円と書かれていないか」であって、
- * 入れたあとの見え方ではない。`TARGET_PROFIT_UNSET_LABEL` を共有しているので、
+ * 入れたあとの見え方ではない。`targetProfitUnsetLabel(locale)` を共有しているので、
  * 「決めていません」の語を変えれば図も変わる。
  */
 export function TargetFieldFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_TARGET_FIELD_NOTE}>
+    <PartFrame note={helpFigureTargetFieldNote(locale)}>
       <View style={styles.fieldRow}>
         <Text style={[styles.fieldLabel, { color: colors.label }]}>
-          {targetProfitLabel('ja', 'used')}
+          {targetProfitLabel(locale, 'used')}
         </Text>
         <Text style={[styles.fieldValue, { color: colors.mutedLabel }]}>
-          {TARGET_PROFIT_UNSET_LABEL}
+          {targetProfitUnsetLabel(locale)}
         </Text>
       </View>
     </PartFrame>
@@ -302,21 +328,24 @@ export function TargetFieldFigure() {
  * 全項目を並べるとレシートの再現になり、金額の読み方の図に変わってしまう。
  */
 export function RecordBarFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const rows: { key: BreakdownPartKey; label: string; amount: number }[] = [
-    { key: 'kept', label: KEPT_SHORT_LABEL, amount: 1085 },
-    { key: 'commission', label: COMMISSION_LABEL, amount: 150 },
-    { key: 'postage', label: POSTAGE_LABEL, amount: 215 },
+    { key: 'kept', label: keptShortLabel(locale), amount: 1085 },
+    { key: 'commission', label: commissionLabel(locale), amount: 150 },
+    { key: 'postage', label: postageLabel(locale), amount: 215 },
   ];
 
   return (
-    <PartFrame note={HELP_FIGURE_RECORD_BAR_NOTE}>
+    <PartFrame note={helpFigureRecordBarNote(locale)}>
       <CostProportionBar
         parts={[
-          { key: 'commission', label: COMMISSION_LABEL, amount: 150 },
-          { key: 'postage', label: POSTAGE_LABEL, amount: 215 },
-          { key: 'envelopeCost', label: ENVELOPE_COST_LABEL, amount: 50 },
-          { key: 'kept', label: KEPT_SHORT_LABEL, amount: 1085 },
+          { key: 'commission', label: commissionLabel(locale), amount: 150 },
+          { key: 'postage', label: postageLabel(locale), amount: 215 },
+          { key: 'envelopeCost', label: envelopeCostLabel(locale), amount: 50 },
+          { key: 'kept', label: keptShortLabel(locale), amount: 1085 },
         ]}
         kept={1085}
         deducted={415}
@@ -327,7 +356,7 @@ export function RecordBarFigure() {
             <View style={[styles.receiptDot, { backgroundColor: partColor(row.key, colors) }]} />
             <Text style={[styles.fieldLabel, { color: colors.label }]}>{row.label}</Text>
             <Text style={[styles.fieldValue, { color: colors.label }]}>
-              {formatUnitYen('ja', row.amount)}
+              {formatUnitYen(locale, row.amount)}
             </Text>
           </View>
         ))}
@@ -342,25 +371,28 @@ export function RecordBarFigure() {
  * **実物の `ColorSwatchGrid` は使わない。** あの部品は自由色の丸を押すと
  * `ColorPickerSheet` を開く（`onChange` を空にしても止まらない）ので、図の中に置くと
  * 「読むだけ」のはずの面からシートが出てしまう。代わりに**色と見出しの語は実物と同じ定数**
- * （`PRESET_COLOR_HEXES` / `colorUnusedSectionLabel('ja')` など）から引き、
+ * （`PRESET_COLOR_HEXES` / `colorUnusedSectionLabel(locale)` など）から引き、
  * 並びだけをここで描く ── パレットを差し替えれば図の色も変わる。
  *
  * 4 列なのも実物と同じ（設計案 49c で `flexWrap` をやめた理由と同じで、
  * 端末幅で段組みが変わると図と実物が食い違う）。
  */
 export function ColorGroupsFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 上の群は「まだ使っていない色」4 つ ＋ 自由色の口。下の群は使用中の 2 つ
   const unused = PRESET_COLOR_KEYS.slice(0, 4);
   const used = [
-    { key: PRESET_COLOR_KEYS[4], names: ['洋服'] },
-    { key: PRESET_COLOR_KEYS[5], names: ['食器'] },
+    { key: PRESET_COLOR_KEYS[4], names: [helpFigureSample(locale).tagClothes] },
+    { key: PRESET_COLOR_KEYS[5], names: [helpFigureSample(locale).tagTableware] },
   ];
 
   return (
-    <PartFrame note={HELP_FIGURE_COLOR_GROUPS_NOTE}>
+    <PartFrame note={helpFigureColorGroupsNote(locale)}>
       <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-        {colorUnusedSectionLabel('ja')}
+        {colorUnusedSectionLabel(locale)}
       </Text>
       <View style={styles.swatchRow}>
         {unused.map((key) => (
@@ -373,13 +405,13 @@ export function ColorGroupsFigure() {
         <View style={styles.customSwatch}>
           <View style={[styles.swatchRing, { borderColor: colors.separator }]} />
           <Text style={[styles.swatchCaption, { color: colors.secondaryLabel }]}>
-            {customColorLabel('ja')}
+            {customColorLabel(locale)}
           </Text>
         </View>
       </View>
 
       <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-        {colorUsedSectionLabel('ja')}
+        {colorUsedSectionLabel(locale)}
       </Text>
       <View style={styles.usedRow}>
         {used.map((entry) => (
@@ -388,7 +420,7 @@ export function ColorGroupsFigure() {
               style={[styles.usedSwatch, { backgroundColor: PRESET_COLOR_HEXES[entry.key] }]}
             />
             <Text style={[styles.swatchCaption, { color: colors.secondaryLabel }]}>
-              {colorUserLabel('ja', entry.names)}
+              {colorUserLabel(locale, entry.names)}
             </Text>
           </View>
         ))}
@@ -407,10 +439,13 @@ export function ColorGroupsFigure() {
  * 題材は `HelpDiagram` の `PRICING_EXAMPLE`（シミュレーターの図と同じ 1 件）。
  */
 export function PriceLineFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const analysis = analyzePricing(PRICING_EXAMPLE);
 
   return (
-    <PartFrame note={HELP_FIGURE_PRICE_LINE_NOTE}>
+    <PartFrame note={helpFigurePriceLineNote(locale)}>
       <PriceLine analysis={analysis} />
     </PartFrame>
   );
@@ -429,6 +464,9 @@ export function PriceLineFigure() {
  * 手数料の扱いを直したときに図だけが古い額を主張する。
  */
 export function SimulatorFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const analysis = analyzePricing(PRICING_EXAMPLE);
   // 「値下げを試している」最中を描くので、今の価格ではなく下げた側で計算し直す。
@@ -439,8 +477,8 @@ export function SimulatorFigure() {
   });
 
   return (
-    <PartFrame note={HELP_FIGURE_SIMULATOR_NOTE}>
-      <Text style={[styles.caption, { color: colors.secondaryLabel }]}>{SIMULATOR_NOTE}</Text>
+    <PartFrame note={helpFigureSimulatorNote(locale)}>
+      <Text style={[styles.caption, { color: colors.secondaryLabel }]}>{simulatorNote(locale)}</Text>
 
       <View style={styles.simulatorRow}>
         <Text style={[styles.simulatorPrice, { color: colors.label }]}>
@@ -451,7 +489,7 @@ export function SimulatorFigure() {
             {pricingHeroAmount(simulated.current?.netProfit ?? 0)}
           </Text>
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {simulatorProfitNote('ja', simulated.current?.profitRate ?? null)}
+            {simulatorProfitNote(locale, simulated.current?.profitRate ?? null)}
           </Text>
         </View>
       </View>
@@ -481,12 +519,15 @@ export function SimulatorFigure() {
 
 /** データタブのグラフカード上端の 3 択（実物の DataModeTabs） */
 export function DataModesFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_DATA_MODES_NOTE}>
+    <PartFrame note={helpFigureDataModesNote(locale)}>
       {/* この部品は呼び出し側のカードの余白（16pt）を打ち消す負の余白を持っている。
           PartFrame の余白も同じ 16pt なので、実物と同じく区切り線が縁まで届く */}
       <DataModeTabs
-        options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+        options={[dataModeProfitLabel(locale), dataModeTagLabel(locale), dataModeAchievementsLabel(locale)]}
         selectedIndex={0}
         onChange={noop}
       />
@@ -496,10 +537,13 @@ export function DataModesFigure() {
 
 /** タグ別のカードの右上の 2 択（実物の SegmentedControl。「一覧」/「グラフ」） */
 export function TagViewModeFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_TAG_VIEW_NOTE}>
+    <PartFrame note={helpFigureTagViewNote(locale)}>
       <SegmentedControl
-        options={[TAG_SECTION_LIST_MODE_LABEL, TAG_SECTION_OVERLAY_MODE_LABEL]}
+        options={[tagSectionListModeLabel(locale), tagSectionOverlayModeLabel(locale)]}
         selectedIndex={0}
         onChange={noop}
       />
@@ -515,15 +559,18 @@ export function TagViewModeFigure() {
  * 何を見て決めるのかが伝わらない。枚数とサイズは図の題材（実測ではない）。
  */
 export function PhotoIncludeFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_PHOTO_INCLUDE_NOTE}>
+    <PartFrame note={helpFigurePhotoIncludeNote(locale)}>
       <ChoiceCardPair
         options={[
           {
-            label: backupPhotoIncludeLabel('ja'),
-            detail: backupPhotoIncludeDetail('ja', 53, 8.2 * 1024 * 1024),
+            label: backupPhotoIncludeLabel(locale),
+            detail: backupPhotoIncludeDetail(locale, 53, 8.2 * 1024 * 1024),
           },
-          { label: backupPhotoExcludeLabel('ja'), detail: backupPhotoExcludeDetail('ja') },
+          { label: backupPhotoExcludeLabel(locale), detail: backupPhotoExcludeDetail(locale) },
         ]}
         selectedIndex={0}
         onChange={noop}
@@ -536,26 +583,29 @@ export function PhotoIncludeFigure() {
  * プリセット編集のプレビュー帯のバッジ（設計案 49c）。
  *
  * **バッジそのものが入力欄**だという一点だけを出す図なので、下の 1 行
- * （`presetInitialHint('ja')` =「2文字まで・押して直せます」）まで含めて実物と同じにする ──
+ * （`presetInitialHint(locale)` =「2文字まで・押して直せます」）まで含めて実物と同じにする ──
  * 「押せる」ことを言っているのはこの 1 行で、バッジの絵だけでは伝わらない。
  *
  * 入力中の `PresetBadgeInput` ではなく表示用の `PresetBadge` を使うのは、
  * 図にカーソルを立てないため（打っている最中は下の 1 行の文言も変わる）。
  */
 export function PresetBadgeFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_PRESET_BADGE_NOTE}>
+    <PartFrame note={helpFigurePresetBadgeNote(locale)}>
       <View style={styles.badgeRow}>
         <PresetBadge
-          preset={{ name: 'A4・厚さ3cm以内', initial: 'A4', colorKey: 'blue' }}
+          preset={{ name: helpFigureSample(locale).flatRate, initial: 'A4', colorKey: 'blue' }}
           // 実物のプレビュー帯と同じ大きさ（設計案 49c）。図だけ小さくすると
           // 「指で狙える札」だという 49c の要点が絵から落ちる
           size={EDITABLE_BADGE_SIZE}
         />
         <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-          {presetInitialHint('ja')}
+          {presetInitialHint(locale)}
         </Text>
       </View>
     </PartFrame>
@@ -564,13 +614,16 @@ export function PresetBadgeFigure() {
 
 /** 記録タブの左下のボタン（UI-SPEC §1.2-7） */
 export function AddRecordFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_ADD_RECORD_NOTE}>
+    <PartFrame note={helpFigureAddRecordNote(locale)}>
       <View style={[styles.fab, { backgroundColor: colors.blue }]}>
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabLabel}>{RECORDS_TAB_LABEL}</Text>
+        <Text style={styles.fabLabel}>{recordsTabLabel(locale)}</Text>
       </View>
     </PartFrame>
   );
@@ -578,8 +631,11 @@ export function AddRecordFigure() {
 
 /** 種別の 2 択（実物の RecordKindSelector） */
 export function KindSelectorFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_KIND_SELECTOR_NOTE}>
+    <PartFrame note={helpFigureKindSelectorNote(locale)}>
       <RecordKindSelector kind="sourced" onChange={noop} />
     </PartFrame>
   );
@@ -587,18 +643,21 @@ export function KindSelectorFigure() {
 
 /** 伝票カードの見出し行。状態バッジと切り替えのリンク */
 export function StatusToggleFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_STATUS_TOGGLE_NOTE}>
+    <PartFrame note={helpFigureStatusToggleNote(locale)}>
       <View style={styles.statusRow}>
         <View style={styles.statusLeft}>
           <View style={[styles.statusDot, { backgroundColor: colors.orange }]} />
           <Text style={[styles.statusLabel, { color: colors.orange }]}>
-            {LISTING_STATUS_LABEL}
+            {listingStatusLabel(locale)}
           </Text>
         </View>
-        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel('ja', true)}</Text>
+        <Text style={[styles.statusLink, { color: colors.blue }]}>{switchStatusLabel(locale, true)}</Text>
       </View>
     </PartFrame>
   );
@@ -606,19 +665,22 @@ export function StatusToggleFigure() {
 
 /** 商品名の左の写真の枠（実物の PhotoThumbnail の空枠と同じ見た目） */
 export function PhotoFieldFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_PHOTO_NOTE}>
+    <PartFrame note={helpFigurePhotoNote(locale)}>
       <View style={styles.photoRow}>
         <PhotoThumbnail fileName={null} />
         <View style={styles.grow}>
           <Text style={[styles.fieldLabel, { color: colors.mutedLabel }]}>
-            {ITEM_NAME_PLACEHOLDER}
+            {itemNamePlaceholder(locale)}
           </Text>
           <View style={[styles.underline, { backgroundColor: colors.blue }]} />
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {ITEM_NAME_CAPTION}
+            {itemNameCaption(locale)}
           </Text>
         </View>
       </View>
@@ -628,13 +690,16 @@ export function PhotoFieldFigure() {
 
 /** 商品名の下のタグ行（実物の TagChip ＋「＋」） */
 export function TagRowFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_TAG_ROW_NOTE}>
+    <PartFrame note={helpFigureTagRowNote(locale)}>
       <View style={styles.tagRow}>
-        <Text style={[styles.fieldLabel, { color: colors.label }]}>{tagLabel('ja')}</Text>
-        <TagChip tag={{ name: '洋服', colorKey: 'red' }} variant="selected" />
+        <Text style={[styles.fieldLabel, { color: colors.label }]}>{tagLabel(locale)}</Text>
+        <TagChip tag={{ name: helpFigureSample(locale).tagClothes, colorKey: 'red' }} variant="selected" />
         <View style={[styles.plusBox, { borderColor: colors.separator }]}>
           <Ionicons name="add" size={16} color={colors.blue} />
         </View>
@@ -645,15 +710,18 @@ export function TagRowFigure() {
 
 /** 記録タブ・データタブの月の行（前後の月と、右端の絞り込みの入口） */
 export function MonthBarFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_MONTH_BAR_NOTE}>
+    <PartFrame note={helpFigureMonthBarNote(locale)}>
       <View style={[styles.monthBar, { backgroundColor: colors.background }]}>
         <Ionicons name="chevron-back" size={20} color={colors.disabledContent} />
         <View style={styles.monthTitle}>
           <Text style={[styles.monthText, { color: colors.label }]}>
-            {formatMonthKeyTitle('ja', '2026-08')}
+            {formatMonthKeyTitle(locale, '2026-08')}
           </Text>
           <Ionicons name="chevron-down" size={14} color={colors.secondaryLabel} />
         </View>
@@ -665,15 +733,18 @@ export function MonthBarFigure() {
 
 /** 月の行の右端の「▽」。絞り込みが効いている間は青ベタになる */
 export function FilterEntryFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_FILTER_ENTRY_NOTE}>
+    <PartFrame note={helpFigureFilterEntryNote(locale)}>
       <View style={styles.filterPair}>
         <View style={[styles.filterCell, { borderColor: colors.separator }]}>
           <Ionicons name="funnel-outline" size={20} color={colors.blue} />
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {HELP_FIGURE_FILTER_OFF_CAPTION}
+            {helpFigureFilterOffCaption(locale)}
           </Text>
         </View>
         <View style={[styles.filterCell, { borderColor: colors.separator }]}>
@@ -681,7 +752,7 @@ export function FilterEntryFigure() {
             <Ionicons name="funnel" size={16} color="#FFFFFF" />
           </View>
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {HELP_FIGURE_FILTER_ON_CAPTION}
+            {helpFigureFilterOnCaption(locale)}
           </Text>
         </View>
       </View>
@@ -691,21 +762,24 @@ export function FilterEntryFigure() {
 
 /** 記録タブのヘッダの ⌕ と ⇅ */
 export function SearchSortFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_SEARCH_SORT_NOTE}>
+    <PartFrame note={helpFigureSearchSortNote(locale)}>
       <View style={styles.iconPair}>
         <View style={styles.iconCell}>
           <Ionicons name="search" size={24} color={colors.blue} />
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {HELP_FIGURE_SEARCH_CAPTION}
+            {helpFigureSearchCaption(locale)}
           </Text>
         </View>
         <View style={styles.iconCell}>
           <Ionicons name="swap-vertical" size={24} color={colors.blue} />
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {SORT_SHEET_TITLE}
+            {sortSheetTitle(locale)}
           </Text>
         </View>
       </View>
@@ -715,10 +789,13 @@ export function SearchSortFigure() {
 
 /** 集計段の右の 2 択（実物の SegmentedControl） */
 export function SoldListingFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_SOLD_LISTING_NOTE}>
+    <PartFrame note={helpFigureSoldListingNote(locale)}>
       <SegmentedControl
-        options={[SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL]}
+        options={[soldRecordsLabel(locale), listingCountLabel(locale)]}
         selectedIndex={0}
         onChange={noop}
       />
@@ -734,19 +811,28 @@ export function SoldListingFigure() {
  * どちらも出さないと「登録するとこう並ぶ」の図として片側しか見せられない。
  */
 export function PresetListFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_PRESET_LIST_NOTE}>
+    <PartFrame note={helpFigurePresetListNote(locale)}>
       <View style={[styles.card, { backgroundColor: colors.background }]}>
         <PresetRow
-          preset={{ type: 'shipping', name: 'A4・厚さ3cm以内', initial: 'A4', colorKey: 'blue', value: 210 }}
+          preset={{
+            type: 'shipping',
+            name: helpFigureSample(locale).flatRate,
+            initial: 'A4',
+            colorKey: 'blue',
+            value: 210,
+          }}
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <PresetRow
           preset={{
             type: 'shipping',
-            name: '宅配 60サイズ',
+            name: helpFigureSample(locale).parcel,
             initial: '60',
             colorKey: 'green',
             value: 750,
@@ -760,10 +846,13 @@ export function PresetListFigure() {
 
 /** 書き出しの「対象」の 2 択 */
 export function ExportTargetFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
-    <PartFrame note={HELP_FIGURE_EXPORT_TARGET_NOTE}>
+    <PartFrame note={helpFigureExportTargetNote(locale)}>
       <SegmentedControl
-        options={exportTargetOptions('ja').map((option) => option.label)}
+        options={exportTargetOptions(locale).map((option) => option.label)}
         selectedIndex={0}
         onChange={noop}
       />
@@ -773,17 +862,20 @@ export function ExportTargetFigure() {
 
 /** 書き出しシートの中のプレビューの入口 */
 export function ExportPreviewFigure() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
-    <PartFrame note={HELP_FIGURE_EXPORT_PREVIEW_NOTE}>
+    <PartFrame note={helpFigureExportPreviewNote(locale)}>
       <View style={styles.previewHead}>
         <Text style={[styles.fieldLabel, { color: colors.label }]}>
-          {exportPreviewCardTitle('ja')}
+          {exportPreviewCardTitle(locale)}
         </Text>
         <View style={styles.grow} />
         <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-          {exportPreviewMetaLabel('ja', 3, 18)}
+          {exportPreviewMetaLabel(locale, 3, 18)}
         </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
       </View>

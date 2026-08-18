@@ -26,12 +26,12 @@ import type { Preset, PresetType } from '@/db/schema';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { formatUnitYen } from '@/logic/format';
 import {
-  CLOSE_LABEL,
-  SHIPPING_ONLY_LABEL,
+  closeLabel,
+  shippingOnlyLabel,
   withShippingMaterialLabel,
-  PRESET_PICKER_ADD_LINK,
-  PRESET_PICKER_EDIT_LINK,
-  PRESET_PICKER_EMPTY_TITLE,
+  presetPickerAddLink,
+  presetPickerEditLink,
+  presetPickerEmptyTitle,
   presetEmptyBody,
   presetPickerEmptyBodyWithoutLink,
   presetPickerTitle,
@@ -43,6 +43,7 @@ import {
   shippingMaterialChoiceOf,
   type ShippingMaterialChoice,
 } from '@/logic/shippingMaterial';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -80,6 +81,9 @@ export function PresetPickerSheet({
   canOpenSettings = true,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const checked = findPresetByValue(presets, value);
@@ -96,11 +100,11 @@ export function PresetPickerSheet({
           <View style={styles.header}>
             <View style={styles.headerSide} />
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {presetPickerTitle('ja', type)}
+              {presetPickerTitle(locale, type)}
             </Text>
             <View style={[styles.headerSide, styles.headerSideEnd]}>
               <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
-                <Text style={[styles.headerButton, { color: colors.blue }]}>{CLOSE_LABEL}</Text>
+                <Text style={[styles.headerButton, { color: colors.blue }]}>{closeLabel(locale)}</Text>
               </Pressable>
             </View>
           </View>
@@ -109,9 +113,13 @@ export function PresetPickerSheet({
             {presets.length === 0 ? (
               // 登録が 0 件でもボタン自体は出す（§4.1）ので、ここへ来る経路は普通にある
               <EmptyState
-                title={PRESET_PICKER_EMPTY_TITLE}
-                body={canOpenSettings ? presetEmptyBody('ja', type) : presetPickerEmptyBodyWithoutLink(type)}
-                actionLabel={canOpenSettings ? PRESET_PICKER_ADD_LINK : undefined}
+                title={presetPickerEmptyTitle(locale)}
+                body={
+                  canOpenSettings
+                    ? presetEmptyBody(locale, type)
+                    : presetPickerEmptyBodyWithoutLink(locale, type)
+                }
+                actionLabel={canOpenSettings ? presetPickerAddLink(locale) : undefined}
                 onPressAction={
                   canOpenSettings
                     ? () => {
@@ -176,8 +184,11 @@ export function PresetPickerSheet({
                             withSegment ? (
                               <SegmentedControl
                                 options={[
-                                  SHIPPING_ONLY_LABEL,
-                                  withShippingMaterialLabel(formatUnitYen('ja', preset.materialCost)),
+                                  shippingOnlyLabel(locale),
+                                  withShippingMaterialLabel(
+                                    locale,
+                                    formatUnitYen(locale, preset.materialCost),
+                                  ),
                                 ]}
                                 selectedIndex={
                                   choice == null ? null : choice === 'shipping-only' ? 0 : 1
@@ -208,7 +219,7 @@ export function PresetPickerSheet({
                 }}
                 accessibilityRole="button">
                 <Text style={[styles.editLinkLabel, { color: colors.blue }]}>
-                  {PRESET_PICKER_EDIT_LINK}
+                  {presetPickerEditLink(locale)}
                 </Text>
               </Pressable>
             )}

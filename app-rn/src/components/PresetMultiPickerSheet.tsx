@@ -18,16 +18,17 @@ import type { Preset } from '@/db/schema';
 import { usePresetList } from '@/db/usePresets';
 import { formatCalcTotal } from '@/logic/format';
 import {
-  CALC_PICKER_BACK_LABEL,
-  CALC_SUBMIT_LABEL,
-  PRESET_PICKER_ADD_LINK,
-  PRESET_PICKER_EDIT_LINK,
-  PRESET_PICKER_EMPTY_TITLE,
+  calcPickerBackLabel,
+  calcSubmitLabel,
+  presetPickerAddLink,
+  presetPickerEditLink,
+  presetPickerEmptyTitle,
   presetEmptyBody,
   presetPickedCountLabel,
   presetPickerEmptyBodyWithoutLink,
   presetPickerTitle,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** この部品が扱うのは梱包材だけ（§4.5）。他の 2 種は単一選択で入る */
@@ -44,6 +45,9 @@ type Props = {
 
 /** 開いている間だけマウントする前提（選択は閉じれば消える。電卓の積み上げと同じ扱い） */
 export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClose }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const { presets } = usePresetList(TYPE);
@@ -81,12 +85,12 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
                 style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.5 : 1 }]}>
                 <Ionicons name="chevron-back" size={20} color={colors.blue} />
                 <Text style={[styles.headerButton, { color: colors.blue }]}>
-                  {CALC_PICKER_BACK_LABEL}
+                  {calcPickerBackLabel(locale)}
                 </Text>
               </Pressable>
             </View>
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {presetPickerTitle('ja', TYPE)}
+              {presetPickerTitle(locale, TYPE)}
             </Text>
             {/* 左と同じ幅を取り、見出しを画面の中央から動かさない（PresetPickerSheet と同じ） */}
             <View style={styles.headerSide} />
@@ -95,11 +99,13 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
           <ScrollView bounces={false} contentContainerStyle={styles.listContent}>
             {presets.length === 0 ? (
               <EmptyState
-                title={PRESET_PICKER_EMPTY_TITLE}
+                title={presetPickerEmptyTitle(locale)}
                 body={
-                  canOpenSettings ? presetEmptyBody('ja', TYPE) : presetPickerEmptyBodyWithoutLink(TYPE)
+                  canOpenSettings
+                    ? presetEmptyBody(locale, TYPE)
+                    : presetPickerEmptyBodyWithoutLink(locale, TYPE)
                 }
-                actionLabel={canOpenSettings ? PRESET_PICKER_ADD_LINK : undefined}
+                actionLabel={canOpenSettings ? presetPickerAddLink(locale) : undefined}
                 onPressAction={
                   canOpenSettings
                     ? () => {
@@ -151,7 +157,7 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
                 }}
                 accessibilityRole="button">
                 <Text style={[styles.editLinkLabel, { color: colors.blue }]}>
-                  {PRESET_PICKER_EDIT_LINK}
+                  {presetPickerEditLink(locale)}
                 </Text>
               </Pressable>
             )}
@@ -163,10 +169,10 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
             <View style={[styles.footer, { borderTopColor: colors.separator }]}>
               <View style={styles.footerText}>
                 <Text style={[styles.pickedCount, { color: colors.secondaryLabel }]}>
-                  {presetPickedCountLabel(picked.length)}
+                  {presetPickedCountLabel(locale, picked.length)}
                 </Text>
                 <Text style={[styles.total, { color: colors.label }]} numberOfLines={1}>
-                  {formatCalcTotal('ja', total)}
+                  {formatCalcTotal(locale, total)}
                 </Text>
               </View>
               <Pressable
@@ -186,7 +192,7 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
                   },
                 ]}>
                 <Text style={[styles.submitLabel, { color: blocked ? colors.gray : '#FFFFFF' }]}>
-                  {CALC_SUBMIT_LABEL}
+                  {calcSubmitLabel(locale)}
                 </Text>
               </Pressable>
             </View>

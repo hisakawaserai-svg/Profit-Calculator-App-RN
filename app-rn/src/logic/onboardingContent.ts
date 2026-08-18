@@ -5,24 +5,10 @@
 // 表示語は labels.ts 経由（SPEC-V2 §5.3）。ここでは組み立てない。
 
 import type { AchievementCategory, AchievementId } from './achievements';
-import {
-  ONBOARDING_ACHIEVEMENTS_BODY,
-  ONBOARDING_ACHIEVEMENTS_TITLE,
-  ONBOARDING_CALC_BODY,
-  ONBOARDING_CALC_TITLE,
-  ONBOARDING_DATA_BODY,
-  ONBOARDING_DATA_TITLE,
-  ONBOARDING_PACKAGING_PRESET_BODY,
-  ONBOARDING_PACKAGING_PRESET_TITLE,
-  ONBOARDING_PRESET_BODY,
-  ONBOARDING_PRESET_TITLE,
-  ONBOARDING_SAVE_BODY,
-  ONBOARDING_SAVE_TITLE,
-  ONBOARDING_SIMULATOR_BODY,
-  ONBOARDING_SIMULATOR_TITLE,
-  ONBOARDING_TARGET_BODY,
-  ONBOARDING_TARGET_TITLE,
-} from './labels';
+import { t } from '@/i18n';
+import type { Locale } from '@/settings/language';
+
+import { onboardingText } from './labels';
 
 export type OnboardingPageId =
   | 'calc'
@@ -53,20 +39,36 @@ export type OnboardingPage = {
  * なので、他のページ（記録の作り方の一直線の流れ）から離し、終盤（実績の直前）に置く
  * （構成の指定「最後らへんに移動」）。
  */
-export const ONBOARDING_PAGES: readonly OnboardingPage[] = [
-  { id: 'calc', title: ONBOARDING_CALC_TITLE, body: ONBOARDING_CALC_BODY },
-  { id: 'target', title: ONBOARDING_TARGET_TITLE, body: ONBOARDING_TARGET_BODY },
-  { id: 'save', title: ONBOARDING_SAVE_TITLE, body: ONBOARDING_SAVE_BODY },
-  { id: 'simulator', title: ONBOARDING_SIMULATOR_TITLE, body: ONBOARDING_SIMULATOR_BODY },
-  { id: 'data', title: ONBOARDING_DATA_TITLE, body: ONBOARDING_DATA_BODY },
-  { id: 'preset', title: ONBOARDING_PRESET_TITLE, body: ONBOARDING_PRESET_BODY },
-  {
-    id: 'packagingPreset',
-    title: ONBOARDING_PACKAGING_PRESET_TITLE,
-    body: ONBOARDING_PACKAGING_PRESET_BODY,
-  },
-  { id: 'achievements', title: ONBOARDING_ACHIEVEMENTS_TITLE, body: ONBOARDING_ACHIEVEMENTS_BODY },
-];
+/**
+ * チュートリアルの並び。**関数にしてある** ── 文言は locale で決まるので、
+ * 配列として import 時に畳むと言語を切り替えても前の言語のまま残る。
+ */
+export const ONBOARDING_PAGE_IDS = [
+  'calc',
+  'target',
+  'save',
+  'simulator',
+  'data',
+  'preset',
+  'packagingPreset',
+  'achievements',
+] as const satisfies readonly OnboardingPageId[];
+
+export function onboardingPages(locale: Locale): readonly OnboardingPage[] {
+  const text = onboardingText(locale);
+  const byId: Record<OnboardingPageId, Omit<OnboardingPage, 'id'>> = {
+    calc: { title: text.calcTitle, body: text.calcBody },
+    target: { title: text.targetTitle, body: text.targetBody },
+    save: { title: text.saveTitle, body: text.saveBody },
+    simulator: { title: text.simulatorTitle, body: text.simulatorBody },
+    data: { title: text.dataTitle, body: text.dataBody },
+    preset: { title: text.presetTitle, body: text.presetBody },
+    packagingPreset: { title: text.packagingPresetTitle, body: text.packagingPresetBody },
+    achievements: { title: text.achievementsTitle, body: text.achievementsBody },
+  };
+  return ONBOARDING_PAGE_IDS.map((id) => ({ id, ...byId[id] }));
+}
+
 
 /**
  * 1・2 ページ目の図が共有する題材。送料・梱包材・手数料を同じ条件で続けて読めるようにする。
@@ -115,10 +117,14 @@ export const ONBOARDING_SITE_PRESET_EXAMPLE = {
 
 /** 3 ページ目（保存の仕方）の商品名欄に出す記入済みの例。空欄のプレースホルダではなく
  * 「実際に入れた状態」を見せる（構成の指定） */
-export const ONBOARDING_ITEM_NAME_EXAMPLE = '腕時計';
+export function onboardingItemNameExample(locale: Locale): string {
+  return t('onboarding.exampleItemName', locale);
+}
 
 /** 同じページのタグの例。商品名（腕時計）と食い違わないジャンルにする */
-export const ONBOARDING_TAG_EXAMPLE = 'アクセサリー';
+export function onboardingTagExample(locale: Locale): string {
+  return t('onboarding.exampleTag', locale);
+}
 
 /**
  * 梱包材のまとめ買い計算ページの題材。実物の presetUnitPrice（logic/preset.ts）は
