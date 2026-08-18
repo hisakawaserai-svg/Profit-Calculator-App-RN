@@ -32,4 +32,6 @@ export const MIGRATED_FILES = [
   'src/screens/DuplicateSourceScreen.tsx',
   'src/components/PhotoViewer.tsx',
   'src/components/RecordDetailSections.tsx',
+  // 区切り 2-5: 帯グラフの結論行
+  'src/components/RecordBreakdownBar.tsx',
 ] as const;

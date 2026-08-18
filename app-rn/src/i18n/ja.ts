@@ -123,6 +123,11 @@ export const ja = {
       used: '目標の純利益',
       sourced: '目標利益',
     },
+    /** 文の途中に埋め込むとき。英語だけ小文字にする（profitInline と同じ理由） */
+    targetProfitInline: {
+      used: '目標の純利益',
+      sourced: '目標利益',
+    },
     /** アイコンだけのボタンの読み上げ語。名詞だけでは何が起きるか言えないので動詞まで入れる */
     addAction: '記録を追加',
     /** 記録タブの FAB。押した先の見出し（menu.title）と語をそろえる */
@@ -382,6 +387,40 @@ export const ja = {
     emptyTitle: '複製できる記録がありません',
     emptyBody: '記録を 1 件でも作ると、次からここに出ます。',
     noMatchTitle: '条件に合う記録がありません',
+  },
+
+  /** 経過日数と結論行（レコード詳細の帯の下。UI-SPEC §4.7 / O3 案） */
+  elapsed: {
+    /** 出品からの経過。0 日（出品当日）も出す */
+    listing: { one: '{{count}}日経過', other: '{{count}}日経過' } as PluralForms,
+    soldInDays: { one: '{{count}}日で売れました', other: '{{count}}日で売れました' } as PluralForms,
+    soldSameDay: '記録した日に売れました',
+    soldDateRange: '{{listed}} に記録 → {{sold}} に販売',
+    perDayProfit: '1日 {{amount}}',
+  },
+
+  /**
+   * 帯の下の結論行（1 行目 ＝ 用件、2 行目 ＝ 行き先）。
+   * **状態ごとに 1 文まるごと**にする ── 額の位置と語順が状態で変わるため。
+   */
+  conclusion: {
+    unpricedBreakdown: '価格を入れると内訳が計算できます',
+    safe: 'あと {{room}} 下げても赤字になりません',
+    safeWithTarget: '{{floor}}までなら、{{target}}{{amount}}を保てます',
+    loss: 'あと{{shortfall}}の値上げで、赤字から抜けます',
+    lossWithTarget: '{{target}}{{amount}}まで戻すなら{{price}}',
+    unpriced: '価格を入れると、どこまで下げられるか分かります',
+    detailSafe: '値下げを試す・赤字にならない価格を見る',
+    detailSafeWithTarget: '値下げを試す・目標を保てる価格を見る',
+    detailLoss: '値上げを試す・赤字から抜ける価格を見る',
+    detailLossWithTarget: '値上げを試す・目標を保てる価格を見る',
+    detailUnpriced: '売る価格を入力する',
+    /** 売れたあとは過去形で結果を言う（もう動かせる価格が無い） */
+    soldNoTarget: '交渉されても、あと{{room}}は応じられた計算でした',
+    soldTargetMet: '{{floor}}まで、目標利益を保てました',
+    soldBelowTarget: '目標まであと{{shortfall}}でした',
+    soldDetailRoom: 'どこまで下げられたか見る',
+    soldDetailShortfall: '目標にどれだけ届かなかったか見る',
   },
 
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----

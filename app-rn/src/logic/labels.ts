@@ -32,7 +32,7 @@
 // ステップ 1 で移したのは**タブ名と設定タブの一覧画面**だけ。それ以外はリテラルのまま。
 
 import type { PresetType, RecordKind } from '@/db/schema';
-import { t } from '@/i18n';
+import { t, type TranslationKey } from '@/i18n';
 import type { Locale } from '@/settings/language';
 
 import {
@@ -1665,7 +1665,9 @@ export function shortfallAmountLabel(shortfall: number): string {
  * 未確定の入力を確定した赤字に見せてしまう。帯そのものを不活性にして、この文だけを出す ──
  * 「いくらで売る?」画面の未設定時（E。PRICE_UNSET_DESCRIPTION）と同じ考え方。
  */
-export const BREAKDOWN_BAR_UNPRICED_NOTE = '価格を入れると内訳が計算できます';
+export function breakdownBarUnpricedNote(locale: Locale): string {
+  return t('conclusion.unpricedBreakdown', locale);
+}
 
 /** メモ（UI-SPEC §1.3-13 / §1.4-6） */
 export function memoLabel(locale: Locale): string {
@@ -1852,7 +1854,7 @@ export function recordTimelineText(
     ? t('detail.timelineListing', locale, {
         kind,
         listedDate: timeline.listedDate,
-        elapsed: formatElapsedDays(timeline.days),
+        elapsed: formatElapsedDays(locale, timeline.days),
       })
     : t('detail.timelineSold', locale, {
         kind,
@@ -4329,44 +4331,59 @@ function discountRoomText(room: number): string {
  * こちらは 1 行しかないので、額 1 つで用件が伝わる短い言い方を使う。
  */
 export function recordDetailConclusionHeadline(
+  locale: Locale,
   conclusion: RecordDetailConclusion,
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): string {
-  const target = targetProfitLabel('ja', kind);
+  // 文中に埋め込むので targetProfitInline（英語だけ小文字）を使う
+  const target = t(
+    kind === 'used' ? 'record.targetProfitInline.used' : 'record.targetProfitInline.sourced',
+    locale,
+  );
   const targetAmount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
 
   switch (conclusion) {
     case 'safe':
-      return `あと ${formatYenSymbol(analysis.room)} 下げても赤字になりません`;
+      return t('conclusion.safe', locale, { room: formatYenSymbol(analysis.room) });
     case 'safeWithTarget':
-      return `${formatYenSymbol(analysis.floorPrice)}までなら、${target}${targetAmount}を保てます`;
+      return t('conclusion.safeWithTarget', locale, {
+        floor: formatYenSymbol(analysis.floorPrice),
+        target,
+        amount: targetAmount,
+      });
     case 'loss':
-      return `あと${formatYenSymbol(analysis.breakEvenShortfall)}の値上げで、赤字から抜けます`;
+      return t('conclusion.loss', locale, {
+        shortfall: formatYenSymbol(analysis.breakEvenShortfall),
+      });
     case 'lossWithTarget':
-      return `${target}${targetAmount}まで戻すなら${formatYenSymbol(analysis.targetPrice ?? 0)}`;
+      return t('conclusion.lossWithTarget', locale, {
+        target,
+        amount: targetAmount,
+        price: formatYenSymbol(analysis.targetPrice ?? 0),
+      });
     case 'unpriced':
       // 赤字/目標達成の判定には価格が必要なので結論文は出せない。G（価格がなくても
       // 分かっていること）への誘導文言に差し替える
-      return '価格を入れると、どこまで下げられるか分かります';
+      return t('conclusion.unpriced', locale);
   }
 }
 
 /** 結論行の 2 行目（小さいグレー・末尾に ›）。黒字/赤字・目標の有無で動詞と行き先が変わる */
-const RECORD_DETAIL_CONCLUSION_DETAILS: Record<RecordDetailConclusion, string> =
-  {
-    safe: '値下げを試す・赤字にならない価格を見る',
-    safeWithTarget: '値下げを試す・目標を保てる価格を見る',
-    loss: '値上げを試す・赤字から抜ける価格を見る',
-    lossWithTarget: '値上げを試す・目標を保てる価格を見る',
-    unpriced: '売る価格を入力する',
-  };
+const RECORD_DETAIL_CONCLUSION_KEYS = {
+  safe: 'conclusion.detailSafe',
+  safeWithTarget: 'conclusion.detailSafeWithTarget',
+  loss: 'conclusion.detailLoss',
+  lossWithTarget: 'conclusion.detailLossWithTarget',
+  unpriced: 'conclusion.detailUnpriced',
+} as const satisfies Record<RecordDetailConclusion, TranslationKey>;
 
 export function recordDetailConclusionDetail(
+  locale: Locale,
   conclusion: RecordDetailConclusion,
 ): string {
-  return RECORD_DETAIL_CONCLUSION_DETAILS[conclusion];
+  return t(RECORD_DETAIL_CONCLUSION_KEYS[conclusion], locale);
 }
 
 /** 価格ラインの目盛りの説明（§9.8）。金額はその上に出るので、ここは「何の線か」だけを言う */
@@ -4663,50 +4680,61 @@ export function soldSectionBody(
  * SoldContent）と食い違わない。
  */
 export function soldRecordDetailConclusionHeadline(
+  locale: Locale,
   conclusion: SoldConclusion,
   analysis: PricingAnalysis,
 ): string {
   switch (conclusion) {
     case 'noTarget':
-      return `交渉されても、あと${formatYenSymbol(analysis.room)}は応じられた計算でした`;
+      return t('conclusion.soldNoTarget', locale, { room: formatYenSymbol(analysis.room) });
     case 'targetMet':
-      return `${formatYenSymbol(analysis.floorPrice)}まで、目標利益を保てました`;
+      return t('conclusion.soldTargetMet', locale, {
+        floor: formatYenSymbol(analysis.floorPrice),
+      });
     case 'belowTarget':
-      return `目標まであと${formatYenSymbol(analysis.targetShortfall ?? 0)}でした`;
+      return t('conclusion.soldBelowTarget', locale, {
+        shortfall: formatYenSymbol(analysis.targetShortfall ?? 0),
+      });
   }
 }
 
 /** 結論行の 2 行目・売却済み版。もう動かせる価格が無いので「試す」ではなく「見る」だけを言う */
-const SOLD_RECORD_DETAIL_CONCLUSION_DETAILS: Record<SoldConclusion, string> = {
-  noTarget: 'どこまで下げられたか見る',
-  targetMet: 'どこまで下げられたか見る',
-  belowTarget: '目標にどれだけ届かなかったか見る',
-};
+const SOLD_RECORD_DETAIL_CONCLUSION_KEYS = {
+  noTarget: 'conclusion.soldDetailRoom',
+  targetMet: 'conclusion.soldDetailRoom',
+  belowTarget: 'conclusion.soldDetailShortfall',
+} as const satisfies Record<SoldConclusion, TranslationKey>;
 
 export function soldRecordDetailConclusionDetail(
+  locale: Locale,
   conclusion: SoldConclusion,
 ): string {
-  return SOLD_RECORD_DETAIL_CONCLUSION_DETAILS[conclusion];
+  return t(SOLD_RECORD_DETAIL_CONCLUSION_KEYS[conclusion], locale);
 }
 
 // ---- 経過日数（§4.7 の 3 分岐） ----
 
 /** 通常「13日で売れました」 */
-export function soldElapsedDaysLabel(days: number): string {
-  return `${days}日で売れました`;
+export function soldElapsedDaysLabel(locale: Locale, days: number): string {
+  return t('elapsed.soldInDays', locale, { count: days });
 }
 
 /** 0 日（記録日と同日に売れた）は割り算をしないので専用の語にする */
-export const SOLD_SAME_DAY_LABEL = '記録した日に売れました';
+export function soldSameDayLabel(locale: Locale): string {
+  return t('elapsed.soldSameDay', locale);
+}
 
 /** 記録日 → 販売日「8/1 に記録 → 8/14 に販売」 */
-export function soldDateRangeNote(saleStartDate: Date, saleDate: Date): string {
-  return `${formatShortDate(saleStartDate)} に記録 → ${formatShortDate(saleDate)} に販売`;
+export function soldDateRangeNote(locale: Locale, saleStartDate: Date, saleDate: Date): string {
+  return t('elapsed.soldDateRange', locale, {
+    listed: formatShortDate(saleStartDate),
+    sold: formatShortDate(saleDate),
+  });
 }
 
 /** 1 日あたり利益「1日 約¥131」。仕入品かつ売却済みのみ出す */
-export function soldPerDayProfitLabel(perDay: number): string {
-  return `1日 ${formatApproxYenSymbol('ja', perDay)}`;
+export function soldPerDayProfitLabel(locale: Locale, perDay: number): string {
+  return t('elapsed.perDayProfit', locale, { amount: formatApproxYenSymbol(locale, perDay) });
 }
 
 /** 1 日あたり利益の注記。不用品には出ないことをここで断る */
@@ -4871,3 +4899,6 @@ export const MARK_AS_SOLD_BUTTON_LABEL = t('detail.markAsSold', 'ja');
 export const MARKED_AS_SOLD_MESSAGE = t('detail.markedAsSoldMessage', 'ja');
 export const REVERT_TO_LISTING_BUTTON_LABEL = t('detail.revertToListing', 'ja');
 export const REVERT_TO_LISTING_CONFIRM_LABEL = t('detail.revertToListingConfirmLabel', 'ja');
+// 詳細の結論行を移したぶんの日本語固定の写し（多言語化ステップ 2-5）。
+// PricingScreen（区切り 4）がまだ参照している
+export const SOLD_SAME_DAY_LABEL = t('elapsed.soldSameDay', 'ja');

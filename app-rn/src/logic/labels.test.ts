@@ -963,12 +963,12 @@ describe('記録詳細の結論行（O3 案）の文言', () => {
   const headlineOf = (salesPrice: number, targetProfit: number | null) => {
     const analysis = analyze(salesPrice, targetProfit);
     const conclusion = recordDetailConclusion(analysis);
-    return recordDetailConclusionHeadline(conclusion, analysis, 'sourced');
+    return recordDetailConclusionHeadline('ja', conclusion, analysis, 'sourced');
   };
 
   const detailOf = (salesPrice: number, targetProfit: number | null) => {
     const conclusion = recordDetailConclusion(analyze(salesPrice, targetProfit));
-    return recordDetailConclusionDetail(conclusion);
+    return recordDetailConclusionDetail('ja', conclusion);
   };
 
   it('A. 目標なし・黒字', () => {
@@ -1007,13 +1007,13 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
     const analysis = analyze(salesPrice, targetProfit);
     const conclusion = soldConclusion(analysis);
     if (conclusion == null) throw new Error('価格未設定では行を出さない');
-    return soldRecordDetailConclusionHeadline(conclusion, analysis);
+    return soldRecordDetailConclusionHeadline('ja', conclusion, analysis);
   };
 
   const detailOf = (salesPrice: number, targetProfit: number | null) => {
     const conclusion = soldConclusion(analyze(salesPrice, targetProfit));
     if (conclusion == null) throw new Error('価格未設定では行を出さない');
-    return soldRecordDetailConclusionDetail(conclusion);
+    return soldRecordDetailConclusionDetail('ja', conclusion);
   };
 
   it('目標なし', () => {

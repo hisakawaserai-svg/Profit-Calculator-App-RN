@@ -822,7 +822,7 @@ function ElapsedBand({
   colors: ThemeColors;
 }) {
   const headline =
-    elapsed.kind === 'sameDay' ? SOLD_SAME_DAY_LABEL : soldElapsedDaysLabel(elapsed.days);
+    elapsed.kind === 'sameDay' ? SOLD_SAME_DAY_LABEL : soldElapsedDaysLabel('ja', elapsed.days);
 
   return (
     <View
@@ -834,14 +834,14 @@ function ElapsedBand({
         <Text style={[styles.elapsedBandHeadline, { color: colors.label }]}>{headline}</Text>
         {saleDate != null && (
           <Text style={[styles.elapsedBandDetail, { color: colors.secondaryLabel }]}>
-            {soldDateRangeNote(saleStartDate, saleDate)}
+            {soldDateRangeNote('ja', saleStartDate, saleDate)}
           </Text>
         )}
       </View>
       {perDayProfit != null && (
         <View style={styles.elapsedBandPerDay}>
           <Text style={[styles.elapsedBandHeadline, { color: colors.label }]}>
-            {soldPerDayProfitLabel(perDayProfit)}
+            {soldPerDayProfitLabel('ja', perDayProfit)}
           </Text>
           <Text style={[styles.elapsedBandDetail, { color: colors.secondaryLabel }]}>
             {SOLD_PER_DAY_CAPTION}

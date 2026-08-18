@@ -6,6 +6,7 @@
 // "12,685" は表計算ソフトが数値として読めず（区切り文字とも衝突する）、
 // 書き出した金額で合計や並べ替えができなくなる。CSV は素の数値を書く。
 
+import { t } from '@/i18n';
 import type { Locale } from '@/settings/language';
 
 import { formatCalculatorNumber } from './calculator';
@@ -178,9 +179,12 @@ export function formatApproxYenSymbol(locale: Locale, value: number): string {
   return locale === 'en' ? `about ${amount}` : `約${amount}`;
 }
 
-/** 経過日数「7日経過」（UI-SPEC §5-2。日数の算出は logic/listingDays.ts） */
-export function formatElapsedDays(days: number): string {
-  return `${days}日経過`;
+/**
+ * 経過日数「7日経過」/「7 days listed」（UI-SPEC §5-2。日数の算出は logic/listingDays.ts）。
+ * 英語だけ 1 日と 2 日で語形が変わるので、辞書の複数形を通す。
+ */
+export function formatElapsedDays(locale: Locale, days: number): string {
+  return t('elapsed.listing', locale, { count: days });
 }
 
 /** 一覧のメタ行に出す短い日付「8/9」（UI-SPEC §1.2「M/D 販売」） */

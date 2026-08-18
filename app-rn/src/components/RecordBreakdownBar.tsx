@@ -32,7 +32,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { partColor } from '@/components/CostProportionBar';
 import type { SaleRecord } from '@/db/schema';
 import {
-  BREAKDOWN_BAR_UNPRICED_NOTE,
+  breakdownBarUnpricedNote,
   SHORTFALL_SEGMENT_LABEL,
   percentLabel,
   recordDetailConclusionDetail,
@@ -59,6 +59,7 @@ import {
   type RecordBarPart,
   type SurplusBreakdown,
 } from '@/logic/recordBreakdown';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -147,6 +148,9 @@ export function RecordBreakdownBar({ record }: { record: SaleRecord }) {
  * その下に不活性文を添える。割合も金額も出さない ── 出せる数字が無い状態そのものを示す。
  */
 function UnpricedBar({ colors }: { colors: ThemeColors }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
     <View>
       <View
@@ -155,7 +159,7 @@ function UnpricedBar({ colors }: { colors: ThemeColors }) {
         importantForAccessibility="no-hide-descendants"
       />
       <Text style={[styles.unpricedNote, { color: colors.mutedLabel }]}>
-        {BREAKDOWN_BAR_UNPRICED_NOTE}
+        {breakdownBarUnpricedNote(locale)}
       </Text>
     </View>
   );
@@ -186,13 +190,16 @@ function PricingEntryRow({
   conclusion: RecordDetailConclusion | SoldConclusion;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const router = useRouter();
   const headline = isSold
-    ? soldRecordDetailConclusionHeadline(conclusion as SoldConclusion, analysis)
-    : recordDetailConclusionHeadline(conclusion as RecordDetailConclusion, analysis, record.kind);
+    ? soldRecordDetailConclusionHeadline(locale, conclusion as SoldConclusion, analysis)
+    : recordDetailConclusionHeadline(locale, conclusion as RecordDetailConclusion, analysis, record.kind);
   const detail = isSold
-    ? soldRecordDetailConclusionDetail(conclusion as SoldConclusion)
-    : recordDetailConclusionDetail(conclusion as RecordDetailConclusion);
+    ? soldRecordDetailConclusionDetail(locale, conclusion as SoldConclusion)
+    : recordDetailConclusionDetail(locale, conclusion as RecordDetailConclusion);
 
   const handlePress = () => {
     router.push({ pathname: '/records/record/[id]/pricing', params: { id: record.id } });

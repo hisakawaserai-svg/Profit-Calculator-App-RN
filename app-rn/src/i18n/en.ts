@@ -69,6 +69,10 @@ export const en: Translations = {
       used: 'Target net profit',
       sourced: 'Target profit',
     },
+    targetProfitInline: {
+      used: 'target net profit',
+      sourced: 'target profit',
+    },
     addAction: 'Add a record',
     addFab: 'Record',
     menu: {
@@ -281,6 +285,33 @@ export const en: Translations = {
     emptyTitle: 'No records to copy',
     emptyBody: 'Once you create a record, it will show up here.',
     noMatchTitle: 'No records match',
+  },
+
+  elapsed: {
+    listing: { one: '{{count}} day listed', other: '{{count}} days listed' },
+    soldInDays: { one: 'Sold in {{count}} day', other: 'Sold in {{count}} days' },
+    soldSameDay: 'Sold the same day it was recorded',
+    soldDateRange: 'Recorded {{listed}} → sold {{sold}}',
+    perDayProfit: '{{amount}} a day',
+  },
+
+  conclusion: {
+    unpricedBreakdown: 'Enter a price to see the breakdown',
+    safe: 'You can still come down {{room}} without a loss',
+    safeWithTarget: 'Down to {{floor}} you still keep your {{target}} of {{amount}}',
+    loss: 'Raise it {{shortfall}} to get out of the red',
+    lossWithTarget: 'To get back to a {{target}} of {{amount}}, ask {{price}}',
+    unpriced: 'Enter a price to see how far you can come down',
+    detailSafe: 'Try a discount · see the price that stays profitable',
+    detailSafeWithTarget: 'Try a discount · see the price that keeps your target',
+    detailLoss: 'Try raising it · see the price that clears the loss',
+    detailLossWithTarget: 'Try raising it · see the price that keeps your target',
+    detailUnpriced: 'Enter a selling price',
+    soldNoTarget: 'You could have come down another {{room}} if asked',
+    soldTargetMet: 'You kept your target profit down to {{floor}}',
+    soldBelowTarget: 'You came up {{shortfall}} short of your target',
+    soldDetailRoom: 'See how far you could have come down',
+    soldDetailShortfall: 'See how far short of the target it fell',
   },
 
   settings: {
