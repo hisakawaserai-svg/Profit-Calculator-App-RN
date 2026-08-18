@@ -72,6 +72,12 @@ COIN_C, COIN_R = (33.0, 38.0), 29.0
 COIN_EDGE, COIN_FACE, COIN_MARK = '#F6C748', '#FFDA6E', '#E0A522'
 WING_REL, WING_A, WING_B = (-25.6, 8.3), 14.4, 7.8
 
+# ほっぺ。BirdMascot.tsx は rgba(255,150,170,0.45) だが、ここでは白い体に
+# 重ねた結果の色を不透明で置く。ImageDraw の 'RGBA' モードは fill のアルファを
+# 合成せず置き換えるため、半透明のまま描くと体に穴が開き、透過前景を濃色背景に
+# 重ねる Android 側だけ紫に濁ってしまう。
+CHEEK = '#FFD0D9'
+
 
 # ── 座標変換 ──────────────────────────────────────────
 
@@ -205,8 +211,8 @@ def draw_foreground(d):
     draw_eye(d, 42, 48, 3.0, mirror=False)
     draw_eye(d, 58, 48, 3.0, mirror=True)
     d.polygon(_px([F(47, 54), F(53, 54), F(50, 60)]), '#FF9500')
-    circle(d, *F(36, 56), 3.5 * _scale, (255, 150, 170, 115))
-    circle(d, *F(64, 56), 3.5 * _scale, (255, 150, 170, 115))
+    circle(d, *F(36, 56), 3.5 * _scale, CHEEK)
+    circle(d, *F(64, 56), 3.5 * _scale, CHEEK)
 
     head = T(*_pivot)
     draw_sweat(d, (22.2, -32.2), 5.33, head)
