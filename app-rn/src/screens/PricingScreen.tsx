@@ -56,6 +56,7 @@ import {
   priceUnsetDescription,
   priceUnsetLeadLabel,
   pricingScreenTitle,
+  recordsTabLabel,
   remainingProfitLeadLabel,
   simulatorDisabledNote,
   simulatorNote,
@@ -196,7 +197,9 @@ export function PricingScreen() {
   const screenOptions = useMemo(
     () => ({
       title: record?.isSold ? soldAnalysisScreenTitle(locale) : pricingScreenTitle(locale),
-      headerBackTitle: '記録',
+      // 戻り先は記録タブ。**タブ名と同じ語を使う**（labels.ts の方針）──
+      // 押したタブと戻るボタンで名前が違うと、どこへ戻るのかを 2 度読み直すことになる
+      headerBackTitle: recordsTabLabel(locale),
       gestureEnabled: false,
       fullScreenSwipeEnabled: false,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
