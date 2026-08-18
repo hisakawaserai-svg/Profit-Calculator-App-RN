@@ -81,7 +81,7 @@ describe('並び（計算タブの帯と同じ順に固定する）', () => {
   });
 
   it('計算タブの帯（costBreakdown）と同じ並びになっている', () => {
-    const calc = costBreakdown(
+    const calc = costBreakdown('ja', 
       {
         salesPrice: 1000,
         purchasePrice: 300,

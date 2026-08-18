@@ -214,7 +214,7 @@ describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
 
   it('手数料の入力行と逆算結果の一覧には率が入る', () => {
     expect(commissionFieldLabel('ja', 10)).toBe('手数料 10%');
-    expect(commissionItemLabel(10)).toBe('販売手数料10%');
+    expect(commissionItemLabel('ja', 10)).toBe('販売手数料10%');
   });
 });
 

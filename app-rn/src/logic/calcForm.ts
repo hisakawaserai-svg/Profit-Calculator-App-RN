@@ -5,15 +5,16 @@
 // 計算式そのものは logic/profit.ts のみが持ち、ここでも画面でも再実装しない（SPEC §2）。
 
 import type { RecordKind } from '@/db/schema';
+import type { Locale } from '@/settings/language';
 
 import { parseNumericInput } from './input';
 import {
-  ENVELOPE_COST_LABEL,
-  KEPT_LABEL,
-  OTHERS_COST_LABEL,
-  POSTAGE_LABEL,
-  PURCHASE_PRICE_LABEL,
   commissionItemLabel,
+  envelopeCostLabel,
+  keptLabel,
+  othersCostLabel,
+  postageLabel,
+  purchasePriceLabel,
 } from './labels';
 import {
   commissionCost,
@@ -191,23 +192,27 @@ export type RequiredPriceResult = CostBreakdown & {
  * 記録詳細の帯（recordBreakdown）・ミニ帯グラフ（MINI_BAR_ORDER）と同じ「入力順」で、
  * 利益（kept）だけが最後に来る。
  */
-const EXPENSE_PARTS_BEFORE_COMMISSION: {
+type ExpensePartDefinition = {
   key: BreakdownPartKey;
   label: string;
   of: (costs: CostInput) => number;
-}[] = [
-  { key: 'purchasePrice', label: PURCHASE_PRICE_LABEL, of: (costs) => costs.purchasePrice },
-  { key: 'postage', label: POSTAGE_LABEL, of: (costs) => costs.postage },
-];
+};
 
-const EXPENSE_PARTS_AFTER_COMMISSION: {
-  key: BreakdownPartKey;
-  label: string;
-  of: (costs: CostInput) => number;
-}[] = [
-  { key: 'envelopeCost', label: ENVELOPE_COST_LABEL, of: (costs) => costs.envelopeCost },
-  { key: 'othersCost', label: OTHERS_COST_LABEL, of: (costs) => costs.othersCost },
-];
+// **モジュールスコープの配列にしない。** 表示語は locale で決まるので、
+// import 時に畳むと言語を切り替えても帯の項目名が前の言語のまま残る（src/i18n/index.ts の冒頭）
+function expensePartsBeforeCommission(locale: Locale): ExpensePartDefinition[] {
+  return [
+    { key: 'purchasePrice', label: purchasePriceLabel(locale), of: (costs) => costs.purchasePrice },
+    { key: 'postage', label: postageLabel(locale), of: (costs) => costs.postage },
+  ];
+}
+
+function expensePartsAfterCommission(locale: Locale): ExpensePartDefinition[] {
+  return [
+    { key: 'envelopeCost', label: envelopeCostLabel(locale), of: (costs) => costs.envelopeCost },
+    { key: 'othersCost', label: othersCostLabel(locale), of: (costs) => costs.othersCost },
+  ];
+}
 
 /**
  * 「1 つ下の価格」の刻み（注意文の例に使う値）。
@@ -242,12 +247,16 @@ function priceStep(price: number): number {
  * kept は結果側ではマイナスにもなる（経費が販売価格を超えている状態）。帯は 0 円より大きい
  * 区画だけを描くので、その場合の帯は「引かれる分」だけが並ぶ形になり、実額は下の 2 値が持つ。
  */
-export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown {
+export function costBreakdown(
+  locale: Locale,
+  costs: CostInput,
+  kind: RecordKind,
+): CostBreakdown {
   const salesPrice = roundForDisplay(costs.salesPrice);
   const commissionAmount = roundForDisplay(commissionCost(costs));
 
   const buildExpenseParts = (
-    definitions: { key: BreakdownPartKey; label: string; of: (costs: CostInput) => number }[],
+    definitions: ExpensePartDefinition[],
   ) =>
     definitions
       // 不用品は仕入価格を帯・一覧・式のどこにも出さない（SPEC-V2 §1.3）。toCostInput で 0 なので
@@ -257,9 +266,9 @@ export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown
       // 0 円の項は帯にも一覧にも出さない（「送料 0 円」は根拠の説明にならない）
       .filter((part) => part.amount !== 0);
 
-  const expensePartsBeforeCommission = buildExpenseParts(EXPENSE_PARTS_BEFORE_COMMISSION);
-  const expensePartsAfterCommission = buildExpenseParts(EXPENSE_PARTS_AFTER_COMMISSION);
-  const expenseParts = [...expensePartsBeforeCommission, ...expensePartsAfterCommission];
+  const partsBeforeCommission = buildExpenseParts(expensePartsBeforeCommission(locale));
+  const partsAfterCommission = buildExpenseParts(expensePartsAfterCommission(locale));
+  const expenseParts = [...partsBeforeCommission, ...partsAfterCommission];
 
   const expenses = expenseParts.reduce((sum, part) => sum + part.amount, 0);
   const deducted = commissionAmount + expenses;
@@ -271,26 +280,26 @@ export function costBreakdown(costs: CostInput, kind: RecordKind): CostBreakdown
     commissionAmount,
     expenses,
     parts: [
-      ...expensePartsBeforeCommission,
+      ...partsBeforeCommission,
       ...(commissionAmount !== 0
         ? [
             {
               key: 'commission' as const,
-              label: commissionItemLabel(costs.commission),
+              label: commissionItemLabel(locale, costs.commission),
               amount: commissionAmount,
             },
           ]
         : []),
-      ...expensePartsAfterCommission,
+      ...partsAfterCommission,
       // 手元は 0 円でも必ず出す。この画面の主語なので、消えると帯の緑が何だったのか読めなくなる
-      { key: 'kept', label: KEPT_LABEL, amount: salesPrice - deducted },
+      { key: 'kept', label: keptLabel(locale), amount: salesPrice - deducted },
     ],
   };
 }
 
 /** 結果側（UI-SPEC §1.1-3a）の帯・2 値。入力した販売価格をそのまま分解する */
-export function profitBreakdown(values: CalcFormValues): CostBreakdown {
-  return costBreakdown(toCostInput(values), values.kind);
+export function profitBreakdown(locale: Locale, values: CalcFormValues): CostBreakdown {
+  return costBreakdown(locale, toCostInput(values), values.kind);
 }
 
 /**
@@ -299,9 +308,12 @@ export function profitBreakdown(values: CalcFormValues): CostBreakdown {
  * 逆算の結果が手数料率からの暗算（目標 100 円・手数料 10% なら 110 円）と食い違って見える、
  * という利用者の指摘への対応。帯・説明文・一覧・式が全部この 1 つの戻り値を見る。
  */
-export function requiredPriceResult(values: CalcFormValues): RequiredPriceResult {
+export function requiredPriceResult(
+  locale: Locale,
+  values: CalcFormValues,
+): RequiredPriceResult {
   const costs = toRequiredCostInput(values);
-  const breakdown = costBreakdown(costs, values.kind);
+  const breakdown = costBreakdown(locale, costs, values.kind);
 
   const targetProfit = parseNumericInput(values.targetProfit);
   const targetProfitDisplay = roundForDisplay(targetProfit);

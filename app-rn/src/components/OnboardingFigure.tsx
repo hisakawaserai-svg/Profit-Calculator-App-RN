@@ -165,7 +165,7 @@ export function OnboardingCalcFigure() {
     commission,
   };
   const profit = netProfit(costs);
-  const breakdown = costBreakdown(costs, 'used');
+  const breakdown = costBreakdown('ja', costs, 'used');
 
   return (
     <View style={styles.figureStack}>
@@ -225,7 +225,7 @@ export function OnboardingTargetFigure() {
     commission,
     siteName: '',
   };
-  const result = requiredPriceResult(values);
+  const result = requiredPriceResult('ja', values);
 
   return (
     <View style={styles.figureStack}>

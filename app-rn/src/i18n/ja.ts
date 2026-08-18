@@ -81,8 +81,14 @@ export const ja = {
     totalSales: '売上',
     totalSalesAmount: '売上総額',
     deducted: '引かれる分',
-    /** 内訳バーの中に収める短い語。「手元に残る」の意味だが幅が無い */
+    /** 内訳バーの下の 2 値。幅が無いので詰めた語にする（意味は keptLong と同じ） */
     kept: '手元',
+    /** 内訳の一覧の行。こちらは幅があるので言い切る */
+    keptLong: '手元に残る',
+    /** 販売手数料の正式な語。amount.commissionShort（手数料）と使い分ける */
+    commissionFull: '販売手数料',
+    /** 内訳の一覧に出す手数料の行「販売手数料10%」 */
+    commissionItem: '販売手数料{{rate}}%',
     breakdown: '内訳',
     breakdownAndMethod: '内訳と計算のしかた',
     commissionShort: '手数料',

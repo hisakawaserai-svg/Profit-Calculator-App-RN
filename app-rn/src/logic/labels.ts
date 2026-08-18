@@ -418,12 +418,14 @@ export function soldRecordsLabel(locale: Locale): string {
 }
 
 /** commissionCost（§5.3） */
-export const COMMISSION_LABEL = '販売手数料';
+export function commissionLabel(locale: Locale): string {
+  return t('amount.commissionFull', locale);
+}
 
 /**
  * 説明文・式の中で使う短い方（「手数料96円が引かれて」「手数料10%が引かれるので」）。
  * 1 文に金額が 3 つ入る場所では正式名だと文が読めなくなるので、入力欄の
- * commissionFieldLabel と同じ短縮形に合わせる。単独の行や一覧は COMMISSION_LABEL。
+ * commissionFieldLabel と同じ短縮形に合わせる。単独の行や一覧は t('amount.commissionFull', 'ja')。
  */
 export function commissionShortLabel(locale: Locale): string {
   return t('amount.commissionShort', locale);
@@ -474,9 +476,11 @@ export function breakdownAndMethodLabel(locale: Locale): string {
 }
 
 /** 逆算結果の一覧の 1 行目（緑の区画）。売れたあと売り手のものになる額 */
-export const KEPT_LABEL = '手元に残る';
+export function keptLabel(locale: Locale): string {
+  return t('amount.keptLong', locale);
+}
 
-/** 帯の下の 2 値の左側。一覧の KEPT_LABEL と同じものを詰めて言う */
+/** 帯の下の 2 値の左側。一覧の t('amount.keptLong', 'ja') と同じものを詰めて言う */
 export function keptShortLabel(locale: Locale): string {
   return t('amount.kept', locale);
 }
@@ -586,8 +590,8 @@ export function optionalCostsLabel(locale: Locale, total: number): string {
 }
 
 /** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
-export function commissionItemLabel(rate: number): string {
-  return `${COMMISSION_LABEL}${rate}%`;
+export function commissionItemLabel(locale: Locale, rate: number): string {
+  return t('amount.commissionItem', locale, { rate });
 }
 
 /**
@@ -1700,7 +1704,7 @@ export function additionLabel(locale: Locale, name: string): string {
 
 /** レコード詳細のレシートの手数料行（UI-SPEC §1.4-4）:「販売手数料 (10%)」 */
 export function commissionRowLabel(rate: number): string {
-  return `${COMMISSION_LABEL} (${rate}%)`;
+  return `${t('amount.commissionFull', 'ja')} (${rate}%)`;
 }
 
 /**
@@ -2988,7 +2992,7 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
   t('amount.salesPrice', 'ja'),
   t('amount.purchasePrice', 'ja'),
   t('amount.postage', 'ja'),
-  COMMISSION_LABEL,
+  t('amount.commissionFull', 'ja'),
   t('amount.envelopeCost', 'ja'),
   t('amount.othersCost', 'ja'),
   TOTAL_EXPENSES_COLUMN,
@@ -3024,7 +3028,7 @@ export const CSV_TAX_COLUMNS: readonly string[] = [
   t('amount.postage', 'ja'),
   t('amount.envelopeCost', 'ja'),
   t('amount.othersCost', 'ja'),
-  COMMISSION_LABEL,
+  t('amount.commissionFull', 'ja'),
   t('amount.totalProfit', 'ja'),
 ];
 
@@ -4680,3 +4684,6 @@ export const PREVIOUS_YEAR_LABEL = t('period.previousYear', 'ja');
 export const NEXT_YEAR_LABEL = t('period.nextYear', 'ja');
 export const TOTAL_PROFIT_LABEL = t('amount.totalProfit', 'ja');
 export const LISTING_COUNT_LABEL = t('list.listingStatus', 'ja');
+// 帯グラフの節を移したぶんの日本語固定の写し（多言語化ステップ 2-1 の追補）
+export const KEPT_LABEL = t('amount.keptLong', 'ja');
+export const COMMISSION_LABEL = t('amount.commissionFull', 'ja');

@@ -113,7 +113,7 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
   };
 
   it('入力した販売価格を分解する（逆算結果ではない）', () => {
-    const breakdown = profitBreakdown(filled);
+    const breakdown = profitBreakdown('ja', filled);
     expect(breakdown.salesPrice).toBe(1000);
     expect(breakdown.commissionAmount).toBe(100);
     expect(breakdown.expenses).toBe(550);
@@ -122,19 +122,19 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
   });
 
   it('手元は netProfit と一致する', () => {
-    expect(profitBreakdown(filled).kept).toBe(netProfit(toCostInput(filled)));
+    expect(profitBreakdown('ja', filled).kept).toBe(netProfit(toCostInput(filled)));
   });
 
   it('区画を足すと販売価格にぴったり一致する', () => {
     for (const salesPrice of ['1000', '1234', '99', '7777']) {
-      const breakdown = profitBreakdown({ ...filled, salesPrice });
+      const breakdown = profitBreakdown('ja', { ...filled, salesPrice });
       const summed = breakdown.parts.reduce((sum, part) => sum + part.amount, 0);
       expect(summed).toBe(breakdown.salesPrice);
     }
   });
 
   it('逆算側と同じ並び・同じキーで返す（2 つのモードで見え方を揃えるため）', () => {
-    expect(profitBreakdown({ ...filled, othersCost: '20' }).parts.map((part) => part.key)).toEqual([
+    expect(profitBreakdown('ja', { ...filled, othersCost: '20' }).parts.map((part) => part.key)).toEqual([
       'purchasePrice',
       'postage',
       'commission',
@@ -145,13 +145,13 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
   });
 
   it('不用品では仕入価格を帯から外す（入力が残っていても）', () => {
-    const breakdown = profitBreakdown({ ...filled, kind: 'used' });
+    const breakdown = profitBreakdown('ja', { ...filled, kind: 'used' });
     expect(breakdown.parts.map((part) => part.key)).not.toContain('purchasePrice');
     expect(breakdown.expenses).toBe(250);
   });
 
   it('経費が販売価格を超えると手元がマイナスになる（帯は引かれる分だけになる）', () => {
-    const breakdown = profitBreakdown({ ...filled, salesPrice: '100' });
+    const breakdown = profitBreakdown('ja', { ...filled, salesPrice: '100' });
     expect(breakdown.kept).toBeLessThan(0);
     // 手元の項目自体は残る（一覧では読めるように）が、帯に描かれるのは 0 円より大きい区画だけ
     expect(breakdown.parts[breakdown.parts.length - 1].key).toBe('kept');
@@ -164,7 +164,7 @@ describe('profitBreakdown（結果側の帯・2 値）', () => {
   });
 
   it('何も入力していなければ全項目 0（帯は空になる）', () => {
-    const breakdown = profitBreakdown(newCalcValues('used'));
+    const breakdown = profitBreakdown('ja', newCalcValues('used'));
     expect(breakdown.parts.every((part) => part.amount === 0)).toBe(true);
     expect(breakdown.kept).toBe(0);
   });
@@ -181,7 +181,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   };
 
   it('12c の例と同じ数字になる', () => {
-    const result = requiredPriceResult(designExample);
+    const result = requiredPriceResult('ja', designExample);
     expect(result.requiredPrice).toBe(962);
     expect(result.commissionAmount).toBe(96);
     expect(result.expenses).toBe(765);
@@ -190,7 +190,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   });
 
   it('指摘された例: 目標 100 円・手数料 10% のみ → 112 円', () => {
-    const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '100' });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '100' });
     expect(result.requiredPrice).toBe(112);
     expect(result.commissionAmount).toBe(11);
     // 切り上げのぶん目標の 100 円をわずかに上回る
@@ -200,7 +200,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   it('帯・一覧の項目を足すと必要販売価格にぴったり一致する', () => {
     // 手数料額が端数を持つ組み合わせでも、表示される数字だけで足し算が閉じる
     for (const targetProfit of ['100', '333', '1000', '12345']) {
-      const result = requiredPriceResult({
+      const result = requiredPriceResult('ja', {
         ...newCalcValues('sourced'),
         purchasePrice: '777',
         postage: '185',
@@ -215,12 +215,12 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   });
 
   it('手元に残る額は目標額以上になる（切り上げのぶんだけ上振れる）', () => {
-    const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '100' });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '100' });
     expect(result.kept).toBeGreaterThanOrEqual(100);
   });
 
   it('項目の並びは 経費 4 項目（仕入 → 送料 → 手数料 → 梱包材・その他）→ 手元', () => {
-    const result = requiredPriceResult({
+    const result = requiredPriceResult('ja', {
       ...newCalcValues('sourced'),
       purchasePrice: '500',
       postage: '200',
@@ -241,13 +241,13 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   });
 
   it('経費 0 項目でも手元と販売手数料は残る', () => {
-    const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '100' });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '100' });
     expect(result.parts.map((part) => part.key)).toEqual(['commission', 'kept']);
     expect(result.expenses).toBe(0);
   });
 
   it('手数料 0% なら手数料の項も消える（手元だけ）', () => {
-    const result = requiredPriceResult({
+    const result = requiredPriceResult('ja', {
       ...newCalcValues('used'),
       commission: 0,
       targetProfit: '100',
@@ -258,7 +258,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   });
 
   it('不用品では仕入価格を帯・一覧から外す（入力が残っていても）', () => {
-    const result = requiredPriceResult({
+    const result = requiredPriceResult('ja', {
       ...newCalcValues('used'),
       purchasePrice: '500',
       postage: '200',
@@ -269,7 +269,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
   });
 
   it('手元は 0 円でも項目として残る（帯の緑が何かを一覧で読めるように）', () => {
-    const result = requiredPriceResult({ ...newCalcValues('used'), commission: 0 });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), commission: 0 });
     expect(result.parts.map((part) => part.key)).toEqual(['kept']);
     expect(result.kept).toBe(0);
   });
@@ -277,7 +277,7 @@ describe('requiredPriceResult（逆算結果の帯・説明文・式の材料）
 
 describe('requiredPriceResult の式（計算のしかた）', () => {
   it('12c の例: 目標100 ＋ 経費765 ＝ 865、÷ 0.9 で 961.1... を切り上げて 962', () => {
-    const { formula } = requiredPriceResult({
+    const { formula } = requiredPriceResult('ja', {
       ...newCalcValues('sourced'),
       purchasePrice: '500',
       postage: '215',
@@ -294,7 +294,7 @@ describe('requiredPriceResult の式（計算のしかた）', () => {
   });
 
   it('式に出る足し算は画面上で必ず閉じる', () => {
-    const { formula } = requiredPriceResult({
+    const { formula } = requiredPriceResult('ja', {
       ...newCalcValues('sourced'),
       purchasePrice: '777',
       postage: '185',
@@ -305,7 +305,7 @@ describe('requiredPriceResult の式（計算のしかた）', () => {
 
   it('切り上げ前の値を Math.ceil すると必ず必要販売価格になる', () => {
     for (const commission of [0, 3, 7, 10, 50]) {
-      const { formula } = requiredPriceResult({
+      const { formula } = requiredPriceResult('ja', {
         ...newCalcValues('sourced'),
         commission,
         purchasePrice: '480',
@@ -318,13 +318,13 @@ describe('requiredPriceResult の式（計算のしかた）', () => {
 
   it('割り切れるときは切り上げたことにしない', () => {
     // 90 / 0.9 = 100 ちょうど
-    const { formula } = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '90' });
+    const { formula } = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '90' });
     expect(formula.roundedUp).toBe(false);
     expect(formula.requiredPrice).toBe(100);
   });
 
   it('割る数は浮動小数の誤差を持たない（手数料 7% でも 0.93）', () => {
-    const { formula } = requiredPriceResult({
+    const { formula } = requiredPriceResult('ja', {
       ...newCalcValues('used'),
       commission: 7,
       targetProfit: '100',
@@ -335,7 +335,7 @@ describe('requiredPriceResult の式（計算のしかた）', () => {
 
 describe('requiredPriceResult の「1 つ下の価格」', () => {
   it('12c の例: 962 円 → 950 円では 90 円にしかならない', () => {
-    const result = requiredPriceResult({
+    const result = requiredPriceResult('ja', {
       ...newCalcValues('sourced'),
       purchasePrice: '500',
       postage: '215',
@@ -346,13 +346,13 @@ describe('requiredPriceResult の「1 つ下の価格」', () => {
   });
 
   it('指摘された 112 円のケースでは、暗算で出る 110 円が例になる', () => {
-    const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '100' });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '100' });
     expect(result.lowerPrice).toEqual({ price: 110, profit: 99 });
   });
 
   it('刻みは金額帯で変える（200 以下 10 / 1000 以下 50 / 10000 以下 100 / それ以上 500）', () => {
     const lowerPriceOf = (targetProfit: string) =>
-      requiredPriceResult({ ...newCalcValues('used'), commission: 0, targetProfit }).lowerPrice;
+      requiredPriceResult('ja', { ...newCalcValues('used'), commission: 0, targetProfit }).lowerPrice;
 
     expect(lowerPriceOf('150')?.price).toBe(140);
     expect(lowerPriceOf('900')?.price).toBe(850);
@@ -362,7 +362,7 @@ describe('requiredPriceResult の「1 つ下の価格」', () => {
 
   it('必ず必要販売価格より安く、目標には届かない', () => {
     for (const targetProfit of ['30', '100', '480', '1200', '9800', '45000']) {
-      const result = requiredPriceResult({
+      const result = requiredPriceResult('ja', {
         ...newCalcValues('sourced'),
         postage: '185',
         targetProfit,
@@ -375,13 +375,13 @@ describe('requiredPriceResult の「1 つ下の価格」', () => {
 
   it('刻みより安い価格では例を出さない（0 円では説明にならない）', () => {
     // 目標 5 円・経費なし・手数料 10% → 6 円。10 円刻みで下げると 0 円になる
-    const result = requiredPriceResult({ ...newCalcValues('used'), targetProfit: '5' });
+    const result = requiredPriceResult('ja', { ...newCalcValues('used'), targetProfit: '5' });
     expect(result.requiredPrice).toBe(6);
     expect(result.lowerPrice).toBeNull();
   });
 
   it('目標も経費もない状態では例を出さない', () => {
-    expect(requiredPriceResult(newCalcValues('used')).lowerPrice).toBeNull();
+    expect(requiredPriceResult('ja', newCalcValues('used')).lowerPrice).toBeNull();
   });
 });
 
@@ -432,7 +432,7 @@ describe('toInitialAmounts', () => {
   it('逆算モードでは画面に出ている逆算結果を引き継ぐ（入力欄の値ではない）', () => {
     // 欄に 439 と出ているのに 0 が記録される、という食い違いを起こさない
     const target = { ...newCalcValues('used'), salesPrice: '', targetProfit: '100' };
-    const displayed = String(requiredPriceResult(target).requiredPrice);
+    const displayed = String(requiredPriceResult('ja', target).requiredPrice);
     expect(toInitialAmounts(target, displayed, target.targetProfit).salesPrice).toBe(displayed);
   });
 });

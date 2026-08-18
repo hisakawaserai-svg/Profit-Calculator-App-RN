@@ -520,7 +520,7 @@ function StickyResultBar({
         <View style={styles.stickyBreakdown}>
           {/* 売上は 2 段目に出ているので、内訳では繰り返さない（UI-SPEC §1.1-2 の 3 行）。
               色と並びは結果カード・逆算パネルと同じ 1 つの部品が持つ */}
-          <BreakdownPartList breakdown={costBreakdown(costs, kind)} colors={colors} />
+          <BreakdownPartList breakdown={costBreakdown(locale, costs, kind)} colors={colors} />
         </View>
       )}
     </Animated.View>
@@ -558,7 +558,7 @@ function ProfitPanel({
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
-  const breakdown = profitBreakdown(values);
+  const breakdown = profitBreakdown(locale, values);
 
   return (
     <View>
@@ -624,7 +624,7 @@ function TargetPanel({
   const locale = useLocale();
 
   const label = targetProfitLabel(locale, values.kind);
-  const result = requiredPriceResult(values);
+  const result = requiredPriceResult(locale, values);
 
   return (
     <View style={styles.targetPanel}>
