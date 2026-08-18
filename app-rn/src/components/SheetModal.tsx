@@ -49,11 +49,25 @@ export function SheetModal({ visible = true, onClose, children }: Props) {
   /** 閉じるアニメーションの間だけ true。下がり切るまで Modal を外さないための状態 */
   const [closing, setClosing] = useState(false);
   const [wasVisible, setWasVisible] = useState(visible);
+  /**
+   * `close()` で自分から下ろし切ったか。
+   *
+   * **これが無いと、閉じたあと Modal が 200ms 余分に残る。** `close()` は下ろし切ってから
+   * `onClose` を呼び、親はそこで `visible` を false にする。その変化を下の判定が
+   * 「これから閉じる」と受け取ってもう一度 CLOSE_DURATION 待ってしまうため。
+   *
+   * 余分に残っている間は**画面から見えないのに Modal は表示中**で、iOS はその上に
+   * 別のモーダルを出せない ── シートで選んだ行き先（記録フォーム）が開かないまま
+   * 終わる原因になっていた。
+   */
+  const [selfClosed, setSelfClosed] = useState(false);
 
   // visible の変化は描画中に取り込む（effect で setState すると 1 描画ぶん遅れて幕が出る）
   if (wasVisible !== visible) {
     setWasVisible(visible);
-    setClosing(!visible);
+    // 自分で下ろし切っていれば、もう一度下ろさずその場で Modal を外す
+    setClosing(!visible && !selfClosed);
+    if (visible) setSelfClosed(false);
   }
 
   const rendered = visible || closing;
@@ -71,7 +85,11 @@ export function SheetModal({ visible = true, onClose, children }: Props) {
   }, [closing, progress]);
 
   // 連打しても onClose は 1 回だけ（先に走っていた分は finished=false で終わる）
-  const close = () => animate(progress, 0, CLOSE_DURATION, onClose);
+  const close = () =>
+    animate(progress, 0, CLOSE_DURATION, () => {
+      setSelfClosed(true);
+      onClose();
+    });
 
   return (
     <Modal

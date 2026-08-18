@@ -39,4 +39,6 @@ export const MIGRATED_FILES = [
   'src/screens/TargetProfitSheet.tsx',
   'src/screens/PriceApplySheet.tsx',
   'src/components/PriceLine.tsx',
+  // 区切り 2-6: 値下げシミュレータの帯
+  'src/components/MiniBreakdownBar.tsx',
 ] as const;
