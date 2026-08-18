@@ -14,7 +14,7 @@ import type { SaleRecord } from '@/db/schema';
 
 import type { BreakdownPartKey } from './calcForm';
 import {
-  SHORTFALL_SEGMENT_LABEL,
+  shortfallSegmentLabel,
   commissionRowLabel,
   envelopeAndOthersFieldLabel,
   postageLabel,
@@ -335,7 +335,7 @@ export function miniBarItems(locale: Locale, record: SaleRecord, price: number):
     if (key === 'kept' && breakdown.deficit) {
       return {
         key,
-        label: SHORTFALL_SEGMENT_LABEL,
+        label: shortfallSegmentLabel(locale),
         amount: breakdown.shortfall,
         inBar: true,
         shortfall: true,

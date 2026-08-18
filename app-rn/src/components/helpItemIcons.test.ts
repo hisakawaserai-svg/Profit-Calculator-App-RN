@@ -8,11 +8,13 @@
 //     （helpItemIcons.ts の選び方を参照。ページをまたぐ重なりは意図的に許す）
 import { describe, expect, it } from 'vitest';
 
-import { HELP_ALL_PAGES, helpItemsOf } from '@/logic/helpContent';
+import { helpAllPages, helpItemsOf } from '@/logic/helpContent';
 
 import { HELP_ITEM_ICONS, helpItemIcon } from './helpItemIcons';
 
-const ALL_ITEMS = HELP_ALL_PAGES.flatMap((page) => helpItemsOf(page));
+const ALL_PAGES = helpAllPages('ja');
+
+const ALL_ITEMS = ALL_PAGES.flatMap((page) => helpItemsOf(page));
 
 describe('項目アイコンの対応表', () => {
   it('すべての項目にアイコンが登録されている', () => {
@@ -30,7 +32,7 @@ describe('項目アイコンの対応表', () => {
   });
 
   it('同じページの中でアイコンが重ならない', () => {
-    for (const page of HELP_ALL_PAGES) {
+    for (const page of ALL_PAGES) {
       const names = helpItemsOf(page).map((item) => helpItemIcon(item.id));
       const duplicated = names.filter((name, index) => names.indexOf(name) !== index);
       expect(duplicated, `${page.id} で ${duplicated.join(' / ')} が重複`).toEqual([]);

@@ -44,6 +44,9 @@
 // 設定タブのチップを立てないのは、設定は**入口であって話題ではない**ため。
 // 「設定」を探しに来る人は既に設定タブを開いている。
 
+import { t } from '@/i18n';
+import type { Locale } from '@/settings/language';
+
 /** ページ（チップ）の id。`terms` だけはチップに出さない（画面先頭の 1 行と `link` から入る） */
 export type HelpPageId = 'calc' | 'record' | 'sell' | 'data' | 'keep' | 'terms';
 
@@ -150,80 +153,81 @@ export type HelpPage = {
 };
 
 /** チップに出る 5 枚。並びがそのままチップの並び */
-export const HELP_PAGES: HelpPage[] = [
+export function helpPages(locale: Locale): HelpPage[] {
+  return [
   {
     id: 'calc',
-    chip: '計算',
-    title: '計算のしかた',
+    chip: t('help.pages.calc.chip', locale),
+    title: t('help.pages.calc.title', locale),
     groups: [
       {
-        title: '金額を出す',
+        title: t('help.groups.calc1', locale),
         items: [
           {
             id: 'calc-net',
-            title: 'いくら手元に残るか知りたい',
-            body: '「純利益を出す」（仕入品では「利益を出す」）を選び、その下で不用品か仕入品かを選んでから、販売価格とかかるお金（送料・手数料・梱包材・その他）を入れます。仕入品のときは仕入価格の欄も出ます。上の大きな数字が手元に残る金額です。入れた欄だけで計算するので、全部を埋める必要はありません。',
+            title: t('help.items.calc-net.title', locale),
+            body: t('help.items.calc-net.body', locale),
             figure: 'modeProfit',
           },
           {
             id: 'calc-target',
-            title: 'いくらで売ればいいか知りたい',
-            body: '「目標から逆算」に切り替えて、ほしい利益と、かかるお金を入れます。上の数字が「この値段で売ればいい」という販売価格になります。同じ 1 本の帯を、どちら側から見るかの違いです。',
+            title: t('help.items.calc-target.title', locale),
+            body: t('help.items.calc-target.body', locale),
             figure: 'reversePrice',
           },
           {
             id: 'calc-fee',
-            title: '手数料はどうやって入れるか',
-            body: '手数料だけは、金額ではなく率（%）で入れます。ほかの欄と違って電卓は出ず、「手数料 10%」の行の「−」「＋」で 1% ずつ動かします。入れられるのは 0% から 50% までです。\n\n販売サイトを登録しておけば、行の横の印を押すだけで、その率とサイトの名前が同時に入ります。\n\n率をあとから変えても、これまでの記録の手数料はそのままです。記録に入っているのは、そのとき計算した金額そのものだからです。',
+            title: t('help.items.calc-fee.title', locale),
+            body: t('help.items.calc-fee.body', locale),
             figure: 'commissionField',
           },
           {
             id: 'calc-breakdown',
-            title: '何にいくらかかるか見たい',
-            body: '数字の下の「内訳」を押すと、引かれる分の内訳が色分けの帯で出ます。どれがいちばん重いかがひと目で分かります。',
+            title: t('help.items.calc-breakdown.title', locale),
+            body: t('help.items.calc-breakdown.body', locale),
             figure: 'breakdown',
-            link: { label: '販売サイトの表示額との違いを見る ›', to: 'terms', itemId: 'terms-site' },
+            link: { label: t('help.items.calc-breakdown.linkLabel', locale), to: 'terms', itemId: 'terms-site' },
           },
         ],
       },
       {
-        title: '入力を楽にする',
+        title: t('help.groups.calc2', locale),
         items: [
           {
             id: 'calc-calculator',
-            title: 'その場で足し算やかけ算をしたい',
-            body: '金額を打ち込む欄（販売価格・仕入価格・送料・梱包材・その他）の右にある青い電卓のボタンを押すと電卓が開きます。「行を足す」で何行でも積めるので、箱代とテープ代を別々に入れて合計を出す、といった使い方ができます。「入れる」を押すと合計だけがその欄に入ります。手数料は率なので電卓は出ず、「−」「＋」で動かします。\n\n一度「入れる」を押したあとは、欄の数字をそのままにしておけば、次に電卓を開いたときも前の行がそのまま残っています。欄を手で打ち直したり、プリセットで入れ直したりすると、その数字 1 行から始まります。',
+            title: t('help.items.calc-calculator.title', locale),
+            body: t('help.items.calc-calculator.body', locale),
             figure: 'calculatorButton',
           },
           {
             id: 'calc-preset',
-            title: '毎回同じ数字を打つのをやめたい',
-            body: '送料の欄の横にあるタグの印を押すと、登録しておいた送料から選べます。手数料の行の横にある印は「販売サイト」を選ぶもので、押して選ぶと手数料の率とサイトの名前が同時に入り、その下にサイト名の行が出ます。\n\n選んだあとは、印の右に「✕」が出ます。送料の「✕」は送料の欄を空に戻し、販売サイトの「✕」は名前だけを消します（率はそのまま残ります）。サイト名は、その下のサイト名の行の「✕」からも消せます。\n\n梱包材には欄の横に印がなく、電卓の中から選びます。登録は設定タブの「入力を減らす」から行います。',
+            title: t('help.items.calc-preset.title', locale),
+            body: t('help.items.calc-preset.body', locale),
             figure: 'presetTag',
-            link: { label: '登録のしかたを見る ›', to: 'record', itemId: 'record-preset' },
+            link: { label: t('help.items.calc-preset.linkLabel', locale), to: 'record', itemId: 'record-preset' },
           },
           {
             id: 'calc-shipping-material',
-            title: '送料に箱代も一緒に入れたい',
-            body: '送料の欄の横にあるタグの印を押すと、登録しておいた送料が一覧で出ます。送料のプリセットに「専用資材」の代金も登録しておくと、その行だけ「送料のみ」「＋資材」の 2 つに分かれます。どちらを押すといくらになるかは押す前に読めて、押した側の金額がそのまま欄に入ります。行そのものを押したときは「＋資材」のほうが選ばれます。\n\n宅配便の箱のように、その送り方でしか使わないものを入れておく場所です。どの発送にも使う封筒やテープは、梱包材のほうに登録してください。資材の代金を登録していない送料では、この 2 つは出ません。',
+            title: t('help.items.calc-shipping-material.title', locale),
+            body: t('help.items.calc-shipping-material.body', locale),
             figure: 'shippingMaterial',
-            link: { label: '送料の登録のしかたを見る ›', to: 'record', itemId: 'record-preset' },
+            link: { label: t('help.items.calc-shipping-material.linkLabel', locale), to: 'record', itemId: 'record-preset' },
           },
         ],
       },
       {
-        title: '終わったら',
+        title: t('help.groups.calc3', locale),
         items: [
           {
             id: 'calc-clear',
-            title: '入力を消してやり直したい',
-            body: '結果の右上にある「クリア」を押すと、「入力をクリアしますか？」と一度確認が出ます。「クリア」をもう一度押すと、入れた数字がすべて空欄になり、種別も既定値に戻ります。何も入れていないときは押せません。',
+            title: t('help.items.calc-clear.title', locale),
+            body: t('help.items.calc-clear.body', locale),
           },
           {
             id: 'calc-to-record',
-            title: '計算した内容をそのまま残したい',
-            body: '画面の下の「この内容で記録する」を押すと、いま入れている数字が入った状態で記録の画面が開きます。打ち直す必要はありません。「目標から逆算」で入れていたほしい利益は、そのまま記録の目標利益として引き継がれます。',
-            link: { label: '目標利益について見る ›', to: 'record', itemId: 'record-target' },
+            title: t('help.items.calc-to-record.title', locale),
+            body: t('help.items.calc-to-record.body', locale),
+            link: { label: t('help.items.calc-to-record.linkLabel', locale), to: 'record', itemId: 'record-target' },
           },
         ],
       },
@@ -231,190 +235,190 @@ export const HELP_PAGES: HelpPage[] = [
   },
   {
     id: 'record',
-    chip: '記録',
-    title: '記録の書きかた',
+    chip: t('help.pages.record.chip', locale),
+    title: t('help.pages.record.title', locale),
     groups: [
       {
-        title: '作る',
+        title: t('help.groups.record1', locale),
         items: [
           {
             id: 'record-new',
-            title: '売れたもの・出品したものを残したい',
-            body: '記録タブの左下の「＋ 記録」を押すと、「新しく作る」と「過去の記録から複製」の 2 つが出ます。「新しく作る」を選ぶと、空の記録の画面が開きます。計算タブの「この内容で記録する」からでも同じ画面が開きます。商品名だけは必ず入れてください。',
+            title: t('help.items.record-new.title', locale),
+            body: t('help.items.record-new.body', locale),
             figure: 'addRecord',
           },
           {
             id: 'record-duplicate',
-            title: '前と同じような物をまた出したい',
-            body: '記録タブの「＋ 記録」から「過去の記録から複製」を選ぶと、これまでの記録の一覧が出ます。商品名でさがすことも、タグで絞ることもできます。\n\n押した記録の商品名・種別・仕入価格・送料・手数料・販売サイト・梱包材・その他・タグ・目標が入った状態で、新しい記録の画面が開きます。同じ送り方で同じような物を出すときに、経費を打ち直さずに済みます。\n\n販売価格・写真・メモは引き継ぎません。日付は今日から、状態は出品中から始まります。複製元は売れた記録でも出品中でもかまいません。作られるのは新しい記録なので、元の記録は変わりません。',
+            title: t('help.items.record-duplicate.title', locale),
+            body: t('help.items.record-duplicate.body', locale),
             figure: 'duplicateFields',
           },
           {
             id: 'record-kind',
-            title: '種別（不用品と仕入品）',
-            body: '仕入品を選ぶと仕入価格の欄が増えます。不用品は家にあった物を売る記録なので、仕入価格の欄は出ません。あとから変えられます。',
+            title: t('help.items.record-kind.title', locale),
+            body: t('help.items.record-kind.body', locale),
             figure: 'kindSelector',
-            link: { label: '違いを見る ›', to: 'terms', itemId: 'terms-kind' },
+            link: { label: t('help.items.record-kind.linkLabel', locale), to: 'terms', itemId: 'terms-kind' },
           },
           {
             id: 'record-status',
-            title: 'まだ売れていないものを残したい',
-            body: '記録の画面で「出品中にする」を押すと、売れる前の記録として残せます。売れたら記録の詳細の「売れた」を押すか、記録の画面で「売れた記録にする」を押して、販売日を入れてください。',
+            title: t('help.items.record-status.title', locale),
+            body: t('help.items.record-status.body', locale),
             figure: 'statusToggle',
           },
           {
             id: 'record-saledate',
-            title: '販売日が選べないとき',
-            body: '出品する前に売れることはないため、販売日は出品日より前にできません。前の日付にしたいときは、先に出品日を直してください。',
+            title: t('help.items.record-saledate.title', locale),
+            body: t('help.items.record-saledate.body', locale),
             figure: 'saleDate',
           },
           {
             id: 'record-photo',
-            title: '写真を付けたい',
-            body: '記録の画面で、商品名の左の四角い枠を押すと写真を選べます。選べるのは「写真」に入っているもので、この枠からカメラは開きません。先に撮ってから選んでください。1 件につき 1 枚です。\n\n付けると一覧・詳細・記録の画面の 3 か所に出るので、名前を読まなくてもどの商品か分かります。外したいときは写真の右上の「✕」を押します。',
+            title: t('help.items.record-photo.title', locale),
+            body: t('help.items.record-photo.body', locale),
             figure: 'photoField',
-            link: { label: '写真がどこに入るかを見る ›', to: 'keep', itemId: 'backup-photos' },
+            link: { label: t('help.items.record-photo.linkLabel', locale), to: 'keep', itemId: 'backup-photos' },
           },
           {
             id: 'record-tag',
-            title: '「洋服」「食器」のように分けたい',
-            body: '記録の画面で、金額の並びの下にある「タグ」の見出しの右の「＋ 追加」を押すと選べます。まだ無いタグは、その場の検索欄に打って「＋『洋服』を作る」で作れます。タグは付けなくてもかまいません。',
+            title: t('help.items.record-tag.title', locale),
+            body: t('help.items.record-tag.body', locale),
             figure: 'tagRow',
           },
           {
             id: 'record-memo',
-            title: 'メモを残したい',
-            body: '記録の画面の下にある「メモを書く」を押すと開きます。何か書くと見出しは「メモ」に変わるので、畳んだままでも書いてあるかどうかが分かります。メモは、書き出し（CSV）の 2 種類のうちデータ保存用には入りますが、確定申告用には入りません。',
-            link: { label: '書き出しの 2 種類を見る ›', to: 'keep', itemId: 'export-kinds' },
+            title: t('help.items.record-memo.title', locale),
+            body: t('help.items.record-memo.body', locale),
+            link: { label: t('help.items.record-memo.linkLabel', locale), to: 'keep', itemId: 'export-kinds' },
           },
           {
             id: 'record-target',
-            title: 'この 1 件でいくら残したいか決めておきたい',
-            body: '記録の画面の下のほうにある「目標の純利益」（仕入品では「目標利益」）を開くと、その 1 件だけの目標を入れておけます。決めておくと、あとから「いくらで売る？」の画面で、目標に届く価格と、あといくらまで下げられるかが出ます。\n\n空欄のままでもかまいません。目標は「こうしたい」という値なので、収支の計算には一切入りません。記録の合計にもデータタブの数字にも出ません。',
+            title: t('help.items.record-target.title', locale),
+            body: t('help.items.record-target.body', locale),
             figure: 'targetField',
-            link: { label: '目標の使い道を見る ›', to: 'sell', itemId: 'sell-room' },
+            link: { label: t('help.items.record-target.linkLabel', locale), to: 'sell', itemId: 'sell-room' },
           },
           {
             id: 'record-target-zero',
-            title: '「0 円」と「決めていません」は別のもの',
-            body: '目標を入れていない記録には「決めていません」と出ます。これは目標を 0 円にした記録とは別のものです。\n\n0 を入れると、「赤字にならなければよい」という目標を決めたことになります。「いくらで売る？」の画面では、赤字にならない価格までの差が下げ幅として出ます。\n\n決めていない記録では、下げ幅そのものが出ません。何を基準に下げ止まればよいかが決まらないためです。決めていない状態に戻したいときは、0 ではなく空欄にしてください。',
+            title: t('help.items.record-target-zero.title', locale),
+            body: t('help.items.record-target-zero.body', locale),
             figure: 'targetRoom',
           },
         ],
       },
       {
-        title: '見る',
+        title: t('help.groups.record2', locale),
         items: [
           {
             id: 'record-bar',
-            title: '1 件の内訳を見たい',
-            body: '記録の詳細を開くと、金額のカードの先頭に色分けの帯が出ます。販売価格を 1 本の帯として、手元に残る分と引かれる分の割合を見るものです。\n\n緑が手元に残る分、オレンジが販売手数料、赤系がその他の経費です。計算タブの「内訳」と同じ色で、画面が変わっても意味は変わりません。\n\n帯そのものには名前を書いていません。色の意味は、その下に続く一覧の各行の左に付いた同じ色の丸が引き受けます。行を上から読めば、帯のどの区画がどの項目かが分かります。\n\n帯の下には、次に何ができるかの 1 行が出ます。出品中の記録では、あといくら下げられるか（赤字のときは、あといくら値上げすれば赤字から抜けられるか）。売れた記録では、どう終わったかのまとめです。押すと、出品中は「いくらで売る？」、売れた記録は「どうだった？」の画面に移れます。',
+            title: t('help.items.record-bar.title', locale),
+            body: t('help.items.record-bar.body', locale),
             figure: 'recordBar',
-            link: { label: '「いくらで売る？」を見る ›', to: 'sell', itemId: 'sell-open' },
+            link: { label: t('help.items.record-bar.linkLabel', locale), to: 'sell', itemId: 'sell-open' },
           },
           {
             id: 'record-copy',
-            title: '商品名や金額をコピーしたい',
-            body: '記録の詳細で、商品名・販売価格・利益・経費の各行・メモを長押しすると、その内容がコピーされます。うまくいくと短く振動して、画面の上に「◯◯をコピーしました」と出ます。出品するときの商品名や、帳簿に書き写す金額を、打ち直さずに他のアプリへ貼れます。\n\n中身が空のところは長押しできません。「無題」「未入力」と出ている語そのものをコピーしても仕方がないためです。\n\n長押しはこのコピーのための操作にしてあります。プリセットのバッジやタグを直すときは、長押しではなく普通に押してください。',
+            title: t('help.items.record-copy.title', locale),
+            body: t('help.items.record-copy.body', locale),
           },
         ],
       },
       {
-        title: '探す',
+        title: t('help.groups.record3', locale),
         items: [
           {
             id: 'record-find-period',
-            title: '別の月を見たい',
-            body: '記録タブの月の行の「◀」「▶」で前の月・次の月に移れます。月の名前を押すと「今月」「先月」「全期間」のボタンと月のカレンダーが出ます。年の見出しを押すと、その年 1 年分をまとめて選べます。',
+            title: t('help.items.record-find-period.title', locale),
+            body: t('help.items.record-find-period.body', locale),
             figure: 'monthBar',
           },
           {
             id: 'record-find-status',
-            title: '売れたものと出品中を切り替えたい',
-            body: '金額が出ている行の右にある「売れた記録」「出品中」で切り替えます。上の合計も入れ替わり、「出品中」では収支ではなく「出品価格の合計」になります。一覧の行も、売れた記録は収支、出品中は出品価格と「売れたら 約◯円」の見込みに変わります。この見込みは、いま入っている経費を引いた金額です。送料などをまだ入れていなければ、その分は引かれていません。',
+            title: t('help.items.record-find-status.title', locale),
+            body: t('help.items.record-find-status.body', locale),
             figure: 'soldListing',
           },
           {
             id: 'record-find-filter',
-            title: '種別やタグで絞りたい',
-            body: '月の行の右の「▽」を押すと、絞り込みの画面が開きます。「売れた記録」を見ているときは種別・販売サイト・タグの 3 つ、「出品中」を見ているときは販売サイトがまだ決まっていないので種別とタグの 2 つで絞れます。絞っている間は青い行が出て、そこを押すと同じ画面に戻れます。',
+            title: t('help.items.record-find-filter.title', locale),
+            body: t('help.items.record-find-filter.body', locale),
             figure: 'filterEntry',
           },
           {
             id: 'record-tag-or',
-            title: 'タグを 2 つ選ぶとどうなるか',
-            body: '絞り込みでタグを 2 つ以上選ぶと、どれか 1 つでも付いている記録が出ます。両方が付いている必要はありません。タグを増やすほど、出る記録は多くなります。\n\nデータタブの絞り込みでも同じです。',
+            title: t('help.items.record-tag-or.title', locale),
+            body: t('help.items.record-tag-or.body', locale),
             figure: 'tagOr',
           },
           {
             id: 'record-find-search',
-            title: '商品名でさがしたい・並び替えたい',
-            body: '右上の虫めがねを押すと、上の行が入力欄に変わります。商品名の一部を打つと絞られます。さがせるのは商品名だけで、メモやタグの名前では絞れません。\n\n右上の上下の矢印を押すと、販売日・出品日・収支・経費が並び、それぞれの右にある「新しい順」「古い順」「多い順」「少ない順」を押すとその並びになります。「出品中」を見ているときは販売日がまだ無いので、出品日・見込みの収支・経費の 3 つになります。',
+            title: t('help.items.record-find-search.title', locale),
+            body: t('help.items.record-find-search.body', locale),
             figure: 'searchSort',
           },
         ],
       },
       {
-        title: '直す',
+        title: t('help.groups.record4', locale),
         items: [
           {
             id: 'record-edit',
-            title: 'あとから直したい・消したい',
-            body: '記録の一覧で行を押すと詳細が開きます。下の「編集する」で直せます。詳細の「削除」を押したときは確認が出ます。\n\n一覧では行を左へスワイプしても消せますが、こちらは確認が出ず、押した時点ですぐ消えます。どちらで消しても元に戻すことはできません。',
+            title: t('help.items.record-edit.title', locale),
+            body: t('help.items.record-edit.body', locale),
           },
           {
             id: 'record-tag-delete',
-            title: 'タグを消したい・消すとどうなるか',
-            body: 'タグは設定タブの「記録を分類する」で消せます。行を左へスワイプして「削除」です。名前と色も同じ画面から変えられます。\n\nタグを消しても、記録そのものは消えません。その記録からタグが外れるだけです。消した直後に画面の下に出る「元に戻す」を押せば、タグも付いていた記録も元どおりになります。',
+            title: t('help.items.record-tag-delete.title', locale),
+            body: t('help.items.record-tag-delete.body', locale),
           },
         ],
       },
       {
-        title: '設定タブで登録しておく',
+        title: t('help.groups.record5', locale),
         items: [
           {
             id: 'record-preset',
-            title: 'よく使う値を登録しておきたい',
-            body: '設定タブの「入力を減らす」に、よく使う値（プリセット）として販売サイト・送料・梱包材を登録しておけます。一度登録すれば、次からは選ぶだけで欄に入ります。\n\n販売サイトと送料は、その欄の横にあるタグの印を押すと一覧から選べて、押した値がそのまま欄に入ります。梱包材だけは呼び出す場所が違います。\n\n送料の金額はご自身で登録したもので、実際の料金は配送サービスの案内で確認してください。',
+            title: t('help.items.record-preset.title', locale),
+            body: t('help.items.record-preset.body', locale),
             figure: 'presetList',
           },
           {
             id: 'record-preset-material',
-            title: '梱包材はどこから選ぶか',
-            body: '梱包材には、欄の横にタグの印がありません。梱包材の欄の右にある青い電卓のボタンを押し、開いた電卓の中の「梱包材から選ぶ」（タグの印の付いた青い文字）から選びます。\n\nここではいくつでも選べて、「入れる」を押すと選んだ分が 1 行ずつ積まれ、その合計が欄に入ります。箱とテープを別々に登録しておけば、2 つ選ぶだけで合計が出ます。',
+            title: t('help.items.record-preset-material.title', locale),
+            body: t('help.items.record-preset-material.body', locale),
           },
           {
             id: 'record-preset-pack',
-            title: 'まとめ買いした梱包材の 1 個あたり・1 回あたりを出したい',
-            body: '梱包材の登録で「まとめ買い」を選ぶと、「計算方式」を「個数から」「面積から」「使用回数から」の 3 つから選べます。何で割るかが違うだけで、どれも 1 回ぶんの金額を出すためのものです。\n\n「個数から」は、入数と購入価格を入れると 1 個あたりが出ます。100 枚で 800 円なら 1 枚 8 円として登録されます。\n\n「面積から」は、購入サイズの縦・横と購入価格を入れると 1㎡あたりが出ます。ロールで買うプチプチのように、切って使うもの向けです。さらに「平均使用サイズ」の縦・横を入れると、1 回あたりまで出ます。この 2 つは任意で、空のままなら 1㎡あたりの金額が経費に入ります。\n\n「使用回数から」は、想定使用回数と購入価格を入れると 1 回あたりが出ます。テープのように、何回ぶん使えるかで数えるもの向けです。\n\n一覧では、その金額が「1個あたり」「1回あたり」「1㎡あたり」のどれなのかが行に出ます。',
+            title: t('help.items.record-preset-pack.title', locale),
+            body: t('help.items.record-preset-pack.body', locale),
             figure: 'packBuy',
           },
           {
             id: 'record-preset-edit',
-            title: '登録した値を直す・消す',
-            body: 'プリセットの行を押すと編集の画面が開きます。消したいときは、いちばん下の「この送料を削除」（種類によって語が変わります）を押します。\n\n登録した値を直しても、保存済みの記録の金額は変わりません。手数料の率を変えても、これまでの記録の手数料はそのままです。記録に入っているのは、そのとき入れた金額そのものだからです。',
+            title: t('help.items.record-preset-edit.title', locale),
+            body: t('help.items.record-preset-edit.body', locale),
           },
           {
             id: 'record-badge',
-            title: 'バッジの文字を変えたい',
-            body: 'よく使う値（プリセット）の登録・編集の画面には、上のほうに大きなバッジが出ています。このバッジをそのまま押すと、中の文字を直せます。文字を入れるための専用の欄はありません。\n\n何も入れなければ、名前の先頭が入ります。「A4・厚さ3cm以内」なら「A4」のように、自分で読みやすい 2 文字までを入れておくと、選ぶときに見分けやすくなります。\n\nここは普通に押すだけです。長押しは記録のコピーに使っているので、ここでは効きません。',
+            title: t('help.items.record-badge.title', locale),
+            body: t('help.items.record-badge.body', locale),
             figure: 'presetBadge',
           },
           {
             id: 'record-color',
-            title: '色の選びかた',
-            body: 'タグとプリセットの色は、固定の 11 色から選べます。丸は 2 つの群に分かれていて、上が「まだ使っていない色」、下が「使用中」です。編集のときは見出しが変わり、上が「選べる色」、下が「ほかのタグが使用中」（プリセットではその種類の名前）になります。いま自分が使っている色は、上の先頭に残ります。\n\n使用中の色も押して選べます。同じ色を 2 つに付けるのが間違いとは限らないので、止めずに「「洋服」と同じ色です」のように 1 行だけ出ます。',
+            title: t('help.items.record-color.title', locale),
+            body: t('help.items.record-color.body', locale),
             figure: 'colorGroups',
           },
           {
             id: 'record-color-custom',
-            title: '11 色にない色を使いたい',
-            body: '丸の最後にあるのが「自由色」です。押すと色を自分で作れて、「決定」で確定します。\n\n11 色を全部使い切ったときは、上が「新しい色を作る」の 1 行に変わり、固定の 11 色は「使用中の色から選ぶ」として下に並びます。',
+            title: t('help.items.record-color-custom.title', locale),
+            body: t('help.items.record-color-custom.body', locale),
           },
           {
             id: 'record-default-kind',
-            title: '最初に選ばれる種別を変えたい',
-            body: '設定タブの「新規作成時の種別」で選べます。新しく作る記録で最初に選ばれる種別が変わるだけで、保存済みの記録は変わりません。',
+            title: t('help.items.record-default-kind.title', locale),
+            body: t('help.items.record-default-kind.body', locale),
           },
         ],
       },
@@ -422,50 +426,50 @@ export const HELP_PAGES: HelpPage[] = [
   },
   {
     id: 'sell',
-    chip: '売る',
-    title: '売る前と売ったあと',
+    chip: t('help.pages.sell.chip', locale),
+    title: t('help.pages.sell.title', locale),
     groups: [
       {
-        title: '出品したあとに考える',
+        title: t('help.groups.sell1', locale),
         items: [
           {
             id: 'sell-open',
-            title: '「いくらで売る？」を開く',
-            body: '記録の詳細で、金額のカードの帯の下にある行を押すと開きます。出品中の記録では「いくらで売る？」、売れた記録では「どうだった？」という画面になります。\n\nここは 1 つの商品だけを見る場所です。全体の売れ行きはデータタブ、この 1 つをいくらで売るかはこちら、と分かれています。\n\nまだ価格を入れていない記録でも開けます。そのときは「価格がなくても分かっていること」として、赤字にならない価格などが出ます。',
+            title: t('help.items.sell-open.title', locale),
+            body: t('help.items.sell-open.body', locale),
           },
           {
             id: 'sell-price-line',
-            title: '価格の目安を読む',
-            body: '「いくらで売る？」の画面の中ほどに、横 1 本の線で価格の目安が出ます。印が付くのは「赤字にならない価格」と、いまの価格です。目標を決めてある記録では「目標が出る価格」も並びます。\n\nいまの価格がどのあたりにあるかで、まだ下げられるのか、下げると赤字になるのかがひと目で分かります。',
+            title: t('help.items.sell-price-line.title', locale),
+            body: t('help.items.sell-price-line.body', locale),
             figure: 'priceLine',
           },
           {
             id: 'sell-simulator',
-            title: '値下げを試してみる',
-            body: '「いくらで売る？」の画面の下のほうにあるシミュレーターです。つまみを左右に動かすと、その価格で売れたときに手元へいくら残るかがその場で出ます。動かしただけでは記録は変わりません。\n\n試した価格をそのまま残したいときは「この価格でこのアプリに記録する」を押します。押すとすぐには書き換わらず、「この価格に書き換えます」の確認が出ます。いまの記録と書き換えたあとが並ぶので、読んでから「書き換える」で確定します。その価格では赤字になるときは、ボタンが「価格を ◯◯円 以上に直す」に変わります。\n\n書き換わるのはこのアプリの記録だけで、出品しているサイトの価格は変わりません。サイト側はご自身で直してください。\n\n書き換えたあとは画面の下に「取り消す」が出るので、間違えたときはその場で戻せます。価格をまだ入れていない記録では、つまみは動かせません。',
+            title: t('help.items.sell-simulator.title', locale),
+            body: t('help.items.sell-simulator.body', locale),
             figure: 'simulator',
           },
           {
             id: 'sell-room',
-            title: 'あといくらまで下げられるかを見る',
-            body: '「いくらで売る？」の画面で、主役の数字（手元に残る見込み）のすぐ下にある帯に出ます。値下げの相談が来たときに見る数字です。目標を決めてある記録では「目標に届く範囲であと何円下げられるか」が出ます。\n\n目標を決めていない記録では、下げ幅は出ません。何を基準に下げ止まればよいかが決まらないので、根拠のない金額を出さないためです。',
+            title: t('help.items.sell-room.title', locale),
+            body: t('help.items.sell-room.body', locale),
             figure: 'targetRoom',
-            link: { label: '「0 円」と「決めていません」の違いを見る ›', to: 'record', itemId: 'record-target-zero' },
+            link: { label: t('help.items.sell-room.linkLabel', locale), to: 'record', itemId: 'record-target-zero' },
           },
           {
             id: 'sell-target',
-            title: '目標をあとから決める・消す',
-            body: '「いくらで売る？」の画面のいちばん下にある「目標の純利益」（仕入品では「目標利益」）の行を押すと、その場で目標を決められます。金額を入れると、目標が出る価格とあと下げられる額がすぐ下に出るので、決める前に何が変わるかを読めます。\n\n決めた目標はその記録に残るので、次に開いたときも同じ判断ができます。やめたいときは同じ画面の「目標を消す」を押してください。0 を入れても消したことにはなりません。0 は「赤字にならなければよい」という目標そのものです。',
+            title: t('help.items.sell-target.title', locale),
+            body: t('help.items.sell-target.body', locale),
           },
         ],
       },
       {
-        title: '売れたあと',
+        title: t('help.groups.sell2', locale),
         items: [
           {
             id: 'sell-sold',
-            title: '実際にどうだったかを見返す',
-            body: '記録の詳細で帯の下にある行は、売れた記録では「どうだった？」になります。押して開いた画面に出るのは見込みではなく、実際に残った利益と、出品してから売れるまでにかかった日数です。\n\n売れたあとは価格を動かす意味がないので、シミュレーターは出ません。',
+            title: t('help.items.sell-sold.title', locale),
+            body: t('help.items.sell-sold.body', locale),
           },
         ],
       },
@@ -473,72 +477,72 @@ export const HELP_PAGES: HelpPage[] = [
   },
   {
     id: 'data',
-    chip: 'データ',
-    title: 'データの見かた',
+    chip: t('help.pages.data.chip', locale),
+    title: t('help.pages.data.title', locale),
     groups: [
       {
-        title: '3 つの見かた',
+        title: t('help.groups.data1', locale),
         items: [
           {
             id: 'data-modes',
-            title: '収支・タグ・実績を切り替えたい',
-            body: 'グラフのカードの上に「収支」「タグ」「実績」の 3 つが並んでいます。押すと同じ画面の中身が入れ替わります。\n\n「収支」は期間ごとの売れ行き、「タグ」は何がよく売れているか、「実績」はこれまでの積み上げを見るところです。月の行と絞り込みが効くのは「収支」と「タグ」だけです。',
+            title: t('help.items.data-modes.title', locale),
+            body: t('help.items.data-modes.body', locale),
             figure: 'dataModes',
           },
           {
             id: 'data-tag',
-            title: 'タグごとの成績を見たい',
-            body: '「タグ」を押すと、その期間にどのタグでいくら残ったかが多い順に並びます。タグの付いていない記録は「未分類」としてまとめて出ます。行を押すと、そのタグが付いた記録が下に並びます。\n\n行の右の小さな線は 1 月から 12 月までの動きです。高さの目盛りはすべてのタグで共通なので、そのまま見比べられます。\n\nカードの右上の「一覧」「グラフ」で見せ方を変えられます。「グラフ」にすると、選んだタグぶんの折れ線を 1 枚に重ねられます。線の上の点を押すと、その日のタグごとの内訳が出ます。',
+            title: t('help.items.data-tag.title', locale),
+            body: t('help.items.data-tag.body', locale),
             figure: 'tagViewMode',
           },
           {
             id: 'data-achievements',
-            title: '実績を見たい',
-            body: '「実績」を押すと、これまでの積み上げが 4 つのカードで出ます。「次の実績」（あといくつで届くか）、「あなたの記録」（累計の売上と利益）、「獲得した実績」、「自己ベスト」です。\n\n達成のもとになった記録には、一覧や詳細で小さなバッジが付きます。',
+            title: t('help.items.data-achievements.title', locale),
+            body: t('help.items.data-achievements.body', locale),
           },
           {
             id: 'data-achievement-kinds',
-            title: '実績の種類と段位',
-            body: '実績には 2 とおりあります。1 つは 5 つのジャンルをそれぞれ 5 段階で登っていくもの、もう 1 つは「初めての一歩」「即売れ」のように条件を満たすと 1 回だけ付くものです。\n\nどの実績にも難しさの段位が付いていて、やさしいほうからブロンズ・シルバー・ゴールド・プラチナ・レジェンドの 5 つです。実績のバッジを押すと、★の数と段位の名前、そして何をすれば達成できるかが出ます。段位はバッジの縁の色にもなっているので、一覧を眺めるだけでも重いものが分かります。',
+            title: t('help.items.data-achievement-kinds.title', locale),
+            body: t('help.items.data-achievement-kinds.body', locale),
             figure: 'achievementKinds',
           },
           {
             id: 'data-achievement-period',
-            title: '実績だけ月と絞り込みが効かない',
-            body: '「実績」を見ているときは、月の行も絞り込みも効きません。いつでも全期間の売れた記録すべてで数えます。今月ぶんの成績ではなく、これまで全部の積み上げを見るところだからです。',
+            title: t('help.items.data-achievement-period.title', locale),
+            body: t('help.items.data-achievement-period.body', locale),
           },
         ],
       },
       {
-        title: '収支のグラフ',
+        title: t('help.groups.data2', locale),
         items: [
           {
             id: 'data-chart',
-            title: 'グラフの見かた',
-            body: '棒 1 本がその日の収支、線はその日までの合計です。売れた日がない日は棒が立ちません。まだ売れていない記録はグラフに入りません。\n\n棒を押すと、その日に売れた記録が下に出ます。行を押すとその記録の詳細が開きます。',
+            title: t('help.items.data-chart.title', locale),
+            body: t('help.items.data-chart.body', locale),
             figure: 'chart',
-            link: { label: '「収支」ということばについて ›', to: 'terms', itemId: 'terms-words' },
+            link: { label: t('help.items.data-chart.linkLabel', locale), to: 'terms', itemId: 'terms-words' },
           },
           {
             id: 'data-compare',
-            title: '前の期間と比べたい',
-            body: 'グラフの下に、1 つ前の同じ長さの期間と比べたカードが出ます。月を見ているときは前の月と、年を見ているときは前の年の同じ月までと比べます。「全期間」を選んでいるときは比べる相手がないので、このカードごと出ません。',
+            title: t('help.items.data-compare.title', locale),
+            body: t('help.items.data-compare.body', locale),
           },
         ],
       },
       {
-        title: '期間と絞り込み',
+        title: t('help.groups.data3', locale),
         items: [
           {
             id: 'data-period',
-            title: '期間を変えたい',
-            body: '月の行の「◀」「▶」で移れます。月の名前を押すと「今月」「先月」「全期間」のボタンと月のカレンダーが出ます。年の見出しを押すとその年 1 年分になります。長い期間を選ぶと、棒の刻みが日ごとから月ごと・年ごとに自動で変わります。',
+            title: t('help.items.data-period.title', locale),
+            body: t('help.items.data-period.body', locale),
             figure: 'monthBar',
           },
           {
             id: 'data-filter',
-            title: '種別やタグで絞って見たい',
-            body: '月の行の右の「▽」から絞り込めます。記録タブと同じ絞り込みですが、それぞれのタブで別々に効きます。グラフも合計も、選んだ分だけで計算し直されます。\n\n「実績」を見ているときだけは効きません。',
+            title: t('help.items.data-filter.title', locale),
+            body: t('help.items.data-filter.body', locale),
             figure: 'filterEntry',
           },
         ],
@@ -547,106 +551,107 @@ export const HELP_PAGES: HelpPage[] = [
   },
   {
     id: 'keep',
-    chip: '残す',
-    title: '書き出しとバックアップ',
+    chip: t('help.pages.keep.chip', locale),
+    title: t('help.pages.keep.title', locale),
     groups: [
       {
-        title: 'この端末の中のこと',
+        title: t('help.groups.keep1', locale),
         items: [
           {
             id: 'backup-where',
-            title: '記録はどこにあるか',
-            body: '記録も写真も、この端末の中だけに保存されています。どこかに送られることはありません。',
+            title: t('help.items.backup-where.title', locale),
+            body: t('help.items.backup-where.body', locale),
           },
           {
             id: 'backup-photos',
-            title: '写真はどこに入るか',
-            body: '選んだ写真はこのアプリの中に小さくして保存され、外に送られることはありません。書き出し（CSV）には写真は入りませんが、バックアップには入ります（「含める」を選んだとき）。',
+            title: t('help.items.backup-photos.title', locale),
+            body: t('help.items.backup-photos.body', locale),
           },
           {
             id: 'backup-delete',
-            title: 'アプリを消すとどうなるか',
-            body: 'このアプリを削除すると、中の記録と写真も一緒に消えます。機種を変えるときも、そのままでは新しい端末に何も引き継がれません。戻すには、あらかじめ作っておいたバックアップのファイルが要ります。',
+            title: t('help.items.backup-delete.title', locale),
+            body: t('help.items.backup-delete.body', locale),
           },
         ],
       },
       {
-        title: 'バックアップと復元',
+        title: t('help.groups.keep2', locale),
         items: [
           {
             id: 'backup-create',
-            title: 'バックアップを作る',
-            body: '設定タブの「バックアップと復元」を開き、下の「バックアップを作る」を押します。記録・タグ・プリセット・写真が 1 つのファイルにまとまります。期間を選ぶ必要はなく、いつでも全部が入ります。\n\n写真は「含める」「含めない」を選べます。はじめは「含める」です。「含めない」にするとファイルは軽くなりますが、そのファイルから戻したときに写真は出てきません。\n\n写真の合計が大きすぎるとき（50MB を超えるとき）は、押したあとに知らせが出ます。そのときは「写真なしで作る」を選んでください。記録・タグ・プリセットはすべて新しい端末へ移せます。写真だけは「写真」アプリなどに別に残しておいてください。\n\nボタンの下に、前に作った日が出ます。ほかに知らせは出ないので、思い出す手がかりはこの 1 行だけです。月末など、区切りのいいときに作るのがおすすめです。',
+            title: t('help.items.backup-create.title', locale),
+            body: t('help.items.backup-create.body', locale),
             figure: 'photoInclude',
           },
           {
             id: 'backup-restore',
-            title: 'バックアップから復元する',
-            body: '復元すると、いまこの端末にある記録・タグ・プリセットは、すべてファイルの中身に入れ替わります。今あるものに足されるのではありません。\n\n設定タブの「バックアップと復元」を開き、「復元する」から、バックアップのファイル（ZIP）か、それを解凍したフォルダを選びます。中身を確かめるために解凍したあとでも戻せます。\n\n選んでもすぐには戻りません。先に「読み込む中身」の画面が出て、そこで「すべて置き換える」を押したときに入れ替わります。やめたいときは「別のファイルを選ぶ」で選び直せます。読み込めなかったときは、いまのデータは何も変わりません。',
+            title: t('help.items.backup-restore.title', locale),
+            body: t('help.items.backup-restore.body', locale),
           },
           {
             id: 'backup-preview',
-            title: '「読み込む中身」の読みかた',
-            body: '復元するファイルを選ぶと、先にこの画面が出ます。今の端末とファイルの中身を並べた表で、減るものは赤い数字になります。中で一番新しい記録の商品名も出るので、見覚えがなければ別のファイルです。\n\nこの 1 枚が確認そのものなので、このあとに確認のダイアログは出ません。「すべて置き換える」を押した時点で入れ替わります。',
+            title: t('help.items.backup-preview.title', locale),
+            body: t('help.items.backup-preview.body', locale),
             figure: 'backupPreview',
           },
           {
             id: 'backup-migrate',
-            title: '機種を変えるときの手順',
-            body: '古い端末で「バックアップを作る」を押すと、共有の画面が開きます。そこでファイルをこの端末の外へ出しておきます。「ファイル」アプリでも、クラウドでも、パソコンへ送るのでもかまいません。新しい端末から取り出せる場所であれば、どこでも同じです。\n\n新しい端末にこのアプリを入れたら、「バックアップと復元」の「復元する」からそのファイルを選びます。記録・タグ・プリセットが戻り、写真を含めて作ったバックアップなら写真も戻ります。\n\nアプリどうしが直接つながることはないので、この 1 往復が引っ越しの唯一の道です。古い端末を手放す前にファイルを出せているか、必ず確かめてください。',
+            title: t('help.items.backup-migrate.title', locale),
+            body: t('help.items.backup-migrate.body', locale),
             figure: 'backupMigrate',
           },
         ],
       },
       {
-        title: '書き出し（CSV）',
+        title: t('help.groups.keep3', locale),
         items: [
           {
             id: 'export-kinds',
-            title: '書き出しの 2 種類',
-            body: '設定タブの「書き出し（CSV）」から書き出せます。どちらも表計算などで中身を読むためのファイルで、アプリに読み込んで元に戻すことはできません。戻すためのものは「バックアップと復元」です。\n\n「データ保存用」はメモやタグも含めて、記録した内容をすべて出すもの。「確定申告用」は帳簿に要る列だけを出すものです。確定申告用でも金額の列は減りません。帳簿に関係のない記述を、申告の書類へ持ち込まないための形です。',
+            title: t('help.items.export-kinds.title', locale),
+            body: t('help.items.export-kinds.body', locale),
             figure: 'csvKinds',
           },
           {
             id: 'export-period',
-            title: 'いつの分が入るか',
-            body: '期間は「販売日」で決まります。お金が振り込まれた日ではありません。既定では売れた記録だけが入り、「出品中も含める」を選ぶとまだ売れていない記録も入ります。記録タブやデータタブで絞り込んでいても、その絞り込みは書き出しには効きません。',
+            title: t('help.items.export-period.title', locale),
+            body: t('help.items.export-period.body', locale),
             figure: 'exportTarget',
           },
           {
             id: 'export-preview',
-            title: '何が入るか先に見たい',
-            body: '「書き出す表」に、実際にファイルへ入る先頭の行がそのまま出ます。押すと全部の行を見られます。日付や金額は、ファイルに入るとおりの形で出ています。書き出すものが 1 件も無いときは、出す表がないのでこの欄ごと出ません。',
+            title: t('help.items.export-preview.title', locale),
+            body: t('help.items.export-preview.body', locale),
             figure: 'exportPreview',
           },
           {
             id: 'export-grouping',
-            title: '日ごとにまとめたい',
-            body: '確定申告用では「まとめ方」を選べます。「日ごとにまとめる」にすると、同じ日の売上が 1 行にまとまります。金額は合算され、商品名は「えんぴつ ほか2件」、販売サイトは「フリマA ほか1件」の形になります。種別が混ざった日は「混在」と入ります。',
+            title: t('help.items.export-grouping.title', locale),
+            body: t('help.items.export-grouping.body', locale),
             figure: 'grouping',
           },
           {
             id: 'export-share',
-            title: '書き出したファイルをどう受け取るか',
-            body: '「書き出す」を押すとファイルが作られ、共有の画面が開きます。そこからメールで送る、「ファイル」アプリに保存する、パソコンへ送るなど、受け取り方を選べます。\n\nファイルがアプリの中に残るわけではないので、この画面で送り先を決めてください。この端末で共有の画面を開けないときは、その旨が出ます。',
+            title: t('help.items.export-share.title', locale),
+            body: t('help.items.export-share.body', locale),
           },
           {
             id: 'export-tax',
-            title: '確定申告に使うときの注意',
-            body: 'このファイルは帳簿そのものではなく、帳簿を作るための材料です。実際の申告では、内容を確認して収支内訳書などに転記してください。\n\n不用品がすべて非課税とは限りません。服・食器・家電など生活に通常必要なものを売った所得は非課税ですが、ゴルフ用品や趣味の道具など「生活に通常必要でないもの」は課税対象になります。また貴金属・宝石・書画・骨とうは、1 個または 1 組が 30 万円を超えると課税対象です。\n\n判断に迷うときは税務署か税理士に相談してください。',
-            link: { label: '消費税の扱いを見る ›', to: 'terms', itemId: 'terms-tax' },
+            title: t('help.items.export-tax.title', locale),
+            body: t('help.items.export-tax.body', locale),
+            link: { label: t('help.items.export-tax.linkLabel', locale), to: 'terms', itemId: 'terms-tax' },
           },
           {
             id: 'export-rounding',
-            title: '合計が画面と 1 円違うのはなぜか',
-            body: 'ファイルの中の金額は、1 件ずつ 1 円未満を四捨五入してから足した合計です。画面の合計は元の数字のまま足すため、1 円ずれることがあります。どちらかが間違っているわけではありません。',
+            title: t('help.items.export-rounding.title', locale),
+            body: t('help.items.export-rounding.body', locale),
             figure: 'rounding',
           },
         ],
       },
     ],
   },
-];
+  ];
+}
 
 /**
  * ことば（チップには出さない）。
@@ -655,53 +660,58 @@ export const HELP_PAGES: HelpPage[] = [
  * 不用品と仕入品のちがいを画面ごとの節に置くと、同じ説明が 3 か所に増える。
  * 入口は各項目の `link` と、画面先頭の 1 行（`HELP_TERMS_ENTRY_LABEL`）の 2 つ。
  */
-export const HELP_TERMS_PAGE: HelpPage = {
+export function helpTermsPage(locale: Locale): HelpPage {
+  return {
   id: 'terms',
-  chip: 'ことば',
-  title: 'ことばの説明',
+  chip: t('help.pages.terms.chip', locale),
+  title: t('help.pages.terms.title', locale),
   groups: [
     {
       items: [
         {
           id: 'terms-kind',
-          title: '不用品と仕入品の違い',
-          body: '不用品は家にあったもの、仕入品は売るために買ってきたものです。引くものが 1 つ増えるだけで、計算のしかたは同じです。仕入品を選ぶと仕入価格の欄が出ます。',
+          title: t('help.items.terms-kind.title', locale),
+          body: t('help.items.terms-kind.body', locale),
           figure: 'kind',
         },
         {
           id: 'terms-words',
-          title: '純利益・利益・収支の使い分け',
-          body: '呼び方が違うだけで、どれも「販売価格から経費を引いた金額」です。記録タブの合計行とデータタブの数字は、すべて収支です。',
+          title: t('help.items.terms-words.title', locale),
+          body: t('help.items.terms-words.body', locale),
           figure: 'terms',
         },
         {
           id: 'terms-site',
-          title: '販売サイトの表示額との違い',
-          body: '経費を入れているぶん、このアプリの数字のほうが少なくなります。差はそのまま、実際に出ていったお金です。どちらかが間違っているわけではありません。',
+          title: t('help.items.terms-site.title', locale),
+          body: t('help.items.terms-site.body', locale),
           figure: 'siteAmount',
         },
         {
           id: 'terms-expenses',
-          title: '経費にふくまれるもの',
-          body: '仕入価格・送料・販売手数料・梱包材・その他の 5 つです。仕入価格が出るのは仕入品のときだけです。\n\nこの 5 つを足したものが「引かれる分」で、販売価格から引いた残りが手元に残る金額です。入れた欄だけで計算するので、使わない欄は空のままでかまいません。',
+          title: t('help.items.terms-expenses.title', locale),
+          body: t('help.items.terms-expenses.body', locale),
           figure: 'expenseItems',
         },
         {
           id: 'terms-tax',
-          title: '消費税はどう扱われるか',
-          body: 'このアプリは、入れた販売価格と経費の金額をそのまま使って計算します。その金額に消費税が含まれているかどうかは区別していません。税込・税抜のどちらのつもりで入れても、入れた数字がそのまま計算に入ります。\n\n消費税の申告や納税が要らない場合は、この前提のままで困ることはありません。手元にいくら残るかは、実際にやりとりした金額のとおりに出ます。\n\n取引の規模が大きく、消費税の申告・納税の義務がある場合は、このアプリの数字に消費税の分は反映されていません。申告に使う金額はご自身で確認するか、税務署か税理士に相談してください。',
+          title: t('help.items.terms-tax.title', locale),
+          body: t('help.items.terms-tax.body', locale),
         },
       ],
     },
   ],
-};
+  };
+}
 
 /** チップの 5 枚 ＋ ことば。id からページを引くときに使う */
-export const HELP_ALL_PAGES: readonly HelpPage[] = [...HELP_PAGES, HELP_TERMS_PAGE];
+export function helpAllPages(locale: Locale): readonly HelpPage[] {
+  return [...helpPages(locale), helpTermsPage(locale)];
+}
 
 /** id からページを引く。知らない id では先頭（計算）に落とす */
-export function helpPageOf(id: HelpPageId): HelpPage {
-  return HELP_ALL_PAGES.find((page) => page.id === id) ?? HELP_PAGES[0];
+export function helpPageOf(locale: Locale, id: HelpPageId): HelpPage {
+  const pages = helpPages(locale);
+  return helpAllPages(locale).find((page) => page.id === id) ?? pages[0];
 }
 
 /** ページの中の項目を順に返す（群をまたいで平らにする） */
@@ -732,39 +742,50 @@ export type HelpEntry = {
   sheetTitle: string;
 };
 
-export const HELP_ENTRIES: Record<HelpEntryId, HelpEntry> = {
-  calc: { page: 'calc', sheetTitle: '計算のしかた' },
+export function helpEntries(locale: Locale): Record<HelpEntryId, HelpEntry> {
+  const title = (id: HelpEntryId) => t(`help.entries.${id}`, locale);
+  return {
+  calc: { page: 'calc', sheetTitle: title('calc') },
   // 一覧で詰まるのは「目当ての記録が出てこない」とき
-  recordList: { page: 'record', leadItemId: 'record-find-filter', sheetTitle: '記録の見かた' },
-  recordDetail: { page: 'record', leadItemId: 'record-bar', sheetTitle: '記録の見かた' },
+  recordList: { page: 'record', leadItemId: 'record-find-filter', sheetTitle: title('recordList') },
+  recordDetail: { page: 'record', leadItemId: 'record-bar', sheetTitle: title('recordDetail') },
   // 販売日を選べなかった直後に開くのがいちばん役に立つ（案 `20c`）
-  recordForm: { page: 'record', leadItemId: 'record-saledate', sheetTitle: '記録の書きかた' },
+  recordForm: { page: 'record', leadItemId: 'record-saledate', sheetTitle: title('recordForm') },
   // 分析画面（SPEC-V9 §9）。まず「ここが何の画面か」を先頭に出す
-  pricing: { page: 'sell', leadItemId: 'sell-open', sheetTitle: '売る前と売ったあと' },
-  data: { page: 'data', leadItemId: 'data-chart', sheetTitle: 'データの見かた' },
+  pricing: { page: 'sell', leadItemId: 'sell-open', sheetTitle: title('pricing') },
+  data: { page: 'data', leadItemId: 'data-chart', sheetTitle: title('data') },
   // データタブは見ているモードで詰まる場所が違うので、モードごとに別の項目を開く
-  dataTag: { page: 'data', leadItemId: 'data-tag', sheetTitle: 'データの見かた' },
+  dataTag: { page: 'data', leadItemId: 'data-tag', sheetTitle: title('dataTag') },
   dataAchievements: {
     page: 'data',
     leadItemId: 'data-achievements',
-    sheetTitle: 'データの見かた',
+    sheetTitle: title('dataAchievements'),
   },
   // §5.8 のバナーの飛び先。注意書きそのものを先頭に出す
-  export: { page: 'keep', leadItemId: 'export-tax', sheetTitle: '書き出し（CSV）' },
-  backup: { page: 'keep', leadItemId: 'backup-create', sheetTitle: 'バックアップと復元' },
+  export: { page: 'keep', leadItemId: 'export-tax', sheetTitle: title('export') },
+  backup: { page: 'keep', leadItemId: 'backup-create', sheetTitle: title('backup') },
   // 色は 2 つの編集画面が同じものを使う（SPEC-V7 §3）ので、開く項目も同じ
-  tagForm: { page: 'record', leadItemId: 'record-color', sheetTitle: 'タグの作りかた' },
-  presetForm: { page: 'record', leadItemId: 'record-badge', sheetTitle: '登録のしかた' },
-};
+  tagForm: { page: 'record', leadItemId: 'record-color', sheetTitle: title('tagForm') },
+  presetForm: { page: 'record', leadItemId: 'record-badge', sheetTitle: title('presetForm') },
+  };
+}
 
 /** シート下端のリンク（案 `20c`）。全体（設定タブから開くのと同じもの）へ */
-export const HELP_READ_ALL_LABEL = '使いかたを最初から読む ›';
+export function helpReadAllLabel(locale: Locale): string {
+  return t('help.readAllLabel', locale);
+}
 
 /** 画面先頭の 1 行。チップから外した「ことば」への入口 */
-export const HELP_TERMS_ENTRY_LABEL = 'ことばの説明 ›';
+export function helpTermsEntryLabel(locale: Locale): string {
+  return t('help.termsEntryLabel', locale);
+}
 
 /** 設定タブから push で開くときの見出し（UI-SPEC §1.6-1） */
-export const HELP_SCREEN_TITLE = '使いかた';
+export function helpScreenTitle(locale: Locale): string {
+  return t('help.screenTitle', locale);
+}
 
 /** 各画面の「？」の読み上げ語 */
-export const HELP_BUTTON_LABEL = '使いかた';
+export function helpButtonLabel(locale: Locale): string {
+  return t('help.buttonLabel', locale);
+}

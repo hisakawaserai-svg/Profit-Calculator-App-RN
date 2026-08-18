@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { UNIMPLEMENTED_LABEL } from '@/logic/labels';
+import { unimplementedLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 type Props = {
   title: string;
@@ -8,10 +9,13 @@ type Props = {
 
 // 各タブの仮画面。実装が進んだら各画面コンポーネントに置き換える。
 export function PlaceholderScreen({ title }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.note}>{UNIMPLEMENTED_LABEL}</Text>
+      <Text style={styles.note}>{unimplementedLabel(locale)}</Text>
     </View>
   );
 }

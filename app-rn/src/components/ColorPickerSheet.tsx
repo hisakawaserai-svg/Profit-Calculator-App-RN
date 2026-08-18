@@ -15,8 +15,8 @@ import { SheetModal } from '@/components/SheetModal';
 import { normalizeHex } from '@/logic/color';
 import {
   cancelLabel,
-  COLOR_PICKER_DONE_LABEL,
-  COLOR_PICKER_TITLE,
+  colorPickerDoneLabel,
+  colorPickerTitle,
 } from '@/logic/labels';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
@@ -47,7 +47,7 @@ export function ColorPickerSheet({ visible, value, onSelect, onClose }: Props) {
               <Text style={[styles.headerButton, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
             </Pressable>
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {COLOR_PICKER_TITLE}
+              {colorPickerTitle(locale)}
             </Text>
             <Pressable
               onPress={() => {
@@ -58,7 +58,7 @@ export function ColorPickerSheet({ visible, value, onSelect, onClose }: Props) {
               hitSlop={8}
               accessibilityRole="button">
               <Text style={[styles.headerButton, styles.done, { color: colors.blue }]}>
-                {COLOR_PICKER_DONE_LABEL}
+                {colorPickerDoneLabel(locale)}
               </Text>
             </Pressable>
           </View>

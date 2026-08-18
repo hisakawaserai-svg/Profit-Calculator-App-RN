@@ -10,9 +10,10 @@
 //   - 下端に「使いかたを最初から読む ›」が出る
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HELP_ENTRIES, type HelpEntryId } from '@/logic/helpContent';
-import { CLOSE_LABEL } from '@/logic/labels';
+import { helpEntries, type HelpEntryId } from '@/logic/helpContent';
+import { closeLabel } from '@/logic/labels';
 import { HelpScreen } from '@/screens/HelpScreen';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import { SheetModal } from './SheetModal';
@@ -26,8 +27,11 @@ type Props = {
 };
 
 export function HelpSheet({ entry, onClose, onReadAll }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
-  const { page, leadItemId, sheetTitle } = HELP_ENTRIES[entry];
+  const { page, leadItemId, sheetTitle } = helpEntries(locale)[entry];
 
   return (
     <SheetModal onClose={onClose}>
@@ -44,7 +48,7 @@ export function HelpSheet({ entry, onClose, onReadAll }: Props) {
             </View>
             <View style={styles.headerSpacer} />
             <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
-              <Text style={[styles.headerButton, { color: colors.blue }]}>{CLOSE_LABEL}</Text>
+              <Text style={[styles.headerButton, { color: colors.blue }]}>{closeLabel(locale)}</Text>
             </Pressable>
           </View>
 

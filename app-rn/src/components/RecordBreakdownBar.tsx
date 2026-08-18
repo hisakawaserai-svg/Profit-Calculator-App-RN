@@ -33,7 +33,7 @@ import { partColor } from '@/components/CostProportionBar';
 import type { SaleRecord } from '@/db/schema';
 import {
   breakdownBarUnpricedNote,
-  SHORTFALL_SEGMENT_LABEL,
+  shortfallSegmentLabel,
   percentLabel,
   recordDetailConclusionDetail,
   recordDetailConclusionHeadline,
@@ -271,6 +271,9 @@ function SurplusBar({ breakdown, colors }: { breakdown: SurplusBreakdown; colors
  * 単色 1 本はそれを避けたが、今度は赤字の記録だけ内訳が読めなくなった。
  */
 function DeficitBar({ breakdown, colors }: { breakdown: DeficitBreakdown; colors: ThemeColors }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const costParts = breakdown.parts.filter((part) => part.inBar);
   const costTotal = breakdown.total - breakdown.shortfall;
 
@@ -285,7 +288,7 @@ function DeficitBar({ breakdown, colors }: { breakdown: DeficitBreakdown; colors
     content: showsShortfallAmount(breakdown) ? (
       <View style={styles.segmentLabelRow}>
         <Text style={[styles.segmentLabel, styles.shortfallSegmentText]} numberOfLines={1}>
-          {SHORTFALL_SEGMENT_LABEL}
+          {shortfallSegmentLabel(locale)}
         </Text>
         <Text style={[styles.segmentLabel, styles.shortfallSegmentText]} numberOfLines={1}>
           {shortfallAmountLabel(breakdown.shortfall)}

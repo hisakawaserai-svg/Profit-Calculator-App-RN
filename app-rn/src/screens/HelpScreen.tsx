@@ -87,14 +87,15 @@ import {
 } from '@/components/HelpPartFigure';
 import { helpItemIcon } from '@/components/helpItemIcons';
 import {
-  HELP_PAGES,
-  HELP_READ_ALL_LABEL,
-  HELP_TERMS_ENTRY_LABEL,
+  helpPages,
+  helpReadAllLabel,
+  helpTermsEntryLabel,
   helpPageOf,
   type HelpFigureId,
   type HelpItem,
   type HelpPageId,
 } from '@/logic/helpContent';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 const FIGURES: Record<HelpFigureId, () => React.JSX.Element> = {
@@ -175,8 +176,13 @@ export function HelpScreen({
   onReadAll,
   showPageTitle = true,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+  const pages = helpPages(locale);
+
   const colors = useThemeColors();
-  const [pageId, setPageId] = useState<HelpPageId>(initialPage ?? HELP_PAGES[0].id);
+  // 既定は先頭のチップ（計算）。id は語ではないので locale では変わらない
+  const [pageId, setPageId] = useState<HelpPageId>(initialPage ?? 'calc');
 
   /**
    * いま開いている段（**ページに 1 つだけ**。null は全部畳んだ状態）。
@@ -192,7 +198,7 @@ export function HelpScreen({
     initialPage == null ? null : leadItemId ?? null,
   );
 
-  const page = helpPageOf(pageId);
+  const page = helpPageOf(locale, pageId);
   const isTerms = pageId === 'terms';
   const showsTitle = showPageTitle || isTerms;
 
@@ -261,7 +267,7 @@ export function HelpScreen({
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* チップ（案 `20b`）。横に並べるだけで収まる 5 枚なので、横スクロールは持たない */}
       <View style={styles.chipRow}>
-        {HELP_PAGES.map((candidate) => {
+        {pages.map((candidate) => {
           const selected = candidate.id === pageId;
           return (
             <Pressable
@@ -304,7 +310,7 @@ export function HelpScreen({
             accessibilityRole="link"
             style={({ pressed }) => [styles.termsEntry, { opacity: pressed ? 0.5 : 1 }]}>
             <Text style={[styles.termsEntryLabel, { color: colors.blue }]}>
-              {HELP_TERMS_ENTRY_LABEL}
+              {helpTermsEntryLabel(locale)}
             </Text>
           </Pressable>
         )}
@@ -346,7 +352,7 @@ export function HelpScreen({
             onPress={onReadAll}
             accessibilityRole="link"
             style={({ pressed }) => [styles.readAll, { opacity: pressed ? 0.5 : 1 }]}>
-            <Text style={[styles.readAllLabel, { color: colors.blue }]}>{HELP_READ_ALL_LABEL}</Text>
+            <Text style={[styles.readAllLabel, { color: colors.blue }]}>{helpReadAllLabel(locale)}</Text>
           </Pressable>
         )}
       </ScrollView>

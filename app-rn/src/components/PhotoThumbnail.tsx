@@ -10,14 +10,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
-import { PHOTO_EMPTY_LABEL, PHOTO_IMAGE_LABEL } from '@/logic/labels';
+import { photoEmptyLabel, PHOTO_IMAGE_LABEL } from '@/logic/labels';
 import { photoStore } from '@/media/expoPhotoFiles';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 枠の一辺（SPEC-V5 §2.3）。行の高さ（56 + 上下 13 = 82pt）はこの値で決まる */
 export const PHOTO_THUMBNAIL_SIZE = 56;
 
 export function PhotoThumbnail({ fileName }: { fileName: string | null }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const uri = photoStore.uri(fileName);
 
@@ -25,7 +29,7 @@ export function PhotoThumbnail({ fileName }: { fileName: string | null }) {
     return (
       <View
         style={[styles.frame, styles.placeholder, { borderColor: colors.separator }]}
-        accessibilityLabel={PHOTO_EMPTY_LABEL}>
+        accessibilityLabel={photoEmptyLabel(locale)}>
         <Ionicons name="image-outline" size={20} color={colors.disabledContent} />
       </View>
     );

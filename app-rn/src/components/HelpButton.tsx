@@ -6,13 +6,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable } from 'react-native';
 
-import { HELP_BUTTON_LABEL } from '@/logic/helpContent';
+import { helpButtonLabel } from '@/logic/helpContent';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** ヘッダの他のアイコン（⌕ / ⇅）と同じ大きさ。並べたときに 1 つだけ大きく見えないため */
 const ICON_SIZE = 22;
 
 export function HelpButton({ onPress }: { onPress: () => void }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -20,7 +24,7 @@ export function HelpButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={HELP_BUTTON_LABEL}
+      accessibilityLabel={helpButtonLabel(locale)}
       style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
       <Ionicons name="help-circle-outline" size={ICON_SIZE} color={colors.blue} />
     </Pressable>

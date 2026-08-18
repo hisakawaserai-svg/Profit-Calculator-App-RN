@@ -82,4 +82,13 @@ export const MIGRATED_FILES = [
   'src/components/OnboardingFigure.tsx',
   'src/components/HelpPartFigure.tsx',
   'src/components/HelpDiagram.tsx',
+  'src/screens/HelpScreen.tsx',
+  'src/components/HelpSheet.tsx',
+  'src/components/HelpButton.tsx',
+  'app/(tabs)/settings/help.tsx',
+  // 区切りをまたいで残っていた取りこぼし
+  'app/_layout.tsx',
+  'src/components/PhotoThumbnail.tsx',
+  'src/components/PlaceholderScreen.tsx',
+  'src/components/RecordBreakdownBar.tsx',
 ] as const;

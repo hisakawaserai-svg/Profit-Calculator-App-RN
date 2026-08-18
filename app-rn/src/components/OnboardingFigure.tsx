@@ -78,9 +78,9 @@ import {
   ONBOARDING_CHART_PROFITS,
   ONBOARDING_DATA_EXAMPLE,
   onboardingItemNameExample,
-  ONBOARDING_PACKAGING_PRESET_EXAMPLE,
-  ONBOARDING_SHIPPING_PRESET_EXAMPLE,
-  ONBOARDING_SITE_PRESET_EXAMPLE,
+  onboardingPackagingPresetExample,
+  onboardingShippingPresetExample,
+  onboardingSitePresetExample,
   onboardingTagExample,
   ONBOARDING_TARGET_PROFIT_EXAMPLE,
 } from '@/logic/onboardingContent';
@@ -306,18 +306,18 @@ export function OnboardingPresetFigure() {
   const locale = useLocale();
 
   const colors = useThemeColors();
-  const { materialCost } = ONBOARDING_SHIPPING_PRESET_EXAMPLE;
+  const { materialCost } = onboardingShippingPresetExample(locale);
   const { envelopeCost } = ONBOARDING_CALC_EXAMPLE;
 
   return (
     <View style={styles.presetStack}>
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-        <PresetRow preset={ONBOARDING_SITE_PRESET_EXAMPLE} />
+        <PresetRow preset={onboardingSitePresetExample(locale)} />
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <PresetRow
-          preset={ONBOARDING_SHIPPING_PRESET_EXAMPLE}
+          preset={onboardingShippingPresetExample(locale)}
           belowName={
             <SegmentedControl
               options={[shippingOnlyLabel(locale), withShippingMaterialLabel(locale, formatUnitYen(locale, materialCost))]}
@@ -714,7 +714,7 @@ export function OnboardingPackagingPresetFigure() {
   const locale = useLocale();
 
   const colors = useThemeColors();
-  const { name, initial, colorKey, packPrice, packQuantity } = ONBOARDING_PACKAGING_PRESET_EXAMPLE;
+  const { name, initial, colorKey, packPrice, packQuantity } = onboardingPackagingPresetExample(locale);
   const unitPrice = presetUnitPrice(packPrice, packQuantity) ?? 0;
   const pickerPreset = {
     type: 'packaging' as const,

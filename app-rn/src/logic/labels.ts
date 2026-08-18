@@ -398,10 +398,14 @@ export function copyFailedMessage(locale: Locale, label: string): string {
  * データベースの初期化に失敗したとき（app/_layout.tsx）。
  * ここだけは**アプリが起動しきる前**に出るので、他のどの画面の語にも寄りかかれない。
  */
-export const DB_INIT_FAILED_MESSAGE = 'データベースの初期化に失敗しました';
+export function dbInitFailedMessage(locale: Locale): string {
+  return t('common.dbInitFailed', locale);
+}
 
 /** 未実装の画面の仮表示（PlaceholderScreen） */
-export const UNIMPLEMENTED_LABEL = '（未実装）';
+export function unimplementedLabel(locale: Locale): string {
+  return t('common.unimplemented', locale);
+}
 
 /** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
 export function allPeriodLabel(locale: Locale): string {
@@ -1719,7 +1723,9 @@ export const ALMOST_ALL_PERCENT_LABEL = 'ほぼ100%';
  * 区画そのものは斜線（色でも塗りでもない模様）で「足りていない」ことを示すが、
  * **模様だけを手がかりにしない**（§0.1「色は識別の補助」と同じ話）── 名前を添える。
  */
-export const SHORTFALL_SEGMENT_LABEL = '足りない';
+export function shortfallSegmentLabel(locale: Locale): string {
+  return t('list.shortfallSegment', locale);
+}
 
 /**
  * 斜線の区画に添える不足額「-¥550」。
@@ -2456,9 +2462,13 @@ export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
 export function customColorLabel(locale: Locale): string {
   return t('color.custom', locale);
 }
-export const COLOR_PICKER_TITLE = '色を選ぶ';
+export function colorPickerTitle(locale: Locale): string {
+  return t('color.pickerTitle', locale);
+}
 /** 連続量を合わせる操作なので確定ボタンを置く（プリセットの選択シートとは逆。§3） */
-export const COLOR_PICKER_DONE_LABEL = '決定';
+export function colorPickerDoneLabel(locale: Locale): string {
+  return t('color.pickerDone', locale);
+}
 
 // ---- 設計案 50c: 色を使用状況で 2 群に分ける ----
 
@@ -3735,7 +3745,9 @@ export function photoImageLabel(locale: Locale): string {
 }
 
 /** 写真の無い行のサムネイル枠の読み上げ語（§2.3）。枠が「押せる何か」に見えないようにする */
-export const PHOTO_EMPTY_LABEL = '写真なし';
+export function photoEmptyLabel(locale: Locale): string {
+  return t('photo.empty', locale);
+}
 
 /**
  * 写真へのアクセスを拒否されたとき（§3.3）。**「設定を開く」の口と対で出す** ──

@@ -12,8 +12,8 @@ import { ACHIEVEMENT_TOAST_TYPE, type AchievementToastProps } from '@/components
 import { OnboardingOverlay } from '@/components/OnboardingOverlay';
 import { registerOnboardingRequestListener } from '@/components/onboardingBus';
 import { initDatabase } from '@/db/client';
-import { DB_INIT_FAILED_MESSAGE } from '@/logic/labels';
-import { useSettings } from '@/settings';
+import { dbInitFailedMessage } from '@/logic/labels';
+import { useLocale, useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -120,6 +120,9 @@ function navigationTheme(colors: ThemeColors, dark: boolean): Theme {
 }
 
 export default function RootLayout() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const isDark = useColorScheme() === 'dark';
   const [dbReady, setDbReady] = useState(false);
@@ -164,7 +167,7 @@ export default function RootLayout() {
   if (dbError) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text>{DB_INIT_FAILED_MESSAGE}</Text>
+        <Text>{dbInitFailedMessage(locale)}</Text>
         <Text style={{ marginTop: 8, color: 'red' }}>{dbError.message}</Text>
       </View>
     );

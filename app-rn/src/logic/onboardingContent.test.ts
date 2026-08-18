@@ -10,10 +10,10 @@ import {
   ONBOARDING_CHART_PROFITS,
   ONBOARDING_DATA_EXAMPLE,
   onboardingItemNameExample,
-  ONBOARDING_PACKAGING_PRESET_EXAMPLE,
+  onboardingPackagingPresetExample,
   onboardingPages,
-  ONBOARDING_SHIPPING_PRESET_EXAMPLE,
-  ONBOARDING_SITE_PRESET_EXAMPLE,
+  onboardingShippingPresetExample,
+  onboardingSitePresetExample,
   onboardingTagExample,
   ONBOARDING_TARGET_PROFIT_EXAMPLE,
 } from './onboardingContent';
@@ -42,7 +42,7 @@ describe('初回起動チュートリアルの構成', () => {
   });
 
   it('梱包材のまとめ買い計算の題材は 500円 ÷ 10個 = 1個あたり50円（presetUnitPrice と同じ割り算）', () => {
-    const { packPrice, packQuantity } = ONBOARDING_PACKAGING_PRESET_EXAMPLE;
+    const { packPrice, packQuantity } = onboardingPackagingPresetExample('ja');
     expect(packPrice / packQuantity).toBe(50);
   });
 
@@ -59,16 +59,16 @@ describe('初回起動チュートリアルの構成', () => {
   });
 
   it('送料プリセットの例は「送料のみ」の額より「＋資材」の額（value）の方が大きい', () => {
-    const { value, materialCost } = ONBOARDING_SHIPPING_PRESET_EXAMPLE;
+    const { value, materialCost } = onboardingShippingPresetExample('ja');
     expect(materialCost).toBeGreaterThan(0);
     expect(value - materialCost).toBeGreaterThan(0);
     expect(value).toBeGreaterThan(value - materialCost);
   });
 
   it('販売サイト（手数料）プリセットの例は種類が site で、率が 0〜100% の範囲', () => {
-    expect(ONBOARDING_SITE_PRESET_EXAMPLE.type).toBe('site');
-    expect(ONBOARDING_SITE_PRESET_EXAMPLE.value).toBeGreaterThan(0);
-    expect(ONBOARDING_SITE_PRESET_EXAMPLE.value).toBeLessThanOrEqual(100);
+    expect(onboardingSitePresetExample('ja').type).toBe('site');
+    expect(onboardingSitePresetExample('ja').value).toBeGreaterThan(0);
+    expect(onboardingSitePresetExample('ja').value).toBeLessThanOrEqual(100);
   });
 
   it('実績のアイコン行は 5 ジャンル・重複なし（紫・緑・ティール・青・オレンジの 5 色ぶん）', () => {

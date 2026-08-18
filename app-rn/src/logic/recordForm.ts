@@ -6,6 +6,8 @@
 // 正規化は repository 側の責務（SPEC §5.2 / src/db/repository.ts の normalizeSaleDate）。
 
 import { fromDbDate } from '@/db/dates';
+import { t } from '@/i18n';
+import type { Locale } from '@/settings/language';
 import type { SaveRecordInput } from '@/db/repository';
 import type { RecordKind, SaleRecord } from '@/db/schema';
 
@@ -18,7 +20,9 @@ export const MIN_COMMISSION = 0;
 export const MAX_COMMISSION = 50;
 
 /** 商品名が空のときに商品名欄へ出す警告（SPEC §5.2）。他の欄には警告を出さない */
-export const ITEM_NAME_REQUIRED_MESSAGE = '⚠️ 商品名を入力してください';
+export function itemNameRequiredMessage(locale: Locale): string {
+  return t('form.itemNameRequired', locale);
+}
 
 /** フォームの一時状態（Swift 版 RecordFormView の @State 群に対応） */
 export type RecordFormValues = {

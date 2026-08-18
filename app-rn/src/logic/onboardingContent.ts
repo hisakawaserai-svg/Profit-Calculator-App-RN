@@ -91,14 +91,16 @@ export const ONBOARDING_TARGET_PROFIT_EXAMPLE = 5000;
  * 資材費（materialCost）を持たせてあるのは、送料プリセットが「送料のみ／＋資材」の
  * 2 択を持つ実物の挙動（PresetRow の belowName）まで見せるため。
  */
-export const ONBOARDING_SHIPPING_PRESET_EXAMPLE = {
-  type: 'shipping',
-  name: '宅配 60サイズ',
-  initial: '60',
-  colorKey: 'green',
-  value: 750,
-  materialCost: 100,
-} as const;
+export function onboardingShippingPresetExample(locale: Locale) {
+  return {
+    type: 'shipping',
+    name: t('onboarding.examplePresetShipping', locale),
+    initial: '60',
+    colorKey: 'green',
+    value: 750,
+    materialCost: 100,
+  } as const;
+}
 
 /**
  * プリセットページの販売サイト（手数料）プリセットの題材。送料・梱包材だけでなく
@@ -107,13 +109,15 @@ export const ONBOARDING_SHIPPING_PRESET_EXAMPLE = {
  * 名前は実在のサービス名を挙げず、設定タブの開発用シード（手数料10%等）と同じ
  * 「手数料そのものを名前にする」形にしてある。
  */
-export const ONBOARDING_SITE_PRESET_EXAMPLE = {
-  type: 'site',
-  name: '手数料10%',
-  initial: '10',
-  colorKey: 'red',
-  value: 10,
-} as const;
+export function onboardingSitePresetExample(locale: Locale) {
+  return {
+    type: 'site',
+    name: t('onboarding.examplePresetSite', locale),
+    initial: '10',
+    colorKey: 'red',
+    value: 10,
+  } as const;
+}
 
 /** 3 ページ目（保存の仕方）の商品名欄に出す記入済みの例。空欄のプレースホルダではなく
  * 「実際に入れた状態」を見せる（構成の指定） */
@@ -136,13 +140,15 @@ export function onboardingTagExample(locale: Locale): string {
  * 「電卓から呼び出す」図（PresetMultiPickerSheet の簡易再現）の両方に同じ 1 件として使うため
  * （構成の指定「設定した梱包材のプリセットは電卓から呼び出すことを矢印で表して」）。
  */
-export const ONBOARDING_PACKAGING_PRESET_EXAMPLE = {
-  name: '緩衝材（小）',
-  initial: '緩',
-  colorKey: 'orange',
-  packPrice: 500,
-  packQuantity: 10,
-} as const;
+export function onboardingPackagingPresetExample(locale: Locale) {
+  return {
+    name: t('onboarding.examplePresetPackaging', locale),
+    initial: t('onboarding.examplePresetPackagingInitial', locale),
+    colorKey: 'orange',
+    packPrice: 500,
+    packQuantity: 10,
+  } as const;
+}
 
 /**
  * 5 ページ目の丸アイコンに使う 5 ジャンル（構成の指定「紫・緑・ティール・青・オレンジ」）。

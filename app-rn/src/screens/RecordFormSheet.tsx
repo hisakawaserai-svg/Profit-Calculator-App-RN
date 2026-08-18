@@ -108,7 +108,7 @@ import { commissionCost, netProfit } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import {
-  ITEM_NAME_REQUIRED_MESSAGE,
+  itemNameRequiredMessage,
   MAX_COMMISSION,
   MIN_COMMISSION,
   canSave,
@@ -466,7 +466,7 @@ function RecordForm({
             <Text
               style={[styles.itemNameCaption, { color: hasError ? colors.red : colors.secondaryLabel }]}
               accessibilityRole={hasError ? 'alert' : undefined}>
-              {hasError ? ITEM_NAME_REQUIRED_MESSAGE : itemNameCaption(locale)}
+              {hasError ? itemNameRequiredMessage(locale) : itemNameCaption(locale)}
             </Text>
           </PhotoField>
 
