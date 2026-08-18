@@ -39,15 +39,16 @@ import {
 } from '@/logic/analytics';
 import { formatCompactYen, formatSignedYenSymbol } from '@/logic/format';
 import {
-  CLEAR_SELECTION_LABEL,
-  DATA_MODE_ACHIEVEMENTS_LABEL,
-  DATA_MODE_PROFIT_LABEL,
-  DATA_MODE_TAG_LABEL,
-  TAG_PROFIT_TREND_LABEL,
-  TAG_SECTION_LIST_MODE_LABEL,
-  TAG_SECTION_OVERLAY_MODE_LABEL,
-  TAG_SPARKLINE_NOTE,
-  UNCLASSIFIED_TAG_LABEL,
+  clearSelectionLabel,
+  dataModeAchievementsLabel,
+  dataModeProfitLabel,
+  dataModeTagLabel,
+  tagProfitTrendLabel,
+  tagSectionListModeLabel,
+  tagSectionOverlayModeLabel,
+  tagOverlayEmptyNote,
+  tagSparklineNote,
+  unclassifiedTagLabel,
   periodTitle,
   profitRateSummaryValue,
   recordCountValue,
@@ -59,10 +60,11 @@ import {
 import type { Period } from '@/logic/period';
 import { resolvePresetTone } from '@/logic/preset';
 import type { RankedTagProfit } from '@/logic/profit';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 export type TagProfitSectionItem = RankedTagProfit & {
-  /** タグ名。tagId が null（未分類）なら呼び出し側は UNCLASSIFIED_TAG_LABEL を渡す */
+  /** タグ名。tagId が null（未分類）なら呼び出し側は unclassifiedTagLabel(locale) を渡す */
   name: string;
   /** バッジ・線の色。未分類（tagId: null）は色を持たないので null */
   colorKey: string | null;
@@ -103,7 +105,7 @@ type Props = {
   sparklineSeriesByTag: Map<string | null, ChartPoint[]>;
   /**
    * スパークラインの共通 Y 軸範囲（combinedAxisBounds）。**全タグで 1 組を共有する** ──
-   * 個々のタグで自動フィットさせると高さが比較できなくなるため（TAG_SPARKLINE_NOTE 参照）。
+   * 個々のタグで自動フィットさせると高さが比較できなくなるため（tagSparklineNote(locale) 参照）。
    */
   sparklineBounds: CombinedAxisBounds;
   /** 「重ねる」モードのチェック状態。モードを切り替えても呼び出し側で保持される */
@@ -140,6 +142,10 @@ export function TagProfitSection({
   selectedTagId,
   onSelectTag,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [zeroExpanded, setZeroExpanded] = useState(false);
   const isOverlay = viewMode === TAG_VIEW_MODE_OVERLAY;
@@ -150,7 +156,7 @@ export function TagProfitSection({
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
       {dataMode != null && onChangeDataMode != null && (
         <DataModeTabs
-          options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+          options={[dataModeProfitLabel(locale), dataModeTagLabel(locale), dataModeAchievementsLabel(locale)]}
           selectedIndex={dataMode}
           onChange={onChangeDataMode}
         />
@@ -158,14 +164,14 @@ export function TagProfitSection({
 
       <View style={styles.headerTop}>
         <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {tagSectionMetaText(periodTitle('ja', period), recordCountValue('ja', summary.recordCount))}
+          {tagSectionMetaText(locale, periodTitle(locale, period), recordCountValue(locale, summary.recordCount))}
         </Text>
 
         {/* 「一覧 / グラフ」切替は、今出ているカードの右上にだけ置く ── 「グラフ」のときは
             折れ線カード（TagProfitTrendCard）の見出しに移るので、ここには出さない */}
         {!isOverlay && (
           <SegmentedControl
-            options={[TAG_SECTION_LIST_MODE_LABEL, TAG_SECTION_OVERLAY_MODE_LABEL]}
+            options={[tagSectionListModeLabel(locale), tagSectionOverlayModeLabel(locale)]}
             selectedIndex={viewMode}
             onChange={onChangeViewMode}
             containerStyle={styles.modeToggle}
@@ -178,7 +184,7 @@ export function TagProfitSection({
         const medal = RANK_MEDALS[index];
         return (
           <Pressable
-            key={item.tagId ?? UNCLASSIFIED_TAG_LABEL}
+            key={item.tagId ?? unclassifiedTagLabel(locale)}
             onPress={() => onSelectTag?.(item.tagId)}
             accessibilityRole="button"
             style={[
@@ -216,9 +222,9 @@ export function TagProfitSection({
                 </Text>
               </View>
               <Text style={[styles.meta2, { color: colors.secondaryLabel }]} numberOfLines={1}>
-                {tagProfitMetaText(
-                  profitRateSummaryValue(item.profitRate),
-                  recordCountValue('ja', item.recordCount),
+                {tagProfitMetaText(locale, 
+                  profitRateSummaryValue(locale, item.profitRate),
+                  recordCountValue(locale, item.recordCount),
                 )}
               </Text>
             </View>
@@ -249,7 +255,7 @@ export function TagProfitSection({
             onPress={() => setZeroExpanded((current) => !current)}
             style={[styles.zeroToggleRow, { borderTopColor: colors.separator, borderTopWidth: StyleSheet.hairlineWidth }]}>
             <Text style={[styles.zeroToggleLabel, { color: colors.blue }]}>
-              {zeroRecordTagsToggleLabel(zeroRecordTags.length, zeroExpanded)}
+              {zeroRecordTagsToggleLabel(locale, zeroRecordTags.length, zeroExpanded)}
             </Text>
           </Pressable>
 
@@ -266,7 +272,7 @@ export function TagProfitSection({
       )}
 
       {!isOverlay && (
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_SPARKLINE_NOTE}</Text>
+        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{tagSparklineNote(locale)}</Text>
       )}
     </View>
   );
@@ -332,9 +338,6 @@ const X_LABEL_ROW_HEIGHT = 18;
 const TICK_LABEL_LIFT = 13;
 /** 選択中の点に置く丸印の半径。収支の推移グラフの SELECTED_DOT_RADIUS と同じ */
 const SELECTED_DOT_RADIUS = 4;
-
-/** タグを 1 つも選んでいないときの案内 */
-const TAG_TREND_EMPTY_MESSAGE = 'タグを選ぶと、ここに折れ線が重なって表示されます。';
 
 type TagTrendCardProps = {
   /** 色・名前を引くための全タグ（純利益の降順）。表示するのは overlaySelected に入っているぶんだけ */
@@ -410,6 +413,10 @@ export function TagProfitTrendCard({
   dataMode,
   onChangeDataMode,
 }: TagTrendCardProps) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const selectedIndex = axisPoints.findIndex((point) => point.key === selectedKey);
   const selectedPoint = selectedIndex < 0 ? null : axisPoints[selectedIndex];
@@ -419,16 +426,16 @@ export function TagProfitTrendCard({
   return (
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
       <DataModeTabs
-        options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+        options={[dataModeProfitLabel(locale), dataModeTagLabel(locale), dataModeAchievementsLabel(locale)]}
         selectedIndex={dataMode}
         onChange={onChangeDataMode}
       />
 
       <View style={styles.headerTop}>
-        <Text style={[styles.chartTitle, { color: colors.label }]}>{TAG_PROFIT_TREND_LABEL}</Text>
+        <Text style={[styles.chartTitle, { color: colors.label }]}>{tagProfitTrendLabel(locale)}</Text>
 
         <SegmentedControl
-          options={[TAG_SECTION_LIST_MODE_LABEL, TAG_SECTION_OVERLAY_MODE_LABEL]}
+          options={[tagSectionListModeLabel(locale), tagSectionOverlayModeLabel(locale)]}
           selectedIndex={viewMode}
           onChange={onChangeViewMode}
           containerStyle={styles.modeToggle}
@@ -437,7 +444,7 @@ export function TagProfitTrendCard({
 
       {legendItems.length === 0 ? (
         <Text style={[styles.emptyChartText, { color: colors.secondaryLabel }]}>
-          {TAG_TREND_EMPTY_MESSAGE}
+          {tagOverlayEmptyNote(locale)}
         </Text>
       ) : (
         <>
@@ -470,6 +477,10 @@ export function TagProfitTrendCard({
 
 /** グラフの下に常に出す凡例（チェック中のタグの色 ＋ 名前。ピル形にして見出しの帯と分ける） */
 function TagTrendLegendRow({ legendItems }: { legendItems: TagProfitSectionItem[] }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -480,7 +491,7 @@ function TagTrendLegendRow({ legendItems }: { legendItems: TagProfitSectionItem[
       contentContainerStyle={styles.legendRow}>
       {legendItems.map((item) => (
         <View
-          key={item.tagId ?? UNCLASSIFIED_TAG_LABEL}
+          key={item.tagId ?? unclassifiedTagLabel(locale)}
           style={[styles.legendChip, { backgroundColor: colors.disabledBackground }]}>
           <View style={[styles.legendDot, { backgroundColor: tagColor(item.colorKey, colors) }]} />
           <Text style={[styles.legendLabel, { color: colors.label }]} numberOfLines={1}>
@@ -518,6 +529,10 @@ function TagChartDaySummary({
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -528,7 +543,7 @@ function TagChartDaySummary({
             {formatPointDate(point.date, unit)}
           </Text>
           <Text style={[styles.daySummaryMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-            {tagChartDaySummaryMetaText(items.length, point.recordCount)}
+            {tagChartDaySummaryMetaText(locale, items.length, point.recordCount)}
           </Text>
         </View>
         <Text
@@ -540,7 +555,7 @@ function TagChartDaySummary({
           onPress={onClear}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={CLEAR_SELECTION_LABEL}
+          accessibilityLabel={clearSelectionLabel(locale)}
           style={[styles.daySummaryClear, { backgroundColor: colors.disabledBackground }]}>
           <Ionicons name="close" size={14} color={colors.secondaryLabel} />
         </Pressable>
@@ -548,7 +563,7 @@ function TagChartDaySummary({
 
       {items.map((item, index) => (
         <Pressable
-          key={item.tagId ?? UNCLASSIFIED_TAG_LABEL}
+          key={item.tagId ?? unclassifiedTagLabel(locale)}
           onPress={() => onSelectTag?.(item.tagId)}
           accessibilityRole="button"
           style={[
@@ -592,6 +607,10 @@ function TagTrendChartBody({
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
 
@@ -640,7 +659,7 @@ function TagTrendChartBody({
               const polyline = points.map((point, index) => `${x(index)},${y(point.profit)}`).join(' ');
               return (
                 <Polyline
-                  key={tagId ?? UNCLASSIFIED_TAG_LABEL}
+                  key={tagId ?? unclassifiedTagLabel(locale)}
                   points={polyline}
                   fill="none"
                   stroke={stroke}
@@ -671,7 +690,7 @@ function TagTrendChartBody({
                 const color = tagColor(item?.colorKey ?? null, colors);
                 return (
                   <Circle
-                    key={tagId ?? UNCLASSIFIED_TAG_LABEL}
+                    key={tagId ?? unclassifiedTagLabel(locale)}
                     cx={x(selectedIndex)}
                     cy={y(point.profit)}
                     r={SELECTED_DOT_RADIUS}
@@ -697,7 +716,7 @@ function TagTrendChartBody({
                     top: Math.max(0, y(level * step) - TICK_LABEL_LIFT),
                   },
                 ]}>
-                {formatCompactYen('ja', level * step)}
+                {formatCompactYen(locale, level * step)}
               </Text>
             ))}
           </View>

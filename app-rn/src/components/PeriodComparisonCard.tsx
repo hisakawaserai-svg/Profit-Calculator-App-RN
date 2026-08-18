@@ -13,17 +13,18 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
-  AMOUNT_PLACEHOLDER,
+  amountPlaceholder,
   periodComparisonAmountDiffText,
   periodComparisonCountDiffText,
+  recordCountValue,
   periodComparisonRateDiffText,
-  PER_RECORD_PROFIT_LABEL,
-  PERIOD_COMPARISON_EMPTY_TEXT,
-  PERIOD_COMPARISON_TITLE,
-  PROFIT_RATE_LABEL,
-  SOLD_COUNT_LABEL,
-  TOTAL_PROFIT_LABEL,
-  TOTAL_SALES_LABEL,
+  perRecordProfitLabel,
+  periodComparisonEmptyText,
+  periodComparisonTitle,
+  profitRateLabel,
+  soldCountLabel,
+  totalProfitLabel,
+  totalSalesLabel,
 } from '@/logic/labels';
 import { formatYenSymbol } from '@/logic/format';
 import type {
@@ -31,6 +32,7 @@ import type {
   ComparisonPerRecordProfitRow,
   PeriodComparisonMetrics,
 } from '@/logic/periodComparison';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -38,28 +40,32 @@ type Props = {
   label: string;
   /** 各行の比較対象側に添える短いラベル「7月」 */
   previousLabel: string;
-  /** 比較対象に売却済み記録が 1 件も無ければ null（PERIOD_COMPARISON_EMPTY_TEXT を出す） */
+  /** 比較対象に売却済み記録が 1 件も無ければ null（periodComparisonEmptyText(locale) を出す） */
   metrics: PeriodComparisonMetrics | null;
 };
 
 export function PeriodComparisonCard({ label, previousLabel, metrics }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
       <View style={styles.headRow}>
-        <Text style={[styles.title, { color: colors.label }]}>{PERIOD_COMPARISON_TITLE}</Text>
+        <Text style={[styles.title, { color: colors.label }]}>{periodComparisonTitle(locale)}</Text>
         <Text style={[styles.periodLabel, { color: colors.secondaryLabel }]}>{label}</Text>
       </View>
 
       {metrics == null ? (
         <Text style={[styles.emptyText, { color: colors.secondaryLabel }]}>
-          {PERIOD_COMPARISON_EMPTY_TEXT}
+          {periodComparisonEmptyText(locale)}
         </Text>
       ) : (
         <>
           <AmountRow
-            label={TOTAL_PROFIT_LABEL}
+            label={totalProfitLabel(locale)}
             row={metrics.netProfit}
             previousLabel={previousLabel}
             positiveColor={colors.green}
@@ -68,7 +74,7 @@ export function PeriodComparisonCard({ label, previousLabel, metrics }: Props) {
           />
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
           <AmountRow
-            label={TOTAL_SALES_LABEL}
+            label={totalSalesLabel(locale)}
             row={metrics.sales}
             previousLabel={previousLabel}
             positiveColor={colors.green}
@@ -76,21 +82,21 @@ export function PeriodComparisonCard({ label, previousLabel, metrics }: Props) {
             barColor={colors.blue}
           />
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-          <RateRow label={PROFIT_RATE_LABEL} previousLabel={previousLabel} metrics={metrics} />
+          <RateRow label={profitRateLabel(locale)} previousLabel={previousLabel} metrics={metrics} />
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
           <AmountRow
-            label={SOLD_COUNT_LABEL}
+            label={soldCountLabel(locale)}
             row={metrics.recordCount}
             previousLabel={previousLabel}
-            valueText={(value) => `${value}件`}
-            diffText={periodComparisonCountDiffText}
+            valueText={(value) => recordCountValue(locale, value)}
+            diffText={(diff) => periodComparisonCountDiffText(locale, diff)}
             positiveColor={colors.green}
             negativeColor={colors.red}
             barColor={colors.blue}
           />
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
           <PerRecordProfitRow
-            label={PER_RECORD_PROFIT_LABEL}
+            label={perRecordProfitLabel(locale)}
             row={metrics.perRecordProfit}
             previousLabel={previousLabel}
             positiveColor={colors.green}
@@ -158,6 +164,10 @@ function RateRow({
   previousLabel: string;
   metrics: PeriodComparisonMetrics;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { current, previous, diffPt } = metrics.profitRate;
   const diffColor = diffPt == null || diffPt >= 0 ? colors.green : colors.red;
@@ -166,11 +176,11 @@ function RateRow({
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: colors.secondaryLabel }]}>{label}</Text>
       <Text style={[styles.currentValue, { color: colors.label }]} numberOfLines={1}>
-        {current == null ? AMOUNT_PLACEHOLDER : `${current.toFixed(1)}%`}
+        {current == null ? amountPlaceholder(locale) : `${current.toFixed(1)}%`}
       </Text>
       <Text style={[styles.diffLine, { color: colors.secondaryLabel }]} numberOfLines={1}>
-        {previousLabel} {previous == null ? AMOUNT_PLACEHOLDER : `${previous.toFixed(1)}%`}{' '}
-        <Text style={{ color: diffColor }}>{periodComparisonRateDiffText(diffPt)}</Text>
+        {previousLabel} {previous == null ? amountPlaceholder(locale) : `${previous.toFixed(1)}%`}{' '}
+        <Text style={{ color: diffColor }}>{periodComparisonRateDiffText(locale, diffPt)}</Text>
       </Text>
     </View>
   );
@@ -179,7 +189,7 @@ function RateRow({
 /**
  * 1 件あたり利益（5 項目目・新規）。金額・件数と同じ形式（実額を大きく・差分を右寄せの 1 行・
  * ミニバー）だが、今期・前期のどちらかで件数が 0 なら periodProfitPerRecord が null を返すので
- * AMOUNT_PLACEHOLDER（「ーー」）にする（profitRate の null 表示と同じ扱い）。
+ * amountPlaceholder(locale)（「ーー」）にする（profitRate の null 表示と同じ扱い）。
  * その場合はミニバーも比べようがないので描かない。
  */
 function PerRecordProfitRow({
@@ -197,6 +207,10 @@ function PerRecordProfitRow({
   negativeColor: string;
   barColor: string;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const diffColor = row.diff == null ? colors.secondaryLabel : row.diff >= 0 ? positiveColor : negativeColor;
   const hasBars = row.current != null && row.previous != null;
@@ -205,12 +219,12 @@ function PerRecordProfitRow({
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: colors.secondaryLabel }]}>{label}</Text>
       <Text style={[styles.currentValue, { color: colors.label }]} numberOfLines={1}>
-        {row.current == null ? AMOUNT_PLACEHOLDER : formatYenSymbol(row.current)}
+        {row.current == null ? amountPlaceholder(locale) : formatYenSymbol(row.current)}
       </Text>
       <Text style={[styles.diffLine, { color: colors.secondaryLabel }]} numberOfLines={1}>
-        {previousLabel} {row.previous == null ? AMOUNT_PLACEHOLDER : formatYenSymbol(row.previous)}{' '}
+        {previousLabel} {row.previous == null ? amountPlaceholder(locale) : formatYenSymbol(row.previous)}{' '}
         <Text style={{ color: diffColor }}>
-          {row.diff == null ? AMOUNT_PLACEHOLDER : periodComparisonAmountDiffText(row.diff)}
+          {row.diff == null ? amountPlaceholder(locale) : periodComparisonAmountDiffText(row.diff)}
         </Text>
       </Text>
       {hasBars && (

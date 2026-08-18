@@ -338,17 +338,17 @@ describe('UI-SPEC §1.5 データタブの語', () => {
   });
 
   it('刻みは日ごと / 月ごと / 年ごとの 3 語（§5-5）', () => {
-    expect(chartUnitLabel('day')).toBe('日ごと');
-    expect(chartUnitLabel('month')).toBe('月ごと');
-    expect(chartUnitLabel('year')).toBe('年ごと');
+    expect(chartUnitLabel('ja', 'day')).toBe('日ごと');
+    expect(chartUnitLabel('ja', 'month')).toBe('月ごと');
+    expect(chartUnitLabel('ja', 'year')).toBe('年ごと');
   });
 
   it('凡例は棒が何かを言う（刻みの語を畳んである）', () => {
-    expect(chartBarLegendLabel('year')).toBe('年ごとの収支');
+    expect(chartBarLegendLabel('ja', 'year')).toBe('年ごとの収支');
   });
 
   it('選択した点の見出しは日付と件数を並べる（§1.5-5）', () => {
-    expect(selectedPointTitle('8月9日', 3)).toBe('8月9日の記録　3件');
+    expect(selectedPointTitle('ja', '8月9日', 3)).toBe('8月9日の記録　3件');
   });
 
   it('注記は年・全期間で何が変わるかを名指しする（年ごとへの切替も含めて。§1.5-6）', () => {
@@ -384,20 +384,20 @@ describe('UI-SPEC §1.5 データタブの語', () => {
   });
 
   it('タグ別利益ランキングの行の補足は率が何かを言う', () => {
-    expect(tagProfitMetaText('69.3%', '10件')).toBe(`${PROFIT_RATE_LABEL} 69.3%・10件`);
+    expect(tagProfitMetaText('ja', '69.3%', '10件')).toBe(`${PROFIT_RATE_LABEL} 69.3%・10件`);
   });
 
   it('タグ別利益ランキングの行タップで開く内訳一覧の見出しは selectedPointTitle と同じ形', () => {
-    expect(selectedTagTitle('洋服', 3)).toBe('洋服の記録　3件');
+    expect(selectedTagTitle('ja', '洋服', 3)).toBe('洋服の記録　3件');
   });
 
   it('タグ別の純利益セクションの見出し下の 1 行は期間・件数を語なしで並べる', () => {
-    expect(tagSectionMetaText('2026年', '22件')).toBe('2026年・22件');
+    expect(tagSectionMetaText('ja', '2026年', '22件')).toBe('2026年・22件');
   });
 
   it('記録のないタグの開閉行は開閉状態で語を変える', () => {
-    expect(zeroRecordTagsToggleLabel(3, false)).toBe('記録のない3タグを見る');
-    expect(zeroRecordTagsToggleLabel(3, true)).toBe('記録のない3タグを閉じる');
+    expect(zeroRecordTagsToggleLabel('ja', 3, false)).toBe('記録のない3タグを見る');
+    expect(zeroRecordTagsToggleLabel('ja', 3, true)).toBe('記録のない3タグを閉じる');
   });
 });
 
@@ -1064,44 +1064,44 @@ describe('帯グラフの割合の語', () => {
 // データタブ集計段直下の開閉行（案 1c）
 describe('開閉行の文言 detailsToggleLabel', () => {
   it('畳んでいるときは「詳細を見る」', () => {
-    expect(detailsToggleLabel(false)).toBe(DETAILS_EXPAND_LABEL);
-    expect(detailsToggleLabel(false)).toBe('詳細を見る');
+    expect(detailsToggleLabel('ja', false)).toBe(DETAILS_EXPAND_LABEL);
+    expect(detailsToggleLabel('ja', false)).toBe('詳細を見る');
   });
 
   it('開いているときは「閉じる」', () => {
-    expect(detailsToggleLabel(true)).toBe(DETAILS_COLLAPSE_LABEL);
-    expect(detailsToggleLabel(true)).toBe('閉じる');
+    expect(detailsToggleLabel('ja', true)).toBe(DETAILS_COLLAPSE_LABEL);
+    expect(detailsToggleLabel('ja', true)).toBe('閉じる');
   });
 });
 
 describe('展開時 3 列目の値 perRecordProfitValue', () => {
   it('黒字は formatSignedYenSymbol と同じ「+¥」表記（一覧の行・グラフカードと揃える）', () => {
-    expect(perRecordProfitValue(12686 / 9)).toBe('+¥1,410');
+    expect(perRecordProfitValue('ja', 12686 / 9)).toBe('+¥1,410');
   });
 
   it('**赤字は「-¥」の順**（formatYenSymbol 単体の「¥-」順ではない。一覧の行・グラフカードの選択値・帯グラフの不足額と同じ表記）', () => {
-    expect(perRecordProfitValue(-200)).toBe('-¥200');
+    expect(perRecordProfitValue('ja', -200)).toBe('-¥200');
   });
 
   it('**null（0 件で割れない）は AMOUNT_PLACEHOLDER（「ーー」）**', () => {
-    expect(perRecordProfitValue(null)).toBe(AMOUNT_PLACEHOLDER);
-    expect(perRecordProfitValue(null)).toBe('ーー');
+    expect(perRecordProfitValue('ja', null)).toBe(AMOUNT_PLACEHOLDER);
+    expect(perRecordProfitValue('ja', null)).toBe('ーー');
   });
 });
 
 describe('展開時 4 列目の値 averageSaleDaysValue', () => {
   it('小数第 1 位までの「◯日」表記', () => {
-    expect(averageSaleDaysValue(5)).toBe('5.0日');
-    expect(averageSaleDaysValue(2.5)).toBe('2.5日');
+    expect(averageSaleDaysValue('ja', 5)).toBe('5.0日');
+    expect(averageSaleDaysValue('ja', 2.5)).toBe('2.5日');
   });
 
   it('0 日（当日売却）もそのまま表示する', () => {
-    expect(averageSaleDaysValue(0)).toBe('0.0日');
+    expect(averageSaleDaysValue('ja', 0)).toBe('0.0日');
   });
 
   it('**null（対象 0 件）は AMOUNT_PLACEHOLDER（「ーー」）**', () => {
-    expect(averageSaleDaysValue(null)).toBe(AMOUNT_PLACEHOLDER);
-    expect(averageSaleDaysValue(null)).toBe('ーー');
+    expect(averageSaleDaysValue('ja', null)).toBe(AMOUNT_PLACEHOLDER);
+    expect(averageSaleDaysValue('ja', null)).toBe('ーー');
   });
 });
 

@@ -641,7 +641,7 @@ export function ChartReadingFigure() {
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
           <Text style={[styles.legendText, { color: colors.secondaryLabel }]}>
-            {chartBarLegendLabel('day')}
+            {chartBarLegendLabel('ja', 'day')}
           </Text>
         </View>
         <View style={styles.legendItem}>

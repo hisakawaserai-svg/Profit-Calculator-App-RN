@@ -41,4 +41,9 @@ export const MIGRATED_FILES = [
   'src/components/PriceLine.tsx',
   // 区切り 2-6: 値下げシミュレータの帯
   'src/components/MiniBreakdownBar.tsx',
+  // 区切り 5: データタブ
+  'src/screens/DataScreen.tsx',
+  'src/components/FilterNoticeRow.tsx',
+  'src/components/PeriodComparisonCard.tsx',
+  'src/components/TagProfitSection.tsx',
 ] as const;

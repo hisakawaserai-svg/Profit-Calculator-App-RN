@@ -78,6 +78,8 @@ export const ja = {
      * 種別語（純利益 / 利益）ではなく中立語にする ── 混ざった合計を種別語では呼べない（§5.2）
      */
     totalProfit: '収支',
+    /** 文中に埋め込むとき。英語だけ小文字にする（Cumulative net total）── profitInline と同じ */
+    totalProfitInline: '収支',
     totalSales: '売上',
     totalSalesAmount: '売上総額',
     deducted: '引かれる分',
@@ -518,6 +520,65 @@ export const ja = {
     targetAchievementBadge: '目標より {{diff}}',
     targetShortfallPast: '目標まであと{{amount}}でした',
     soldPerDayCaption: '仕入品のみ表示',
+  },
+
+  /** データタブ（グラフ・タグ別・期間比較。UI-SPEC §1.5） */
+  data: {
+    modeProfit: '収支',
+    modeTag: 'タグ',
+    modeAchievements: '実績',
+    profitTrend: '{{total}}の推移',
+    cumulativeProfit: '累計{{total}}',
+    cumulativeValue: '累計 {{amount}}',
+    noSoldData: '売却済みのデータがありません',
+    clearSelection: '選択を解除',
+    selectedRecordsCollapse: '閉じる',
+    detailsExpand: '詳細を見る',
+    detailsCollapse: '閉じる',
+    /** グラフの刻み。軸の凡例と説明文が同じ語を使う */
+    unitDay: '日ごと',
+    unitMonth: '月ごと',
+    unitYear: '年ごと',
+    /** 凡例の文中に埋め込むとき。英語だけ小文字にする（Net total by month） */
+    unitDayInline: '日ごと',
+    unitMonthInline: '月ごと',
+    unitYearInline: '年ごと',
+    chartBarLegend: '{{unit}}の{{total}}',
+    chartUnitNote:
+      '年や{{all}}を選ぶと刻みが「{{month}}」（{{all}}で記録が{{years}}年ぶんを超えると「{{year}}」）に変わり、見出しも選んだ期間の語（「〇〇年の{{total}}」「{{all}}の{{total}}」）になります。',
+    /** 期間サマリー段の 4 項目 */
+    profitRate: '利益率',
+    soldCount: '販売件数',
+    perRecordProfit: '1件あたり',
+    averageSaleDays: '平均販売日数',
+    averageSaleDaysValue: '{{days}}日',
+    profitRateValue: '{{rate}}%',
+    /** グラフの点をタップしたときの見出し */
+    selectedPointTitle: '{{date}}の記録　{{count}}件',
+    selectedRecordsShowMore: 'すべて見る（あと{{count}}件）',
+    /** 前期間比較（差分は矢印つき） */
+    periodComparisonTitle: '前期間比較',
+    periodComparisonEmpty: '比較対象のデータがありません',
+    periodComparisonCountDiff: '{{arrow}}{{sign}}{{count}}件',
+    periodComparisonRateDiff: '{{arrow}}{{sign}}{{value}}pt',
+    /** タグ別 */
+    tagProfitTrend: 'タグ別純利益の推移',
+    tagSectionList: '一覧',
+    tagSectionOverlay: 'グラフ',
+    tagOverlayEmptyNote: 'タグを選ぶと、ここに折れ線が重なって表示されます。',
+    tagSparklineNote: '小さな線は1月から12月。高さは全タグ共通の目盛りで、比べられます。',
+    unclassifiedTag: '未分類',
+    selectedTagTitle: '{{tag}}の記録　{{count}}件',
+    selectedTagChartTitle: '{{date}}の{{tag}}の記録　{{count}}件',
+    tagChartDaySummaryMeta: '{{tagCount}}タグ・{{records}}',
+    tagProfitMeta: '{{rateLabel}} {{rate}}・{{count}}',
+    tagSectionMeta: '{{period}}・{{count}}',
+    zeroRecordTagsShow: '記録のない{{count}}タグを見る',
+    zeroRecordTagsHide: '記録のない{{count}}タグを閉じる',
+    /** 絞り込みの通知バー */
+    filterClear: '解除',
+    filterClearAction: '解除する',
+    filterNoticeHint: '絞り込みの条件を変えます',
   },
 
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----

@@ -83,23 +83,23 @@ import {
   type RankedTagProfit,
 } from '@/logic/profit';
 import {
-  AVERAGE_SALE_DAYS_LABEL,
-  CHART_UNIT_NOTE,
-  CLEAR_SELECTION_LABEL,
-  CUMULATIVE_PROFIT_LABEL,
-  DATA_MODE_ACHIEVEMENTS_LABEL,
-  DATA_MODE_PROFIT_LABEL,
-  DATA_MODE_TAG_LABEL,
-  DATA_TAB_LABEL,
-  EXPENSES_LABEL,
-  FILTER_LABEL,
-  NO_SOLD_DATA_MESSAGE,
-  PER_RECORD_PROFIT_LABEL,
-  PROFIT_RATE_LABEL,
-  PROFIT_TREND_LABEL,
-  SOLD_COUNT_LABEL,
-  TOTAL_SALES_LABEL,
-  UNCLASSIFIED_TAG_LABEL,
+  averageSaleDaysLabel,
+  chartUnitNote,
+  clearSelectionLabel,
+  cumulativeProfitLabel,
+  dataModeAchievementsLabel,
+  dataModeProfitLabel,
+  dataModeTagLabel,
+  dataTabLabel,
+  expensesLabel,
+  filterLabel,
+  noSoldDataMessage,
+  perRecordProfitLabel,
+  profitRateLabel,
+  profitTrendLabel,
+  soldCountLabel,
+  totalSalesLabel,
+  unclassifiedTagLabel,
   averageSaleDaysValue,
   chartBarLegendLabel,
   cumulativeValueLabel,
@@ -109,7 +109,7 @@ import {
   profitRateSummaryValue,
   recordCountValue,
   recordDetailAccessibilityLabel,
-  SELECTED_RECORDS_COLLAPSE_LABEL,
+  selectedRecordsCollapseLabel,
   selectedPointTitle,
   selectedRecordsShowMoreText,
   selectedTagChartTitle,
@@ -123,6 +123,7 @@ import {
   type RecordFilterDraft,
 } from '@/logic/recordFilter';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 0 より上の描画高さ（負の段がないときの本体の高さ） */
@@ -262,6 +263,10 @@ function helpEntryForMode(mode: number): HelpEntryId {
 }
 
 export function DataScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
 
@@ -402,12 +407,12 @@ export function DataScreen() {
     (ranked: RankedTagProfit[]): TagProfitSectionItem[] =>
       ranked.flatMap((item): TagProfitSectionItem[] => {
         if (item.tagId == null) {
-          return [{ ...item, name: UNCLASSIFIED_TAG_LABEL, colorKey: null }];
+          return [{ ...item, name: unclassifiedTagLabel(locale), colorKey: null }];
         }
         const tag = tags.find((candidate) => candidate.id === item.tagId);
         return tag == null ? [] : [{ ...item, name: tag.name, colorKey: tag.colorKey }];
       }),
-    [tags],
+    [tags, locale],
   );
   const allTagRanking: TagProfitSectionItem[] = useMemo(
     () => joinTagRanking(allTagProfits(tagProfits)),
@@ -448,8 +453,8 @@ export function DataScreen() {
   );
   const [tagTrendSelected, setTagTrendSelected] = useState(initialTagTrendSelected);
   const tagTrendResetKey = useMemo(
-    () => allTagRanking.map((item) => item.tagId ?? UNCLASSIFIED_TAG_LABEL).join('|'),
-    [allTagRanking],
+    () => allTagRanking.map((item) => item.tagId ?? unclassifiedTagLabel(locale)).join('|'),
+    [allTagRanking, locale],
   );
   const [lastTagTrendResetKey, setLastTagTrendResetKey] = useState(tagTrendResetKey);
   if (tagTrendResetKey !== lastTagTrendResetKey) {
@@ -485,7 +490,7 @@ export function DataScreen() {
       .filter((row) => row.key === tagChartSelectedKey)
       .flatMap((row): TagChartBreakdownItem[] => {
         if (row.tagId == null) {
-          return [{ tagId: null, name: UNCLASSIFIED_TAG_LABEL, colorKey: null, profit: row.profit }];
+          return [{ tagId: null, name: unclassifiedTagLabel(locale), colorKey: null, profit: row.profit }];
         }
         const tag = tags.find((candidate) => candidate.id === row.tagId);
         return tag == null
@@ -493,7 +498,7 @@ export function DataScreen() {
           : [{ tagId: row.tagId, name: tag.name, colorKey: tag.colorKey, profit: row.profit }];
       })
       .sort((a, b) => b.profit - a.profit);
-  }, [tagSeries, tagChartSelectedKey, tags]);
+  }, [tagSeries, tagChartSelectedKey, tags, locale]);
 
   /**
    * タグ別内訳（tagChartBreakdown）の行をさらにタップしたときの記録一覧。こちらは集計済みの
@@ -687,14 +692,14 @@ export function DataScreen() {
   // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel('ja', period),
+    label: periodProfitLabel(locale, period),
     value: formatYenSymbol(summary.totalNetProfit),
     // 収支は赤字になり得るので、符号で色を変える（一覧の行・計算タブと同じ規則）
     color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
   };
   const contextValues: [DataSummaryValue, DataSummaryValue] = [
-    { label: TOTAL_SALES_LABEL, value: formatYenSymbol(summary.totalSales), color: colors.blue },
-    { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
+    { label: totalSalesLabel(locale), value: formatYenSymbol(summary.totalSales), color: colors.blue },
+    { label: expensesLabel(locale), value: formatYenSymbol(summary.totalExpenses), color: colors.red },
   ];
 
   /**
@@ -707,19 +712,19 @@ export function DataScreen() {
    */
   const detailItems: [DataDetailItem, DataDetailItem, DataDetailItem, DataDetailItem] = [
     {
-      label: PROFIT_RATE_LABEL,
-      value: profitRateSummaryValue(periodProfitRate(summary.totalSales, summary.totalNetProfit)),
+      label: profitRateLabel(locale),
+      value: profitRateSummaryValue(locale, periodProfitRate(summary.totalSales, summary.totalNetProfit)),
       color: colors.label,
     },
-    { label: SOLD_COUNT_LABEL, value: recordCountValue('ja', summary.recordCount), color: colors.label },
+    { label: soldCountLabel(locale), value: recordCountValue(locale, summary.recordCount), color: colors.label },
     {
-      label: PER_RECORD_PROFIT_LABEL,
-      value: perRecordProfitValue(periodProfitPerRecord(summary.totalNetProfit, summary.recordCount)),
+      label: perRecordProfitLabel(locale),
+      value: perRecordProfitValue(locale, periodProfitPerRecord(summary.totalNetProfit, summary.recordCount)),
       color: colors.label,
     },
     {
-      label: AVERAGE_SALE_DAYS_LABEL,
-      value: averageSaleDaysValue(averageSaleDays),
+      label: averageSaleDaysLabel(locale),
+      value: averageSaleDaysValue(locale, averageSaleDays),
       color: colors.label,
     },
   ];
@@ -727,10 +732,10 @@ export function DataScreen() {
   // UI-SPEC §1.5-1: ヘッダの右は「？」だけ
   const screenOptions = useMemo(
     () => ({
-      title: DATA_TAB_LABEL,
+      title: dataTabLabel(locale),
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
-    [],
+    [locale],
   );
 
   return (
@@ -749,7 +754,7 @@ export function DataScreen() {
             filter={{
               active: filterCount > 0,
               onPress: openFilterPage,
-              accessibilityLabel: FILTER_LABEL,
+              accessibilityLabel: filterLabel(locale),
             }}
           />
         )}
@@ -778,7 +783,7 @@ export function DataScreen() {
               <DataDetailsToggle
                 expanded={detailsExpanded}
                 onToggle={() => setDetailsExpanded((expanded) => !expanded)}
-                toggleLabel={detailsToggleLabel(detailsExpanded)}
+                toggleLabel={detailsToggleLabel(locale, detailsExpanded)}
                 items={detailItems}
               />
 
@@ -787,13 +792,13 @@ export function DataScreen() {
                   {/* 「収支」「タグ」「実績」の 3 択（計算タブの「利益を出す/目標から逆算」と同じ考え方）。
                       カードの上端に置く ── 独立した行として挟むと、その分だけ縦に伸びる */}
                   <DataModeTabs
-                    options={[DATA_MODE_PROFIT_LABEL, DATA_MODE_TAG_LABEL, DATA_MODE_ACHIEVEMENTS_LABEL]}
+                    options={[dataModeProfitLabel(locale), dataModeTagLabel(locale), dataModeAchievementsLabel(locale)]}
                     selectedIndex={mode}
                     onChange={setMode}
                   />
 
                   <Text style={[styles.chartTitle, { color: colors.label }]}>
-                    {PROFIT_TREND_LABEL}
+                    {profitTrendLabel(locale)}
                   </Text>
                   {/* 見出しの下の 1 行。**未選択なら凡例・選択中は押した点の値**（案 38b）。
                       高さは選択の有無で変えない（伸び縮みするとカードの下が動く） */}
@@ -832,7 +837,7 @@ export function DataScreen() {
                   />
                 )}
 
-                <Text style={[styles.note, { color: colors.secondaryLabel }]}>{CHART_UNIT_NOTE}</Text>
+                <Text style={[styles.note, { color: colors.secondaryLabel }]}>{chartUnitNote(locale)}</Text>
 
                 {/* 前期間比較（新規セクション）。全期間選択中は基準となる前期間が無いので comparison が
                     null になり、そのままセクションごと出ない（logic/periodComparison.ts） */}
@@ -852,7 +857,7 @@ export function DataScreen() {
               <DataDetailsToggle
                 expanded={detailsExpanded}
                 onToggle={() => setDetailsExpanded((expanded) => !expanded)}
-                toggleLabel={detailsToggleLabel(detailsExpanded)}
+                toggleLabel={detailsToggleLabel(locale, detailsExpanded)}
                 items={detailItems}
               />
 
@@ -887,7 +892,7 @@ export function DataScreen() {
                       )}
                       tagName={
                         tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
-                          ?.name ?? UNCLASSIFIED_TAG_LABEL
+                          ?.name ?? unclassifiedTagLabel(locale)
                       }
                       details={tagChartTagDetails}
                       strikeBadges={strikeBadges}
@@ -919,7 +924,7 @@ export function DataScreen() {
                     <SelectedTagList
                       tagName={
                         allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
-                        UNCLASSIFIED_TAG_LABEL
+                        unclassifiedTagLabel(locale)
                       }
                       details={tagDetails}
                       strikeBadges={strikeBadges}
@@ -979,12 +984,16 @@ export function DataScreen() {
 
 /** データが 1 点もないときの表示（Swift 版の chart.bar.xaxis プレースホルダ） */
 function EmptyChart() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={styles.emptyChart}>
       <Ionicons name="bar-chart-outline" size={40} color={colors.secondaryLabel} />
-      <Text style={{ color: colors.secondaryLabel }}>{NO_SOLD_DATA_MESSAGE}</Text>
+      <Text style={{ color: colors.secondaryLabel }}>{noSoldDataMessage(locale)}</Text>
     </View>
   );
 }
@@ -1036,6 +1045,10 @@ function ChartHeadRow({
   /** 選択中の点と、その点までの累計。null = 未選択（凡例を出す） */
   selected: { point: ChartPoint; cumulative: number } | null;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   /** 棒の見本。**選択中はその日の棒と同じ色**にする（赤字の日は赤い棒なので見本も赤） */
@@ -1051,7 +1064,7 @@ function ChartHeadRow({
           {/* 見本はグラフの棒そのものの形と色にする（縦長・緑） */}
           {barSwatch}
           <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>
-            {chartBarLegendLabel(unit)}
+            {chartBarLegendLabel(locale, unit)}
           </Text>
         </View>
         {showCumulative && (
@@ -1063,7 +1076,7 @@ function ChartHeadRow({
           <View style={[styles.legendItem, cumulativeOnRight && styles.legendItemTrailing]}>
             {lineSwatch}
             <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>
-              {CUMULATIVE_PROFIT_LABEL}
+              {cumulativeProfitLabel(locale)}
             </Text>
           </View>
         )}
@@ -1096,7 +1109,7 @@ function ChartHeadRow({
           {/* 累計は折れ線の色（藍）のまま ── 「どの系列か」を色で示しており、
               符号は数字の頭の「-」で読める（緑／赤は棒の側で使っている） */}
           <Text style={[styles.valueAmount, { color: colors.indigo }]} numberOfLines={1}>
-            {cumulativeValueLabel(formatYenSymbol(selected.cumulative))}
+            {cumulativeValueLabel(locale, formatYenSymbol(selected.cumulative))}
           </Text>
         </View>
       )}
@@ -1542,6 +1555,10 @@ function SelectedRecordsCard({
   onClear: () => void;
   onPressRecord: (record: SaleRecord) => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [expanded, setExpanded] = useState(false);
 
@@ -1558,7 +1575,7 @@ function SelectedRecordsCard({
           onPress={onClear}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={CLEAR_SELECTION_LABEL}
+          accessibilityLabel={clearSelectionLabel(locale)}
           style={[styles.clearButton, { backgroundColor: colors.disabledBackground }]}>
           <Ionicons name="close" size={14} color={colors.secondaryLabel} />
         </Pressable>
@@ -1570,7 +1587,7 @@ function SelectedRecordsCard({
           style={[styles.rowCard, { backgroundColor: colors.background }]}
           onPress={() => onPressRecord(record)}
           accessibilityRole="button"
-          accessibilityLabel={recordDetailAccessibilityLabel('ja', record.itemName)}>
+          accessibilityLabel={recordDetailAccessibilityLabel(locale, record.itemName)}>
           <RecordRow
             record={record}
             isSoldMode
@@ -1586,7 +1603,7 @@ function SelectedRecordsCard({
           hitSlop={8}
           style={styles.showAllButton}>
           <Text style={[styles.showAllText, { color: colors.blue }]}>
-            {selectedRecordsShowMoreText(hiddenCount)}
+            {selectedRecordsShowMoreText(locale, hiddenCount)}
           </Text>
         </Pressable>
       )}
@@ -1598,7 +1615,7 @@ function SelectedRecordsCard({
           hitSlop={8}
           style={styles.showAllButton}>
           <Text style={[styles.showAllText, { color: colors.secondaryLabel }]}>
-            {SELECTED_RECORDS_COLLAPSE_LABEL}
+            {selectedRecordsCollapseLabel(locale)}
           </Text>
         </Pressable>
       )}
@@ -1622,7 +1639,11 @@ function SelectedPointList({
   onClear: () => void;
   onPressRecord: (record: SaleRecord) => void;
 }) {
-  const title = selectedPointTitle(formatPointDate(point.date, unit), point.recordCount);
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  const title = selectedPointTitle(locale, formatPointDate(point.date, unit), point.recordCount);
   return (
     // key で選択のたびに作り直す ── 前の点で開いた「すべて見る」が次の点にも残らないようにするため
     <SelectedRecordsCard
@@ -1653,7 +1674,11 @@ function SelectedTagList({
   onClear: () => void;
   onPressRecord: (record: SaleRecord) => void;
 }) {
-  const title = selectedTagTitle(tagName, details.length);
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  const title = selectedTagTitle(locale, tagName, details.length);
   return (
     <SelectedRecordsCard
       key={title}
@@ -1685,7 +1710,11 @@ function SelectedTagChartTagList({
   onClear: () => void;
   onPressRecord: (record: SaleRecord) => void;
 }) {
-  const title = selectedTagChartTitle(dateText, tagName, details.length);
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  const title = selectedTagChartTitle(locale, dateText, tagName, details.length);
   return (
     <SelectedRecordsCard
       key={title}

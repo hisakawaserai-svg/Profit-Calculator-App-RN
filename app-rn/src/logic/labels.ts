@@ -865,28 +865,39 @@ export function targetProfitSummary(locale: Locale, targetProfit: number | null)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** グラフカードの見出し（UI-SPEC §1.5-4）。指標が 1 つになったので固定文言 */
-export const PROFIT_TREND_LABEL = `${t('amount.totalProfit', 'ja')}の推移`;
+export function profitTrendLabel(locale: Locale): string {
+  return t('data.profitTrend', locale, { total: totalProfitLabel(locale) });
+}
 
 /**
  * 集計の対象が 1 件も無いとき（UI-SPEC §1.5）。この画面は**売れた記録だけ**を見るので、
  * 「記録がない」ではなく「売却済みが無い」と言う ── 出品中の記録は持っているのに
  * 「記録がありません」と出ると、消えたのかと読める。
  */
-export const NO_SOLD_DATA_MESSAGE = '売却済みのデータがありません';
+export function noSoldDataMessage(locale: Locale): string {
+  return t('data.noSoldData', locale);
+}
 
 /**
  * 現在の刻み（UI-SPEC §1.5-4）。**表示のみで押せない** ──
  * 刻みは期間から自動で決まり、選ばせる操作ではないため（§5-5）。
  * 単独では出さず、凡例の棒の側の語に組み込む（chartBarLegendLabel）。
  */
-const CHART_UNIT_LABELS: Record<ChartUnit, string> = {
-  day: '日ごと',
-  month: '月ごと',
-  year: '年ごと',
-};
+const CHART_UNIT_KEYS = {
+  day: 'data.unitDay',
+  month: 'data.unitMonth',
+  year: 'data.unitYear',
+} as const satisfies Record<ChartUnit, TranslationKey>;
 
-export function chartUnitLabel(unit: ChartUnit): string {
-  return CHART_UNIT_LABELS[unit];
+/** 文中に埋め込む刻みの語（英語だけ小文字。「Net total by month」） */
+const CHART_UNIT_INLINE_KEYS = {
+  day: 'data.unitDayInline',
+  month: 'data.unitMonthInline',
+  year: 'data.unitYearInline',
+} as const satisfies Record<ChartUnit, TranslationKey>;
+
+export function chartUnitLabel(locale: Locale, unit: ChartUnit): string {
+  return t(CHART_UNIT_KEYS[unit], locale);
 }
 
 /**
@@ -896,15 +907,21 @@ export function chartUnitLabel(unit: ChartUnit): string {
  * 「日ごと」を 2 か所に出す必要がない。凡例と刻みで別々に場所を取ると、
  * グラフ 1 つに説明が 2 段付くことになる。
  */
-export function chartBarLegendLabel(unit: ChartUnit): string {
-  return `${chartUnitLabel(unit)}の${t('amount.totalProfit', 'ja')}`;
+export function chartBarLegendLabel(locale: Locale, unit: ChartUnit): string {
+  // 凡例は 1 つの句なので、どちらも文中用の語を使う（英語で語中に大文字を立てない）
+  return t('data.chartBarLegend', locale, {
+    unit: t(CHART_UNIT_INLINE_KEYS[unit], locale),
+    total: totalProfitLabel(locale),
+  });
 }
 
 /**
  * 凡例の折れ線の側（UI-SPEC §1.5-4）。右軸が表すもの。
  * 起点は表示中の期間の先頭なので、最後の値は合計行の収支と一致する（logic/analytics 参照）。
  */
-export const CUMULATIVE_PROFIT_LABEL = `累計${t('amount.totalProfit', 'ja')}`;
+export function cumulativeProfitLabel(locale: Locale): string {
+  return t('data.cumulativeProfit', locale, { total: t('amount.totalProfitInline', locale) });
+}
 
 /**
  * 選択中の点の累計（UI-SPEC §1.5-4。案 38b）:「累計 ¥8,720」。
@@ -915,12 +932,14 @@ export const CUMULATIVE_PROFIT_LABEL = `累計${t('amount.totalProfit', 'ja')}`;
  * **未選択のときに最終の累計は出さない** ── 同じ値が集計段の「この月の収支」に出ているため
  * （折れ線の終点＝期間の合計）。同じ数字を 1 画面に 2 回出さない。
  */
-export function cumulativeValueLabel(amountText: string): string {
-  return `累計 ${amountText}`;
+export function cumulativeValueLabel(locale: Locale, amountText: string): string {
+  return t('data.cumulativeValue', locale, { amount: amountText });
 }
 
 /** 選択中の点を外すリンク（UI-SPEC §1.5-5）。点をもう一度押す経路は持たないので語で出す */
-export const CLEAR_SELECTION_LABEL = '選択を解除';
+export function clearSelectionLabel(locale: Locale): string {
+  return t('data.clearSelection', locale);
+}
 
 /**
  * 選択した点・タグの記録一覧（SelectedPointList 等）を 1 枚のカードにまとめたアコーディオン。
@@ -928,24 +947,26 @@ export const CLEAR_SELECTION_LABEL = '選択を解除';
  * 最初は先頭 3 件だけ見せ、「すべて見る」で残りを開く。件数が多い月・タグでもカードの高さが
  * 際限なく伸びないようにするため。
  */
-export function selectedRecordsShowMoreText(hiddenCount: number): string {
-  return `すべて見る（あと${groupDigits(hiddenCount)}件）`;
+export function selectedRecordsShowMoreText(locale: Locale, hiddenCount: number): string {
+  return t('data.selectedRecordsShowMore', locale, { count: groupDigits(hiddenCount) });
 }
 
 /** 上記アコーディオンを畳むボタン */
-export const SELECTED_RECORDS_COLLAPSE_LABEL = '閉じる';
+export function selectedRecordsCollapseLabel(locale: Locale): string {
+  return t('data.selectedRecordsCollapse', locale);
+}
 
 /** 選択した点の一覧の見出し（UI-SPEC §1.5-5）:「8月9日の記録　3件」 */
-export function selectedPointTitle(dateText: string, count: number): string {
-  return `${dateText}の記録　${count}件`;
+export function selectedPointTitle(locale: Locale, dateText: string, count: number): string {
+  return t('data.selectedPointTitle', locale, { date: dateText, count });
 }
 
 /**
  * タグ別利益ランキングの行タップで開く内訳一覧の見出し。selectedPointTitle と同じ形
  * （日付の代わりにタグ名を主語にする）。
  */
-export function selectedTagTitle(tagName: string, count: number): string {
-  return `${tagName}の記録　${count}件`;
+export function selectedTagTitle(locale: Locale, tagName: string, count: number): string {
+  return t('data.selectedTagTitle', locale, { tag: tagName, count });
 }
 
 /**
@@ -953,11 +974,12 @@ export function selectedTagTitle(tagName: string, count: number): string {
  * selectedPointTitle・selectedTagTitle と同じ形で、日付とタグ名の両方を主語にする。
  */
 export function selectedTagChartTitle(
+  locale: Locale,
   dateText: string,
   tagName: string,
   count: number,
 ): string {
-  return `${dateText}の${tagName}の記録　${count}件`;
+  return t('data.selectedTagChartTitle', locale, { date: dateText, tag: tagName, count });
 }
 
 /**
@@ -965,30 +987,42 @@ export function selectedTagChartTitle(
  * 「3タグ・3件」。日付そのもの（太字）に添える語で、対象の広さ（何タグ・何件ぶんの合計か）を言う。
  */
 export function tagChartDaySummaryMetaText(
+  locale: Locale,
   tagCount: number,
   recordCount: number,
 ): string {
-  return `${tagCount}タグ・${recordCountValue('ja', recordCount)}`;
+  return t('data.tagChartDaySummaryMeta', locale, {
+    tagCount,
+    records: recordCountValue(locale, recordCount),
+  });
 }
 
 /**
  * 期間サマリー段（グラフ直下・新規）の項目名。売上・収支（t('amount.totalSales', 'ja') /
  * t('amount.totalProfit', 'ja')）に続く 2 項目 ── どちらもこの画面にしかない値なのでここで定義する。
  */
-export const PROFIT_RATE_LABEL = '利益率';
+export function profitRateLabel(locale: Locale): string {
+  return t('data.profitRate', locale);
+}
 /** 出品中を含まない「売れた」件数だけを数える（listingCountLabel('ja') とは対象が違う） */
-export const SOLD_COUNT_LABEL = '販売件数';
+export function soldCountLabel(locale: Locale): string {
+  return t('data.soldCount', locale);
+}
 
 /**
  * 利益率の表示。売上合計が 0（= 対象 0 件）で算出できないときは t('detail.amountPlaceholder', 'ja')
  * （「ーー」）── 0% だと「収支ちょうど 0」に読めてしまうため（periodProfitRate 参照）。
  */
-export function profitRateSummaryValue(rate: number | null): string {
-  return rate == null ? t('detail.amountPlaceholder', 'ja') : `${rate.toFixed(1)}%`;
+export function profitRateSummaryValue(locale: Locale, rate: number | null): string {
+  return rate == null
+    ? t('detail.amountPlaceholder', locale)
+    : t('data.profitRateValue', locale, { rate: rate.toFixed(1) });
 }
 
 /** 展開行の 3 列目（案 1c）。1 件あたりの純利益（= 純利益合計 ÷ 販売件数） */
-export const PER_RECORD_PROFIT_LABEL = '1件あたり';
+export function perRecordProfitLabel(locale: Locale): string {
+  return t('data.perRecordProfit', locale);
+}
 
 /**
  * 1 件あたり純利益の表示。販売件数が 0（periodProfitPerRecord が null）のときは
@@ -998,36 +1032,48 @@ export const PER_RECORD_PROFIT_LABEL = '1件あたり';
  * グラフカードの選択値・帯グラフの不足額と同じ表記）── formatYenSymbol だけを通すと
  * `¥-3,500`（¥ の直後にマイナス）になり、アプリ内の他の符号つき金額と順序が食い違う。
  */
-export function perRecordProfitValue(value: number | null): string {
-  return value == null ? t('detail.amountPlaceholder', 'ja') : formatSignedYenSymbol(value);
+export function perRecordProfitValue(locale: Locale, value: number | null): string {
+  return value == null ? t('detail.amountPlaceholder', locale) : formatSignedYenSymbol(value);
 }
 
 /** 展開行の 4 列目。記録日 → 販売日の経過日数の単純平均（periodAverageSaleDays） */
-export const AVERAGE_SALE_DAYS_LABEL = '平均販売日数';
+export function averageSaleDaysLabel(locale: Locale): string {
+  return t('data.averageSaleDays', locale);
+}
 
 /**
  * 平均販売日数の表示。対象記録が 0 件（日付逆転を除いて。periodAverageSaleDays が null）の
  * ときは t('detail.amountPlaceholder', 'ja')（「ーー」）── profitRateSummaryValue と同じ理由。
  * 小数第 1 位までにする（1 件あたり純利益と違って端数が出やすい平均値のため）。
  */
-export function averageSaleDaysValue(days: number | null): string {
-  return days == null ? t('detail.amountPlaceholder', 'ja') : `${days.toFixed(1)}日`;
+export function averageSaleDaysValue(locale: Locale, days: number | null): string {
+  return days == null
+    ? t('detail.amountPlaceholder', locale)
+    : t('data.averageSaleDaysValue', locale, { days: days.toFixed(1) });
 }
 
 /** 集計段直下の開閉行の文言（案 1c）。閉じているときにタップを促す語 / 開いているときに畳む語 */
-export const DETAILS_EXPAND_LABEL = '詳細を見る';
-export const DETAILS_COLLAPSE_LABEL = '閉じる';
+export function detailsExpandLabel(locale: Locale): string {
+  return t('data.detailsExpand', locale);
+}
+export function detailsCollapseLabel(locale: Locale): string {
+  return t('data.detailsCollapse', locale);
+}
 
-export function detailsToggleLabel(expanded: boolean): string {
-  return expanded ? DETAILS_COLLAPSE_LABEL : DETAILS_EXPAND_LABEL;
+export function detailsToggleLabel(locale: Locale, expanded: boolean): string {
+  return t(expanded ? 'data.detailsCollapse' : 'data.detailsExpand', locale);
 }
 
 /**
  * データタブ「収支」セクションの新規カード（logic/periodComparison.ts）。
  * 見出しと、比較対象が 0 件のときの代替文言。
  */
-export const PERIOD_COMPARISON_TITLE = '前期間比較';
-export const PERIOD_COMPARISON_EMPTY_TEXT = '比較対象のデータがありません';
+export function periodComparisonTitle(locale: Locale): string {
+  return t('data.periodComparisonTitle', locale);
+}
+export function periodComparisonEmptyText(locale: Locale): string {
+  return t('data.periodComparisonEmpty', locale);
+}
 
 /**
  * 金額差分の 1 行「▲+¥3,200」「▼-¥1,234」（前期間比較カード）。
@@ -1040,22 +1086,26 @@ export function periodComparisonAmountDiffText(diff: number): string {
 }
 
 /** 件数差分の 1 行「▲+2件」「▼-2件」（前期間比較カード。金額と同じ増減の記号規則） */
-export function periodComparisonCountDiffText(diff: number): string {
-  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
-  const sign = diff > 0 ? '+' : '';
-  return `${arrow}${sign}${diff}件`;
+export function periodComparisonCountDiffText(locale: Locale, diff: number): string {
+  return t('data.periodComparisonCountDiff', locale, {
+    arrow: diff > 0 ? '▲' : diff < 0 ? '▼' : '',
+    sign: diff > 0 ? '+' : '',
+    count: diff,
+  });
 }
 
 /**
  * 利益率差分の 1 行「▲+3.6pt」（前期間比較カード）。ポイント差なので % ではなく pt を付ける。
  * どちらかの期間の売上合計が 0 で比率が出せないときは t('detail.amountPlaceholder', 'ja')（「ーー」）。
  */
-export function periodComparisonRateDiffText(diffPt: number | null): string {
-  if (diffPt == null) return t('detail.amountPlaceholder', 'ja');
+export function periodComparisonRateDiffText(locale: Locale, diffPt: number | null): string {
+  if (diffPt == null) return t('detail.amountPlaceholder', locale);
   const rounded = Number(diffPt.toFixed(1));
-  const arrow = rounded > 0 ? '▲' : rounded < 0 ? '▼' : '';
-  const sign = rounded > 0 ? '+' : '';
-  return `${arrow}${sign}${rounded.toFixed(1)}pt`;
+  return t('data.periodComparisonRateDiff', locale, {
+    arrow: rounded > 0 ? '▲' : rounded < 0 ? '▼' : '',
+    sign: rounded > 0 ? '+' : '',
+    value: rounded.toFixed(1),
+  });
 }
 
 /**
@@ -1070,20 +1120,31 @@ export function periodComparisonRateDiffText(diffPt: number | null): string {
  * 読まれるのを先に外す。「年ごと」になるのは全期間が 3 年ぶんを超えたときだけ、と
  * 括弧の中で場所を限定しているのはそのため。
  */
-export const CHART_UNIT_NOTE =
-  `年や${t('period.all', 'ja')}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
-  `（${t('period.all', 'ja')}で記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
-  `見出しも選んだ期間の語（「〇〇年の${t('amount.totalProfit', 'ja')}」「${t('period.all', 'ja')}の${t('amount.totalProfit', 'ja')}」）になります。`;
+export function chartUnitNote(locale: Locale): string {
+  return t('data.chartUnitNote', locale, {
+    all: t('period.allInline', locale),
+    month: chartUnitLabel(locale, 'month'),
+    year: chartUnitLabel(locale, 'year'),
+    years: YEAR_UNIT_MONTH_THRESHOLD / 12,
+    total: totalProfitLabel(locale),
+  });
+}
 
 /** タグが 1 つも付いていない売れた記録をまとめる集計名（タグ別利益ランキングの 1 行） */
-export const UNCLASSIFIED_TAG_LABEL = '未分類';
+export function unclassifiedTagLabel(locale: Locale): string {
+  return t('data.unclassifiedTag', locale);
+}
 
 /**
  * タグ別利益ランキングの行の補足（「利益率 32.1%・8件」）。
- * 率だけだと何の%か初見で伝わらないため PROFIT_RATE_LABEL を頭に付ける。
+ * 率だけだと何の%か初見で伝わらないため t('data.profitRate', 'ja') を頭に付ける。
  */
-export function tagProfitMetaText(rateText: string, countText: string): string {
-  return `${PROFIT_RATE_LABEL} ${rateText}・${countText}`;
+export function tagProfitMetaText(locale: Locale, rateText: string, countText: string): string {
+  return t('data.tagProfitMeta', locale, {
+    rateLabel: t('data.profitRate', locale),
+    rate: rateText,
+    count: countText,
+  });
 }
 
 /**
@@ -1092,12 +1153,11 @@ export function tagProfitMetaText(rateText: string, countText: string): string {
  * 主題が薄まるため。detailsToggleLabel と同じ「開閉状態で語を変える」形。
  */
 export function zeroRecordTagsToggleLabel(
+  locale: Locale,
   count: number,
   expanded: boolean,
 ): string {
-  return expanded
-    ? `記録のない${count}タグを閉じる`
-    : `記録のない${count}タグを見る`;
+  return t(expanded ? 'data.zeroRecordTagsHide' : 'data.zeroRecordTagsShow', locale, { count });
 }
 
 /**
@@ -1105,41 +1165,56 @@ export function zeroRecordTagsToggleLabel(
  * **全タグ共通の目盛り**であることを言う ── 個々に自動フィットさせると高さがタグごとに
  * 意味を持たなくなり、「背が高い＝良い」に見えてしまうため（実装は combinedAxisBounds）。
  */
-export const TAG_SPARKLINE_NOTE =
-  '小さな線は1月から12月。高さは全タグ共通の目盛りで、比べられます。';
+/** 「重ねる」モードでタグを 1 つも選んでいないときの 1 行 */
+export function tagOverlayEmptyNote(locale: Locale): string {
+  return t('data.tagOverlayEmptyNote', locale);
+}
+
+export function tagSparklineNote(locale: Locale): string {
+  return t('data.tagSparklineNote', locale);
+}
 
 /**
  * タグ別の純利益セクション（案 1b）の 2 択。既定は「一覧」（行ごとの純利益・ランキング順）、
  * 「グラフ」で選んだタグぶんの折れ線を 1 枚に重ねた表示へ切り替える。
  * ボタンは常にどちらか出ている方のカードの右上に置く（一覧なら一覧カード、グラフならグラフカード）。
  */
-export const TAG_SECTION_LIST_MODE_LABEL = '一覧';
-export const TAG_SECTION_OVERLAY_MODE_LABEL = 'グラフ';
+export function tagSectionListModeLabel(locale: Locale): string {
+  return t('data.tagSectionList', locale);
+}
+export function tagSectionOverlayModeLabel(locale: Locale): string {
+  return t('data.tagSectionOverlay', locale);
+}
 
 /**
  * タグ別の純利益セクションの見出し下・小さな 1 行（「2026年・22件」）。
  * 大きく出す金額（期間合計の純利益）に、いつ・何件の話かを添える。
  */
 export function tagSectionMetaText(
+  locale: Locale,
   periodText: string,
   countText: string,
 ): string {
-  return `${periodText}・${countText}`;
+  return t('data.tagSectionMeta', locale, { period: periodText, count: countText });
 }
 
 /**
- * 「重ねる」モードのグラフカードの見出し。「収支の推移」カード（PROFIT_TREND_LABEL）と
+ * 「重ねる」モードのグラフカードの見出し。「収支の推移」カード（t('data.profitTrend', 'ja')）と
  * 同じ位置・同じ見た目で出す ── カードの仕様を収支のグラフと揃えるため。
  */
-export const TAG_PROFIT_TREND_LABEL = 'タグ別純利益の推移';
+export function tagProfitTrendLabel(locale: Locale): string {
+  return t('data.tagProfitTrend', locale);
+}
 
 /**
  * 対象のタグが 1 つも無い（= その期間に売れた記録が無い）ときの空状態。
  * tagProfits が空になる条件はグラフ本体の EmptyChart（series.length === 0）と同じ
  * （売れた記録が 1 件でもあれば、タグ無しでも「未分類」の 1 行として必ず候補に残るため）
- * なので、同じ NO_SOLD_DATA_MESSAGE を使う。
+ * なので、同じ data.noSoldData を使う。
  */
-export { NO_SOLD_DATA_MESSAGE as TAG_PROFIT_TREND_EMPTY_MESSAGE };
+export function tagProfitTrendEmptyMessage(locale: Locale): string {
+  return t('data.noSoldData', locale);
+}
 
 /**
  * データタブのセグメント（「収支」/「タグ」）。計算タブの「利益を出す/目標から逆算」と
@@ -1149,10 +1224,16 @@ export { NO_SOLD_DATA_MESSAGE as TAG_PROFIT_TREND_EMPTY_MESSAGE };
  * していたが、押さないと中身が見えず、収支と見比べたいときに行き来が面倒だった。
  * 同じ画面の中で切り替える形に戻し、期間・絞り込みは両モードで共有する（切替でリセットしない）。
  */
-export const DATA_MODE_PROFIT_LABEL = '収支';
-export const DATA_MODE_TAG_LABEL = 'タグ';
+export function dataModeProfitLabel(locale: Locale): string {
+  return t('data.modeProfit', locale);
+}
+export function dataModeTagLabel(locale: Locale): string {
+  return t('data.modeTag', locale);
+}
 /** 3 つ目のセグメント（案 3c）。累計・自己ベスト・実績バッジを見るモード（月バーとは無関係） */
-export const DATA_MODE_ACHIEVEMENTS_LABEL = '実績';
+export function dataModeAchievementsLabel(locale: Locale): string {
+  return t('data.modeAchievements', locale);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // データタブ「実績」（案 3c）の表示語。logic/achievements.ts の判定結果（Achievement /
@@ -2765,16 +2846,22 @@ export function filterClearAllLabel(locale: Locale): string {
 }
 
 /** 解除バー右端（§4.3）。「すべて解除」と同じことをするが、1 行に収めるので短い語にする */
-export const FILTER_CLEAR_LABEL = '解除';
+export function filterClearLabel(locale: Locale): string {
+  return t('data.filterClear', locale);
+}
 
 /**
  * 解除バーの本文を押したときの読み上げ（§4.3）。文そのものは条件の一覧なので、
  * 押すと何が起きるかは**ヒントの側**でしか言えない（行き先は絞り込みページ）。
  */
-export const FILTER_NOTICE_HINT = '絞り込みの条件を変えます';
+export function filterNoticeHint(locale: Locale): string {
+  return t('data.filterNoticeHint', locale);
+}
 
 /** 解除の読み上げ（§4.3）。「解除」だけでは名詞に読めるので、動詞まで足す */
-export const FILTER_CLEAR_ACTION_LABEL = `${FILTER_CLEAR_LABEL}する`;
+export function filterClearActionLabel(locale: Locale): string {
+  return t('data.filterClearAction', locale);
+}
 
 /**
  * シート右上（§4.2-1）。条件は選んだ瞬間から効くので、これは確定ではなく**閉じる**ボタン
@@ -5021,3 +5108,18 @@ export const SIMULATOR_NOTE = t('pricing.simulatorNote', 'ja');
 export const SIMULATOR_DISABLED_NOTE = t('pricing.simulatorDisabledNote', 'ja');
 export const PRICE_APPLY_EXTERNAL_NOTE = t('pricing.applyExternalNote', 'ja');
 export const TARGET_PREVIEW_ROOM_LABEL = t('pricing.targetPreviewRoom', 'ja');
+
+// ---- データタブの節を移したぶんの日本語固定の写し（多言語化ステップ 5） ----
+export const DATA_MODE_PROFIT_LABEL = t('data.modeProfit', 'ja');
+export const DATA_MODE_TAG_LABEL = t('data.modeTag', 'ja');
+export const DATA_MODE_ACHIEVEMENTS_LABEL = t('data.modeAchievements', 'ja');
+export const DETAILS_EXPAND_LABEL = t('data.detailsExpand', 'ja');
+export const DETAILS_COLLAPSE_LABEL = t('data.detailsCollapse', 'ja');
+export const PROFIT_RATE_LABEL = t('data.profitRate', 'ja');
+export const SOLD_COUNT_LABEL = t('data.soldCount', 'ja');
+export const TAG_SECTION_LIST_MODE_LABEL = t('data.tagSectionList', 'ja');
+export const TAG_SECTION_OVERLAY_MODE_LABEL = t('data.tagSectionOverlay', 'ja');
+export const UNCLASSIFIED_TAG_LABEL = t('data.unclassifiedTag', 'ja');
+export const CHART_UNIT_NOTE = chartUnitNote('ja');
+export const CUMULATIVE_PROFIT_LABEL = cumulativeProfitLabel('ja');
+export const PROFIT_TREND_LABEL = profitTrendLabel('ja');
