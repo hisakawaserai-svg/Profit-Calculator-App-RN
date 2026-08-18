@@ -1,0 +1,32 @@
+# リポジトリ全体に効く無視設定。
+# app-rn/ の中だけに効く Expo 固有の設定は app-rn/.gitignore にある。
+
+# 署名・証明書・秘密鍵
+#
+# **まだ 1 つも存在しないうちに登録しておく。** この種のファイルは一度 push すると
+# 履歴から消すだけでは足りず、鍵そのものを失効・再発行する羽目になる。
+# 「作ってから .gitignore を足す」順番だと、その間の 1 コミットで手遅れになる。
+#
+# app-rn/android/app/debug.keystore は *.keystore に当たるが、
+# /android ごと無視されているので実質の対象外（中身も公開鍵で秘密ではない）。
+*.keystore
+*.jks
+*.p12
+*.p8
+*.key
+*.pem
+*.cer
+*.mobileprovision
+key.properties
+
+# Firebase / Google Services の構成ファイル。API キーを含む。
+#
+# 注意: これらを使い始めたら、app.json の android.googleServicesFile /
+# ios.googleServicesFile が指す先が prebuild 時に存在している必要がある。
+# 無視した以上、別のマシンや CI では別途配る手当てが要る。
+google-services.json
+GoogleService-Info.plist
+
+# macOS が各フォルダに勝手に作る表示設定。中身は Finder のアイコン位置などで、
+# リポジトリに入れて役に立つことは何もない
+.DS_Store

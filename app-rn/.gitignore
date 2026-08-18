@@ -10,13 +10,9 @@ web-build/
 expo-env.d.ts
 
 # Native
+# 署名・証明書・秘密鍵はリポジトリ直下の .gitignore にまとめてある
 .kotlin/
 *.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
 
 # Metro
 .metro-health-check*
@@ -25,10 +21,6 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
 
 # local env files
 .env*.local
