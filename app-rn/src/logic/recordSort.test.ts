@@ -21,9 +21,9 @@ const ALL_SORT_TYPES: RecordSortType[] = [
   'expensesAsc',
 ];
 
-const labelsOf = (isSoldMode: boolean) => sortRows(isSoldMode).map((row) => row.label);
+const labelsOf = (isSoldMode: boolean) => sortRows('ja', isSoldMode).map((row) => row.label);
 const valuesOf = (isSoldMode: boolean) =>
-  sortRows(isSoldMode).flatMap((row) => row.segments.map((segment) => segment.value));
+  sortRows('ja', isSoldMode).flatMap((row) => row.segments.map((segment) => segment.value));
 
 describe('sortRows: 売れた記録（4 行）', () => {
   it('販売日・出品日・収支・経費の 4 行がこの順に並ぶ', () => {
@@ -35,7 +35,7 @@ describe('sortRows: 売れた記録（4 行）', () => {
   });
 
   it('方向は「新しい / 多い」が先で、日付と金額で語が違う', () => {
-    const rows = sortRows(true);
+    const rows = sortRows('ja', true);
     expect(rows[0].segments.map((segment) => segment.label)).toEqual(['新しい順', '古い順']);
     expect(rows[2].segments.map((segment) => segment.label)).toEqual(['多い順', '少ない順']);
   });
@@ -52,7 +52,7 @@ describe('sortRows: 出品中（3 行）', () => {
   });
 
   it('収支の行の値は売れた記録と同じ（語だけが「見込みの収支」になる）', () => {
-    expect(sortRows(false)[1].segments.map((segment) => segment.value)).toEqual([
+    expect(sortRows('ja', false)[1].segments.map((segment) => segment.value)).toEqual([
       'profitDesc',
       'profitAsc',
     ]);

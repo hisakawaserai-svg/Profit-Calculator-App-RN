@@ -9,7 +9,7 @@
 // 違いは Stack が持つ state（RecordFilterState）から読む 2 点だけで、画面には分岐を書かない:
 //   - `isSoldMode` … データタブは常に true（§6）。**販売サイトの節が常に出る**のはその帰結で、
 //     「出品中では節を消す」分岐（§4.2）は記録タブ側だけの話。下部の見出しも
-//     matchingRecordLabel(true) = 「この条件に合う記録」で自然に決まる
+//     matchingRecordLabel(locale, true) = 「この条件に合う記録」で自然に決まる
 //   - `scope` … 件数を数える集合（§6 / FilterScope）。データタブは isSold / saleDate 非 null が
 //     固定条件なので、記録タブの数え方をそのまま使うと下部の数もタグの行の数字も食い違う
 //
@@ -31,18 +31,18 @@ import { useFilteredRecordCount } from '@/db/useRecords';
 import { useSiteNames, useTagCountsForFilter, useTagList } from '@/db/useTags';
 import { KIND_FILTER_OPTIONS } from '@/logic/kindFilter';
 import {
-  FILTER_ALL_LABEL,
-  FILTER_CLEAR_ALL_LABEL,
-  FILTER_KIND_SECTION_LABEL,
-  FILTER_LABEL,
-  FILTER_SITE_EMPTY_BODY,
-  FILTER_SITE_EMPTY_TITLE,
-  FILTER_SITE_SECTION_LABEL,
-  FILTER_TAG_EMPTY_BODY,
-  FILTER_TAG_EMPTY_TITLE,
-  FILTER_TAG_OR_HINT,
-  FILTER_TAG_SEARCH_CANCEL_LABEL,
-  FILTER_TAG_SEARCH_PLACEHOLDER,
+  filterAllLabel,
+  filterClearAllLabel,
+  filterKindSectionLabel,
+  filterLabel,
+  filterSiteEmptyBody,
+  filterSiteEmptyTitle,
+  filterSiteSectionLabel,
+  filterTagEmptyBody,
+  filterTagEmptyTitle,
+  filterTagOrHint,
+  filterTagSearchCancelLabel,
+  filterTagSearchPlaceholder,
   filterNoMatchNote,
   filterTagSearchEmptyBody,
   filterTagSearchEmptyTitle,
@@ -56,9 +56,14 @@ import { isAllPeriod } from '@/logic/period';
 import { activeFilterCount, hasActiveFilter, toFilterConditions } from '@/logic/recordFilter';
 import { searchTags, selectedTags } from '@/logic/tag';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 export function RecordFilterScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { scope, filter, setFilter, isSoldMode, period, clearFilter } = useRecordFilterState();
 
@@ -111,7 +116,7 @@ export function RecordFilterScreen() {
   // 原因が期間しかなく、ここで言えることが無い
   const noMatchNote =
     matchCount === 0
-      ? filterNoMatchNote(
+      ? filterNoMatchNote(locale, 
           isAllPeriod(period) ? null : periodTitle('ja', period),
           activeFilterCount(filter),
         )
@@ -119,7 +124,7 @@ export function RecordFilterScreen() {
 
   const screenOptions = useMemo(
     () => ({
-      title: FILTER_LABEL,
+      title: filterLabel(locale),
       // §4.2-1 の「完了」は置かない ── 条件は選んだ瞬間から効くので、閉じるだけのボタンになる。
       // 戻る導線はヘッダ左の「‹ 記録」1 つ（案 33c）
       headerRight: () => (
@@ -134,12 +139,13 @@ export function RecordFilterScreen() {
               styles.headerButton,
               { color: hasActiveFilter(filter) ? colors.blue : colors.mutedLabel },
             ]}>
-            {FILTER_CLEAR_ALL_LABEL}
+            {filterClearAllLabel(locale)}
           </Text>
         </Pressable>
       ),
     }),
-    [filter, clearFilter, colors.blue, colors.mutedLabel],
+    // locale を入れないと、ヘッダの「すべて解除」だけ前の言語で残る
+    [filter, clearFilter, colors.blue, colors.mutedLabel, locale],
   );
 
   return (
@@ -151,7 +157,7 @@ export function RecordFilterScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           {/* §4.2-2: 種別。選択肢は KIND_FILTER_OPTIONS をそのまま使う（SPEC-V2 §4.2） */}
-          <Section label={FILTER_KIND_SECTION_LABEL}>
+          <Section label={filterKindSectionLabel(locale)}>
             <SegmentedControl
               options={KIND_FILTER_OPTIONS.map((option) => option.label)}
               selectedIndex={KIND_FILTER_OPTIONS.findIndex(
@@ -165,15 +171,15 @@ export function RecordFilterScreen() {
               出品中の記録は site_name が空なので、残すと「選ぶと必ず 0 件になる欄」になる。
               無い理由の説明文は置かない（案 35c）。下部の見出しが対象を言うので足りる */}
           {isSoldMode && (
-            <Section label={FILTER_SITE_SECTION_LABEL}>
+            <Section label={filterSiteSectionLabel(locale)}>
               {siteNames.length === 0 ? (
                 <Card>
                   <View style={styles.notice}>
                     <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                      {FILTER_SITE_EMPTY_TITLE}
+                      {filterSiteEmptyTitle(locale)}
                     </Text>
                     <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                      {FILTER_SITE_EMPTY_BODY}
+                      {filterSiteEmptyBody(locale)}
                     </Text>
                   </View>
                 </Card>
@@ -199,7 +205,7 @@ export function RecordFilterScreen() {
                           },
                         ]}
                         numberOfLines={1}>
-                        {name ?? FILTER_ALL_LABEL}
+                        {name ?? filterAllLabel(locale)}
                       </Text>
                       <CheckSlot visible={name === filter.siteName} />
                     </Row>
@@ -214,18 +220,18 @@ export function RecordFilterScreen() {
               同じことをする口が 2 つになる。「N 件選択中」のような要約も出さない
               （読む値が増えるだけで、チェックを見れば分かる） */}
           <Section
-            label={filterTagSectionLabel(tags.length)}
-            hint={tags.length === 0 ? undefined : FILTER_TAG_OR_HINT}>
+            label={filterTagSectionLabel(locale, tags.length)}
+            hint={tags.length === 0 ? undefined : filterTagOrHint(locale)}>
             {tags.length === 0 ? (
               // 案 35d: 検索欄も出さない。**設定への導線も置かない**（用が中断し、
               // 戻り道が記録タブではなく設定になる）。どこで作れるかだけを言う
               <Card>
                 <View style={styles.notice}>
                   <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                    {FILTER_TAG_EMPTY_TITLE}
+                    {filterTagEmptyTitle(locale)}
                   </Text>
                   <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                    {FILTER_TAG_EMPTY_BODY}
+                    {filterTagEmptyBody(locale)}
                   </Text>
                 </View>
               </Card>
@@ -235,7 +241,7 @@ export function RecordFilterScreen() {
                   <SearchBar
                     value={keyword}
                     onChangeValue={setKeyword}
-                    placeholder={FILTER_TAG_SEARCH_PLACEHOLDER}
+                    placeholder={filterTagSearchPlaceholder(locale)}
                     style={styles.search}
                   />
                   {searching && (
@@ -245,7 +251,7 @@ export function RecordFilterScreen() {
                       accessibilityRole="button"
                       style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                       <Text style={[styles.searchCancel, { color: colors.blue }]}>
-                        {FILTER_TAG_SEARCH_CANCEL_LABEL}
+                        {filterTagSearchCancelLabel(locale)}
                       </Text>
                     </Pressable>
                   )}
@@ -255,12 +261,12 @@ export function RecordFilterScreen() {
                   <Card>
                     <View style={styles.notice}>
                       <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                        {filterTagSearchEmptyTitle(keyword.trim())}
+                        {filterTagSearchEmptyTitle(locale, keyword.trim())}
                       </Text>
                       {/* 検索で選択中のタグが画面から隠れるので、効いていることを言う（案 35f） */}
-                      {filterTagSearchEmptyBody(selectedNames) != null && (
+                      {filterTagSearchEmptyBody(locale, selectedNames) != null && (
                         <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                          {filterTagSearchEmptyBody(selectedNames)}
+                          {filterTagSearchEmptyBody(locale, selectedNames)}
                         </Text>
                       )}
                     </View>
@@ -311,7 +317,7 @@ export function RecordFilterScreen() {
 
                 {searching && (
                   <Text style={[styles.searchResult, { color: colors.secondaryLabel }]}>
-                    {filterTagSearchResultLabel(tags.length, visibleTags.length)}
+                    {filterTagSearchResultLabel(locale, tags.length, visibleTags.length)}
                   </Text>
                 )}
               </>
@@ -327,10 +333,10 @@ export function RecordFilterScreen() {
           ]}>
           <View style={styles.footerLine}>
             <Text style={[styles.footerLabel, { color: colors.secondaryLabel }]} numberOfLines={1}>
-              {matchingRecordLabel(isSoldMode)}
+              {matchingRecordLabel(locale, isSoldMode)}
             </Text>
             <Text style={[styles.footerCount, { color: colors.label }]}>
-              {matchingRecordCountValue(matchCount)}
+              {matchingRecordCountValue(locale, matchCount)}
             </Text>
           </View>
           {/* 案 35e: 0 件のときだけ 2 行目。解除ボタンは足さず（解除の口はヘッダの 1 つ）、

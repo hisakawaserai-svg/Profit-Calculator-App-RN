@@ -240,7 +240,7 @@ export function RecordListScreen() {
   );
 
   /** 出品中では販売日の行が消えて 3 行になる（logic/recordSort.ts） */
-  const visibleSortRows = useMemo(() => sortRows(isSoldMode), [isSoldMode]);
+  const visibleSortRows = useMemo(() => sortRows(locale, isSoldMode), [isSoldMode, locale]);
 
   /** 絞り込みは push する 1 枚のページ（案 33c）。戻れば結果が見えるので「完了」は要らない */
   const openFilterPage = useCallback(() => router.push(RECORD_FILTER_PATHNAME), [router]);

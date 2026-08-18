@@ -412,7 +412,7 @@ describe('UI-SPEC §1.3 / §1.4 伝票・レシートの行名', () => {
   });
 
   it('レコード詳細の手数料行は率を括弧で添える', () => {
-    expect(commissionRowLabel(10)).toBe(`${COMMISSION_LABEL} (10%)`);
+    expect(commissionRowLabel('ja', 10)).toBe(`${COMMISSION_LABEL} (10%)`);
   });
 
   it('記録フォームの手数料行は計算タブと同じ短縮形', () => {
@@ -448,19 +448,19 @@ describe('UI-SPEC §1.3-13 メモの折りたたみ見出し', () => {
 describe('UI-SPEC §1.4-2 レコード詳細のメタ行', () => {
   it('確定デザインの文をそのまま組み立てる', () => {
     expect(
-      recordTimelineText({ kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 }),
+      recordTimelineText('ja', { kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 }),
     ).toBe('不用品 ・ 8/2 出品 → 8/9 販売（7日）');
   });
 
   it('出品中は矢印を出さず経過日数を添える', () => {
     expect(
-      recordTimelineText({ kind: 'sourced', listedDate: '8/2', soldDate: null, days: 7 }),
+      recordTimelineText('ja', { kind: 'sourced', listedDate: '8/2', soldDate: null, days: 7 }),
     ).toBe('仕入品 ・ 8/2 出品（7日経過）');
   });
 
   it('出品当日は 0 日（§5-2）', () => {
     expect(
-      recordTimelineText({ kind: 'used', listedDate: '8/9', soldDate: null, days: 0 }),
+      recordTimelineText('ja', { kind: 'used', listedDate: '8/9', soldDate: null, days: 0 }),
     ).toBe('不用品 ・ 8/9 出品（0日経過）');
   });
 });
@@ -498,7 +498,7 @@ describe('UI-SPEC §8 出品中 ⇄ 売れた の切り替え（案 15c）', () 
   });
 
   it('出品中に戻す確認は消える販売日を M/d で名指しする（§8.4）', () => {
-    expect(revertToListingConfirmTitle('8/10')).toBe('販売日 8/10 が消えます。戻しますか？');
+    expect(revertToListingConfirmTitle('ja', '8/10')).toBe('販売日 8/10 が消えます。戻しますか？');
     expect(REVERT_TO_LISTING_CONFIRM_LABEL).toBe('戻す');
   });
 });
@@ -511,7 +511,7 @@ describe('UI-SPEC §8.9 状態カードのバッジ（案 16a）', () => {
 
   it('補足行は置かない ── メタ行と同じ事実を 2 度読ませないため（実装時の決定）', () => {
     // メタ行だけが出品日・販売日・日数を持つ。状態カードは操作とその主語（バッジ）だけ
-    expect(recordTimelineText({ kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 })).toBe(
+    expect(recordTimelineText('ja', { kind: 'used', listedDate: '8/2', soldDate: '8/9', days: 7 })).toBe(
       '不用品 ・ 8/2 出品 → 8/9 販売（7日）',
     );
   });
@@ -729,43 +729,43 @@ describe('SPEC-V4 §2 タグの表示語', () => {
 
 describe('§4.2 絞り込みページの文言（案 35c〜35f）', () => {
   it('下部の見出しは状態で変わる（出品中では対象を言う。案 35c）', () => {
-    expect(matchingRecordLabel(true)).toBe('この条件に合う記録');
-    expect(matchingRecordLabel(false)).toBe('この条件に合う出品中の記録');
+    expect(matchingRecordLabel('ja', true)).toBe('この条件に合う記録');
+    expect(matchingRecordLabel('ja', false)).toBe('この条件に合う出品中の記録');
   });
 
   it('0 件の 2 行目は月名と条件の本数だけ（条件の名前は出さない。案 35e）', () => {
-    expect(filterNoMatchNote('2026年8月', 3)).toBe('2026年8月には、この3つが揃った記録がありません。');
+    expect(filterNoMatchNote('ja', '2026年8月', 3)).toBe('2026年8月には、この3つが揃った記録がありません。');
   });
 
   it('全期間なら月名を出さない（入れる月が無い）', () => {
-    expect(filterNoMatchNote(null, 2)).toBe('この2つが揃った記録がありません。');
+    expect(filterNoMatchNote('ja', null, 2)).toBe('この2つが揃った記録がありません。');
   });
 
   it('条件が 0 本なら 2 行目ごと出さない（原因は期間しかなく、この画面で言えることが無い）', () => {
-    expect(filterNoMatchNote('2026年8月', 0)).toBeNull();
-    expect(filterNoMatchNote(null, 0)).toBeNull();
+    expect(filterNoMatchNote('ja', '2026年8月', 0)).toBeNull();
+    expect(filterNoMatchNote('ja', null, 0)).toBeNull();
   });
 
   it('タグの節の見出しは登録件数。0 件なら件数を書かない（案 35a / 35d）', () => {
-    expect(filterTagSectionLabel(32)).toBe('タグ（32件）');
-    expect(filterTagSectionLabel(0)).toBe('タグ');
+    expect(filterTagSectionLabel('ja', 32)).toBe('タグ（32件）');
+    expect(filterTagSectionLabel('ja', 0)).toBe('タグ');
   });
 
   it('検索の結果は「N件のうちM件が該当」（案 35f）', () => {
-    expect(filterTagSearchResultLabel(32, 2)).toBe('32件のうち2件が該当');
+    expect(filterTagSearchResultLabel('ja', 32, 2)).toBe('32件のうち2件が該当');
   });
 
   it('検索 0 件の見出しは検索語を含む', () => {
-    expect(filterTagSearchEmptyTitle('くつ')).toBe('「くつ」に合うタグがありません');
+    expect(filterTagSearchEmptyTitle('ja', 'くつ')).toBe('「くつ」に合うタグがありません');
   });
 
   it('検索 0 件の 2 行目は、選んでいるタグがあるときだけ出る', () => {
-    expect(filterTagSearchEmptyBody([])).toBeNull();
-    expect(filterTagSearchEmptyBody(['洋服'])).toBe('選んでいるタグ（洋服）は、そのまま効いています。');
+    expect(filterTagSearchEmptyBody('ja', [])).toBeNull();
+    expect(filterTagSearchEmptyBody('ja', ['洋服'])).toBe('選んでいるタグ（洋服）は、そのまま効いています。');
   });
 
   it('選んでいるタグが 2 つ以上なら「ほか N件」に畳む（解除バーと同じ作法）', () => {
-    expect(filterTagSearchEmptyBody(['洋服', '春夏物', '食器'])).toBe(
+    expect(filterTagSearchEmptyBody('ja', ['洋服', '春夏物', '食器'])).toBe(
       '選んでいるタグ（洋服ほか2件）は、そのまま効いています。',
     );
   });

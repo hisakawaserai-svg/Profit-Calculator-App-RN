@@ -42,6 +42,12 @@ const MIGRATED_SCREENS = [
   'src/components/PhotoField.tsx',
   'src/components/TagChip.tsx',
   'src/components/TagPickerSheet.tsx',
+  // 区切り 2-4: レコード詳細・絞り込み・複製
+  'src/screens/SaleRecordDetailScreen.tsx',
+  'src/screens/RecordFilterScreen.tsx',
+  'src/screens/DuplicateSourceScreen.tsx',
+  'src/components/PhotoViewer.tsx',
+  'src/components/RecordDetailSections.tsx',
 ];
 
 /**

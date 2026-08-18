@@ -11,7 +11,8 @@ import { Image } from 'expo-image';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PHOTO_IMAGE_LABEL, PHOTO_VIEWER_CLOSE_LABEL } from '@/logic/labels';
+import { photoImageLabel, photoViewerCloseLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 export function PhotoViewer({
   uri,
@@ -22,6 +23,10 @@ export function PhotoViewer({
   visible: boolean;
   onClose: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const insets = useSafeAreaInsets();
 
   return (
@@ -36,14 +41,14 @@ export function PhotoViewer({
             // 全体が入るように収める（切らない）。詳細画面のカードは cover だが、
             // ここは「隅まで確かめる」ための面なので端を落とさない
             contentFit="contain"
-            accessibilityLabel={PHOTO_IMAGE_LABEL}
+            accessibilityLabel={photoImageLabel(locale)}
           />
         </Pressable>
         <Pressable
           onPress={onClose}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={PHOTO_VIEWER_CLOSE_LABEL}
+          accessibilityLabel={photoViewerCloseLabel(locale)}
           style={({ pressed }) => [
             styles.close,
             { top: insets.top + 12, opacity: pressed ? 0.5 : 1 },

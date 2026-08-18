@@ -11,18 +11,20 @@
 // 無効表示で残すと「押せない行」を毎回読ませることになる（絞り込みの販売サイトの節と同じ扱い。
 // SPEC-V4 §4.2）。消えた行を選んでいた場合の行き先は fallbackSortType が決める。
 
+import type { Locale } from '@/settings/language';
+
 import type { RecordSortType } from '@/db/repository';
 
 import {
-  EXPECTED_TOTAL_PROFIT_LABEL,
-  EXPENSES_LABEL,
-  LISTED_DATE_FIELD_LABEL,
-  SOLD_DATE_FIELD_LABEL,
-  SORT_LARGEST_LABEL,
-  SORT_NEWEST_LABEL,
-  SORT_OLDEST_LABEL,
-  SORT_SMALLEST_LABEL,
-  TOTAL_PROFIT_LABEL,
+  expectedTotalProfitLabel,
+  expensesLabel,
+  listedDateFieldLabel,
+  soldDateFieldLabel,
+  sortLargestLabel,
+  sortNewestLabel,
+  sortOldestLabel,
+  sortSmallestLabel,
+  totalProfitLabel,
 } from './labels';
 
 /** 行の右に出す方向の 1 つ。`value` がそのままソートキーになる */
@@ -39,37 +41,45 @@ export type SortRow = {
   segments: readonly [SortSegment, SortSegment];
 };
 
-const SALE_DATE_ROW: SortRow = {
-  label: SOLD_DATE_FIELD_LABEL,
-  segments: [
-    { label: SORT_NEWEST_LABEL, value: 'saleDateDesc' },
-    { label: SORT_OLDEST_LABEL, value: 'saleDateAsc' },
-  ],
-};
+// **モジュールスコープの定数にしない。** 表示語は locale で決まるので、import 時に畳むと
+// 言語を切り替えても並び替えシートの行だけ前の言語のまま残る（src/i18n/index.ts の冒頭）。
+function saleDateRow(locale: Locale): SortRow {
+  return {
+    label: soldDateFieldLabel(locale),
+    segments: [
+      { label: sortNewestLabel(locale), value: 'saleDateDesc' },
+      { label: sortOldestLabel(locale), value: 'saleDateAsc' },
+    ],
+  };
+}
 
-const SALE_START_DATE_ROW: SortRow = {
-  label: LISTED_DATE_FIELD_LABEL,
-  segments: [
-    { label: SORT_NEWEST_LABEL, value: 'saleStartDateDesc' },
-    { label: SORT_OLDEST_LABEL, value: 'saleStartDateAsc' },
-  ],
-};
+function saleStartDateRow(locale: Locale): SortRow {
+  return {
+    label: listedDateFieldLabel(locale),
+    segments: [
+      { label: sortNewestLabel(locale), value: 'saleStartDateDesc' },
+      { label: sortOldestLabel(locale), value: 'saleStartDateAsc' },
+    ],
+  };
+}
 
-const EXPENSES_ROW: SortRow = {
-  label: EXPENSES_LABEL,
-  segments: [
-    { label: SORT_LARGEST_LABEL, value: 'expensesDesc' },
-    { label: SORT_SMALLEST_LABEL, value: 'expensesAsc' },
-  ],
-};
+function expensesRow(locale: Locale): SortRow {
+  return {
+    label: expensesLabel(locale),
+    segments: [
+      { label: sortLargestLabel(locale), value: 'expensesDesc' },
+      { label: sortSmallestLabel(locale), value: 'expensesAsc' },
+    ],
+  };
+}
 
 /** 収支の行だけ、出品中で語が変わる（見込みの値になるため）。値は同じ 2 つ */
-function profitRow(isSoldMode: boolean): SortRow {
+function profitRow(locale: Locale, isSoldMode: boolean): SortRow {
   return {
-    label: isSoldMode ? TOTAL_PROFIT_LABEL : EXPECTED_TOTAL_PROFIT_LABEL,
+    label: isSoldMode ? totalProfitLabel(locale) : expectedTotalProfitLabel(locale),
     segments: [
-      { label: SORT_LARGEST_LABEL, value: 'profitDesc' },
-      { label: SORT_SMALLEST_LABEL, value: 'profitAsc' },
+      { label: sortLargestLabel(locale), value: 'profitDesc' },
+      { label: sortSmallestLabel(locale), value: 'profitAsc' },
     ],
   };
 }
@@ -79,9 +89,11 @@ function profitRow(isSoldMode: boolean): SortRow {
  * 行の順は「日付 → 金額」で固定し、出品中でも残る行の並びは動かさない
  * （先頭が販売日から出品日に繰り上がるだけ）。
  */
-export function sortRows(isSoldMode: boolean): SortRow[] {
-  const rows = isSoldMode ? [SALE_DATE_ROW, SALE_START_DATE_ROW] : [SALE_START_DATE_ROW];
-  return [...rows, profitRow(isSoldMode), EXPENSES_ROW];
+export function sortRows(locale: Locale, isSoldMode: boolean): SortRow[] {
+  const rows = isSoldMode
+    ? [saleDateRow(locale), saleStartDateRow(locale)]
+    : [saleStartDateRow(locale)];
+  return [...rows, profitRow(locale, isSoldMode), expensesRow(locale)];
 }
 
 /**

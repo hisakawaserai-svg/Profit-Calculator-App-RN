@@ -312,6 +312,78 @@ export const ja = {
     errorNameDuplicated: '同じ名前のタグがあります',
   },
 
+  /** レコード詳細（SaleRecordDetailScreen。UI-SPEC §5） */
+  detail: {
+    edit: '編集する',
+    deleteConfirmTitle: '削除しますか？',
+    undo: '元に戻す',
+    soldBadge: '売れた',
+    soldDateRow: '売れた日',
+    memoEmpty: 'なし',
+    /** 金額が無い欄の代わりに置く記号。訳す対象ではないが 1 か所に集める */
+    amountPlaceholder: 'ーー',
+    /** 販売手数料の行。率を括弧で添える（内訳の「販売手数料10%」とは別の場所） */
+    commissionRow: '販売手数料 ({{rate}}%)',
+    expectedTotalProfit: '見込みの{{total}}',
+    /** 出品中 → 売れた記録 への切り替えと、その取り消し */
+    markAsSold: '売れた',
+    markedAsSoldMessage: '売れた記録にしました',
+    revertToListing: '出品中に戻す',
+    revertToListingConfirmLabel: '戻す',
+    revertToListingConfirmTitle: '販売日 {{date}} が消えます。戻しますか？',
+    /** 種別・出品日・販売日を 1 行にまとめた経過（§4.7） */
+    timelineListing: '{{kind}} ・ {{listedDate}} 出品（{{elapsed}}）',
+    timelineSold: '{{kind}} ・ {{listedDate}} 出品 → {{soldDate}} 販売（{{days}}日）',
+    photoAddFromDetail: '写真を追加',
+    photoTapHint: '写真を押すと全画面で見られます',
+    photoViewerClose: '閉じる',
+  },
+
+  /** 絞り込み（RecordFilterScreen。SPEC-V4 §4） */
+  filter: {
+    all: 'すべて',
+    clearAll: 'すべて解除',
+    kindSection: '種別',
+    siteSection: '販売サイト',
+    siteEmptyTitle: '販売サイトがありません',
+    siteEmptyBody: '記録に販売サイトを入れると、ここから選べます。',
+    tagSection: 'タグ',
+    tagSectionWithCount: 'タグ（{{count}}）',
+    tagEmptyBody: 'タグは記録するときに、品名の下から作れます。付けたタグはここに並びます。',
+    tagOrHint: 'どれかが付いた記録が出ます',
+    tagSearchPlaceholder: 'タグを探す',
+    tagSearchCancel: 'キャンセル',
+    tagSearchEmptyTitle: '「{{keyword}}」に合うタグがありません',
+    tagSearchEmptyBody: '選んでいるタグ（{{names}}）は、そのまま効いています。',
+    tagSearchResult: '{{total}}のうち{{matched}}が該当',
+    /** 0 件になったときの理由。月を絞っているかで文が変わる */
+    noMatchConditions: 'この{{count}}つが揃った記録がありません。',
+    noMatchWithMonth: '{{month}}には、この{{count}}つが揃った記録がありません。',
+    matchingRecordSold: 'この条件に合う記録',
+    matchingRecordListing: 'この条件に合う出品中の記録',
+  },
+
+  /** 並び替え（recordSort.ts。一覧の並び替えシート） */
+  sort: {
+    newest: '新しい順',
+    oldest: '古い順',
+    largest: '多い順',
+    smallest: '少ない順',
+  },
+
+  /** 過去の記録から複製（DuplicateSourceScreen） */
+  duplicate: {
+    title: '複製する記録を選ぶ',
+    note: '商品名・種別・経費・タグ・目標を引き継ぎます。販売価格・写真・メモ・日付は引き継ぎません。',
+    recentSection: '最近の記録',
+    allSection: 'すべての記録',
+    showAll: 'すべての記録を見る',
+    tagFilter: 'タグで絞る',
+    emptyTitle: '複製できる記録がありません',
+    emptyBody: '記録を 1 件でも作ると、次からここに出ます。',
+    noMatchTitle: '条件に合う記録がありません',
+  },
+
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----
   settings: {
     /** §1.6-1: 見出しなしの 1 行カードと、その下の注記 */

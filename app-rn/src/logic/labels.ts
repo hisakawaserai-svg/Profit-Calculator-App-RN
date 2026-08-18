@@ -142,7 +142,7 @@ export function totalListingPriceLabel(locale: Locale): string {
 
 /**
  * 状態そのものの名前（UI-SPEC §1.3-3 の見出し行 / §1.4-2 のバッジ）。
- * 売れている側は t('list.soldRecords', 'ja')（一覧の状態チップ）と SOLD_BADGE_LABEL（詳細のバッジ）で
+ * 売れている側は t('list.soldRecords', 'ja')（一覧の状態チップ）と t('detail.soldBadge', 'ja')（詳細のバッジ）で
  * 語が違うが、出品中側はどこでもこの 1 語なので分けない。
  */
 export function listingStatusLabel(locale: Locale): string {
@@ -179,16 +179,26 @@ export function listedDateLabel(locale: Locale): string {
  * 同じ降順でも、日付なら「新しい」、金額なら「多い」でないと読み違える。
  * 旧メニューの「販売日 ↓」のような矢印は使わない（↓ がどちら向きの意味かを覚えさせない）。
  */
-export const SORT_NEWEST_LABEL = '新しい順';
-export const SORT_OLDEST_LABEL = '古い順';
-export const SORT_LARGEST_LABEL = '多い順';
-export const SORT_SMALLEST_LABEL = '少ない順';
+export function sortNewestLabel(locale: Locale): string {
+  return t('sort.newest', locale);
+}
+export function sortOldestLabel(locale: Locale): string {
+  return t('sort.oldest', locale);
+}
+export function sortLargestLabel(locale: Locale): string {
+  return t('sort.largest', locale);
+}
+export function sortSmallestLabel(locale: Locale): string {
+  return t('sort.smallest', locale);
+}
 
 /**
  * 出品中を見ているときの並び替え項目名（採用案 22b）。まだ売れていない記録の収支は
  * 行の「売れたら 約◯円」と同じ**見込みの値**なので、確定した収支と同じ語で並べない。
  */
-export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${t('amount.totalProfit', 'ja')}`;
+export function expectedTotalProfitLabel(locale: Locale): string {
+  return t('detail.expectedTotalProfit', locale, { total: totalProfitLabel(locale) });
+}
 
 // ---- 画面の名前とアイコンボタンの読み上げ語（UI-SPEC §1） ----
 
@@ -277,7 +287,9 @@ export function duplicateRecordActionNote(locale: Locale): string {
 }
 
 /** 複製元を選ぶ画面（DuplicateSourceScreen） */
-export const DUPLICATE_SCREEN_TITLE = '複製する記録を選ぶ';
+export function duplicateScreenTitle(locale: Locale): string {
+  return t('duplicate.title', locale);
+}
 
 /**
  * 画面の先頭に置く 1 行。**写らないものを先に言う。**
@@ -285,27 +297,42 @@ export const DUPLICATE_SCREEN_TITLE = '複製する記録を選ぶ';
  * 「複製」の語からは全部が写ると読めるので、そのまま保存すると前の販売価格が
  * 入った記録ができると思われかねない ── 実際は空で始まる（logic/duplicateRecord.ts）。
  */
-export const DUPLICATE_SCREEN_NOTE =
-  '商品名・種別・経費・タグ・目標を引き継ぎます。販売価格・写真・メモ・日付は引き継ぎません。';
+export function duplicateScreenNote(locale: Locale): string {
+  return t('duplicate.note', locale);
+}
 
 /** 直近の記録の見出し（絞り込んでいないときだけ出る） */
-export const DUPLICATE_RECENT_SECTION_LABEL = '最近の記録';
+export function duplicateRecentSectionLabel(locale: Locale): string {
+  return t('duplicate.recentSection', locale);
+}
 
 /** その下の行。押すと全件に切り替わる */
-export const DUPLICATE_SHOW_ALL_LABEL = 'すべての記録を見る';
+export function duplicateShowAllLabel(locale: Locale): string {
+  return t('duplicate.showAll', locale);
+}
 
 /** 全件に切り替えたあとの見出し */
-export const DUPLICATE_ALL_SECTION_LABEL = 'すべての記録';
+export function duplicateAllSectionLabel(locale: Locale): string {
+  return t('duplicate.allSection', locale);
+}
 
 /** 記録が 1 件も無いとき（複製元が作れない） */
-export const DUPLICATE_EMPTY_TITLE = '複製できる記録がありません';
-export const DUPLICATE_EMPTY_BODY = '記録を 1 件でも作ると、次からここに出ます。';
+export function duplicateEmptyTitle(locale: Locale): string {
+  return t('duplicate.emptyTitle', locale);
+}
+export function duplicateEmptyBody(locale: Locale): string {
+  return t('duplicate.emptyBody', locale);
+}
 
 /** 検索・タグで絞った結果が 0 件のとき。解除の口は絞り込みの行そのものなので出さない */
-export const DUPLICATE_NO_MATCH_TITLE = '条件に合う記録がありません';
+export function duplicateNoMatchTitle(locale: Locale): string {
+  return t('duplicate.noMatchTitle', locale);
+}
 
 /** タグで絞る行の見出し（複製元を選ぶ画面） */
-export const DUPLICATE_TAG_FILTER_LABEL = 'タグで絞る';
+export function duplicateTagFilterLabel(locale: Locale): string {
+  return t('duplicate.tagFilter', locale);
+}
 
 /** カレンダーの前後の月へ送るボタン（UI-SPEC §8.10）。矢印 1 つなので語は読み上げにしかない */
 export const PREVIOUS_MONTH_LABEL = '前の月';
@@ -529,7 +556,7 @@ export function clearInputActionLabel(locale: Locale): string {
  *
  * 本文で「金額」と「種別」の両方を言うのは、種別まで既定値に戻ることが
  * ボタンの語（「クリア」）からは読めないため ── 消えるものを先に全部言う。
- * レコードの削除（DELETE_CONFIRM_TITLE）と違って本文があるのはそのため。
+ * レコードの削除（t('detail.deleteConfirmTitle', 'ja')）と違って本文があるのはそのため。
  */
 export function clearConfirmTitle(locale: Locale): string {
   return t('calc.clearConfirmTitle', locale);
@@ -953,11 +980,11 @@ export const PROFIT_RATE_LABEL = '利益率';
 export const SOLD_COUNT_LABEL = '販売件数';
 
 /**
- * 利益率の表示。売上合計が 0（= 対象 0 件）で算出できないときは AMOUNT_PLACEHOLDER
+ * 利益率の表示。売上合計が 0（= 対象 0 件）で算出できないときは t('detail.amountPlaceholder', 'ja')
  * （「ーー」）── 0% だと「収支ちょうど 0」に読めてしまうため（periodProfitRate 参照）。
  */
 export function profitRateSummaryValue(rate: number | null): string {
-  return rate == null ? AMOUNT_PLACEHOLDER : `${rate.toFixed(1)}%`;
+  return rate == null ? t('detail.amountPlaceholder', 'ja') : `${rate.toFixed(1)}%`;
 }
 
 /** 展開行の 3 列目（案 1c）。1 件あたりの純利益（= 純利益合計 ÷ 販売件数） */
@@ -965,14 +992,14 @@ export const PER_RECORD_PROFIT_LABEL = '1件あたり';
 
 /**
  * 1 件あたり純利益の表示。販売件数が 0（periodProfitPerRecord が null）のときは
- * AMOUNT_PLACEHOLDER（「ーー」）── profitRateSummaryValue と同じ理由。
+ * t('detail.amountPlaceholder', 'ja')（「ーー」）── profitRateSummaryValue と同じ理由。
  *
  * 符号つきの金額は formatSignedYenSymbol を使う（`-¥3,500` の順。一覧の行の純利益・
  * グラフカードの選択値・帯グラフの不足額と同じ表記）── formatYenSymbol だけを通すと
  * `¥-3,500`（¥ の直後にマイナス）になり、アプリ内の他の符号つき金額と順序が食い違う。
  */
 export function perRecordProfitValue(value: number | null): string {
-  return value == null ? AMOUNT_PLACEHOLDER : formatSignedYenSymbol(value);
+  return value == null ? t('detail.amountPlaceholder', 'ja') : formatSignedYenSymbol(value);
 }
 
 /** 展開行の 4 列目。記録日 → 販売日の経過日数の単純平均（periodAverageSaleDays） */
@@ -980,11 +1007,11 @@ export const AVERAGE_SALE_DAYS_LABEL = '平均販売日数';
 
 /**
  * 平均販売日数の表示。対象記録が 0 件（日付逆転を除いて。periodAverageSaleDays が null）の
- * ときは AMOUNT_PLACEHOLDER（「ーー」）── profitRateSummaryValue と同じ理由。
+ * ときは t('detail.amountPlaceholder', 'ja')（「ーー」）── profitRateSummaryValue と同じ理由。
  * 小数第 1 位までにする（1 件あたり純利益と違って端数が出やすい平均値のため）。
  */
 export function averageSaleDaysValue(days: number | null): string {
-  return days == null ? AMOUNT_PLACEHOLDER : `${days.toFixed(1)}日`;
+  return days == null ? t('detail.amountPlaceholder', 'ja') : `${days.toFixed(1)}日`;
 }
 
 /** 集計段直下の開閉行の文言（案 1c）。閉じているときにタップを促す語 / 開いているときに畳む語 */
@@ -1021,10 +1048,10 @@ export function periodComparisonCountDiffText(diff: number): string {
 
 /**
  * 利益率差分の 1 行「▲+3.6pt」（前期間比較カード）。ポイント差なので % ではなく pt を付ける。
- * どちらかの期間の売上合計が 0 で比率が出せないときは AMOUNT_PLACEHOLDER（「ーー」）。
+ * どちらかの期間の売上合計が 0 で比率が出せないときは t('detail.amountPlaceholder', 'ja')（「ーー」）。
  */
 export function periodComparisonRateDiffText(diffPt: number | null): string {
-  if (diffPt == null) return AMOUNT_PLACEHOLDER;
+  if (diffPt == null) return t('detail.amountPlaceholder', 'ja');
   const rounded = Number(diffPt.toFixed(1));
   const arrow = rounded > 0 ? '▲' : rounded < 0 ? '▼' : '';
   const sign = rounded > 0 ? '+' : '';
@@ -1413,8 +1440,8 @@ export const BEST_TAG_LABEL = '最多販売タグ';
 
 /**
  * 自己ベストのタイルに値が無い（0 件）ときのプレースホルダ。
- * AMOUNT_PLACEHOLDER と同じ表記だが、定義がこの位置より後ろにあるため文字列を直書きする
- * （TDZ を避けるための重複。値は 1 か所で変えられるよう AMOUNT_PLACEHOLDER 側が真実）。
+ * t('detail.amountPlaceholder', 'ja') と同じ表記だが、定義がこの位置より後ろにあるため文字列を直書きする
+ * （TDZ を避けるための重複。値は 1 か所で変えられるよう t('detail.amountPlaceholder', 'ja') 側が真実）。
  */
 const PERSONAL_BEST_EMPTY_VALUE = 'ーー';
 
@@ -1475,34 +1502,48 @@ export function saveLabel(locale: Locale): string {
  * 一覧の状態チップ（t('list.soldRecords', 'ja') =「売れた記録」）は絞り込みの対象を指すが、
  * こちらはこの 1 件の状態を指すので「記録」を付けない。
  */
-export const SOLD_BADGE_LABEL = '売れた';
+export function soldBadgeLabel(locale: Locale): string {
+  return t('detail.soldBadge', locale);
+}
 
 /**
  * レコード詳細の状態カードのボタン（UI-SPEC §8.1 / §8.4）。状態を変える唯一の手段（§5-13）。
  *
  * 案 15c でトグル（旧 MARK_AS_SOLD_LABEL =「売れた状態にする」）を廃止し、
- * 状態ごとに 1 個のボタンへ置き換えた。順方向の語がバッジ（SOLD_BADGE_LABEL）と同じ「売れた」
+ * 状態ごとに 1 個のボタンへ置き換えた。順方向の語がバッジ（t('detail.soldBadge', 'ja')）と同じ「売れた」
  * になるが、バッジは状態の表示・こちらは操作なので定数を分けておく（§8.8）。
  */
-export const MARK_AS_SOLD_BUTTON_LABEL = '売れた';
-export const REVERT_TO_LISTING_BUTTON_LABEL = '出品中に戻す';
+export function markAsSoldButtonLabel(locale: Locale): string {
+  return t('detail.markAsSold', locale);
+}
+export function revertToListingButtonLabel(locale: Locale): string {
+  return t('detail.revertToListing', locale);
+}
 
 /**
  * 売れた日の行のラベル（UI-SPEC §8.2）。売れた記録である限り常設する行の見出し。
  * 入力欄の t('form.soldDate', 'ja')（「販売日」）とは**あえて語を揃えない** ──
  * 行は「いつ売れたか」を読む場所、欄は日付を入れる場所で、役割が違う（§8.8）。
  */
-export const SOLD_DATE_ROW_LABEL = '売れた日';
+export function soldDateRowLabel(locale: Locale): string {
+  return t('detail.soldDateRow', locale);
+}
 
 /**
  * 「売れた」を押した直後に出すバーの本文と取り消し（UI-SPEC §8.3）。
  * バーは数秒で消えるので、本文は読み上げ（announceForAccessibility）にも使う。
  */
-export const MARKED_AS_SOLD_MESSAGE = '売れた記録にしました';
-export const UNDO_LABEL = '元に戻す';
+export function markedAsSoldMessage(locale: Locale): string {
+  return t('detail.markedAsSoldMessage', locale);
+}
+export function undoLabel(locale: Locale): string {
+  return t('detail.undo', locale);
+}
 
 /** 出品中に戻す確認の実行ボタン（UI-SPEC §8.4）。破壊的操作なので「はい」とは言わせない */
-export const REVERT_TO_LISTING_CONFIRM_LABEL = '戻す';
+export function revertToListingConfirmLabel(locale: Locale): string {
+  return t('detail.revertToListingConfirmLabel', locale);
+}
 
 /**
  * カレンダーの曜日見出し（UI-SPEC §8.10）。
@@ -1630,7 +1671,9 @@ export const BREAKDOWN_BAR_UNPRICED_NOTE = '価格を入れると内訳が計算
 export function memoLabel(locale: Locale): string {
   return t('form.memo', locale);
 }
-export const MEMO_EMPTY_LABEL = 'なし';
+export function memoEmptyLabel(locale: Locale): string {
+  return t('detail.memoEmpty', locale);
+}
 
 /** 日付の欄名（UI-SPEC §1.3-12 / §1.4-2） */
 export function listedDateFieldLabel(locale: Locale): string {
@@ -1711,11 +1754,15 @@ export function listedDatePickerNote(locale: Locale): string {
 }
 
 /** レコード詳細の下端操作列（UI-SPEC §1.4-7）と削除の確認アラート（SPEC §5.4） */
-export const EDIT_RECORD_LABEL = '編集する';
+export function editRecordLabel(locale: Locale): string {
+  return t('detail.edit', locale);
+}
 export function deleteLabel(locale: Locale): string {
   return t('action.delete', locale);
 }
-export const DELETE_CONFIRM_TITLE = '削除しますか？';
+export function deleteConfirmTitle(locale: Locale): string {
+  return t('detail.deleteConfirmTitle', locale);
+}
 
 /** 伝票の控除行の行名（UI-SPEC §1.3-7〜9 / §1.4-4）:「− 送料」 */
 export function deductionLabel(locale: Locale, name: string): string {
@@ -1728,8 +1775,8 @@ export function additionLabel(locale: Locale, name: string): string {
 }
 
 /** レコード詳細のレシートの手数料行（UI-SPEC §1.4-4）:「販売手数料 (10%)」 */
-export function commissionRowLabel(rate: number): string {
-  return `${t('amount.commissionFull', 'ja')} (${rate}%)`;
+export function commissionRowLabel(locale: Locale, rate: number): string {
+  return t('detail.commissionRow', locale, { rate });
 }
 
 /**
@@ -1767,8 +1814,8 @@ export function todayDateLabel(locale: Locale, dateText: string): string {
  * 破壊的操作で、順方向（今日を入れるだけ・すぐ直せる）とは重さが違う。
  * 日付は M/d（メタ行と同じ形式。呼び出し側で formatShortDate する）。
  */
-export function revertToListingConfirmTitle(soldDateText: string): string {
-  return `${t('form.soldDate', 'ja')} ${soldDateText} が消えます。戻しますか？`;
+export function revertToListingConfirmTitle(locale: Locale, soldDateText: string): string {
+  return t('detail.revertToListingConfirmTitle', locale, { date: soldDateText });
 }
 
 /**
@@ -1788,20 +1835,31 @@ export function memoSectionLabel(locale: Locale, memo: string): string {
  * 出品中は行き先の日付がないので矢印を出さず、経過日数だけを添える。
  * 日数は出品日起算・当日 0 日（§5-2。算出は logic/listingDays.ts）。
  */
-export function recordTimelineText(timeline: {
-  kind: RecordKind;
-  /** 出品日「8/2」 */
-  listedDate: string;
-  /** 販売日「8/9」。出品中は null */
-  soldDate: string | null;
-  days: number;
-}): string {
-  const listed = `${timeline.listedDate} ${t('list.listedDate', 'ja')}`;
-  const head = `${recordKindLabel('ja', timeline.kind)} ・ ${listed}`;
-
+export function recordTimelineText(
+  locale: Locale,
+  timeline: {
+    kind: RecordKind;
+    /** 出品日「8/2」 */
+    listedDate: string;
+    /** 販売日「8/9」。出品中は null */
+    soldDate: string | null;
+    days: number;
+  },
+): string {
+  // 出品中と売れた記録で 1 文まるごと分ける（矢印の前後を継ぎ足す形にしない）
+  const kind = recordKindLabel(locale, timeline.kind);
   return timeline.soldDate == null
-    ? `${head}（${formatElapsedDays(timeline.days)}）`
-    : `${head} → ${timeline.soldDate} ${t('list.soldDate', 'ja')}（${timeline.days}日）`;
+    ? t('detail.timelineListing', locale, {
+        kind,
+        listedDate: timeline.listedDate,
+        elapsed: formatElapsedDays(timeline.days),
+      })
+    : t('detail.timelineSold', locale, {
+        kind,
+        listedDate: timeline.listedDate,
+        soldDate: timeline.soldDate,
+        days: timeline.days,
+      });
 }
 
 // ---- UI-SPEC §7 電卓 ----
@@ -2702,7 +2760,9 @@ export function filterChipLabel(count: number): string {
 }
 
 /** シート左上（§4.2-1）。効くのは 3 条件だけで、期間・検索・並び替えは動かない */
-export const FILTER_CLEAR_ALL_LABEL = 'すべて解除';
+export function filterClearAllLabel(locale: Locale): string {
+  return t('filter.clearAll', locale);
+}
 
 /** 解除バー右端（§4.3）。「すべて解除」と同じことをするが、1 行に収めるので短い語にする */
 export const FILTER_CLEAR_LABEL = '解除';
@@ -2723,16 +2783,24 @@ export const FILTER_CLEAR_ACTION_LABEL = `${FILTER_CLEAR_LABEL}する`;
 export const FILTER_DONE_LABEL = t('tag.pickerDone', 'ja');
 
 /** シートの節の見出し（§4.2-2〜4）。販売サイト・タグは既にある語をそのまま使う */
-export const FILTER_KIND_SECTION_LABEL = '種別';
-export const FILTER_SITE_SECTION_LABEL = presetTypeLabel('ja', 'site');
-export const FILTER_TAG_SECTION_LABEL = TAG_LABEL;
+export function filterKindSectionLabel(locale: Locale): string {
+  return t('filter.kindSection', locale);
+}
+export function filterSiteSectionLabel(locale: Locale): string {
+  return t('filter.siteSection', locale);
+}
+export function filterTagSectionBaseLabel(locale: Locale): string {
+  return t('filter.tagSection', locale);
+}
 
 /** 販売サイトを選んでいないときに節の右に出す語（§4.2-3）。種別の「すべて」と同じ語 */
-export const FILTER_ALL_LABEL = 'すべて';
+export function filterAllLabel(locale: Locale): string {
+  return t('filter.all', locale);
+}
 
 /** 解除バーの販売サイトの部分（§4.3）。名前だけでは何の名前か読めないので種類まで言う */
 export function filterSitePartLabel(name: string): string {
-  return `${FILTER_SITE_SECTION_LABEL}「${name}」`;
+  return `${t('filter.siteSection', 'ja')}「${name}」`;
 }
 
 /**
@@ -2767,14 +2835,12 @@ export function filterSummaryLabel(parts: string[], count: number): string {
  * 数えている対象も「出品中の記録」に変わる ── 節が無い理由の説明文は置かず、
  * 下部の語が対象を言う方を採る（無い欄の理由を読ませるより、無いまま短い方が迷わない）。
  */
-export function matchingRecordLabel(isSoldMode: boolean): string {
-  return isSoldMode
-    ? 'この条件に合う記録'
-    : `この条件に合う${listingCountLabel('ja')}の記録`;
+export function matchingRecordLabel(locale: Locale, isSoldMode: boolean): string {
+  return t(isSoldMode ? 'filter.matchingRecordSold' : 'filter.matchingRecordListing', locale);
 }
 
-export function matchingRecordCountValue(count: number): string {
-  return presetCountLabel('ja', count);
+export function matchingRecordCountValue(locale: Locale, count: number): string {
+  return presetCountLabel(locale, count);
 }
 
 /**
@@ -2796,12 +2862,15 @@ export function matchingRecordCountValue(count: number): string {
  * `conditionCount` は効いている条件の本数（activeFilterCount）。
  */
 export function filterNoMatchNote(
+  locale: Locale,
   monthTitle: string | null,
   conditionCount: number,
 ): string | null {
   if (conditionCount === 0) return null;
-  const conditions = `この${conditionCount}つが揃った記録がありません。`;
-  return monthTitle == null ? conditions : `${monthTitle}には、${conditions}`;
+  // 月を絞っているかで文を丸ごと分ける（前置きを継ぎ足す形だと英語で組み立て直せない）
+  return monthTitle == null
+    ? t('filter.noMatchConditions', locale, { count: conditionCount })
+    : t('filter.noMatchWithMonth', locale, { month: monthTitle, count: conditionCount });
 }
 
 /**
@@ -2835,9 +2904,12 @@ export function noRecordsEmptyBody(locale: Locale): string {
  * 販売サイトの候補が 0 件のとき（§4.2）。候補は**記録に実在する名前**なので、
  * プリセットを登録しても増えない ── 行き先はプリセットではなく記録の側だと言う。
  */
-export const FILTER_SITE_EMPTY_TITLE = `${FILTER_SITE_SECTION_LABEL}がありません`;
-export const FILTER_SITE_EMPTY_BODY =
-  '記録に販売サイトを入れると、ここから選べます。';
+export function filterSiteEmptyTitle(locale: Locale): string {
+  return t('filter.siteEmptyTitle', locale);
+}
+export function filterSiteEmptyBody(locale: Locale): string {
+  return t('filter.siteEmptyBody', locale);
+}
 
 /**
  * タグの登録が 0 件のとき（§4.2.3 / 案 35d）。カードの中に 2 行で出す。
@@ -2848,26 +2920,35 @@ export const FILTER_SITE_EMPTY_BODY =
  * 「設定で編集する ▸」があるが、あちらは**タグを作る・直す場所**で用が違うので揃えない。
  * 代わりに**どこで作れるか**だけを言う（行き先を指さずに、次に開く画面で目に入る場所を教える）。
  */
-export const FILTER_TAG_EMPTY_TITLE = t('tag.emptyTitle', 'ja');
-export const FILTER_TAG_EMPTY_BODY =
-  'タグは記録するときに、品名の下から作れます。付けたタグはここに並びます。';
+export function filterTagEmptyTitle(locale: Locale): string {
+  return t('tag.emptyTitle', locale);
+}
+export function filterTagEmptyBody(locale: Locale): string {
+  return t('filter.tagEmptyBody', locale);
+}
 
 /** タグの節の見出しの右（案 35a）。§4.4 の OR を、選ぶ前に読んで分かる言い方で置く */
-export const FILTER_TAG_OR_HINT = 'どれかが付いた記録が出ます';
+export function filterTagOrHint(locale: Locale): string {
+  return t('filter.tagOrHint', locale);
+}
 
 /** タグの検索欄（案 35f）。記録フォーム側と違い**作れない**ので「探す」だけ */
-export const FILTER_TAG_SEARCH_PLACEHOLDER = 'タグを探す';
-export const FILTER_TAG_SEARCH_CANCEL_LABEL = 'キャンセル';
+export function filterTagSearchPlaceholder(locale: Locale): string {
+  return t('filter.tagSearchPlaceholder', locale);
+}
+export function filterTagSearchCancelLabel(locale: Locale): string {
+  return t('filter.tagSearchCancel', locale);
+}
 
 /**
  * タグの節の見出し「タグ（32件）」（案 35a）。**登録件数**であって選択数ではない。
  * 0 件のときは件数を書かない ── 「タグ（0件）」は、下のカードの「タグがありません」と
  * 同じことを 2 度言うだけになる。
  */
-export function filterTagSectionLabel(totalCount: number): string {
+export function filterTagSectionLabel(locale: Locale, totalCount: number): string {
   return totalCount === 0
-    ? FILTER_TAG_SECTION_LABEL
-    : `${FILTER_TAG_SECTION_LABEL}（${presetCountLabel('ja', totalCount)}）`;
+    ? t('filter.tagSection', locale)
+    : t('filter.tagSectionWithCount', locale, { count: presetCountLabel(locale, totalCount) });
 }
 
 /**
@@ -2875,10 +2956,14 @@ export function filterTagSectionLabel(totalCount: number): string {
  * **絞り込みの条件ではなく一覧の見え方の話**なので、下部の件数とは別の語にする。
  */
 export function filterTagSearchResultLabel(
+  locale: Locale,
   totalCount: number,
   matchedCount: number,
 ): string {
-  return `${presetCountLabel('ja', totalCount)}のうち${presetCountLabel('ja', matchedCount)}が該当`;
+  return t('filter.tagSearchResult', locale, {
+    total: presetCountLabel(locale, totalCount),
+    matched: presetCountLabel(locale, matchedCount),
+  });
 }
 
 /**
@@ -2888,8 +2973,8 @@ export function filterTagSearchResultLabel(
  * 見えていないものが効いている状態は、言わないと「外れた」と読まれる。
  * 選んでいるタグが無いときは 2 行目ごと出さない（言うことがない）。
  */
-export function filterTagSearchEmptyTitle(keyword: string): string {
-  return `「${keyword}」に合うタグがありません`;
+export function filterTagSearchEmptyTitle(locale: Locale, keyword: string): string {
+  return t('filter.tagSearchEmptyTitle', locale, { keyword });
 }
 
 /**
@@ -2897,6 +2982,7 @@ export function filterTagSearchEmptyTitle(keyword: string): string {
  * ── 全部並べると、選び方によっては 1 行に収まらない。
  */
 export function filterTagSearchEmptyBody(
+  locale: Locale,
   selectedNames: readonly string[],
 ): string | null {
   if (selectedNames.length === 0) return null;
@@ -2905,7 +2991,7 @@ export function filterTagSearchEmptyBody(
     selectedNames.length === 1
       ? head
       : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
-  return `選んでいるタグ（${names}）は、そのまま効いています。`;
+  return t('filter.tagSearchEmptyBody', locale, { names });
 }
 
 // ---- UI-SPEC §1.6-1 使いかた / §1.6-2 記録群 ----
@@ -3007,7 +3093,7 @@ export const RECORD_KIND_COLUMN = '種別';
 
 /** 状態の列（§5.3-15）と、その 2 値 */
 export const RECORD_STATUS_COLUMN = '状態';
-export const CSV_SOLD_STATUS_VALUE = SOLD_BADGE_LABEL;
+export const CSV_SOLD_STATUS_VALUE = t('detail.soldBadge', 'ja');
 export const CSV_LISTING_STATUS_VALUE = t('list.listingStatus', 'ja');
 
 /** 記録 ID の列（§5.3-18）。再書き出し時の突き合わせ用 */
@@ -3352,16 +3438,22 @@ export function photoRemoveAccessibilityLabel(locale: Locale): string {
  * 画像そのものには押せる印が付かないので、形からは読み取れない。
  * 写真が無いときは出さない（押す対象がない）。
  */
-export const PHOTO_TAP_HINT = '写真を押すと全画面で見られます';
+export function photoTapHint(locale: Locale): string {
+  return t('detail.photoTapHint', locale);
+}
 
 /**
  * 詳細画面に写真が無いときの 1 行（§2.2 / 決定 §6-4）。**リンクだけを小さく出す。**
  * 枠付きの大きな置き場所にすると、写真の無い記録（多数派）で毎回追加を促すことになる。
  */
-export const PHOTO_ADD_FROM_DETAIL_LABEL = '写真を追加';
+export function photoAddFromDetailLabel(locale: Locale): string {
+  return t('detail.photoAddFromDetail', locale);
+}
 
 /** 全画面表示の閉じる（§2.1）。読み上げ用で、見た目は「✕」 */
-export const PHOTO_VIEWER_CLOSE_LABEL = '閉じる';
+export function photoViewerCloseLabel(locale: Locale): string {
+  return t('detail.photoViewerClose', locale);
+}
 
 /** 一覧のサムネイル・詳細の写真の読み上げ語（§2.3）。商品名は呼び出し側が前に付ける */
 export function photoImageLabel(locale: Locale): string {
@@ -4145,7 +4237,9 @@ export const PRICE_UNSET_BADGE_LABEL = '価格 未設定';
 export const LOSS_BADGE_LABEL = '赤字';
 
 /** 主役の数字が出せないとき（価格未設定）の置き字（§9.7）。「¥0」とは書かない */
-export const AMOUNT_PLACEHOLDER = 'ーー';
+export function amountPlaceholder(locale: Locale): string {
+  return t('detail.amountPlaceholder', locale);
+}
 
 /** 主役の数字の上（§9.4）:「今の価格 ¥5,000 で売れたら」 */
 export function currentPriceLeadLabel(price: number): string {
@@ -4389,7 +4483,7 @@ export function priceAppliedMessage(price: number): string {
   return `このアプリの記録を ${formatYenSymbol(price)} にしました`;
 }
 
-/** バーの取り消し（§9.12）。「元に戻す」（UNDO_LABEL）と役割は同じだが、語はモックに合わせる */
+/** バーの取り消し（§9.12）。「元に戻す」（t('detail.undo', 'ja')）と役割は同じだが、語はモックに合わせる */
 export const PRICE_UNDO_LABEL = '取り消す';
 
 // ---- 価格が未設定のとき（E。§9.7） ----
@@ -4766,3 +4860,14 @@ export const PHOTO_IMAGE_LABEL = t('photo.image', 'ja');
 export const TAG_EMPTY_TITLE = t('tag.emptyTitle', 'ja');
 export const TAG_ADD_LABEL = t('tag.add', 'ja');
 export const PHOTO_SQUARE_LABEL = t('photo.field', 'ja');
+
+// ---- 詳細・絞り込みの節を移したぶんの日本語固定の写し（多言語化ステップ 2-4） ----
+export const AMOUNT_PLACEHOLDER = t('detail.amountPlaceholder', 'ja');
+export const DELETE_CONFIRM_TITLE = t('detail.deleteConfirmTitle', 'ja');
+export const UNDO_LABEL = t('detail.undo', 'ja');
+export const SOLD_BADGE_LABEL = t('detail.soldBadge', 'ja');
+export const SOLD_DATE_ROW_LABEL = t('detail.soldDateRow', 'ja');
+export const MARK_AS_SOLD_BUTTON_LABEL = t('detail.markAsSold', 'ja');
+export const MARKED_AS_SOLD_MESSAGE = t('detail.markedAsSoldMessage', 'ja');
+export const REVERT_TO_LISTING_BUTTON_LABEL = t('detail.revertToListing', 'ja');
+export const REVERT_TO_LISTING_CONFIRM_LABEL = t('detail.revertToListingConfirmLabel', 'ja');

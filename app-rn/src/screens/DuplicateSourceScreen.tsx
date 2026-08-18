@@ -33,18 +33,19 @@ import { useDuplicateSources, useRecordCount } from '@/db/useRecords';
 import { useRecordTagIds, useRecordTags, useTagList } from '@/db/useTags';
 import { duplicateFormValues } from '@/logic/duplicateRecord';
 import {
-  DUPLICATE_ALL_SECTION_LABEL,
-  DUPLICATE_EMPTY_BODY,
-  DUPLICATE_EMPTY_TITLE,
-  DUPLICATE_NO_MATCH_TITLE,
-  DUPLICATE_RECENT_SECTION_LABEL,
-  DUPLICATE_SCREEN_NOTE,
-  DUPLICATE_SCREEN_TITLE,
-  DUPLICATE_SHOW_ALL_LABEL,
-  DUPLICATE_TAG_FILTER_LABEL,
+  duplicateAllSectionLabel,
+  duplicateEmptyBody,
+  duplicateEmptyTitle,
+  duplicateNoMatchTitle,
+  duplicateRecentSectionLabel,
+  duplicateScreenNote,
+  duplicateScreenTitle,
+  duplicateShowAllLabel,
+  duplicateTagFilterLabel,
   recordDetailAccessibilityLabel,
 } from '@/logic/labels';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /**
@@ -56,6 +57,10 @@ import { useThemeColors } from '@/theme';
 const RECENT_LIMIT = 8;
 
 export function DuplicateSourceScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
 
@@ -102,10 +107,10 @@ export function DuplicateSourceScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: DUPLICATE_SCREEN_TITLE }} />
+      <Stack.Screen options={{ title: duplicateScreenTitle(locale) }} />
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        {/* 写らないものを先に言う 1 行（DUPLICATE_SCREEN_NOTE の理由） */}
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{DUPLICATE_SCREEN_NOTE}</Text>
+        {/* 写らないものを先に言う 1 行（duplicateScreenNote(locale) の理由） */}
+        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{duplicateScreenNote(locale)}</Text>
 
         <SearchBar value={searchText} onChangeValue={setSearchText} style={styles.search} />
 
@@ -113,7 +118,7 @@ export function DuplicateSourceScreen() {
         {tags.length > 0 && (
           <View style={styles.tagSection}>
             <Text style={[styles.tagLabel, { color: colors.secondaryLabel }]}>
-              {DUPLICATE_TAG_FILTER_LABEL}
+              {duplicateTagFilterLabel(locale)}
             </Text>
             <FlatList
               horizontal
@@ -144,14 +149,14 @@ export function DuplicateSourceScreen() {
           ListHeaderComponent={
             records.length === 0 ? null : (
               <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-                {limit == null ? DUPLICATE_ALL_SECTION_LABEL : DUPLICATE_RECENT_SECTION_LABEL}
+                {limit == null ? duplicateAllSectionLabel(locale) : duplicateRecentSectionLabel(locale)}
               </Text>
             )
           }
           ListEmptyComponent={
             <EmptyState
-              title={totalCount === 0 ? DUPLICATE_EMPTY_TITLE : DUPLICATE_NO_MATCH_TITLE}
-              body={totalCount === 0 ? DUPLICATE_EMPTY_BODY : undefined}
+              title={totalCount === 0 ? duplicateEmptyTitle(locale) : duplicateNoMatchTitle(locale)}
+              body={totalCount === 0 ? duplicateEmptyBody(locale) : undefined}
             />
           }
           ListFooterComponent={
@@ -161,7 +166,7 @@ export function DuplicateSourceScreen() {
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.showAll, { opacity: pressed ? 0.5 : 1 }]}>
                 <Text style={[styles.showAllLabel, { color: colors.blue }]}>
-                  {DUPLICATE_SHOW_ALL_LABEL}
+                  {duplicateShowAllLabel(locale)}
                 </Text>
               </Pressable>
             ) : null

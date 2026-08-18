@@ -29,17 +29,17 @@ import { dayChips } from '@/logic/calendar';
 import type { SaleRecord } from '@/db/schema';
 import { formatRecordDate, formatYen } from '@/logic/format';
 import {
-  AMOUNT_PLACEHOLDER,
-  ENVELOPE_AND_OTHERS_FIELD_LABEL,
-  LISTING_STATUS_LABEL,
-  MARK_AS_SOLD_BUTTON_LABEL,
-  POSTAGE_LABEL,
-  PURCHASE_PRICE_LABEL,
-  REVERT_TO_LISTING_BUTTON_LABEL,
-  SALES_PRICE_LABEL,
-  SOLD_DATE_ROW_LABEL,
-  SOLD_RECORDS_LABEL,
-  UNSET_INPUT_LABEL,
+  amountPlaceholder,
+  envelopeAndOthersFieldLabel,
+  listingStatusLabel,
+  markAsSoldButtonLabel,
+  postageLabel,
+  purchasePriceLabel,
+  revertToListingButtonLabel,
+  salesPriceLabel,
+  soldDateRowLabel,
+  soldRecordsLabel,
+  unsetInputLabel,
   commissionRowLabel,
   deductionLabel,
   profitLabel,
@@ -51,6 +51,7 @@ import { commissionCost, netProfit, roundForDisplay } from '@/logic/profit';
 import { findBarPart, recordBreakdown, showsPricedAmounts } from '@/logic/recordBreakdown';
 import type { BreakdownPartKey } from '@/logic/calcForm';
 import { saleDateRange } from '@/logic/saleDate';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 import { LongPressCopy } from '@/components/LongPressCopy';
 
@@ -79,6 +80,10 @@ import { LongPressCopy } from '@/components/LongPressCopy';
  * 帯の中に % が入っている ── 行にも数字で置くと、同じことを 2 通りで言うことになる。
  */
 export function ReceiptCard({ record }: { record: SaleRecord }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const profit = netProfit(record);
   // 梱包材とその他は伝票では 1 行にまとめる（UI-SPEC §1.4-4）
@@ -109,12 +114,12 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
             それでも行名の左端は他の行と揃える（列がずれると別の表に見える） */}
         <View style={styles.receiptLabelGroup}>
           <View style={styles.dotPlaceholder} />
-          <Text style={[styles.receiptLabel, { color: colors.label }]}>{SALES_PRICE_LABEL}</Text>
+          <Text style={[styles.receiptLabel, { color: colors.label }]}>{salesPriceLabel(locale)}</Text>
         </View>
-        <LongPressCopy label={SALES_PRICE_LABEL} text={record.salesPrice.toString()}>
+        <LongPressCopy label={salesPriceLabel(locale)} text={record.salesPrice.toString()}>
           <Text
             style={[styles.salesPrice, { color: priced ? colors.label : colors.mutedLabel }]}>
-            {priced ? formatYen('ja', record.salesPrice) : UNSET_INPUT_LABEL}
+            {priced ? formatYen('ja', record.salesPrice) : unsetInputLabel(locale)}
           </Text>
         </LongPressCopy>
       </View>
@@ -124,21 +129,21 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
       {/* 不用品は仕入価格の概念がない（常に 0）ので行ごと出さない（SPEC-V2 §1.3 / UI-SPEC §5-11） */}
       {record.kind === 'sourced' && (
         <ReceiptDeductionRow
-          label={PURCHASE_PRICE_LABEL}
+          label={purchasePriceLabel(locale)}
           amount={record.purchasePrice}
           color={colors.red}
           dotColor={dotColor('purchasePrice')}
         />
       )}
       <ReceiptDeductionRow
-        label={POSTAGE_LABEL}
+        label={postageLabel(locale)}
         amount={record.postage}
         color={colors.red}
         dotColor={dotColor('postage')}
       />
       {/* 手数料「率」も表示時に丸める（決定 §7-5: Int キャストではなく Math.round） */}
       <ReceiptDeductionRow
-        label={commissionRowLabel(roundForDisplay(record.commission))}
+        label={commissionRowLabel(locale, roundForDisplay(record.commission))}
         amount={commissionCost(record)}
         color={colors.orange}
         dotColor={dotColor('commission')}
@@ -152,13 +157,13 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
         </Text>
       )}
       <ReceiptDeductionRow
-        label={ENVELOPE_AND_OTHERS_FIELD_LABEL}
+        label={envelopeAndOthersFieldLabel(locale)}
         amount={packingCost}
         color={colors.red}
         dotColor={dotColor('envelopeCost')}
         // 0 のときは金額ではなく「未入力」（UI-SPEC §1.4-4）。「0 円かけた」ではなく
         // 「まだ入れていない」ことを言う欄なので、金額と同じ濃さでは出さない
-        unsetText={packingCost === 0 ? UNSET_INPUT_LABEL : undefined}
+        unsetText={packingCost === 0 ? unsetInputLabel(locale) : undefined}
       />
 
       <View style={[styles.totalSeparator, { backgroundColor: colors.separator }]} />
@@ -183,7 +188,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
                 color: !priced ? colors.mutedLabel : profit >= 0 ? colors.green : colors.red,
               },
             ]}>
-            {priced ? formatYen('ja', profit) : AMOUNT_PLACEHOLDER}
+            {priced ? formatYen('ja', profit) : amountPlaceholder(locale)}
           </Text>
         </LongPressCopy>
       </View>
@@ -281,6 +286,10 @@ export function SaleStatusCard({
   /** 売れた日の行を押したとき。ハイライトは役目を終えるので呼び出し側で解除する（§8.3） */
   onPressSoldDate: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const saleStartDate = fromDbDate(record.saleStartDate);
   const saleDate = record.saleDate == null ? null : fromDbDate(record.saleDate);
@@ -295,14 +304,14 @@ export function SaleStatusCard({
             { backgroundColor: record.isSold ? colors.green : colors.orange },
           ]}>
           <Text style={styles.statusBadgeText}>
-            {record.isSold ? SOLD_RECORDS_LABEL : LISTING_STATUS_LABEL}
+            {record.isSold ? soldRecordsLabel(locale) : listingStatusLabel(locale)}
           </Text>
         </View>
 
         {/* 右: 操作 */}
         {record.isSold ? (
           <StatusButton
-            label={REVERT_TO_LISTING_BUTTON_LABEL}
+            label={revertToListingButtonLabel(locale)}
             onPress={onRevertToListing}
             // 戻す側は「入力済みの日付が消える」操作なので、押しやすい塗りにはしない（§8.4 / §8.9）
             textColor={colors.orange}
@@ -310,7 +319,7 @@ export function SaleStatusCard({
           />
         ) : (
           <StatusButton
-            label={MARK_AS_SOLD_BUTTON_LABEL}
+            label={markAsSoldButtonLabel(locale)}
             onPress={onMarkSold}
             backgroundColor={colors.green}
             textColor="#FFFFFF"
@@ -401,6 +410,10 @@ function SoldDateRow({
   onChangeValue: (value: Date) => void;
   onPress: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
 
@@ -429,14 +442,14 @@ function SoldDateRow({
           },
         ]}>
         <View style={styles.soldDateValueRow}>
-          <Text style={[styles.soldDateLabel, { color: colors.label }]}>{SOLD_DATE_ROW_LABEL}</Text>
+          <Text style={[styles.soldDateLabel, { color: colors.label }]}>{soldDateRowLabel(locale)}</Text>
           <Pressable
             onPress={() => {
               onPress();
               setShowPicker(true);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`${SOLD_DATE_ROW_LABEL}: ${text}`}
+            accessibilityLabel={`${soldDateRowLabel(locale)}: ${text}`}
             style={({ pressed }) => [styles.soldDateValue, { opacity: pressed ? 0.5 : 1 }]}>
             <Text style={[styles.soldDateText, { color: isToday ? colors.blue : colors.label }]}>
               {text}
@@ -450,7 +463,7 @@ function SoldDateRow({
 
       {showPicker && (
         <CalendarPicker
-          title={SOLD_DATE_ROW_LABEL}
+          title={soldDateRowLabel(locale)}
           value={value}
           onChangeValue={onChangeValue}
           onClose={() => setShowPicker(false)}

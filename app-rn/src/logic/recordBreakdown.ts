@@ -167,7 +167,7 @@ export function recordBreakdown(record: SaleRecord): RecordBreakdown {
       ? [{ key: 'purchasePrice' as const, label: PURCHASE_PRICE_LABEL, amount: purchasePrice }]
       : []),
     { key: 'postage', label: POSTAGE_LABEL, amount: postage },
-    { key: 'commission', label: commissionRowLabel(roundForDisplay(record.commission)), amount: commission },
+    { key: 'commission', label: commissionRowLabel('ja', roundForDisplay(record.commission)), amount: commission },
     { key: 'envelopeCost', label: ENVELOPE_AND_OTHERS_FIELD_LABEL, amount: packing },
   ];
 

@@ -72,23 +72,23 @@ import {
 import { useRecordTagIds, useTagList } from '@/db/useTags';
 import { formatShortDate } from '@/logic/format';
 import {
-  DELETE_CONFIRM_TITLE,
-  DELETE_LABEL,
-  EDIT_RECORD_LABEL,
-  ITEM_NAME_LABEL,
-  LISTING_STATUS_LABEL,
-  MARKED_AS_SOLD_MESSAGE,
-  MEMO_EMPTY_LABEL,
-  MEMO_LABEL,
-  PHOTO_ADD_FROM_DETAIL_LABEL,
-  PHOTO_IMAGE_LABEL,
-  PHOTO_SQUARE_LABEL,
-  PHOTO_TAP_HINT,
-  REVERT_TO_LISTING_CONFIRM_LABEL,
-  SOLD_BADGE_LABEL,
-  UNDO_LABEL,
-  UNTITLED_LABEL,
-  CANCEL_LABEL,
+  deleteConfirmTitle,
+  deleteLabel,
+  editRecordLabel,
+  itemNameLabel,
+  listingStatusLabel,
+  markedAsSoldMessage,
+  memoEmptyLabel,
+  memoLabel,
+  photoAddFromDetailLabel,
+  photoImageLabel,
+  photoSquareLabel,
+  photoTapHint,
+  revertToListingConfirmLabel,
+  soldBadgeLabel,
+  undoLabel,
+  untitledLabel,
+  cancelLabel,
   recordTimelineText,
   revertToListingConfirmTitle,
 } from '@/logic/labels';
@@ -98,10 +98,15 @@ import { photoStore } from '@/media/expoPhotoFiles';
 import { initialSaleDate } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
+import { useLocale, type Locale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 import { LongPressCopy } from '@/components/LongPressCopy';
 
 export function SaleRecordDetailScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
@@ -153,8 +158,8 @@ export function SaleRecordDetailScreen() {
     setShowUndo(true);
     setHighlightSoldDate(true);
     // バーは数秒で消えるので、バーだけに情報を載せない（§8.3）
-    AccessibilityInfo.announceForAccessibility(MARKED_AS_SOLD_MESSAGE);
-  }, [id, record, refresh, today]);
+    AccessibilityInfo.announceForAccessibility(markedAsSoldMessage(locale));
+  }, [id, record, refresh, today, locale]);
 
   /** バーの「元に戻す」（§8.3）。直前の操作の取り消しなので §8.4 の確認は出さない */
   const handleUndoMarkSold = useCallback(() => {
@@ -179,11 +184,11 @@ export function SaleRecordDetailScreen() {
       return;
     }
 
-    Alert.alert(revertToListingConfirmTitle(formatShortDate(fromDbDate(record.saleDate))), undefined, [
-      { text: CANCEL_LABEL, style: 'cancel' },
-      { text: REVERT_TO_LISTING_CONFIRM_LABEL, style: 'destructive', onPress: revert },
+    Alert.alert(revertToListingConfirmTitle(locale, formatShortDate(fromDbDate(record.saleDate))), undefined, [
+      { text: cancelLabel(locale), style: 'cancel' },
+      { text: revertToListingConfirmLabel(locale), style: 'destructive', onPress: revert },
     ]);
-  }, [hideFeedback, id, record, refresh]);
+  }, [hideFeedback, id, record, refresh, locale]);
 
   /** 売れた日の行から日付を直したとき（§8.2）。状態は変えず、その場で保存する */
   const handleChangeSaleDate = useCallback(
@@ -205,10 +210,10 @@ export function SaleRecordDetailScreen() {
 
   const handleDelete = useCallback(() => {
     // SPEC §5.4: 詳細画面の削除は確認アラートを挟む（一覧のスワイプ削除とは違い即削除しない）
-    Alert.alert(DELETE_CONFIRM_TITLE, undefined, [
-      { text: CANCEL_LABEL, style: 'cancel' },
+    Alert.alert(deleteConfirmTitle(locale), undefined, [
+      { text: cancelLabel(locale), style: 'cancel' },
       {
-        text: DELETE_LABEL,
+        text: deleteLabel(locale),
         style: 'destructive',
         onPress: () => {
           deleteRecord(id);
@@ -216,7 +221,7 @@ export function SaleRecordDetailScreen() {
         },
       },
     ]);
-  }, [id, router]);
+  }, [id, router, locale]);
 
   // ヘッダは「◀ 記録」と右の「？」（UI-SPEC §1.4-1）。編集・削除は下端の操作列にある。
   // 中央のタイトルを空にするのは、すぐ下のメタ行と商品名がこの画面の見出しを兼ねるため
@@ -251,7 +256,7 @@ export function SaleRecordDetailScreen() {
             <View style={styles.metaRow}>
               <StatusBadge isSold={record.isSold} colors={colors} />
               <Text style={[styles.metaText, { color: colors.secondaryLabel }]}>
-                {timelineText(record, today)}
+                {timelineText(locale, record, today)}
               </Text>
             </View>
 
@@ -286,15 +291,15 @@ export function SaleRecordDetailScreen() {
 
             {/* 6. メモ */}
             <View style={styles.memoSection}>
-              <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{MEMO_LABEL}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>{memoLabel(locale)}</Text>
               <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-                <LongPressCopy label={MEMO_LABEL} text={record.memo}>
+                <LongPressCopy label={memoLabel(locale)} text={record.memo}>
                   <Text
                     style={[
                       styles.memoText,
                       { color: record.memo === '' ? colors.mutedLabel : colors.label },
                     ]}>
-                    {record.memo === '' ? MEMO_EMPTY_LABEL : record.memo}
+                    {record.memo === '' ? memoEmptyLabel(locale) : record.memo}
                   </Text>
                 </LongPressCopy>
               </View>
@@ -307,14 +312,14 @@ export function SaleRecordDetailScreen() {
               操作なので、いちばん押しやすい位置には置かない */}
           <Fab
             icon="pencil"
-            label={EDIT_RECORD_LABEL}
+            label={editRecordLabel(locale)}
             onPress={() => setShowForm(true)}
             backgroundColor={colors.blue}
             style={styles.editFab}
           />
           <Fab
             icon="trash-outline"
-            label={DELETE_LABEL}
+            label={deleteLabel(locale)}
             onPress={handleDelete}
             // 帯だった頃と同じ主従（編集が塗り、削除は地に赤い字）。塗りつぶしの赤にすると、
             // 画面でいちばん強い色が「消す」になってしまう
@@ -327,8 +332,8 @@ export function SaleRecordDetailScreen() {
               数秒で消えるが、訂正口（売れた日の行）は残る。下端の FAB の上に重ねる */}
           {showUndo && (
             <UndoBar
-              message={MARKED_AS_SOLD_MESSAGE}
-              actionLabel={UNDO_LABEL}
+              message={markedAsSoldMessage(locale)}
+              actionLabel={undoLabel(locale)}
               onAction={handleUndoMarkSold}
               onHide={hideFeedback}
               bottomOffset={FAB_BOTTOM + FAB_HEIGHT + 8}
@@ -366,11 +371,12 @@ export function SaleRecordDetailScreen() {
 }
 
 /** メタ行の「不用品 ・ 8/2 出品 → 8/9 販売（7日）」（UI-SPEC §1.4-2。文の組み立ては labels.ts） */
-function timelineText(record: SaleRecord, today: Date): string {
+// コンポーネントではないので locale は引数で受ける（フックは使えない）
+function timelineText(locale: Locale, record: SaleRecord, today: Date): string {
   const saleStartDate = fromDbDate(record.saleStartDate);
   const saleDate = record.saleDate == null ? null : fromDbDate(record.saleDate);
 
-  return recordTimelineText({
+  return recordTimelineText(locale, {
     kind: record.kind,
     listedDate: formatShortDate(saleStartDate),
     // 出品中は行き先の日付がない。バッジが「出品中」でも saleDate を見て判定するのは、
@@ -416,6 +422,10 @@ function RecordHeaderBlock({
   strikeAchievement: Achievement | null;
   onAddPhoto: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [viewerOpen, setViewerOpen] = useState(false);
   const uri = photoStore.uri(record.photoFileName);
@@ -427,7 +437,7 @@ function RecordHeaderBlock({
           <Pressable
             onPress={() => setViewerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel={PHOTO_IMAGE_LABEL}
+            accessibilityLabel={photoImageLabel(locale)}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <Image
               source={{ uri }}
@@ -456,11 +466,11 @@ function RecordHeaderBlock({
           ]}>
           <View style={styles.itemNameRow}>
             <LongPressCopy
-              label={ITEM_NAME_LABEL}
+              label={itemNameLabel(locale)}
               text={record.itemName}
               style={styles.itemNameCopy}>
               <Text style={[styles.itemName, { color: colors.label }]}>
-                {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+                {record.itemName === '' ? untitledLabel(locale) : record.itemName}
               </Text>
             </LongPressCopy>
             {/* ⚡一撃系のバッジ。この記録が実際に「達成した記録」になっている場合だけ
@@ -491,14 +501,14 @@ function RecordHeaderBlock({
           <Pressable
             onPress={onAddPhoto}
             accessibilityRole="button"
-            accessibilityLabel={PHOTO_ADD_FROM_DETAIL_LABEL}
+            accessibilityLabel={photoAddFromDetailLabel(locale)}
             style={({ pressed }) => [
               styles.photoPlaceholder,
               { borderColor: colors.separator, opacity: pressed ? 0.5 : 1 },
             ]}>
             <Ionicons name="image-outline" size={22} color={colors.blue} />
             <Text style={[styles.photoPlaceholderLabel, { color: colors.blue }]}>
-              {PHOTO_SQUARE_LABEL}
+              {photoSquareLabel(locale)}
             </Text>
           </Pressable>
         )}
@@ -507,7 +517,7 @@ function RecordHeaderBlock({
       {/* 画像には押せる印が付かないので、押せることは語で言う（§2.1）。
           写真が無いときは押す対象そのものが無いので出さない */}
       {uri != null && (
-        <Text style={[styles.photoHint, { color: colors.secondaryLabel }]}>{PHOTO_TAP_HINT}</Text>
+        <Text style={[styles.photoHint, { color: colors.secondaryLabel }]}>{photoTapHint(locale)}</Text>
       )}
 
       {viewerOpen && uri != null && (
@@ -519,9 +529,13 @@ function RecordHeaderBlock({
 
 /** メタ行の状態バッジ（UI-SPEC §1.4-2）。状態を**表示**するだけで、変えるのはトグルの役割（§5-13） */
 function StatusBadge({ isSold, colors }: { isSold: boolean; colors: ThemeColors }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   return (
     <View style={[styles.badge, { backgroundColor: isSold ? colors.green : colors.orange }]}>
-      <Text style={styles.badgeText}>{isSold ? SOLD_BADGE_LABEL : LISTING_STATUS_LABEL}</Text>
+      <Text style={styles.badgeText}>{isSold ? soldBadgeLabel(locale) : listingStatusLabel(locale)}</Text>
     </View>
   );
 }
