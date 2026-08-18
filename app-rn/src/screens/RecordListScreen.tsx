@@ -47,20 +47,20 @@ import { useRecordTags, useTagList } from '@/db/useTags';
 import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  CANCEL_LABEL,
-  DELETE_LABEL,
-  EXPENSES_LABEL,
-  FILTER_EMPTY_ACTION_LABEL,
-  FILTER_EMPTY_TITLE,
-  FILTER_LABEL,
-  LISTING_COUNT_LABEL,
-  NO_RECORDS_EMPTY_BODY,
-  NO_RECORDS_EMPTY_TITLE,
-  RECORDS_TAB_LABEL,
-  SEARCH_LABEL,
-  SOLD_RECORDS_LABEL,
-  SORT_SHEET_TITLE,
-  TOTAL_LISTING_PRICE_LABEL,
+  cancelLabel,
+  deleteLabel,
+  expensesLabel,
+  filterEmptyActionLabel,
+  filterEmptyTitle,
+  filterLabel,
+  listingCountLabel,
+  noRecordsEmptyBody,
+  noRecordsEmptyTitle,
+  recordsTabLabel,
+  searchLabel,
+  soldRecordsLabel,
+  sortSheetTitle,
+  totalListingPriceLabel,
   deleteAccessibilityLabel,
   listedItemCountValue,
   periodProfitLabel,
@@ -77,13 +77,11 @@ import {
 import { fallbackSortType, sortRows } from '@/logic/recordSort';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** リセット時に戻すソート（旧一覧の resetFilter と同じく販売日降順） */
 const DEFAULT_SORT: RecordSortType = 'saleDateDesc';
-
-/** 合計行 2 段目のセグメント（§4.1）。並びは「売れた記録 / 出品中」で固定 */
-const STATUS_SEGMENTS = [SOLD_RECORDS_LABEL, LISTING_COUNT_LABEL];
 
 /** レコード詳細のルート。月別詳細を廃止して 1 系統に統一した（UI-SPEC §2 / §6-9） */
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
@@ -95,6 +93,13 @@ const DUPLICATE_PATHNAME = '/records/duplicate' as const;
 const RECORD_FILTER_PATHNAME = '/records/filter' as const;
 
 export function RecordListScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+  // 合計行 2 段目のセグメント（§4.1）。並びは「売れた記録 / 出品中」で固定。
+  // **モジュールスコープで畳まない** ── import 時の言語のまま固まるため
+  const statusSegments = [soldRecordsLabel(locale), listingCountLabel(locale)];
+
   const colors = useThemeColors();
   const router = useRouter();
 
@@ -244,21 +249,21 @@ export function RecordListScreen() {
   const summaryItems: SummaryItem[] = isSoldMode
     ? [
         {
-          label: periodProfitLabel(period),
+          label: periodProfitLabel(locale, period),
           value: formatYenSymbol(summary.totalNetProfit),
           // 収支は赤字になり得るので、符号で色を変える（行の純利益と同じ規則）
           color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
         },
-        { label: EXPENSES_LABEL, value: formatYenSymbol(summary.totalExpenses), color: colors.red },
+        { label: expensesLabel(locale), value: formatYenSymbol(summary.totalExpenses), color: colors.red },
       ]
     : [
         {
-          label: LISTING_COUNT_LABEL,
-          value: listedItemCountValue(summary.recordCount),
+          label: listingCountLabel(locale),
+          value: listedItemCountValue(locale, summary.recordCount),
           color: colors.orange,
         },
         {
-          label: TOTAL_LISTING_PRICE_LABEL,
+          label: totalListingPriceLabel(locale),
           value: formatYenSymbol(summary.totalSales),
           color: colors.blue,
         },
@@ -281,25 +286,25 @@ export function RecordListScreen() {
             ),
             headerRight: () => (
               <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button">
-                <Text style={[styles.headerAction, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+                <Text style={[styles.headerAction, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
               </Pressable>
             ),
           }
         : {
-            title: RECORDS_TAB_LABEL,
+            title: recordsTabLabel(locale),
             headerTitle: undefined,
             headerRight: () => (
               <View style={styles.headerButtons}>
                 <Pressable
                   onPress={() => setSearching(true)}
                   hitSlop={8}
-                  accessibilityLabel={SEARCH_LABEL}>
+                  accessibilityLabel={searchLabel(locale)}>
                   <Ionicons name="search" size={22} color={colors.blue} />
                 </Pressable>
                 <Pressable
                   onPress={() => setShowSortSheet(true)}
                   hitSlop={8}
-                  accessibilityLabel={SORT_SHEET_TITLE}>
+                  accessibilityLabel={sortSheetTitle(locale)}>
                   <Ionicons name="swap-vertical" size={22} color={colors.blue} />
                 </Pressable>
                 {/* UI-SPEC §1.2-1: ⌕ ・ ⇅ ・ ？ の 3 つ。検索中は行ごと入れ替わるので出ない */}
@@ -307,7 +312,8 @@ export function RecordListScreen() {
               </View>
             ),
           },
-    [searching, searchText, closeSearch, colors.blue],
+    // locale を入れないと、ヘッダの読み上げ語とプレースホルダだけ前の言語で残る
+    [searching, searchText, closeSearch, colors.blue, locale],
   );
 
   return (
@@ -325,7 +331,7 @@ export function RecordListScreen() {
           filter={{
             active: filterCount > 0,
             onPress: openFilterPage,
-            accessibilityLabel: FILTER_LABEL,
+            accessibilityLabel: filterLabel(locale),
           }}
         />
 
@@ -334,7 +340,7 @@ export function RecordListScreen() {
         <SummaryBar
           items={summaryItems}
           segment={{
-            options: STATUS_SEGMENTS,
+            options: statusSegments,
             selectedIndex: isSoldMode ? 0 : 1,
             onChange: (index) => changeStatus(index === 0),
           }}
@@ -361,7 +367,7 @@ export function RecordListScreen() {
             ListHeaderComponent={
               records.length === 0 || summaryText != null ? null : (
                 <Text style={[styles.count, { color: colors.secondaryLabel }]}>
-                  {recordCountValue(records.length)}
+                  {recordCountValue(locale, records.length)}
                 </Text>
               )
             }
@@ -413,7 +419,7 @@ export function RecordListScreen() {
           絞り込みシート（と解除バー）に一本化し、同じことをする経路を 2 つ作らない */}
       <SortSheet
         visible={showSortSheet}
-        title={SORT_SHEET_TITLE}
+        title={sortSheetTitle(locale)}
         rows={visibleSortRows}
         selectedValue={sortType}
         onSelect={setSortType}
@@ -463,14 +469,18 @@ function ListEmpty({
   canClearFilter: boolean;
   onClearFilter: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   if (!filtering) {
-    return <EmptyState title={NO_RECORDS_EMPTY_TITLE} body={NO_RECORDS_EMPTY_BODY} />;
+    return <EmptyState title={noRecordsEmptyTitle(locale)} body={noRecordsEmptyBody(locale)} />;
   }
 
   return (
     <EmptyState
-      title={FILTER_EMPTY_TITLE}
-      actionLabel={canClearFilter ? FILTER_EMPTY_ACTION_LABEL : undefined}
+      title={filterEmptyTitle(locale)}
+      actionLabel={canClearFilter ? filterEmptyActionLabel(locale) : undefined}
       onPressAction={canClearFilter ? onClearFilter : undefined}
     />
   );
@@ -497,6 +507,10 @@ function SwipeToDeleteRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -510,7 +524,7 @@ function SwipeToDeleteRow({
           onPress={onDelete}
           accessibilityRole="button"
           accessibilityLabel={deleteAccessibilityLabel('ja', record.itemName)}>
-          <Text style={styles.deleteLabel}>{DELETE_LABEL}</Text>
+          <Text style={styles.deleteLabel}>{deleteLabel(locale)}</Text>
         </Pressable>
       )}>
       <Pressable
@@ -522,7 +536,7 @@ function SwipeToDeleteRow({
         ]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
+        accessibilityLabel={recordDetailAccessibilityLabel(locale, record.itemName)}>
         <RecordRow
           record={record}
           isSoldMode={isSoldMode}

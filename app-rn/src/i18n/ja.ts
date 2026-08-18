@@ -73,6 +73,11 @@ export const ja = {
     envelopeCost: '梱包材',
     othersCost: 'その他',
     expenses: '経費',
+    /**
+     * 複数レコードの Σ netProfit（月次カード / 下部累計 / データタブ）。
+     * 種別語（純利益 / 利益）ではなく中立語にする ── 混ざった合計を種別語では呼べない（§5.2）
+     */
+    totalProfit: '収支',
     totalSales: '売上',
     totalSalesAmount: '売上総額',
     deducted: '引かれる分',
@@ -185,6 +190,58 @@ export const ja = {
     pickerTitle: '{{type}}を選ぶ',
     /** 選んだあとで率を書き換えたチップの読み上げ（§4） */
     tagRateChanged: '{{name}}（率は変更ずみ）',
+  },
+
+  /** 記録の一覧（記録タブ。UI-SPEC §1.2） */
+  list: {
+    /** 状態と日付の見出し。行の中に収める短い語 */
+    listingStatus: '出品中',
+    listedDate: '出品',
+    soldDate: '販売',
+    soldRecords: '売れた記録',
+    untitled: '無題',
+    search: '検索',
+    searchClear: '検索を消去',
+    searchPlaceholder: '商品名で検索',
+    sortSheetTitle: '並び替え',
+    filter: '絞り込み',
+    filterClear: '絞り込みを解除',
+    /** 空表示の 2 種。**絞り込みの結果ゼロと、そもそも記録が無いのを別の文にする** */
+    filterEmptyTitle: '条件に合う記録がありません',
+    noRecordsTitle: 'この期間の記録はありません',
+    noRecordsBody: '左下の ＋ を押すと記録できます',
+    totalListingPrice: '出品価格の合計',
+    /**
+     * 一覧の合計行。件数と点数で語を分ける（記録の数と商品の数）。
+     * 日本語は単複が無いが、英語（1 record / 2 records）のために形をそろえる。
+     */
+    recordCount: { one: '{{count}} 件', other: '{{count}} 件' } as PluralForms,
+    listedItemCount: { one: '{{count}} 点', other: '{{count}} 点' } as PluralForms,
+    expectedProfit: '売れたら {{amount}}',
+    recordDetailAccessibility: '{{name}} の詳細',
+  },
+
+  /** 期間の切り替え（月 / 年 / 全期間） */
+  period: {
+    sheetTitle: '表示する期間',
+    all: '全期間',
+    /** 文中に埋め込むとき。英語だけ小文字にする（Net total for all time）── record.profitInline と同じ */
+    allInline: '全期間',
+    previousMonth: '前の月',
+    nextMonth: '次の月',
+    previousYear: '前の年',
+    nextYear: '次の年',
+    /** 「この月の収支」「2026年の収支」「全期間の収支」 */
+    profitLabel: '{{subject}}の{{total}}',
+    thisMonth: 'この月',
+    buttonAccessibility: '表示する期間: {{title}}',
+  },
+
+  /** 長押しコピー（LongPressCopy） */
+  copy: {
+    done: '{{label}}をコピーしました',
+    content: 'コピー内容：{{text}}',
+    failed: '{{label}}のコピーに失敗しました',
   },
 
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----

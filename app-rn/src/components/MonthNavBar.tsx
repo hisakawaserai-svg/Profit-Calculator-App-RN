@@ -27,6 +27,7 @@ import {
   previousPeriodLabel,
 } from '@/logic/labels';
 import { canShiftPeriod, shiftPeriod, type Period } from '@/logic/period';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -60,6 +61,10 @@ export function MonthNavBar({
   onPressTitle,
   filter,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   const bounds = { earliestMonthKey, currentMonthKey };
@@ -71,10 +76,10 @@ export function MonthNavBar({
     if (next != null) onChangePeriod(next);
   };
 
-  const title = periodTitle(period);
+  const title = periodTitle(locale, period);
   // 読み上げの語も期間の種類に合わせる（「前の月」/「前の年」）。表示語は画面で組み立てない
-  const backLabel = previousPeriodLabel(period);
-  const forwardLabel = nextPeriodLabel(period);
+  const backLabel = previousPeriodLabel(locale, period);
+  const forwardLabel = nextPeriodLabel(locale, period);
 
   return (
     <View style={styles.bar}>
@@ -93,7 +98,7 @@ export function MonthNavBar({
           style={styles.title}
           onPress={onPressTitle}
           accessibilityRole="button"
-          accessibilityLabel={periodButtonAccessibilityLabel(title)}>
+          accessibilityLabel={periodButtonAccessibilityLabel(locale, title)}>
           <Text style={[styles.titleLabel, { color: colors.label }]}>{title}</Text>
           <Ionicons name="chevron-down" size={14} color={colors.secondaryLabel} />
         </Pressable>

@@ -687,7 +687,7 @@ export function DataScreen() {
   // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel(period),
+    label: periodProfitLabel('ja', period),
     value: formatYenSymbol(summary.totalNetProfit),
     // 収支は赤字になり得るので、符号で色を変える（一覧の行・計算タブと同じ規則）
     color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
@@ -711,7 +711,7 @@ export function DataScreen() {
       value: profitRateSummaryValue(periodProfitRate(summary.totalSales, summary.totalNetProfit)),
       color: colors.label,
     },
-    { label: SOLD_COUNT_LABEL, value: recordCountValue(summary.recordCount), color: colors.label },
+    { label: SOLD_COUNT_LABEL, value: recordCountValue('ja', summary.recordCount), color: colors.label },
     {
       label: PER_RECORD_PROFIT_LABEL,
       value: perRecordProfitValue(periodProfitPerRecord(summary.totalNetProfit, summary.recordCount)),
@@ -1570,7 +1570,7 @@ function SelectedRecordsCard({
           style={[styles.rowCard, { backgroundColor: colors.background }]}
           onPress={() => onPressRecord(record)}
           accessibilityRole="button"
-          accessibilityLabel={recordDetailAccessibilityLabel(record.itemName)}>
+          accessibilityLabel={recordDetailAccessibilityLabel('ja', record.itemName)}>
           <RecordRow
             record={record}
             isSoldMode

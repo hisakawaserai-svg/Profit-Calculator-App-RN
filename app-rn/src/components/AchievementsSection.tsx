@@ -441,7 +441,7 @@ export function AchievementsSection({
           <View style={styles.totalsRow}>
             <TotalStat
               label={SOLD_COUNT_LABEL}
-              value={recordCountValue(totals.recordCount)}
+              value={recordCountValue('ja', totals.recordCount)}
               colors={colors}
             />
             <TotalStat

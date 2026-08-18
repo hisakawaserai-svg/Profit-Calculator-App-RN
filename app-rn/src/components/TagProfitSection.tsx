@@ -158,7 +158,7 @@ export function TagProfitSection({
 
       <View style={styles.headerTop}>
         <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {tagSectionMetaText(periodTitle(period), recordCountValue(summary.recordCount))}
+          {tagSectionMetaText(periodTitle('ja', period), recordCountValue('ja', summary.recordCount))}
         </Text>
 
         {/* 「一覧 / グラフ」切替は、今出ているカードの右上にだけ置く ── 「グラフ」のときは
@@ -218,7 +218,7 @@ export function TagProfitSection({
               <Text style={[styles.meta2, { color: colors.secondaryLabel }]} numberOfLines={1}>
                 {tagProfitMetaText(
                   profitRateSummaryValue(item.profitRate),
-                  recordCountValue(item.recordCount),
+                  recordCountValue('ja', item.recordCount),
                 )}
               </Text>
             </View>

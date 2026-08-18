@@ -504,10 +504,10 @@ export function BackupScreen() {
     try {
       await Clipboard.setStringAsync(backupErrorCopyText(reason));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.show({ type: 'success', text1: copiedMessage(BACKUP_ERROR_COPY_TOAST_LABEL) });
+      Toast.show({ type: 'success', text1: copiedMessage('ja', BACKUP_ERROR_COPY_TOAST_LABEL) });
     } catch {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Toast.show({ type: 'error', text1: copyFailedMessage(BACKUP_ERROR_COPY_TOAST_LABEL) });
+      Toast.show({ type: 'error', text1: copyFailedMessage('ja', BACKUP_ERROR_COPY_TOAST_LABEL) });
     }
   }, []);
 

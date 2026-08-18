@@ -30,6 +30,13 @@ const MIGRATED_SCREENS = [
   'src/components/RecordKindSelector.tsx',
   'src/components/SiteNameRow.tsx',
   'src/components/Stepper.tsx',
+  // 区切り 2-2: 記録タブの一覧
+  'src/screens/RecordListScreen.tsx',
+  'src/components/LongPressCopy.tsx',
+  'src/components/MonthNavBar.tsx',
+  'src/components/PeriodSheet.tsx',
+  'src/components/RecordRow.tsx',
+  'src/components/SearchBar.tsx',
 ];
 
 /**

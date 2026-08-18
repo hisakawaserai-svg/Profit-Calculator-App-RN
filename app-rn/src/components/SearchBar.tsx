@@ -12,7 +12,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { RECORD_SEARCH_PLACEHOLDER, SEARCH_CLEAR_LABEL } from '@/logic/labels';
+import { recordSearchPlaceholder, searchClearLabel } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -27,10 +28,17 @@ type Props = {
 export function SearchBar({
   value,
   onChangeValue,
-  placeholder = RECORD_SEARCH_PLACEHOLDER,
+  placeholder,
   style,
   autoFocus,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  // 既定の文言は locale が決まってからでないと出せないので、引数の既定値には書けない
+  const fieldPlaceholder = placeholder ?? recordSearchPlaceholder(locale);
+
   const colors = useThemeColors();
 
   return (
@@ -40,7 +48,7 @@ export function SearchBar({
         style={[styles.input, { color: colors.label }]}
         value={value}
         onChangeText={onChangeValue}
-        placeholder={placeholder}
+        placeholder={fieldPlaceholder}
         placeholderTextColor={colors.secondaryLabel}
         autoCorrect={false}
         autoFocus={autoFocus}
@@ -48,7 +56,7 @@ export function SearchBar({
         accessibilityLabel={placeholder}
       />
       {value !== '' && (
-        <Pressable onPress={() => onChangeValue('')} hitSlop={8} accessibilityLabel={SEARCH_CLEAR_LABEL}>
+        <Pressable onPress={() => onChangeValue('')} hitSlop={8} accessibilityLabel={searchClearLabel(locale)}>
           <Ionicons name="close-circle" size={16} color={colors.secondaryLabel} />
         </Pressable>
       )}

@@ -518,7 +518,7 @@ export function OnboardingDataFigure() {
     ONBOARDING_DATA_EXAMPLE;
 
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel(period),
+    label: periodProfitLabel('ja', period),
     value: formatYenSymbol(totalNetProfit),
     color: totalNetProfit >= 0 ? colors.green : colors.red,
   };

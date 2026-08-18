@@ -35,15 +35,16 @@ import {
   formatYenSymbol,
 } from '@/logic/format';
 import {
-  EXPENSES_LABEL,
-  LISTED_DATE_LABEL,
-  SOLD_DATE_LABEL,
+  expensesLabel,
+  listedDateLabel,
+  soldDateLabel,
   expectedProfitText,
-  UNTITLED_LABEL,
+  untitledLabel,
   recordKindLabel,
 } from '@/logic/labels';
 import { listingDays } from '@/logic/listingDays';
 import { netProfit, totalExpenses } from '@/logic/profit';
+import { useLocale, type Locale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -93,6 +94,10 @@ export function RecordRow({
   strikeAchievement = null,
   density = 'compact',
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const profit = netProfit(record);
 
@@ -101,7 +106,7 @@ export function RecordRow({
   const dateText =
     basisDate == null
       ? ''
-      : `${formatShortDate(fromDbDate(basisDate))} ${isSoldMode ? SOLD_DATE_LABEL : LISTED_DATE_LABEL}`;
+      : `${formatShortDate(fromDbDate(basisDate))} ${isSoldMode ? soldDateLabel(locale) : listedDateLabel(locale)}`;
 
   return (
     <View style={styles.row}>
@@ -113,7 +118,7 @@ export function RecordRow({
         <View style={styles.mainLine}>
           <View style={styles.nameAndBadge}>
             <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={1}>
-              {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+              {record.itemName === '' ? untitledLabel(locale) : record.itemName}
             </Text>
             {/* ⚡一撃系のバッジ。呼び出し側が strikeAchievementsByRecordId で引いた分だけ渡ってくる
                 （＝この記録が実際に「達成した記録」になっている場合のみ。重複表示防止） */}
@@ -143,8 +148,8 @@ export function RecordRow({
           </Text>
           <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {isSoldMode
-              ? `${EXPENSES_LABEL} ${formatYenSymbol(totalExpenses(record))}`
-              : listingMetaText(record, profit, today ?? new Date())}
+              ? `${expensesLabel(locale)} ${formatYenSymbol(totalExpenses(record))}`
+              : listingMetaText(locale, record, profit, today ?? new Date())}
           </Text>
         </View>
 
@@ -171,7 +176,13 @@ export function RecordRow({
 }
 
 /** 出品中のメタ行の右「売れたら 約¥…・N 日経過」（UI-SPEC §1.2 / §5-2 / §5-3） */
-function listingMetaText(record: SaleRecord, profit: number, today: Date): string {
+// コンポーネントではないので locale は引数で受ける（フックは使えない）
+function listingMetaText(
+  locale: Locale,
+  record: SaleRecord,
+  profit: number,
+  today: Date,
+): string {
   const days = listingDays(
     {
       saleStartDate: fromDbDate(record.saleStartDate),
@@ -180,7 +191,7 @@ function listingMetaText(record: SaleRecord, profit: number, today: Date): strin
     today,
   );
 
-  return `${expectedProfitText(formatApproxYenSymbol(profit))}・${formatElapsedDays(days)}`;
+  return `${expectedProfitText(locale, formatApproxYenSymbol(profit))}・${formatElapsedDays(days)}`;
 }
 
 const styles = StyleSheet.create({

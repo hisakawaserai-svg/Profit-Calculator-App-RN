@@ -113,7 +113,9 @@ function targetProfitKey(
  * 複数レコードの Σ netProfit（月次カード / 下部累計 / データタブのサマリー・グラフ・ソート名）。
  * 種別が混ざり得るので中立語。画面タイトル「全期間の収支」で既に使っている語（§5.2）。
  */
-export const TOTAL_PROFIT_LABEL = '収支';
+export function totalProfitLabel(locale: Locale): string {
+  return t('amount.totalProfit', locale);
+}
 
 /** totalExpenses。1 件でも合計でも種別で変えない（§5.3） */
 export function expensesLabel(locale: Locale): string {
@@ -134,33 +136,43 @@ export function totalSalesLabel(locale: Locale): string {
 export const LISTING_PRICE_LABEL = '出品価格';
 
 /** 出品中の Σ salesPrice（合計行。UI-SPEC §6-3） */
-export const TOTAL_LISTING_PRICE_LABEL = '出品価格の合計';
+export function totalListingPriceLabel(locale: Locale): string {
+  return t('list.totalListingPrice', locale);
+}
 
 /**
  * 状態そのものの名前（UI-SPEC §1.3-3 の見出し行 / §1.4-2 のバッジ）。
- * 売れている側は SOLD_RECORDS_LABEL（一覧の状態チップ）と SOLD_BADGE_LABEL（詳細のバッジ）で
+ * 売れている側は t('list.soldRecords', 'ja')（一覧の状態チップ）と SOLD_BADGE_LABEL（詳細のバッジ）で
  * 語が違うが、出品中側はどこでもこの 1 語なので分けない。
  */
-export const LISTING_STATUS_LABEL = '出品中';
+export function listingStatusLabel(locale: Locale): string {
+  return t('list.listingStatus', locale);
+}
 
 /** 出品中の件数（合計行の左の値 A。UI-SPEC §1.2）。状態名と同じ語 */
-export const LISTING_COUNT_LABEL = LISTING_STATUS_LABEL;
+export function listingCountLabel(locale: Locale): string {
+  return t('list.listingStatus', locale);
+}
 
 /**
  * 件数の値そのもの（UI-SPEC §1.2）。**単位が 2 つある** ──
  * 出品中は「まだ手元にある品物」を数えるので「点」、一覧の上に出すのは
  * 「いま並んでいる行」なので「件」。数えているものが違うので語も分ける。
  */
-export function listedItemCountValue(count: number): string {
-  return `${count} 点`;
+export function listedItemCountValue(locale: Locale, count: number): string {
+  return t('list.listedItemCount', locale, { count });
 }
-export function recordCountValue(count: number): string {
-  return `${count} 件`;
+export function recordCountValue(locale: Locale, count: number): string {
+  return t('list.recordCount', locale, { count });
 }
 
 /** 一覧のメタ行に出す日付の意味づけ（UI-SPEC §1.2「{種別}　M/D 販売 / M/D 出品」） */
-export const SOLD_DATE_LABEL = '販売';
-export const LISTED_DATE_LABEL = '出品';
+export function soldDateLabel(locale: Locale): string {
+  return t('list.soldDate', locale);
+}
+export function listedDateLabel(locale: Locale): string {
+  return t('list.listedDate', locale);
+}
 
 /**
  * 並び替えの**方向**（採用案 22b）。日付と金額で語を分ける ──
@@ -176,7 +188,7 @@ export const SORT_SMALLEST_LABEL = '少ない順';
  * 出品中を見ているときの並び替え項目名（採用案 22b）。まだ売れていない記録の収支は
  * 行の「売れたら 約◯円」と同じ**見込みの値**なので、確定した収支と同じ語で並べない。
  */
-export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${TOTAL_PROFIT_LABEL}`;
+export const EXPECTED_TOTAL_PROFIT_LABEL = `見込みの${t('amount.totalProfit', 'ja')}`;
 
 // ---- 画面の名前とアイコンボタンの読み上げ語（UI-SPEC §1） ----
 
@@ -222,12 +234,20 @@ export const DATA_TAB_LABEL = t('tabs.data', 'ja');
 export function addRecordActionLabel(locale: Locale): string {
   return t('record.addAction', locale);
 }
-export const SEARCH_LABEL = '検索';
-export const SEARCH_CLEAR_LABEL = '検索を消去';
-export const SORT_SHEET_TITLE = '並び替え';
+export function searchLabel(locale: Locale): string {
+  return t('list.search', locale);
+}
+export function searchClearLabel(locale: Locale): string {
+  return t('list.searchClear', locale);
+}
+export function sortSheetTitle(locale: Locale): string {
+  return t('list.sortSheetTitle', locale);
+}
 
 /** 記録の検索欄（UI-SPEC §5-10）。読み上げ語も同じ文を使う（欄の中に出ている語がそのまま名前） */
-export const RECORD_SEARCH_PLACEHOLDER = '商品名で検索';
+export function recordSearchPlaceholder(locale: Locale): string {
+  return t('list.searchPlaceholder', locale);
+}
 
 // ---- 「過去の記録から複製」（記録タブの＋のメニュー） ----
 //
@@ -292,8 +312,8 @@ export const PREVIOUS_MONTH_LABEL = '前の月';
 export const NEXT_MONTH_LABEL = '次の月';
 
 /** 月バーの期間ボタンの読み上げ（UI-SPEC §1.2）。押すと開くのが期間シートであることを言う */
-export function periodButtonAccessibilityLabel(title: string): string {
-  return `${PERIOD_SHEET_TITLE}: ${title}`;
+export function periodButtonAccessibilityLabel(locale: Locale, title: string): string {
+  return t('period.buttonAccessibility', locale, { title });
 }
 
 /**
@@ -301,8 +321,8 @@ export function periodButtonAccessibilityLabel(title: string): string {
  * 左スワイプで出るのは削除。**どちらも商品名を頭に置く** ── 読み上げは 1 行ずつ流れるので、
  * 何に対する操作なのかが先に来ないと、聞いてから戻って確かめることになる。
  */
-export function recordDetailAccessibilityLabel(itemName: string): string {
-  return `${itemName} の詳細`;
+export function recordDetailAccessibilityLabel(locale: Locale, itemName: string): string {
+  return t('list.recordDetailAccessibility', locale, { name: itemName });
 }
 export function deleteAccessibilityLabel(locale: Locale, name: string): string {
   return t('action.deleteNamed', locale, { name });
@@ -332,14 +352,14 @@ export function calendarDayAccessibilityLabel(day: number): string {
  * **成功のときだけ内容まで出す** ── 何が入ったのかは貼るまで分からないので、
  * 写した値をその場で見せる。失敗では入っていないので、出す値がない。
  */
-export function copiedMessage(label: string): string {
-  return `${label}をコピーしました`;
+export function copiedMessage(locale: Locale, label: string): string {
+  return t('copy.done', locale, { label });
 }
-export function copiedContentMessage(text: string): string {
-  return `コピー内容：${text}`;
+export function copiedContentMessage(locale: Locale, text: string): string {
+  return t('copy.content', locale, { text });
 }
-export function copyFailedMessage(label: string): string {
-  return `${label}のコピーに失敗しました`;
+export function copyFailedMessage(locale: Locale, label: string): string {
+  return t('copy.failed', locale, { label });
 }
 
 /**
@@ -352,14 +372,18 @@ export const DB_INIT_FAILED_MESSAGE = 'データベースの初期化に失敗�
 export const UNIMPLEMENTED_LABEL = '（未実装）';
 
 /** 月バー・期間シートで「月を選んでいない」状態を指す語（UI-SPEC §1.2） */
-export const ALL_PERIOD_LABEL = '全期間';
+export function allPeriodLabel(locale: Locale): string {
+  return t('period.all', locale);
+}
 
 /** 期間シートの見出し（UI-SPEC §1.2）。記録タブ・データタブで同じシートを開く */
-export const PERIOD_SHEET_TITLE = '表示する期間';
+export function periodSheetTitle(locale: Locale): string {
+  return t('period.sheetTitle', locale);
+}
 
 /**
  * 期間シートの先頭に固定するクイック選択（UI-SPEC §1.2-2）。
- * 「全期間」は月バーと同じ語（ALL_PERIOD_LABEL）を使う ── 選んだ結果が月バーに出るので、
+ * 「全期間」は月バーと同じ語（t('period.all', 'ja')）を使う ── 選んだ結果が月バーに出るので、
  * ボタンとバーで語が違うと同じものを指していると読めない。
  */
 export const THIS_MONTH_LABEL = '今月';
@@ -388,8 +412,10 @@ export const YEAR_SELECTED_HINT_LABEL = '1年分を選択中';
 export const HAS_RECORDS_LEGEND_LABEL = '記録あり';
 export const NO_RECORDS_LEGEND_LABEL = '記録なし';
 
-/** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は LISTING_COUNT_LABEL と同じ語 */
-export const SOLD_RECORDS_LABEL = '売れた記録';
+/** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は listingCountLabel('ja') と同じ語 */
+export function soldRecordsLabel(locale: Locale): string {
+  return t('list.soldRecords', locale);
+}
 
 /** commissionCost（§5.3） */
 export const COMMISSION_LABEL = '販売手数料';
@@ -691,15 +717,15 @@ export function lowerPriceWarning(
  * 同じ語にするため ── 年を選ぶのは「去年 1 年でいくら儲かったか」を見る操作なので、
  * どの年の話かが見出しの側にも要る。月は月バーがすぐ上にあり、「この月」で迷わない。
  */
-export function periodProfitLabel(period: Period): string {
+export function periodProfitLabel(locale: Locale, period: Period): string {
   const kind = periodKind(period);
   const subject =
     kind === 'all'
-      ? ALL_PERIOD_LABEL
+      ? t('period.allInline', locale)
       : kind === 'year'
         ? formatYearTitle(periodYear(period) as number)
-        : 'この月';
-  return `${subject}の${TOTAL_PROFIT_LABEL}`;
+        : t('period.thisMonth', locale);
+  return t('period.profitLabel', locale, { subject, total: totalProfitLabel(locale) });
 }
 
 /**
@@ -707,12 +733,12 @@ export function periodProfitLabel(period: Period): string {
  * 矢印の形は同じでも動く単位が期間の種類で変わるので、語のほうで何が動くかを言う。
  * 全期間では矢印が無効なので、月の語のままでよい。
  */
-export function previousPeriodLabel(period: Period): string {
-  return periodKind(period) === 'year' ? PREVIOUS_YEAR_LABEL : '前の月';
+export function previousPeriodLabel(locale: Locale, period: Period): string {
+  return t(periodKind(period) === 'year' ? 'period.previousYear' : 'period.previousMonth', locale);
 }
 
-export function nextPeriodLabel(period: Period): string {
-  return periodKind(period) === 'year' ? NEXT_YEAR_LABEL : '次の月';
+export function nextPeriodLabel(locale: Locale, period: Period): string {
+  return t(periodKind(period) === 'year' ? 'period.nextYear' : 'period.nextMonth', locale);
 }
 
 /**
@@ -720,16 +746,21 @@ export function nextPeriodLabel(period: Period): string {
  * 期間シートのカード見出しの ‹ ›（案 39b）が**同じ語**を使う ──
  * どちらも「表示している年を 1 つ前後に動かす」で、操作の意味が同じ。
  */
-export const PREVIOUS_YEAR_LABEL = '前の年';
-export const NEXT_YEAR_LABEL = '次の年';
+export function previousYearLabel(locale: Locale): string {
+  return t('period.previousYear', locale);
+}
+export function nextYearLabel(locale: Locale): string {
+  return t('period.nextYear', locale);
+}
 
 /**
  * 期間そのものの表示語（月バーの中央・絞り込みの注記）:
  * 「全期間」/「2025年」/「2026年8月」。
  */
-export function periodTitle(period: Period): string {
+export function periodTitle(locale: Locale, period: Period): string {
   const kind = periodKind(period);
-  if (kind === 'all') return ALL_PERIOD_LABEL;
+  if (kind === 'all') return t('period.all', locale);
+  // 年・月の表記は日付の書式そのものなので、まだ日本語のまま（数値・日付の書式は別途）
   if (kind === 'year') return formatYearTitle(periodYear(period) as number);
   return formatMonthKeyTitle(period as string);
 }
@@ -738,8 +769,8 @@ export function periodTitle(period: Period): string {
  * 出品中レコードの見込み netProfit（UI-SPEC §6-3）。
  * 送料未入力かどうかの判定はしないので「約」は常に付く（§5-3）。金額側は formatApproxYenSymbol。
  */
-export function expectedProfitText(approxAmount: string): string {
-  return `売れたら ${approxAmount}`;
+export function expectedProfitText(locale: Locale, approxAmount: string): string {
+  return t('list.expectedProfit', locale, { amount: approxAmount });
 }
 
 /** 種別の表示名（レコード詳細の「種別」行・種別セレクタ） */
@@ -747,7 +778,7 @@ export function recordKindLabel(locale: Locale, kind: RecordKind): string {
   return t(recordKindKey(kind), locale);
 }
 
-/** レコード 1 件の netProfit のラベル。**合計には使わない**（合計は TOTAL_PROFIT_LABEL） */
+/** レコード 1 件の netProfit のラベル。**合計には使わない**（合計は t('amount.totalProfit', 'ja')） */
 export function profitLabel(locale: Locale, kind: RecordKind): string {
   return t(profitKey(kind), locale);
 }
@@ -803,7 +834,7 @@ export function targetProfitSummary(targetProfit: number | null): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** グラフカードの見出し（UI-SPEC §1.5-4）。指標が 1 つになったので固定文言 */
-export const PROFIT_TREND_LABEL = `${TOTAL_PROFIT_LABEL}の推移`;
+export const PROFIT_TREND_LABEL = `${t('amount.totalProfit', 'ja')}の推移`;
 
 /**
  * 集計の対象が 1 件も無いとき（UI-SPEC §1.5）。この画面は**売れた記録だけ**を見るので、
@@ -835,14 +866,14 @@ export function chartUnitLabel(unit: ChartUnit): string {
  * グラフ 1 つに説明が 2 段付くことになる。
  */
 export function chartBarLegendLabel(unit: ChartUnit): string {
-  return `${chartUnitLabel(unit)}の${TOTAL_PROFIT_LABEL}`;
+  return `${chartUnitLabel(unit)}の${t('amount.totalProfit', 'ja')}`;
 }
 
 /**
  * 凡例の折れ線の側（UI-SPEC §1.5-4）。右軸が表すもの。
  * 起点は表示中の期間の先頭なので、最後の値は合計行の収支と一致する（logic/analytics 参照）。
  */
-export const CUMULATIVE_PROFIT_LABEL = `累計${TOTAL_PROFIT_LABEL}`;
+export const CUMULATIVE_PROFIT_LABEL = `累計${t('amount.totalProfit', 'ja')}`;
 
 /**
  * 選択中の点の累計（UI-SPEC §1.5-4。案 38b）:「累計 ¥8,720」。
@@ -906,15 +937,15 @@ export function tagChartDaySummaryMetaText(
   tagCount: number,
   recordCount: number,
 ): string {
-  return `${tagCount}タグ・${recordCountValue(recordCount)}`;
+  return `${tagCount}タグ・${recordCountValue('ja', recordCount)}`;
 }
 
 /**
  * 期間サマリー段（グラフ直下・新規）の項目名。売上・収支（t('amount.totalSales', 'ja') /
- * TOTAL_PROFIT_LABEL）に続く 2 項目 ── どちらもこの画面にしかない値なのでここで定義する。
+ * t('amount.totalProfit', 'ja')）に続く 2 項目 ── どちらもこの画面にしかない値なのでここで定義する。
  */
 export const PROFIT_RATE_LABEL = '利益率';
-/** 出品中を含まない「売れた」件数だけを数える（LISTING_COUNT_LABEL とは対象が違う） */
+/** 出品中を含まない「売れた」件数だけを数える（listingCountLabel('ja') とは対象が違う） */
 export const SOLD_COUNT_LABEL = '販売件数';
 
 /**
@@ -1009,9 +1040,9 @@ export function periodComparisonRateDiffText(diffPt: number | null): string {
  * 括弧の中で場所を限定しているのはそのため。
  */
 export const CHART_UNIT_NOTE =
-  `年や${ALL_PERIOD_LABEL}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
-  `（${ALL_PERIOD_LABEL}で記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
-  `見出しも選んだ期間の語（「〇〇年の${TOTAL_PROFIT_LABEL}」「${ALL_PERIOD_LABEL}の${TOTAL_PROFIT_LABEL}」）になります。`;
+  `年や${t('period.all', 'ja')}を選ぶと刻みが「${CHART_UNIT_LABELS.month}」` +
+  `（${t('period.all', 'ja')}で記録が${YEAR_UNIT_MONTH_THRESHOLD / 12}年ぶんを超えると「${CHART_UNIT_LABELS.year}」）に変わり、` +
+  `見出しも選んだ期間の語（「〇〇年の${t('amount.totalProfit', 'ja')}」「${t('period.all', 'ja')}の${t('amount.totalProfit', 'ja')}」）になります。`;
 
 /** タグが 1 つも付いていない売れた記録をまとめる集計名（タグ別利益ランキングの 1 行） */
 export const UNCLASSIFIED_TAG_LABEL = '未分類';
@@ -1431,7 +1462,7 @@ export const SAVE_LABEL = '保存';
 
 /**
  * レコード詳細のメタ行の状態バッジ（UI-SPEC §1.4-2）。
- * 一覧の状態チップ（SOLD_RECORDS_LABEL =「売れた記録」）は絞り込みの対象を指すが、
+ * 一覧の状態チップ（t('list.soldRecords', 'ja') =「売れた記録」）は絞り込みの対象を指すが、
  * こちらはこの 1 件の状態を指すので「記録」を付けない。
  */
 export const SOLD_BADGE_LABEL = '売れた';
@@ -1513,7 +1544,9 @@ export const ITEM_NAME_CAPTION = '商品名（必須）';
 export const ITEM_NAME_PLACEHOLDER = '例：えんぴつ';
 
 /** 商品名が空のレコードの表示（一覧・レコード詳細） */
-export const UNTITLED_LABEL = '無題';
+export function untitledLabel(locale: Locale): string {
+  return t('list.untitled', locale);
+}
 
 /**
  * 伝票・レシートで梱包材とその他をまとめた 1 行（UI-SPEC §1.3-10 / §1.4-4）。
@@ -1675,7 +1708,7 @@ export function commissionRowLabel(rate: number): string {
  * 引数は**切り替えた先**の状態。見出し行には今の状態が出ているので、リンクは行き先を名乗る。
  */
 export function switchStatusLabel(toSold: boolean): string {
-  return `${toSold ? SOLD_RECORDS_LABEL : LISTING_STATUS_LABEL}にする`;
+  return `${toSold ? t('list.soldRecords', 'ja') : t('list.listingStatus', 'ja')}にする`;
 }
 
 /**
@@ -1729,12 +1762,12 @@ export function recordTimelineText(timeline: {
   soldDate: string | null;
   days: number;
 }): string {
-  const listed = `${timeline.listedDate} ${LISTED_DATE_LABEL}`;
+  const listed = `${timeline.listedDate} ${t('list.listedDate', 'ja')}`;
   const head = `${recordKindLabel('ja', timeline.kind)} ・ ${listed}`;
 
   return timeline.soldDate == null
     ? `${head}（${formatElapsedDays(timeline.days)}）`
-    : `${head} → ${timeline.soldDate} ${SOLD_DATE_LABEL}（${timeline.days}日）`;
+    : `${head} → ${timeline.soldDate} ${t('list.soldDate', 'ja')}（${timeline.days}日）`;
 }
 
 // ---- UI-SPEC §7 電卓 ----
@@ -2607,14 +2640,16 @@ export const TAG_SECTION_LABEL = TAG_LABEL;
 // 別々の言い方をすると、同じ 1 つの条件を指していることが画面から読めなくなる。
 
 /** 合計行のチップ・シートの見出し（§4.1 / §4.2） */
-export const FILTER_LABEL = '絞り込み';
+export function filterLabel(locale: Locale): string {
+  return t('list.filter', locale);
+}
 
 /**
  * 合計行のチップ（§4.1）。N は**効いている条件の本数**（決定 §9-2）。
  * 0 のときは「絞り込み」だけ ── 「絞り込み 0」は「0 件」と読み違えられる。
  */
 export function filterChipLabel(count: number): string {
-  return count === 0 ? FILTER_LABEL : `${FILTER_LABEL} ${count}`;
+  return count === 0 ? t('list.filter', 'ja') : `${t('list.filter', 'ja')} ${count}`;
 }
 
 /** シート左上（§4.2-1）。効くのは 3 条件だけで、期間・検索・並び替えは動かない */
@@ -2686,7 +2721,7 @@ export function filterSummaryLabel(parts: string[], count: number): string {
 export function matchingRecordLabel(isSoldMode: boolean): string {
   return isSoldMode
     ? 'この条件に合う記録'
-    : `この条件に合う${LISTING_COUNT_LABEL}の記録`;
+    : `この条件に合う${listingCountLabel('ja')}の記録`;
 }
 
 export function matchingRecordCountValue(count: number): string {
@@ -2732,12 +2767,20 @@ export const FILTER_TAG_OR_NOTE = '2つ以上選ぶと、どれかが付いた�
  * 絞り込みで 0 件になったときの空表示（§4.8 / 決定 §9-13）。
  * **条件ごとの文言を作らない** ── 効き得る条件が 6 つに増え、組み合わせで文言が爆発する。
  */
-export const FILTER_EMPTY_TITLE = '条件に合う記録がありません';
-export const FILTER_EMPTY_ACTION_LABEL = `${FILTER_LABEL}を解除`;
+export function filterEmptyTitle(locale: Locale): string {
+  return t('list.filterEmptyTitle', locale);
+}
+export function filterEmptyActionLabel(locale: Locale): string {
+  return t('list.filterClear', locale);
+}
 
 /** 絞り込みが 0 件で、かつ記録も 0 件のとき（§4.8）。従来どおりの追加への導線 */
-export const NO_RECORDS_EMPTY_TITLE = 'この期間の記録はありません';
-export const NO_RECORDS_EMPTY_BODY = '左下の ＋ を押すと記録できます';
+export function noRecordsEmptyTitle(locale: Locale): string {
+  return t('list.noRecordsTitle', locale);
+}
+export function noRecordsEmptyBody(locale: Locale): string {
+  return t('list.noRecordsBody', locale);
+}
 
 /**
  * 販売サイトの候補が 0 件のとき（§4.2）。候補は**記録に実在する名前**なので、
@@ -2916,7 +2959,7 @@ export const RECORD_KIND_COLUMN = '種別';
 /** 状態の列（§5.3-15）と、その 2 値 */
 export const RECORD_STATUS_COLUMN = '状態';
 export const CSV_SOLD_STATUS_VALUE = SOLD_BADGE_LABEL;
-export const CSV_LISTING_STATUS_VALUE = LISTING_STATUS_LABEL;
+export const CSV_LISTING_STATUS_VALUE = t('list.listingStatus', 'ja');
 
 /** 記録 ID の列（§5.3-18）。再書き出し時の突き合わせ用 */
 export const RECORD_ID_COLUMN = '記録ID';
@@ -2949,7 +2992,7 @@ export const CSV_BACKUP_COLUMNS: readonly string[] = [
   t('amount.envelopeCost', 'ja'),
   t('amount.othersCost', 'ja'),
   TOTAL_EXPENSES_COLUMN,
-  TOTAL_PROFIT_LABEL,
+  t('amount.totalProfit', 'ja'),
   TARGET_PROFIT_COLUMN,
   COMMISSION_RATE_COLUMN,
   presetTypeLabel('ja', 'site'),
@@ -2982,7 +3025,7 @@ export const CSV_TAX_COLUMNS: readonly string[] = [
   t('amount.envelopeCost', 'ja'),
   t('amount.othersCost', 'ja'),
   COMMISSION_LABEL,
-  TOTAL_PROFIT_LABEL,
+  t('amount.totalProfit', 'ja'),
 ];
 
 /** 日ごとにまとめた行の種別（§5.2.2）。同じ種別だけなら種別名が入る */
@@ -3007,7 +3050,7 @@ export function csvDaySiteNames(siteNames: readonly string[]): string {
  */
 export function csvDayItemNames(itemNames: readonly string[]): string {
   if (itemNames.length === 0) return '';
-  const head = itemNames[0] === '' ? UNTITLED_LABEL : itemNames[0];
+  const head = itemNames[0] === '' ? t('list.untitled', 'ja') : itemNames[0];
   if (itemNames.length === 1) return head;
   return `${head} ${presetOverflowLabel(itemNames.length - 1)}`;
 }
@@ -3019,7 +3062,7 @@ export const CSV_FILE_BASE_NAMES: Record<'backup' | 'tax', string> = {
 };
 
 /** ファイル名の期間の部分（全期間のときだけ期間キーが無い） */
-export const CSV_ALL_PERIOD_FILE_LABEL = ALL_PERIOD_LABEL;
+export const CSV_ALL_PERIOD_FILE_LABEL = t('period.all', 'ja');
 
 // ---- SPEC-V3 §5.7 書き出しシート（ExportSheet） ----
 
@@ -3093,8 +3136,8 @@ export const EXPORT_TARGET_OPTIONS: readonly {
   value: boolean;
   label: string;
 }[] = [
-  { value: false, label: `${SOLD_RECORDS_LABEL}のみ` },
-  { value: true, label: `${LISTING_STATUS_LABEL}も含める` },
+  { value: false, label: `${t('list.soldRecords', 'ja')}のみ` },
+  { value: true, label: `${t('list.listingStatus', 'ja')}も含める` },
 ];
 
 /** 実行ボタン（§5.7）。**期間シートと違い確定ボタンを置く**（取り消せない操作なので） */
@@ -3109,9 +3152,9 @@ export function exportSummaryLabel(
   includeListing: boolean,
 ): string {
   const target = includeListing
-    ? `${SOLD_RECORDS_LABEL}と${LISTING_STATUS_LABEL}`
-    : SOLD_RECORDS_LABEL;
-  return `${periodTitle(period)}・${target}`;
+    ? `${t('list.soldRecords', 'ja')}と${t('list.listingStatus', 'ja')}`
+    : t('list.soldRecords', 'ja');
+  return `${periodTitle('ja', period)}・${target}`;
 }
 
 /**
@@ -3137,7 +3180,7 @@ export function exportCountLabel(
 export function exportEmptyNote(listingCount: number): string {
   const head = 'この期間に対象の記録がありません。';
   if (listingCount === 0) return head;
-  return `${head}${LISTING_STATUS_LABEL}の記録は${presetCountLabel('ja', listingCount)}あります。`;
+  return `${head}${t('list.listingStatus', 'ja')}の記録は${presetCountLabel('ja', listingCount)}あります。`;
 }
 
 /**
@@ -3346,7 +3389,7 @@ export const HELP_FIGURE_RECORD_BAR_NOTE =
 /** 色の 2 群（設計案 50c）。上下の意味だけを言う（使い切ったときの形は本文が持つ） */
 export const HELP_FIGURE_COLOR_GROUPS_NOTE =
   '上がまだ使っていない色、下が使用中。どちらも押して選べます';
-export const HELP_FIGURE_EXPORT_TARGET_NOTE = `既定は「${SOLD_RECORDS_LABEL}のみ」です`;
+export const HELP_FIGURE_EXPORT_TARGET_NOTE = `既定は「${t('list.soldRecords', 'ja')}のみ」です`;
 export const HELP_FIGURE_EXPORT_PREVIEW_NOTE = '押すと全部の行を見られます';
 
 /** 図の中で 2 つを並べて見せるときの見出し（絞り込みの入口・⌕ と ⇅） */
@@ -3447,7 +3490,7 @@ export const HELP_FIGURE_DUPLICATE_SUBTITLE = '複製元から新しい記録へ
 export const HELP_FIGURE_DUPLICATE_COPIED_LABEL = '写る';
 export const HELP_FIGURE_DUPLICATE_SKIPPED_LABEL = '写らない';
 export const HELP_FIGURE_DUPLICATE_DATE_LABEL = '日付（今日から）';
-export const HELP_FIGURE_DUPLICATE_STATUS_LABEL = `状態（${LISTING_STATUS_LABEL}から）`;
+export const HELP_FIGURE_DUPLICATE_STATUS_LABEL = `状態（${t('list.listingStatus', 'ja')}から）`;
 
 /**
  * 図: 機種変更の 1 往復（残すページ）。
@@ -3775,7 +3818,7 @@ export function backupRelativeDayLabel(
  * 件数の一致より強い手がかりで、しかも読むのに 1 秒もかからない。
  */
 export function backupNewestRecordNote(date: string, itemName: string): string {
-  const name = itemName.trim() === '' ? UNTITLED_LABEL : itemName;
+  const name = itemName.trim() === '' ? t('list.untitled', 'ja') : itemName;
   return `中で一番新しい記録は ${backupDayLabel(date)}「${name}」です。見覚えがなければ、別の人のファイルです。`;
 }
 
@@ -4025,8 +4068,8 @@ export const PRICING_SCREEN_TITLE = 'いくらで売る？';
  */
 export function listingDayBadgeLabel(days: number): string {
   return days < 0
-    ? LISTING_STATUS_LABEL
-    : `${LISTING_STATUS_LABEL} ${days + 1}日目`;
+    ? t('list.listingStatus', 'ja')
+    : `${t('list.listingStatus', 'ja')} ${days + 1}日目`;
 }
 
 /** 価格が未設定の記録のバッジ（§9.7）。**「未入力」ではない** ── 空欄も 0 円も同じ値で保存されるため */
@@ -4625,3 +4668,15 @@ export const CALC_ADD_ROW_LABEL = t('calculator.addRow', 'ja');
 export const CALC_PICK_PACKAGING_LABEL = t('calculator.pickPackaging', 'ja');
 export const CALC_SUBMIT_LABEL = t('calculator.submit', 'ja');
 export const CALC_TOTAL_LABEL = t('calculator.total', 'ja');
+
+// ---- 記録一覧の節を移したぶんの日本語固定の写し（多言語化ステップ 2-2） ----
+export const LISTING_STATUS_LABEL = t('list.listingStatus', 'ja');
+export const SOLD_RECORDS_LABEL = t('list.soldRecords', 'ja');
+export const UNTITLED_LABEL = t('list.untitled', 'ja');
+export const SORT_SHEET_TITLE = t('list.sortSheetTitle', 'ja');
+export const FILTER_LABEL = t('list.filter', 'ja');
+export const ALL_PERIOD_LABEL = t('period.all', 'ja');
+export const PREVIOUS_YEAR_LABEL = t('period.previousYear', 'ja');
+export const NEXT_YEAR_LABEL = t('period.nextYear', 'ja');
+export const TOTAL_PROFIT_LABEL = t('amount.totalProfit', 'ja');
+export const LISTING_COUNT_LABEL = t('list.listingStatus', 'ja');

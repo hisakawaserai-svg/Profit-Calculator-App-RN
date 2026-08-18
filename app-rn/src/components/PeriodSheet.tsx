@@ -19,8 +19,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { SheetModal } from '@/components/SheetModal';
-import { PERIOD_SHEET_TITLE } from '@/logic/labels';
+import { periodSheetTitle } from '@/logic/labels';
 import type { Period } from '@/logic/period';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -44,6 +45,10 @@ export function PeriodSheet({
   onSelect,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -58,7 +63,7 @@ export function PeriodSheet({
 
         return (
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            <Text style={[styles.title, { color: colors.label }]}>{PERIOD_SHEET_TITLE}</Text>
+            <Text style={[styles.title, { color: colors.label }]}>{periodSheetTitle(locale)}</Text>
             <PeriodPicker
               period={period}
               monthsWithRecords={monthsWithRecords}

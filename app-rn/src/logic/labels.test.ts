@@ -363,24 +363,24 @@ describe('UI-SPEC §1.5 データタブの語', () => {
    * **年だけ「この年」ではなく年そのものを出す** ── 月バーの表示と同じ語にするため。
    */
   it('合計行の見出しは期間の種類で変わる（§1.2 / §1.5-4）', () => {
-    expect(periodProfitLabel('2026-08')).toBe('この月の収支');
-    expect(periodProfitLabel('2025')).toBe('2025年の収支');
-    expect(periodProfitLabel(null)).toBe('全期間の収支');
+    expect(periodProfitLabel('ja', '2026-08')).toBe('この月の収支');
+    expect(periodProfitLabel('ja', '2025')).toBe('2025年の収支');
+    expect(periodProfitLabel('ja', null)).toBe('全期間の収支');
   });
 
   it('月バーの中央に出る期間の語（§1.2）', () => {
-    expect(periodTitle('2026-08')).toBe('2026年8月');
-    expect(periodTitle('2025')).toBe('2025年');
-    expect(periodTitle(null)).toBe('全期間');
+    expect(periodTitle('ja', '2026-08')).toBe('2026年8月');
+    expect(periodTitle('ja', '2025')).toBe('2025年');
+    expect(periodTitle('ja', null)).toBe('全期間');
   });
 
   /** 矢印の動く単位が期間の種類で変わるので、読み上げの語も変える（§5-14 / §8.10.3） */
   it('◀ ▶ の読み上げ語は月と年で変わる', () => {
-    expect([previousPeriodLabel('2026-08'), nextPeriodLabel('2026-08')]).toEqual([
+    expect([previousPeriodLabel('ja', '2026-08'), nextPeriodLabel('ja', '2026-08')]).toEqual([
       '前の月',
       '次の月',
     ]);
-    expect([previousPeriodLabel('2025'), nextPeriodLabel('2025')]).toEqual(['前の年', '次の年']);
+    expect([previousPeriodLabel('ja', '2025'), nextPeriodLabel('ja', '2025')]).toEqual(['前の年', '次の年']);
   });
 
   it('タグ別利益ランキングの行の補足は率が何かを言う', () => {

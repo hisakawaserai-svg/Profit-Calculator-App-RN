@@ -6,11 +6,16 @@ import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 
 import { copiedContentMessage, copiedMessage, copyFailedMessage } from '@/logic/labels';
+import { useLocale } from '@/settings';
 
 // 長押しでコピーする Pressable。コピー成功時に haptic とトーストを出す。
 // style は行の中に置くとき用（Pressable が中身の Text の代わりに flex の子になるので、
 // flexShrink などは包んだ側に渡さないと効かない）。
 export function LongPressCopy({ label, text, style, children }: {label: string, text: string, style?: StyleProp<ViewStyle>, children: ReactNode}) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）。
+  // **早期 return より前**に置く ── フックの数は呼び出しごとに変えられない
+  const locale = useLocale();
+
   // コピーするものが無いときは押せなくするだけで、中身はそのまま出す ──
   // 空の商品名（「無題」）・空のメモ（「未入力」）は**表示としては意味を持つ**ので、
   // ここで返さないと画面からその語ごと消える
@@ -29,8 +34,8 @@ export function LongPressCopy({ label, text, style, children }: {label: string, 
 
         Toast.show({
           type: 'success',
-          text1: copiedMessage(label),
-          text2: copiedContentMessage(text),
+          text1: copiedMessage(locale, label),
+          text2: copiedContentMessage(locale, text),
         })
       } catch(error) {
         console.error('Failed to copy text to clipboard:', error);
@@ -41,7 +46,7 @@ export function LongPressCopy({ label, text, style, children }: {label: string, 
 
         Toast.show({
           type: "error",
-          text1: copyFailedMessage(label),
+          text1: copyFailedMessage(locale, label),
         })
       }
     }}>

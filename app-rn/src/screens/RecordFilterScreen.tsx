@@ -112,7 +112,7 @@ export function RecordFilterScreen() {
   const noMatchNote =
     matchCount === 0
       ? filterNoMatchNote(
-          isAllPeriod(period) ? null : periodTitle(period),
+          isAllPeriod(period) ? null : periodTitle('ja', period),
           activeFilterCount(filter),
         )
       : null;
