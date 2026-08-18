@@ -12,6 +12,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { PresetType } from '@/db/schema';
 import { presetUnitNote, presetValueText, shippingMaterialRowNote } from '@/logic/labels';
 import { presetRowAmount } from '@/logic/shippingMaterial';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import { PresetBadge } from './PresetBadge';
@@ -63,6 +64,9 @@ type Props = {
 };
 
 export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const isPlaceholder = preset.name.length === 0 && namePlaceholder != null;
   const materialCost = preset.materialCost ?? 0;
@@ -76,11 +80,11 @@ export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Pro
   // 資材費のある送料プリセットだけ、名前の下に内訳を小さく足す（SPEC-V6 §1）──
   // 合計だけを出すと「何と何を足した額なのか」が行から読めない
   const materialNote = hasMaterial
-    ? shippingMaterialRowNote(preset.value, materialCost)
+    ? shippingMaterialRowNote(locale, preset.value, materialCost)
     : // 計算して登録した梱包材は、右端の額が「何あたり」かをここで言う（SPEC-V10 §1.5）。
       // 送料と同じ行に置くのは、どちらも「右端の額の読み方」を補う 1 行だから ──
       // 種類が違っても役割が同じものを、行の別の場所に散らさない
-      presetUnitNote({ ...preset, packQuantity: preset.packQuantity ?? 0 });
+      presetUnitNote(locale, { ...preset, packQuantity: preset.packQuantity ?? 0 });
 
   return (
     <View style={styles.row}>
@@ -110,7 +114,7 @@ export function PresetRow({ preset, namePlaceholder, accessory, belowName }: Pro
             )}
           </View>
           <Text style={[styles.value, { color: colors.secondaryLabel }]} numberOfLines={1}>
-            {presetValueText(preset.type, shownValue)}
+            {presetValueText(locale, preset.type, shownValue)}
           </Text>
           {accessory}
         </View>

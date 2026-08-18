@@ -2037,6 +2037,14 @@ export function calculatorBlockedNote(
 // （calculatorBlockedNote と同じ分担）。
 
 /** 種類そのものの表示名（§2.1 の見出し）。設定タブの行・一覧・選択シートで共通 */
+/** 文中に埋め込む種類の語（英語だけ小文字・複数形。「Save the packaging you use often」） */
+export function presetTypeInlineLabel(locale: Locale, type: PresetType): string {
+  if (type === 'site') return t('preset.typeSiteInline', locale);
+  return type === 'shipping'
+    ? t('preset.typeShippingInline', locale)
+    : t('preset.typePackagingInline', locale);
+}
+
 export function presetTypeLabel(locale: Locale, type: PresetType): string {
   if (type === 'site') return t('preset.typeSite', locale);
   return type === 'shipping' ? t('preset.typeShipping', locale) : t('preset.typePackaging', locale);
@@ -2049,6 +2057,7 @@ export function presetTypeLabel(locale: Locale, type: PresetType): string {
  * 名前の重複は弾かないので、それを咎める文言はここにない（§1.4）。
  */
 export function presetBlockedNote(
+  locale: Locale,
   reason: PresetInvalidReason,
   type: PresetType,
   /**
@@ -2059,28 +2068,31 @@ export function presetBlockedNote(
 ): string {
   switch (reason) {
     case 'name-required':
-      return '名前を入れてください';
+      return t('presetAdmin.errorNameRequired', locale);
     case 'name-too-long':
-      return `名前は${PRESET_NAME_MAX_LENGTH}文字までです`;
+      return t('presetAdmin.errorNameTooLong', locale, { max: PRESET_NAME_MAX_LENGTH });
     case 'value-out-of-range':
       return isRatePreset(type)
-        ? `${t('amount.commissionShort', 'ja')}率は 0〜${PRESET_RATE_MAX} の範囲で入れてください`
-        : '金額は 0 以上で入れてください';
+        ? t('presetAdmin.errorRateRange', locale, { max: PRESET_RATE_MAX })
+        : t('presetAdmin.errorAmountRange', locale);
     // まとめ買い（§2.6.6）。入数は空・0・上限超え・小数のどれも同じ 1 行で足りる ──
     // 直す先が 1 つの欄しかなく、どう間違えたかを言い分けても打ち直す手は変わらない
     case 'pack-quantity-required':
-      return method === 'usage' ? '想定使用回数を入れてください' : '入数を入れてください';
+      return t(
+        method === 'usage' ? 'presetAdmin.errorUsageCount' : 'presetAdmin.errorPackQuantity',
+        locale,
+      );
     case 'pack-price-out-of-range':
-      return '購入価格は 0 以上で入れてください';
+      return t('presetAdmin.errorPackPrice', locale);
     // 面積方式（SPEC-V10 §1.4）。購入サイズは必須、平均使用サイズは「両方か、両方空か」
     case 'pack-size-required':
-      return '購入サイズの縦・横を入れてください';
+      return t('presetAdmin.errorPackSize', locale);
     case 'use-size-invalid':
-      return '平均使用サイズは縦・横の両方を入れてください';
+      return t('presetAdmin.errorUseSize', locale);
     // 専用資材の代金（SPEC-V6 §2）。0 円を許すので「入れてください」ではない ──
     // 咎めるのは範囲の外だけで、空欄はそのまま 0 円として保存できる
     case 'material-cost-out-of-range':
-      return `${SHIPPING_MATERIAL_LABEL}は 0 以上で入れてください`;
+      return t('presetAdmin.errorMaterialCost', locale);
   }
 }
 
@@ -2111,8 +2123,10 @@ export function tagBlockedNote(locale: Locale, reason: TagInvalidReason): string
  * （§2.6.3）、記録に入るのもその値なので、一覧だけ「10円」と出ると
  * **同じプリセットの金額が画面によって違って見える**。末尾の `.0` は出さない。
  */
-export function presetValueText(type: PresetType, value: number): string {
-  return isRatePreset(type) ? `${value}%` : formatUnitYen('ja', value);
+export function presetValueText(locale: Locale, type: PresetType, value: number): string {
+  return isRatePreset(type)
+    ? t('presetAdmin.valueTextRate', locale, { value })
+    : formatUnitYen(locale, value);
 }
 
 /**
@@ -2126,10 +2140,14 @@ export function presetValueText(type: PresetType, value: number): string {
  * 打った 450 が消えるわけではなく、この行の中に内訳として残る。
  */
 export function shippingMaterialRowNote(
+  locale: Locale,
   value: number,
   materialCost: number,
 ): string {
-  return `${t('amount.postage', 'ja')} ${formatUnitYen('ja', value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen('ja', materialCost)}`;
+  return t('presetAdmin.shippingMaterialRow', locale, {
+    postage: formatUnitYen(locale, value),
+    material: formatUnitYen(locale, materialCost),
+  });
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -2178,112 +2196,156 @@ export const PRESET_CARD_EMPTY_LABEL = t('common.notRegistered', 'ja');
 // ---- SPEC-V3 §3.2 一覧画面 ----
 
 /** カード末尾の追加行（§3.2-3）:「＋ 送料を追加」。「＋ 」は additionLabel が付ける */
-export function presetAddLabel(type: PresetType): string {
-  return additionLabel('ja', `${presetTypeLabel('ja', type)}を追加`);
+export function presetAddLabel(locale: Locale, type: PresetType): string {
+  return t('presetAdmin.addLabel', locale, { type: presetTypeLabel(locale, type) });
 }
 
 /** 空表示（§3.2-4）。EmptyState の見出しと本文 */
-export const PRESET_EMPTY_TITLE = '登録がありません';
-export function presetEmptyBody(type: PresetType): string {
-  return `よく使う${presetTypeLabel('ja', type)}を登録すると、記録するときに選ぶだけで入ります。`;
+export function presetEmptyTitle(locale: Locale): string {
+  return t('presetAdmin.emptyTitle', locale);
+}
+export function presetEmptyBody(locale: Locale, type: PresetType): string {
+  return t('presetAdmin.emptyBody', locale, { type: presetTypeInlineLabel(locale, type) });
 }
 
 /** 一覧の下の注記（§3.5）。「保存済みの記録は変わらない」は販売サイトの行で 1 度だけ明示する */
-export function presetListNote(type: PresetType): string {
-  switch (type) {
-    case 'site':
-      return '選ぶと手数料率が入ります。保存済みの記録の手数料は変わりません。';
-    case 'shipping':
-      return '選ぶと送料が入ります。実際の料金は各配送サービスの案内で確認してください。';
-    case 'packaging':
-      return '電卓の中から複数選べます。合計が梱包材の欄に入ります。';
-  }
+export function presetListNote(locale: Locale, type: PresetType): string {
+  if (type === 'site') return t('presetAdmin.listNoteSite', locale);
+  return type === 'shipping'
+    ? t('presetAdmin.listNoteShipping', locale)
+    : t('presetAdmin.listNotePackaging', locale);
 }
 
 /** ヘッダ右の編集モードの切り替え（設計案 25a）。押した先ではなく今の状態から見た行き先を出す */
-export const PRESET_EDIT_MODE_LABEL = '編集';
-export const PRESET_EDIT_MODE_DONE_LABEL = '完了';
+export function presetEditModeLabel(locale: Locale): string {
+  return t('presetAdmin.editMode', locale);
+}
+export function presetEditModeDoneLabel(locale: Locale): string {
+  return t('presetAdmin.editModeDone', locale);
+}
 
 // ---- SPEC-V3 §3.3 追加・編集画面 ----
 
-export function presetFormTitle(type: PresetType, isNew: boolean): string {
-  return `${presetTypeLabel('ja', type)}を${isNew ? '追加' : '編集'}`;
+export function presetFormTitle(locale: Locale, type: PresetType, isNew: boolean): string {
+  return t(isNew ? 'presetAdmin.formTitleNew' : 'presetAdmin.formTitleEdit', locale, {
+    type: presetTypeLabel(locale, type),
+  });
 }
 
-export const PRESET_NAME_FIELD_LABEL = '名前';
+export function presetNameFieldLabel(locale: Locale): string {
+  return t('presetAdmin.nameField', locale);
+}
 
 /** 値の欄の見出し（§2.1）。site だけ率で、他は金額 */
-export function presetValueFieldLabel(type: PresetType): string {
-  return isRatePreset(type) ? `${t('amount.commissionShort', 'ja')}率（%）` : '金額';
+export function presetValueFieldLabel(locale: Locale, type: PresetType): string {
+  return t(
+    isRatePreset(type) ? 'presetAdmin.valueFieldRate' : 'presetAdmin.valueFieldAmount',
+    locale,
+  );
 }
 
 // ---- SPEC-V3 §2.6 梱包材のまとめ買い（金額の入れ方） ----
 
 /** 2 択の見出し（§2.6.2）。梱包材の金額欄の**上**に出る */
-export const PRESET_PRICE_MODE_LABEL = '金額の入れ方';
+export function presetPriceModeLabel(locale: Locale): string {
+  return t('presetAdmin.priceModeLabel', locale);
+}
 
 /** 2 択の中身（§2.6.2）。既定は「1個ずつ」＝ 先頭 */
-export const PRESET_PRICE_MODE_OPTIONS = ['1個ずつ', 'まとめ買い'];
+export function presetPriceModeOptions(locale: Locale): string[] {
+  return [t('presetAdmin.priceModeSingle', locale), t('presetAdmin.priceModePack', locale)];
+}
 
 /** 入数の欄（§2.6.2）。単位を見出しに入れるのは、行の数値が単位を持たないため（金額と同じ形） */
-export const PRESET_PACK_QUANTITY_FIELD_LABEL = '入数（個）';
+export function presetPackQuantityLabel(locale: Locale): string {
+  return t('presetAdmin.packQuantityField', locale);
+}
 
 /** 購入価格の欄（§2.6.2）。電卓を出すのはこの欄だけ */
-export const PRESET_PACK_PRICE_FIELD_LABEL = '購入価格';
+export function presetPackPriceFieldLabel(locale: Locale): string {
+  return t('presetAdmin.packPriceField', locale);
+}
 
 /** 計算結果の行（§2.6.2）。入力欄ではないので、電卓も付かない */
-export const PRESET_UNIT_PRICE_LABEL = '1個あたり';
+export function presetUnitPriceLabel(locale: Locale): string {
+  return t('presetAdmin.unitPrice', locale);
+}
 
 /**
  * 1 個あたりの表示（§2.6.3）。入数が空・0 のあいだは「—」──
  * 行ごと消すと高さが動く（§2.6.6）。
  */
-export function presetUnitPriceText(unitPrice: number | null): string {
-  return unitPrice == null ? '—' : formatUnitYen('ja', unitPrice);
+export function presetUnitPriceText(locale: Locale, unitPrice: number | null): string {
+  return unitPrice == null ? t('presetAdmin.unitPriceEmpty', locale) : formatUnitYen(locale, unitPrice);
 }
 
 // ---- SPEC-V10 梱包材の単価計算方式（個数 / 面積 / 使用回数） ----
 
 /** 3 択の見出し（§1.1）。「金額の入れ方」で**まとめ買い**を選んだときだけ出る */
-export const PRESET_CALC_METHOD_LABEL = '計算方式';
+export function presetCalcMethodLabel(locale: Locale): string {
+  return t('presetAdmin.calcMethodLabel', locale);
+}
 
 /**
  * 3 択の中身（§1.1）。並びは PRESET_CALC_METHODS そのもの（既定の「個数から」が先頭）。
  * 「〜から」で揃えているのは、どれも**何を割るか**を選んでいるため。
  */
-export const PRESET_CALC_METHOD_OPTIONS = ['個数から', '面積から', '使用回数から'];
+export function presetCalcMethodOptions(locale: Locale): string[] {
+  return [
+    t('presetAdmin.calcMethodCount', locale),
+    t('presetAdmin.calcMethodArea', locale),
+    t('presetAdmin.calcMethodUsage', locale),
+  ];
+}
 
 /**
  * 割る数の欄の見出し（§1.2）。**個数方式と使用回数方式で同じ欄**の名前が変わる ──
  * 入れる数の意味が違うので、単位（個 / 回）まで含めて言い分ける。
  */
-export function presetPackQuantityFieldLabel(method: PresetCalcMethod): string {
-  return method === 'usage' ? PRESET_USAGE_COUNT_FIELD_LABEL : PRESET_PACK_QUANTITY_FIELD_LABEL;
+export function presetPackQuantityFieldLabel(locale: Locale, method: PresetCalcMethod): string {
+  return t(
+    method === 'usage' ? 'presetAdmin.usageCountField' : 'presetAdmin.packQuantityField',
+    locale,
+  );
 }
 
 /** 想定使用回数の欄（§1.2）。「何回ぶん使えるか」を人が見積もって入れる */
-export const PRESET_USAGE_COUNT_FIELD_LABEL = '想定使用回数（回）';
+export function presetUsageCountLabel(locale: Locale): string {
+  return t('presetAdmin.usageCountField', locale);
+}
 
 /** 購入サイズの欄（§1.2）。cm で入れる（㎡ への換算は presetAreaUnitPrice がする） */
-export const PRESET_PACK_HEIGHT_FIELD_LABEL = '購入サイズ 縦（cm）';
-export const PRESET_PACK_WIDTH_FIELD_LABEL = '購入サイズ 横（cm）';
+export function presetPackHeightFieldLabel(locale: Locale): string {
+  return t('presetAdmin.packHeightField', locale);
+}
+export function presetPackWidthFieldLabel(locale: Locale): string {
+  return t('presetAdmin.packWidthField', locale);
+}
 
 /** 平均使用サイズの欄（§1.2）。**任意入力**で、入れると 1 回あたりまで出る */
-export const PRESET_USE_HEIGHT_FIELD_LABEL = '平均使用サイズ 縦（cm）';
-export const PRESET_USE_WIDTH_FIELD_LABEL = '平均使用サイズ 横（cm）';
+export function presetUseHeightFieldLabel(locale: Locale): string {
+  return t('presetAdmin.useHeightField', locale);
+}
+export function presetUseWidthFieldLabel(locale: Locale): string {
+  return t('presetAdmin.useWidthField', locale);
+}
 
 /** ¥/㎡ の帯（§1.3）。面積方式の 1 枚目の計算結果 */
-export const PRESET_AREA_UNIT_PRICE_LABEL = '1㎡あたり';
+export function presetAreaUnitPriceLabel(locale: Locale): string {
+  return t('presetAdmin.areaUnitPrice', locale);
+}
 
 /** 1 回あたりの帯（§1.3）。面積・使用回数方式の計算結果 */
-export const PRESET_USE_PRICE_LABEL = '1回あたり';
+export function presetUsePriceLabel(locale: Locale): string {
+  return t('presetAdmin.usePrice', locale);
+}
 
 /**
  * 計算結果の帯の見出し（§1.3）。方式で数える単位が変わる:
  * 個数から = 1 個あたり / 面積・使用回数から = 1 回あたり。
  */
-export function presetUnitPriceRowLabel(method: PresetCalcMethod): string {
-  return method === 'individual' ? PRESET_UNIT_PRICE_LABEL : PRESET_USE_PRICE_LABEL;
+export function presetUnitPriceRowLabel(locale: Locale, method: PresetCalcMethod): string {
+  return t(method === 'individual' ? 'presetAdmin.unitPrice' : 'presetAdmin.usePrice', locale);
 }
 
 /**
@@ -2291,8 +2353,9 @@ export function presetUnitPriceRowLabel(method: PresetCalcMethod): string {
  * 入れなかったときに何が登録されるか**を先に言う ── 空のまま保存できてしまう欄なので、
  * 保存したあとに「1 回いくらが出ていない」と気づく形にはしない。
  */
-export const PRESET_USE_SIZE_NOTE =
-  '任意です。入れると1回あたりの金額まで出ます。空のままなら1㎡あたりの金額が経費に入ります。';
+export function presetUseSizeNote(locale: Locale): string {
+  return t('presetAdmin.useSizeNote', locale);
+}
 
 /**
  * 一覧・選択シートの行で、右端の金額が**何あたりの額か**を言う 1 行（§1.5）。
@@ -2301,26 +2364,32 @@ export const PRESET_USE_SIZE_NOTE =
  * 面積方式で平均使用サイズを入れていない行だけ単位が「1 ㎡」になる ──
  * ここを言わないと、同じ「◯◯円」の並びの中で 1 行だけ桁の違う額が理由なく混ざる。
  */
-export function presetUnitNote(preset: {
-  type: PresetType;
-  calcMethod?: string;
-  packQuantity: number;
-  packHeight?: number;
-  packWidth?: number;
-  useHeight?: number;
-  useWidth?: number;
-}): string | null {
+export function presetUnitNote(
+  locale: Locale,
+  preset: {
+    type: PresetType;
+    calcMethod?: string;
+    packQuantity: number;
+    packHeight?: number;
+    packWidth?: number;
+    useHeight?: number;
+    useWidth?: number;
+  },
+): string | null {
   if (preset.type !== 'packaging' || !isPackBuy(preset)) return null;
 
   switch (presetCalcMethod(preset)) {
     case 'area':
       return hasPresetUseSize(preset)
-        ? `${PRESET_USE_PRICE_LABEL}（${formatPresetSize(preset.useHeight ?? 0)}×${formatPresetSize(preset.useWidth ?? 0)}cm）`
-        : PRESET_AREA_UNIT_PRICE_LABEL;
+        ? t('presetAdmin.usePriceWithSize', locale, {
+            height: formatPresetSize(preset.useHeight ?? 0),
+            width: formatPresetSize(preset.useWidth ?? 0),
+          })
+        : t('presetAdmin.areaUnitPrice', locale);
     case 'usage':
-      return PRESET_USE_PRICE_LABEL;
+      return t('presetAdmin.usePrice', locale);
     default:
-      return PRESET_UNIT_PRICE_LABEL;
+      return t('presetAdmin.unitPrice', locale);
   }
 }
 
@@ -2336,20 +2405,27 @@ function formatPresetSize(size: number): string {
  * あちらは自分で選んで買う箱・封筒で、こちらは**その配送方法でしか使えない指定の資材**。
  * 語を分けるのは、記録の経費の内訳でも別の行（送料 / 梱包材）に入るため。
  */
-export const SHIPPING_MATERIAL_LABEL = '専用資材';
+export function shippingMaterialLabel(locale: Locale): string {
+  return t('presetAdmin.shippingMaterial', locale);
+}
 
 /** 送料プリセットの編集画面の欄（§2）。0 円のままでも保存できる（任意の欄） */
-export const SHIPPING_MATERIAL_FIELD_LABEL = `${SHIPPING_MATERIAL_LABEL}の代金`;
+export function shippingMaterialFieldLabel(locale: Locale): string {
+  return t('presetAdmin.shippingMaterialField', locale);
+}
 
 /**
  * 内訳カードの合計行（§2）。**送料と資材費を足したものがこの行**で、
  * 記録に入るのもこの額（「専用資材を使わない」を選ばない限り）。
  */
-export const SHIPPING_TOTAL_LABEL = '合計';
+export function shippingTotalLabel(locale: Locale): string {
+  return t('presetAdmin.shippingTotal', locale);
+}
 
 /** 内訳カードの下の 1 行（§2）。この合計がどこで使われるのかを言う */
-export const SHIPPING_TOTAL_NOTE =
-  '記録でこのプリセットを選ぶと、この合計が送料に入ります。';
+export function shippingTotalNote(locale: Locale): string {
+  return t('presetAdmin.shippingTotalNote', locale);
+}
 
 /**
  * 選択シートの行に埋め込む 2 択（採用案 45b）。**並びは「送料のみ」→「＋資材」。**
@@ -2373,7 +2449,9 @@ export const PRESET_COLOR_FIELD_LABEL = 'バッジの色';
  * 「その他」ではなく「自由色」なのは、**残りものではなく対等な選択肢**だから ──
  * 押すと色相と明るさを自分で決められる。
  */
-export const CUSTOM_COLOR_LABEL = '自由色';
+export function customColorLabel(locale: Locale): string {
+  return t('color.custom', locale);
+}
 export const COLOR_PICKER_TITLE = '色を選ぶ';
 /** 連続量を合わせる操作なので確定ボタンを置く（プリセットの選択シートとは逆。§3） */
 export const COLOR_PICKER_DONE_LABEL = '決定';
@@ -2385,34 +2463,38 @@ export const COLOR_PICKER_DONE_LABEL = '決定';
  * 色そのものと同じく logic 側が 1 か所で持つ（画面で英語キーを出さない）。
  * 読み上げ（accessibilityLabel）もこれを使う ── `red` と読まれても伝わらない。
  */
-export const PRESET_COLOR_LABELS: Record<PresetColorKey, string> = {
-  red: '赤',
-  orange: 'オレンジ',
-  yellow: '黄',
-  green: '緑',
-  teal: 'ティール',
-  blue: '青',
-  indigo: '藍',
-  purple: '紫',
-  pink: 'ピンク',
-  brown: '茶',
-  gray: 'グレー',
-};
+const PRESET_COLOR_KEYS_MAP = {
+  red: 'color.red',
+  orange: 'color.orange',
+  yellow: 'color.yellow',
+  green: 'color.green',
+  teal: 'color.teal',
+  blue: 'color.blue',
+  indigo: 'color.indigo',
+  purple: 'color.purple',
+  pink: 'color.pink',
+  brown: 'color.brown',
+  gray: 'color.gray',
+} as const satisfies Record<PresetColorKey, TranslationKey>;
 
 /** 保存値から色名。固定 11 色のどれでもなければ「自由色」 */
-export function presetColorLabel(stored: string): string {
+export function presetColorLabel(locale: Locale, stored: string): string {
   const key = presetColorKeyOf(stored);
-  return key == null ? CUSTOM_COLOR_LABEL : PRESET_COLOR_LABELS[key];
+  return key == null ? t('color.custom', locale) : t(PRESET_COLOR_KEYS_MAP[key], locale);
 }
 
 /** 上の群の見出し（追加のとき）。まだ誰も使っていない色だけが並ぶ */
-export const COLOR_UNUSED_SECTION_LABEL = 'まだ使っていない色';
+export function colorUnusedSectionLabel(locale: Locale): string {
+  return t('color.unusedSection', locale);
+}
 
 /**
  * 上の群の見出し（編集のとき）。**「使っていない」とは言えない** ──
  * 自分の色を先頭に残すので、1 つだけ使用中の色が混じっているため。
  */
-export const COLOR_SELECTABLE_SECTION_LABEL = '選べる色';
+export function colorSelectableSectionLabel(locale: Locale): string {
+  return t('color.selectableSection', locale);
+}
 
 // ---- 設計案 51b: 固定 11 色を使い切ったら、群の上下を入れ替える ----
 //
@@ -2427,49 +2509,64 @@ export const COLOR_SELECTABLE_SECTION_LABEL = '選べる色';
  * 空であることを見出しで示すと、無いものを 1 行使って言うことになる。
  * 使い切ったことは副文言（下記）が 1 回だけ言う。
  */
-export const CUSTOM_COLOR_CREATE_LABEL = '新しい色を作る';
+export function customColorCreateLabel(locale: Locale): string {
+  return t('color.customCreate', locale);
+}
 
 /**
  * 同じ行の主文言（すでに自由色を選んでいるとき）。開くシートは同じだが、
  * 開いた先には**いま使っている色**が入っているので「作る」とは言えない。
  */
-export const CUSTOM_COLOR_CHANGE_LABEL = `${CUSTOM_COLOR_LABEL}を変える`;
+export function customColorChangeLabel(locale: Locale): string {
+  return t('color.customChange', locale);
+}
 
 /** 同じ行の副文言。固定色の丸が 1 つも並んでいない理由を、その場で言う */
-export const COLOR_ALL_USED_SUBTITLE = `固定の${PRESET_COLOR_KEYS.length}色は使い切りました`;
+export function colorAllUsedSubtitle(locale: Locale): string {
+  return t('color.allUsedSubtitle', locale, { count: PRESET_COLOR_KEYS.length });
+}
 
 /**
  * 下の群の見出し（設計案 51b の状態）。**状態ではなく操作を言う** ──
  * この状態では固定色を選べる場所がここしかないので、「使用中」とだけ書くと
  * 眺めるだけの一覧に見え、押せることが読めない。
  */
-export const COLOR_USED_PICK_SECTION_LABEL = '使用中の色から選ぶ';
+export function colorUsedPickSectionLabel(locale: Locale): string {
+  return t('color.usedPickSection', locale);
+}
 
 /** 上の群の右（追加のとき）。残っている固定色の数 */
-export function colorRemainingLabel(count: number): string {
-  return `${count}色`;
+export function colorRemainingLabel(locale: Locale, count: number): string {
+  return t('color.remaining', locale, { count });
 }
 
 /** 上の群の右（編集のとき）。「オレンジ（このタグの色）」 */
-export function ownColorLabel(stored: string, entityLabel: string): string {
-  return `${presetColorLabel(stored)}（この${entityLabel}の色）`;
+export function ownColorLabel(locale: Locale, stored: string, entityLabel: string): string {
+  return t('color.ownColor', locale, {
+    color: presetColorLabel(locale, stored),
+    entity: entityLabel,
+  });
 }
 
 /** 下の群の見出し（追加のとき） */
-export const COLOR_USED_SECTION_LABEL = '使用中';
+export function colorUsedSectionLabel(locale: Locale): string {
+  return t('color.usedSection', locale);
+}
 
 /** 下の群の見出し（編集のとき）。自分は含まれないことを言う */
-export function otherUsedSectionLabel(entityLabel: string): string {
-  return `ほかの${entityLabel}が使用中`;
+export function otherUsedSectionLabel(locale: Locale, entityLabel: string): string {
+  return t('color.otherUsedSection', locale, { entity: entityLabel });
 }
 
 /**
  * 下の群の 1 つに添える名前。**同じ色を複数が使っていることがある**ので、
  * 先頭 1 件 ＋ 残りの件数にする（横に並べる札なので、全部を書くと 1 行に収まらない）。
  */
-export function colorUserLabel(names: readonly string[]): string {
+export function colorUserLabel(locale: Locale, names: readonly string[]): string {
   const [head, ...rest] = names;
-  return rest.length === 0 ? head : `${head} ほか${rest.length}件`;
+  return rest.length === 0
+    ? t('color.userOne', locale, { name: head })
+    : t('color.userMany', locale, { name: head, count: rest.length });
 }
 
 /**
@@ -2481,13 +2578,15 @@ export function colorUserLabel(names: readonly string[]): string {
  * 件数が増えるほど行が伸びて注記が読まれなくなる。誰が使っているかは
  * 下の群にそのまま並んでいるので、ここは「重なっている」ことだけを伝えれば足りる。
  */
-export function sameColorNote(names: readonly string[]): string {
+export function sameColorNote(locale: Locale, names: readonly string[]): string {
   const [head, ...rest] = names;
-  const who =
-    rest.length === 0 ? `「${head}」` : `「${head}」ほか${rest.length}件`;
-  return `${who}と同じ色です`;
+  return rest.length === 0
+    ? t('color.sameColorOne', locale, { name: head })
+    : t('color.sameColorMany', locale, { name: head, count: rest.length });
 }
-export const PRESET_INITIAL_FIELD_LABEL = 'バッジの文字';
+export function presetInitialFieldLabel(locale: Locale): string {
+  return t('presetAdmin.initialField', locale);
+}
 
 /** 頭文字の欄の下の 1 行（§1.2）。空のままでも何が出るかを先に言う */
 export const PRESET_INITIAL_NOTE = `名前の先頭が入ります。${PRESET_INITIAL_MAX_LENGTH}文字まで変えられます。`;
@@ -2496,27 +2595,32 @@ export const PRESET_INITIAL_NOTE = `名前の先頭が入ります。${PRESET_IN
  * プレビュー帯のバッジの下の 1 行（設計案 49c）。**打っていないときだけ「押せる」ことを言う** ──
  * 専用の入力欄を廃したので、バッジが押せること自体が画面から読めなくなるため。
  */
-export const PRESET_INITIAL_HINT = `${PRESET_INITIAL_MAX_LENGTH}文字まで・押して直せます`;
+export function presetInitialHint(locale: Locale): string {
+  return t('presetAdmin.initialHint', locale, { max: PRESET_INITIAL_MAX_LENGTH });
+}
 
 /**
  * 同じ 1 行の、打っている最中の形（設計案 49c）。**制限だけを残す** ──
  * カーソルが立っている時点で押せることは済んだ話で、そこに要るのは上限だけ。
  */
-export const PRESET_INITIAL_EDITING_HINT = `${PRESET_INITIAL_MAX_LENGTH}文字まで`;
+export function presetInitialEditingHint(locale: Locale): string {
+  return t('presetAdmin.initialEditingHint', locale, { max: PRESET_INITIAL_MAX_LENGTH });
+}
 
 /**
  * 編集のときだけ出す注記（設計案 25b）。§1.5 の帰結を、値を書き換える場所で名指しする。
  * 追加のときは出さない（まだ「これまでの記録」がない）。
  */
-export function presetEditValueNote(type: PresetType): string {
-  return isRatePreset(type)
-    ? `${t('amount.commissionShort', 'ja')}率を変えても、これまでの記録の${t('amount.commissionShort', 'ja')}はそのままです。`
-    : '金額を変えても、これまでの記録の金額はそのままです。';
+export function presetEditValueNote(locale: Locale, type: PresetType): string {
+  return t(
+    isRatePreset(type) ? 'presetAdmin.editValueNoteRate' : 'presetAdmin.editValueNoteAmount',
+    locale,
+  );
 }
 
 /** 編集画面の下端（設計案 25b）:「この送料を削除」 */
-export function presetDeleteLabel(type: PresetType): string {
-  return `この${presetTypeLabel('ja', type)}を削除`;
+export function presetDeleteLabel(locale: Locale, type: PresetType): string {
+  return t('presetAdmin.deleteLabel', locale, { type: presetTypeInlineLabel(locale, type) });
 }
 
 /**
@@ -2526,15 +2630,19 @@ export function presetDeleteLabel(type: PresetType): string {
  * いちばんの気がかりなので、件数と「残る」ことを 1 文に入れる。
  */
 export function presetDeleteConfirmMessage(
+  locale: Locale,
   type: PresetType,
   usageCount: number,
 ): string {
-  return `この${presetTypeLabel('ja', type)}を使った記録が${presetCountLabel('ja', usageCount)}あります。記録とその金額は残り、今後の入力候補から外れます。`;
+  return t('presetAdmin.deleteConfirm', locale, {
+    type: presetTypeInlineLabel(locale, type),
+    count: usageCount,
+  });
 }
 
 /** 削除したあとの取り消しバー（§3.2）。プリセットは手で作った資産なので記録と同じ扱いにする */
-export function presetDeletedMessage(type: PresetType): string {
-  return `${presetTypeLabel('ja', type)}を削除しました`;
+export function presetDeletedMessage(locale: Locale, type: PresetType): string {
+  return t('presetAdmin.deletedMessage', locale, { type: presetTypeInlineLabel(locale, type) });
 }
 
 // ---- SPEC-V3 §4 入力時の選択 ----
@@ -2586,7 +2694,7 @@ export const PRESET_PICKER_ADD_LINK = '設定で追加する ▸';
  * 反応しないボタンを探させることにはならない。
  */
 export function presetPickerEmptyBodyWithoutLink(type: PresetType): string {
-  return `${presetEmptyBody(type)}\n設定タブの「${PRESET_SECTION_TITLE}」から追加できます。`;
+  return `${presetEmptyBody('ja', type)}\n設定タブの「${PRESET_SECTION_TITLE}」から追加できます。`;
 }
 
 /**
@@ -2654,17 +2762,21 @@ export function tagAddLabel(locale: Locale): string {
 export function tagEmptyTitle(locale: Locale): string {
   return t('tag.emptyTitle', locale);
 }
-export const TAG_EMPTY_BODY = '記録を追加するときにも作れます。';
+export function tagEmptyBody(locale: Locale): string {
+  return t('tagAdmin.emptyBody', locale);
+}
 
 /**
  * 一覧の下の注記（§2.2-5）。**削除で消えるのはタグだけ**だと先に言う ──
  * 記録に紐付く（§0.1）ぶん、プリセットより「消したら記録も消えるのでは」と読まれやすい。
  */
-export const TAG_LIST_NOTE = 'タグを消しても、記録そのものは消えません。';
+export function tagListNote(locale: Locale): string {
+  return t('tagAdmin.listNote', locale);
+}
 
 /** 一覧の行の削除の読み上げ語（§2.2）。スワイプで出る赤い「削除」に名前を添える */
-export function tagDeleteA11yLabel(name: string): string {
-  return `${name}を${t('action.delete', 'ja')}`;
+export function tagDeleteA11yLabel(locale: Locale, name: string): string {
+  return t('tagAdmin.deleteA11y', locale, { name });
 }
 
 /**
@@ -2674,11 +2786,10 @@ export function tagDeleteA11yLabel(name: string): string {
  * 取り消しの猶予の間に読めないと、バーが消えてから気付くことになる。
  * 0 件のときに「0 件の記録から外れました」と出しても、外れた先が無いので情報にならない。
  */
-export function tagDeletedMessage(name: string, usageCount: number): string {
-  const head = `『${name}』を削除しました`;
+export function tagDeletedMessage(locale: Locale, name: string, usageCount: number): string {
   return usageCount === 0
-    ? head
-    : `${head}（${presetCountLabel('ja', usageCount)}の記録から外れました）`;
+    ? t('tagAdmin.deletedMessage', locale, { name })
+    : t('tagAdmin.deletedMessageWithCount', locale, { name, count: usageCount });
 }
 
 // ---- SPEC-V4 §2.3 追加・編集シート ----
@@ -2691,23 +2802,29 @@ export function tagDeletedMessage(name: string, usageCount: number): string {
  * 実際に出る先（一覧の行）は使用件数とシェブロンまで含んだ形なので、
  * プレビューもその形ごと見せて、左でそれを名指しする。
  */
-export const TAG_PREVIEW_LABEL = `${TAG_LABEL}一覧での見え方`;
+export function tagPreviewLabel(locale: Locale): string {
+  return t('tagAdmin.previewLabel', locale);
+}
 
-export function tagFormTitle(isNew: boolean): string {
-  return `${TAG_LABEL}を${isNew ? '追加' : '編集'}`;
+export function tagFormTitle(locale: Locale, isNew: boolean): string {
+  return t(isNew ? 'tagAdmin.formTitleNew' : 'tagAdmin.formTitleEdit', locale);
 }
 
 /**
  * 名前の欄のキャプション（§2.3-3）。**「（必須）」を付ける** ──
  * タグは名前だけが本体で、空のまま保存できる欄が 1 つも無いことを先に言う。
  */
-export const TAG_NAME_FIELD_LABEL = '名前（必須）';
+export function tagNameFieldLabel(locale: Locale): string {
+  return t('tagAdmin.nameField', locale);
+}
 
 /**
  * 名前が未入力のときにプレビューへ薄く出す語（§2.3-2）。
  * チップの形（色の点 ＋ 名前）を先に見せるためのもので、保存される値ではない。
  */
-export const TAG_NAME_PLACEHOLDER = '名前';
+export function tagNamePlaceholder(locale: Locale): string {
+  return t('tagAdmin.namePlaceholder', locale);
+}
 
 /**
  * 色の欄の見出し（§2.3-4）。プリセットの「バッジの色」と語を分けるのは、
@@ -2719,7 +2836,9 @@ export const TAG_COLOR_FIELD_LABEL = '色';
  * 編集画面の下端の削除（§2.3。PresetFormScreen の presetDeleteLabel と同じ形）。
  * 追加のときは出さないので「この」で始めてよい ── 指しているのはいま開いている 1 件。
  */
-export const TAG_DELETE_LABEL = `この${TAG_LABEL}を削除`;
+export function tagDeleteLabel(locale: Locale): string {
+  return t('tagAdmin.deleteLabel', locale);
+}
 
 /**
  * 削除の確認（§2.3）。**使用件数が 1 件以上のときだけ出す。**
@@ -2731,8 +2850,8 @@ export const TAG_DELETE_LABEL = `この${TAG_LABEL}を削除`;
  *
  * 言うのは tagDeletedMessage と同じ 2 つ ── 記録は残ること、外れるのはタグだけであること。
  */
-export function tagDeleteConfirmMessage(usageCount: number): string {
-  return `このタグが付いた記録が${presetCountLabel('ja', usageCount)}あります。記録は残り、このタグだけが外れます。`;
+export function tagDeleteConfirmMessage(locale: Locale, usageCount: number): string {
+  return t('tagAdmin.deleteConfirm', locale, { count: usageCount });
 }
 
 // ---- SPEC-V4 §3 入力（記録フォームのタグの節・選択シート） ----
@@ -2798,7 +2917,7 @@ export function tagPickerEditLink(locale: Locale): string {
 }
 
 /**
- * 1 件も登録がないときの選択シートの本文（§3.2）。一覧の空表示（TAG_EMPTY_BODY）と
+ * 1 件も登録がないときの選択シートの本文（§3.2）。一覧の空表示（tagEmptyBody('ja')）と
  * 語を分けるのは、**ここには作る場所が既にある**から ── 「記録を追加するときにも作れます」は、
  * まさにその記録フォームの上で読むと行き先の分からない案内になる。
  */
@@ -3482,7 +3601,7 @@ export function exportPreviewMetaLabel(
  * 列名は表計算ソフトがそのまま項目名として使うので、注記が混ざると邪魔になる。
  * 画面の側で 1 行言えば、CSV の中身を汚さずに済む。
  */
-export const CSV_SHIPPING_MATERIAL_NOTE = `送料には${SHIPPING_MATERIAL_LABEL}の代金を含みます`;
+export const CSV_SHIPPING_MATERIAL_NOTE = `送料には${shippingMaterialLabel('ja')}の代金を含みます`;
 
 /** 表の下の 1 行（案 `40a`）。横スクロールできることは形からは読めないので語で言う */
 export function exportPreviewScrollHint(locale: Locale): string {
@@ -3823,7 +3942,7 @@ export const HELP_FIGURE_ROUND_LAST_LABEL = '20.8（後で丸める）';
  * 表の下に 1 行だけ添える。**語を組み立てるのはここ**（図の側で文を作らない）。
  */
 export function helpFigurePackUseNote(size: string, price: string): string {
-  return `${HELP_FIGURE_PACK_USE_LABEL} ${size} を入れると ${PRESET_USE_PRICE_LABEL} ${price}`;
+  return `${HELP_FIGURE_PACK_USE_LABEL} ${size} を入れると ${presetUsePriceLabel('ja')} ${price}`;
 }
 
 export function helpFigureCsvKindLabel(kind: 'backup' | 'tax'): string {

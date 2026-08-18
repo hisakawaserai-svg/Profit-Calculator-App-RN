@@ -32,22 +32,23 @@ import { TextField } from '@/components/TextField';
 import type { Tag } from '@/db/schema';
 import { createTag, removeTag, updateTag, useTagList } from '@/db/useTags';
 import {
-  CANCEL_LABEL,
-  DELETE_CONFIRM_TITLE,
-  DELETE_LABEL,
+  cancelLabel,
+  deleteConfirmTitle,
+  deleteLabel,
   presetCountLabel,
-  SAVE_LABEL,
-  TAG_LABEL,
-  TAG_DELETE_LABEL,
-  TAG_NAME_FIELD_LABEL,
-  TAG_NAME_PLACEHOLDER,
-  TAG_PREVIEW_LABEL,
+  saveLabel,
+  tagLabel,
+  tagDeleteLabel,
+  tagNameFieldLabel,
+  tagNamePlaceholder,
+  tagPreviewLabel,
   tagBlockedNote,
   tagDeleteConfirmMessage,
   tagFormTitle,
 } from '@/logic/labels';
 import { presetColorValue } from '@/logic/preset';
 import { nextTagColor, validateTag } from '@/logic/tag';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -56,6 +57,9 @@ type Props = {
 };
 
 export function TagFormScreen({ tag }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const isNew = tag == null;
@@ -105,7 +109,7 @@ export function TagFormScreen({ tag }: Props) {
   const blockedNote =
     validation.valid || (validation.reason === 'name-required' && name === '')
       ? null
-      : tagBlockedNote('ja', validation.reason);
+      : tagBlockedNote(locale, validation.reason);
 
   const save = useCallback(() => {
     if (!validation.valid) return;
@@ -134,17 +138,17 @@ export function TagFormScreen({ tag }: Props) {
       remove();
       return;
     }
-    Alert.alert(DELETE_CONFIRM_TITLE, tagDeleteConfirmMessage(usageCount), [
-      { text: CANCEL_LABEL, style: 'cancel' },
-      { text: DELETE_LABEL, style: 'destructive', onPress: remove },
+    Alert.alert(deleteConfirmTitle(locale), tagDeleteConfirmMessage(locale, usageCount), [
+      { text: cancelLabel(locale), style: 'cancel' },
+      { text: deleteLabel(locale), style: 'destructive', onPress: remove },
     ]);
-  }, [router, tag, usageCount]);
+  }, [router, tag, usageCount, locale]);
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: tagFormTitle(isNew),
+          title: tagFormTitle(locale, isNew),
           // 「？」は保存の**左**（UI-SPEC §5-9）。右端は保存のまま残す ──
           // 位置を入れ替えると、他の画面で覚えた「右端が保存」が崩れる
           headerRight: () => (
@@ -161,7 +165,7 @@ export function TagFormScreen({ tag }: Props) {
                     styles.saveButton,
                     { color: validation.valid ? colors.blue : colors.disabledContent },
                   ]}>
-                  {SAVE_LABEL}
+                  {saveLabel(locale)}
                 </Text>
               </Pressable>
             </View>
@@ -188,9 +192,9 @@ export function TagFormScreen({ tag }: Props) {
           <View
             style={[styles.card, styles.previewCard, { backgroundColor: colors.secondaryBackground }]}
             accessible
-            accessibilityLabel={`${TAG_PREVIEW_LABEL}: ${name.trim() || TAG_NAME_PLACEHOLDER} ${presetCountLabel('ja', usageCount)}`}>
+            accessibilityLabel={`${tagPreviewLabel(locale)}: ${name.trim() || tagNamePlaceholder(locale)} ${presetCountLabel(locale, usageCount)}`}>
             <Text style={[styles.previewLabel, { color: colors.secondaryLabel }]}>
-              {TAG_PREVIEW_LABEL}
+              {tagPreviewLabel(locale)}
             </Text>
             {/* 並び・大きさは TagListScreen の TagRow と同じ（チップ → 件数 → シェブロン）。
                 **名前が長いときに縮むのはチップの側**（`shrink`）── 左の語は説明なので、
@@ -199,11 +203,11 @@ export function TagFormScreen({ tag }: Props) {
             <View style={styles.previewRow}>
               <TagChip
                 tag={{ name: name.trim(), colorKey }}
-                namePlaceholder={TAG_NAME_PLACEHOLDER}
+                namePlaceholder={tagNamePlaceholder(locale)}
                 style={styles.previewChip}
               />
               <Text style={[styles.previewCount, { color: colors.secondaryLabel }]}>
-                {presetCountLabel('ja', usageCount)}
+                {presetCountLabel(locale, usageCount)}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </View>
@@ -211,7 +215,7 @@ export function TagFormScreen({ tag }: Props) {
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <TextField
-              label={TAG_NAME_FIELD_LABEL}
+              label={tagNameFieldLabel(locale)}
               value={name}
               // **打っている最中に切らない**（§1.3 / SPEC-V3 §1.2）。maxLength も
               // onChangeText での切り詰めも使わない ── 日本語入力は「ようふく」と打ってから
@@ -238,7 +242,7 @@ export function TagFormScreen({ tag }: Props) {
               // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
               // その色が上の群へ移ってしまわないように
               ownColor={tag?.colorKey}
-              entityLabel={TAG_LABEL}
+              entityLabel={tagLabel(locale)}
             />
           </View>
 
@@ -253,7 +257,7 @@ export function TagFormScreen({ tag }: Props) {
                   { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.6 : 1 },
                 ])
               }>
-              <Text style={[styles.deleteLabel, { color: colors.red }]}>{TAG_DELETE_LABEL}</Text>
+              <Text style={[styles.deleteLabel, { color: colors.red }]}>{tagDeleteLabel(locale)}</Text>
             </Pressable>
           )}
         </ScrollView>

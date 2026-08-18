@@ -65,4 +65,14 @@ export const MIGRATED_FILES = [
   'src/screens/ExportPreviewScreen.tsx',
   'src/screens/ExportSheet.tsx',
   'src/components/CsvTable.tsx',
+  // 区切り 9: タグとプリセットの管理
+  'src/screens/TagListScreen.tsx',
+  'src/screens/TagFormScreen.tsx',
+  'src/screens/PresetListScreen.tsx',
+  'src/screens/PresetFormScreen.tsx',
+  'src/components/ColorPickerSheet.tsx',
+  'src/components/ColorSwatchGrid.tsx',
+  'src/components/PackBuyFields.tsx',
+  'src/components/PresetRow.tsx',
+  'src/components/PresetSummaryCard.tsx',
 ] as const;

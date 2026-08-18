@@ -44,10 +44,10 @@ import {
   backupPhotoExcludeDetail,
   backupPhotoExcludeLabel,
   backupPhotoIncludeLabel,
-  COLOR_UNUSED_SECTION_LABEL,
-  COLOR_USED_SECTION_LABEL,
+  colorUnusedSectionLabel,
+  colorUsedSectionLabel,
   COMMISSION_LABEL,
-  CUSTOM_COLOR_LABEL,
+  customColorLabel,
   DATA_MODE_ACHIEVEMENTS_LABEL,
   DATA_MODE_PROFIT_LABEL,
   DATA_MODE_TAG_LABEL,
@@ -91,7 +91,7 @@ import {
   LISTING_COUNT_LABEL,
   LISTING_STATUS_LABEL,
   POSTAGE_LABEL,
-  PRESET_INITIAL_HINT,
+  presetInitialHint,
   RECORDS_TAB_LABEL,
   SHIPPING_ONLY_LABEL,
   SIMULATOR_NOTE,
@@ -342,7 +342,7 @@ export function RecordBarFigure() {
  * **実物の `ColorSwatchGrid` は使わない。** あの部品は自由色の丸を押すと
  * `ColorPickerSheet` を開く（`onChange` を空にしても止まらない）ので、図の中に置くと
  * 「読むだけ」のはずの面からシートが出てしまう。代わりに**色と見出しの語は実物と同じ定数**
- * （`PRESET_COLOR_HEXES` / `COLOR_UNUSED_SECTION_LABEL` など）から引き、
+ * （`PRESET_COLOR_HEXES` / `colorUnusedSectionLabel('ja')` など）から引き、
  * 並びだけをここで描く ── パレットを差し替えれば図の色も変わる。
  *
  * 4 列なのも実物と同じ（設計案 49c で `flexWrap` をやめた理由と同じで、
@@ -360,7 +360,7 @@ export function ColorGroupsFigure() {
   return (
     <PartFrame note={HELP_FIGURE_COLOR_GROUPS_NOTE}>
       <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-        {COLOR_UNUSED_SECTION_LABEL}
+        {colorUnusedSectionLabel('ja')}
       </Text>
       <View style={styles.swatchRow}>
         {unused.map((key) => (
@@ -373,13 +373,13 @@ export function ColorGroupsFigure() {
         <View style={styles.customSwatch}>
           <View style={[styles.swatchRing, { borderColor: colors.separator }]} />
           <Text style={[styles.swatchCaption, { color: colors.secondaryLabel }]}>
-            {CUSTOM_COLOR_LABEL}
+            {customColorLabel('ja')}
           </Text>
         </View>
       </View>
 
       <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-        {COLOR_USED_SECTION_LABEL}
+        {colorUsedSectionLabel('ja')}
       </Text>
       <View style={styles.usedRow}>
         {used.map((entry) => (
@@ -388,7 +388,7 @@ export function ColorGroupsFigure() {
               style={[styles.usedSwatch, { backgroundColor: PRESET_COLOR_HEXES[entry.key] }]}
             />
             <Text style={[styles.swatchCaption, { color: colors.secondaryLabel }]}>
-              {colorUserLabel(entry.names)}
+              {colorUserLabel('ja', entry.names)}
             </Text>
           </View>
         ))}
@@ -536,7 +536,7 @@ export function PhotoIncludeFigure() {
  * プリセット編集のプレビュー帯のバッジ（設計案 49c）。
  *
  * **バッジそのものが入力欄**だという一点だけを出す図なので、下の 1 行
- * （`PRESET_INITIAL_HINT` =「2文字まで・押して直せます」）まで含めて実物と同じにする ──
+ * （`presetInitialHint('ja')` =「2文字まで・押して直せます」）まで含めて実物と同じにする ──
  * 「押せる」ことを言っているのはこの 1 行で、バッジの絵だけでは伝わらない。
  *
  * 入力中の `PresetBadgeInput` ではなく表示用の `PresetBadge` を使うのは、
@@ -555,7 +555,7 @@ export function PresetBadgeFigure() {
           size={EDITABLE_BADGE_SIZE}
         />
         <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-          {PRESET_INITIAL_HINT}
+          {presetInitialHint('ja')}
         </Text>
       </View>
     </PartFrame>

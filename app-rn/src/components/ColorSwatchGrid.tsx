@@ -28,14 +28,14 @@ import { ColorPickerSheet } from '@/components/ColorPickerSheet';
 import {
   colorRemainingLabel,
   colorUserLabel,
-  COLOR_ALL_USED_SUBTITLE,
-  COLOR_SELECTABLE_SECTION_LABEL,
-  COLOR_UNUSED_SECTION_LABEL,
-  COLOR_USED_PICK_SECTION_LABEL,
-  COLOR_USED_SECTION_LABEL,
-  CUSTOM_COLOR_CHANGE_LABEL,
-  CUSTOM_COLOR_CREATE_LABEL,
-  CUSTOM_COLOR_LABEL,
+  colorAllUsedSubtitle,
+  colorSelectableSectionLabel,
+  colorUnusedSectionLabel,
+  colorUsedPickSectionLabel,
+  colorUsedSectionLabel,
+  customColorChangeLabel,
+  customColorCreateLabel,
+  customColorLabel,
   otherUsedSectionLabel,
   ownColorLabel,
   presetColorLabel,
@@ -47,6 +47,7 @@ import {
   presetColorKeyOf,
   type PresetColorKey,
 } from '@/logic/preset';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /**
@@ -111,6 +112,9 @@ type Props = {
 };
 
 export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 固定 11 色のどれでもない ＝ 自由色 */
@@ -167,7 +171,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
           onPress={() => setPickerOpen(true)}
           accessibilityRole="button"
           accessibilityState={{ selected: isCustom }}
-          accessibilityLabel={`${isCustom ? CUSTOM_COLOR_CHANGE_LABEL : CUSTOM_COLOR_CREATE_LABEL} ${COLOR_ALL_USED_SUBTITLE}`}
+          accessibilityLabel={`${isCustom ? customColorChangeLabel(locale) : customColorCreateLabel(locale)} ${colorAllUsedSubtitle(locale)}`}
           style={({ pressed }) => [
             styles.createRow,
             { backgroundColor: colors.disabledBackground, opacity: pressed ? 0.6 : 1 },
@@ -192,10 +196,10 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
           </View>
           <View style={styles.createText}>
             <Text style={[styles.createTitle, { color: colors.blue }]} numberOfLines={1}>
-              {isCustom ? CUSTOM_COLOR_CHANGE_LABEL : CUSTOM_COLOR_CREATE_LABEL}
+              {isCustom ? customColorChangeLabel(locale) : customColorCreateLabel(locale)}
             </Text>
             <Text style={[styles.createNote, { color: colors.secondaryLabel }]} numberOfLines={1}>
-              {COLOR_ALL_USED_SUBTITLE}
+              {colorAllUsedSubtitle(locale)}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
@@ -204,14 +208,14 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionLabel, { color: colors.secondaryLabel }]}>
-              {isEditing ? COLOR_SELECTABLE_SECTION_LABEL : COLOR_UNUSED_SECTION_LABEL}
+              {isEditing ? colorSelectableSectionLabel(locale) : colorUnusedSectionLabel(locale)}
             </Text>
             {/* 右は「あと何色あるか」。編集のときは代わりに自分の色を名指しする ──
                 先頭の丸が自分の色であることは、丸を見ただけでは分からない */}
             <Text style={[styles.sectionValue, { color: colors.secondaryLabel }]}>
               {isEditing
-                ? ownColorLabel(ownColor, entityLabel)
-                : colorRemainingLabel(unusedKeys.length)}
+                ? ownColorLabel(locale, ownColor, entityLabel)
+                : colorRemainingLabel(locale, unusedKeys.length)}
             </Text>
           </View>
 
@@ -224,7 +228,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
                     onPress={() => onChange(PRESET_COLOR_HEXES[key])}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
-                    accessibilityLabel={presetColorLabel(PRESET_COLOR_HEXES[key])}
+                    accessibilityLabel={presetColorLabel(locale, PRESET_COLOR_HEXES[key])}
                     style={({ pressed }) => [
                       styles.slot,
                       {
@@ -254,7 +258,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
                 onPress={() => setPickerOpen(true)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isCustom }}
-                accessibilityLabel={CUSTOM_COLOR_LABEL}
+                accessibilityLabel={customColorLabel(locale)}
                 style={({ pressed }) => [
                   styles.slot,
                   {
@@ -294,10 +298,10 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
           <Text style={[styles.sectionLabel, { color: colors.secondaryLabel }]}>
             {allUsed
-              ? COLOR_USED_PICK_SECTION_LABEL
+              ? colorUsedPickSectionLabel(locale)
               : isEditing
-                ? otherUsedSectionLabel(entityLabel)
-                : COLOR_USED_SECTION_LABEL}
+                ? otherUsedSectionLabel(locale, entityLabel)
+                : colorUsedSectionLabel(locale)}
           </Text>
           <View style={styles.usedList}>
             {usedKeys.map((key) => {
@@ -309,7 +313,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
                   onPress={() => onChange(PRESET_COLOR_HEXES[key])}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={`${presetColorLabel(PRESET_COLOR_HEXES[key])} ${colorUserLabel(names)}`}
+                  accessibilityLabel={`${presetColorLabel(locale, PRESET_COLOR_HEXES[key])} ${colorUserLabel(locale, names)}`}
                   style={({ pressed }) => [styles.usedItem, { opacity: pressed ? 0.5 : 1 }]}>
                   <View
                     style={[
@@ -337,7 +341,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
                       { color: allUsed ? colors.label : colors.secondaryLabel },
                     ]}
                     numberOfLines={1}>
-                    {colorUserLabel(names)}
+                    {colorUserLabel(locale, names)}
                   </Text>
                 </Pressable>
               );
@@ -350,7 +354,7 @@ export function ColorSwatchGrid({ value, onChange, usedBy, ownColor, entityLabel
           割り込んで「はい」を押させるほどのことではなく、直すかどうかは本人が決める */}
       {collidingNames != null && collidingNames.length > 0 && (
         <Text style={[styles.note, { color: colors.secondaryLabel }]} accessibilityRole="alert">
-          {sameColorNote(collidingNames)}
+          {sameColorNote(locale, collidingNames)}
         </Text>
       )}
 

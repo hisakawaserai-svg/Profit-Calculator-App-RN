@@ -38,12 +38,12 @@ import {
   PRICE_APPLY_EXTERNAL_NOTE,
   colorRemainingLabel,
   colorUserLabel,
-  COLOR_ALL_USED_SUBTITLE,
-  COLOR_USED_PICK_SECTION_LABEL,
-  COLOR_USED_SECTION_LABEL,
-  CUSTOM_COLOR_CHANGE_LABEL,
-  CUSTOM_COLOR_CREATE_LABEL,
-  CUSTOM_COLOR_LABEL,
+  colorAllUsedSubtitle,
+  colorUsedPickSectionLabel,
+  colorUsedSectionLabel,
+  customColorChangeLabel,
+  customColorCreateLabel,
+  customColorLabel,
   otherUsedSectionLabel,
   ownColorLabel,
   presetColorLabel,
@@ -140,7 +140,7 @@ import {
   presetUnitNote,
   presetUnitPriceRowLabel,
   presetUnitPriceText,
-  PRESET_CALC_METHOD_OPTIONS,
+  presetCalcMethodOptions,
   presetValueFieldLabel,
   presetValueText,
   presetSectionTitle,
@@ -611,36 +611,36 @@ describe('UI-SPEC §7 電卓', () => {
 
 describe('SPEC-V3 §3 プリセットの表示語', () => {
   it('値は種類で単位が変わる（§2.1）:「10%」/「210円」', () => {
-    expect(presetValueText('site', 10)).toBe('10%');
-    expect(presetValueText('site', 3.5)).toBe('3.5%');
-    expect(presetValueText('shipping', 210)).toBe('210円');
-    expect(presetValueText('packaging', 0)).toBe('0円');
+    expect(presetValueText('ja', 'site', 10)).toBe('10%');
+    expect(presetValueText('ja', 'site', 3.5)).toBe('3.5%');
+    expect(presetValueText('ja', 'shipping', 210)).toBe('210円');
+    expect(presetValueText('ja', 'packaging', 0)).toBe('0円');
   });
 
   it('金額は小数第 1 位まで出す（まとめ買いの単価。§2.6.3）', () => {
     // 整数に丸めると、編集画面の「9.8円」と一覧の「10円」が食い違う
-    expect(presetValueText('packaging', 9.8)).toBe('9.8円');
-    expect(presetValueText('packaging', 26.7)).toBe('26.7円');
-    expect(presetValueText('packaging', 0.1)).toBe('0.1円');
+    expect(presetValueText('ja', 'packaging', 9.8)).toBe('9.8円');
+    expect(presetValueText('ja', 'packaging', 26.7)).toBe('26.7円');
+    expect(presetValueText('ja', 'packaging', 0.1)).toBe('0.1円');
     // 末尾の .0 は出さない
-    expect(presetValueText('packaging', 10)).toBe('10円');
+    expect(presetValueText('ja', 'packaging', 10)).toBe('10円');
   });
 
   it('まとめ買いの 1 個あたりは末尾の .0 を出さない（§2.6.3）', () => {
-    expect(presetUnitPriceText(8)).toBe('8円');
-    expect(presetUnitPriceText(9.8)).toBe('9.8円');
-    expect(presetUnitPriceText(10)).toBe('10円');
-    expect(presetUnitPriceText(0.1)).toBe('0.1円');
-    expect(presetUnitPriceText(0)).toBe('0円');
+    expect(presetUnitPriceText('ja', 8)).toBe('8円');
+    expect(presetUnitPriceText('ja', 9.8)).toBe('9.8円');
+    expect(presetUnitPriceText('ja', 10)).toBe('10円');
+    expect(presetUnitPriceText('ja', 0.1)).toBe('0.1円');
+    expect(presetUnitPriceText('ja', 0)).toBe('0円');
   });
 
   it('入数が空・0 のあいだは「—」（行ごと消すと高さが動く。§2.6.6）', () => {
-    expect(presetUnitPriceText(null)).toBe('—');
+    expect(presetUnitPriceText('ja', null)).toBe('—');
   });
 
   it('保存できない理由はまとめ買いの 2 つも名指しする（§2.6.6）', () => {
-    expect(presetBlockedNote('pack-quantity-required', 'packaging')).toBe('入数を入れてください');
-    expect(presetBlockedNote('pack-price-out-of-range', 'packaging')).toBe(
+    expect(presetBlockedNote('ja', 'pack-quantity-required', 'packaging')).toBe('入数を入れてください');
+    expect(presetBlockedNote('ja', 'pack-price-out-of-range', 'packaging')).toBe(
       '購入価格は 0 以上で入れてください',
     );
   });
@@ -651,43 +651,43 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
   });
 
   it('追加行は記録フォームの「＋ …」と同じ形（§3.2-3）', () => {
-    expect(presetAddLabel('shipping')).toBe('＋ 送料を追加');
-    expect(presetAddLabel('site')).toBe('＋ 販売サイトを追加');
+    expect(presetAddLabel('ja', 'shipping')).toBe('＋ 送料を追加');
+    expect(presetAddLabel('ja', 'site')).toBe('＋ 販売サイトを追加');
   });
 
   it('見出しは追加と編集で語だけが違う（§3.3-1）', () => {
-    expect(presetFormTitle('packaging', true)).toBe('梱包材を追加');
-    expect(presetFormTitle('packaging', false)).toBe('梱包材を編集');
+    expect(presetFormTitle('ja', 'packaging', true)).toBe('梱包材を追加');
+    expect(presetFormTitle('ja', 'packaging', false)).toBe('梱包材を編集');
   });
 
   it('値の欄の見出しは率と金額で分かれる（§3.3-4）', () => {
-    expect(presetValueFieldLabel('site')).toBe('手数料率（%）');
-    expect(presetValueFieldLabel('shipping')).toBe('金額');
+    expect(presetValueFieldLabel('ja', 'site')).toBe('手数料率（%）');
+    expect(presetValueFieldLabel('ja', 'shipping')).toBe('金額');
   });
 
   it('編集の注記は「保存済みの記録は変わらない」を値の語で言う（§1.5 / 設計案 25b）', () => {
-    expect(presetEditValueNote('shipping')).toBe(
+    expect(presetEditValueNote('ja', 'shipping')).toBe(
       '金額を変えても、これまでの記録の金額はそのままです。',
     );
-    expect(presetEditValueNote('site')).toBe(
+    expect(presetEditValueNote('ja', 'site')).toBe(
       '手数料率を変えても、これまでの記録の手数料はそのままです。',
     );
   });
 
   it('削除の確認は件数と「記録は残る」を 1 文で言う（設計案 25c）', () => {
-    expect(presetDeleteConfirmMessage('shipping', 18)).toBe(
+    expect(presetDeleteConfirmMessage('ja', 'shipping', 18)).toBe(
       'この送料を使った記録が18件あります。記録とその金額は残り、今後の入力候補から外れます。',
     );
   });
 
   it('削除の口は種類を名乗る（設計案 25b の下端）', () => {
-    expect(presetDeleteLabel('site')).toBe('この販売サイトを削除');
+    expect(presetDeleteLabel('ja', 'site')).toBe('この販売サイトを削除');
   });
 
   it('一覧の注記は種類ごとに 1 行で、記録が変わらないことは販売サイトだけが言う（§3.5）', () => {
-    expect(presetListNote('site')).toContain('保存済みの記録の手数料は変わりません');
-    expect(presetListNote('shipping')).not.toContain('保存済み');
-    expect(presetListNote('packaging')).not.toContain('保存済み');
+    expect(presetListNote('ja', 'site')).toContain('保存済みの記録の手数料は変わりません');
+    expect(presetListNote('ja', 'shipping')).not.toContain('保存済み');
+    expect(presetListNote('ja', 'packaging')).not.toContain('保存済み');
   });
 
   it('バージョン表記（UI-SPEC §1.6-5）', () => {
@@ -708,13 +708,13 @@ describe('SPEC-V4 §2 タグの表示語', () => {
   });
 
   it('シートの見出しは追加と編集で出し分ける（§2.3-1）', () => {
-    expect(tagFormTitle(true)).toBe('タグを追加');
-    expect(tagFormTitle(false)).toBe('タグを編集');
+    expect(tagFormTitle('ja', true)).toBe('タグを追加');
+    expect(tagFormTitle('ja', false)).toBe('タグを編集');
   });
 
   it('取り消しバーは使用件数が 1 件以上のときだけ「記録から外れた」を添える（§2.2）', () => {
-    expect(tagDeletedMessage('洋服', 0)).toBe('『洋服』を削除しました');
-    expect(tagDeletedMessage('洋服', 12)).toBe(
+    expect(tagDeletedMessage('ja', '洋服', 0)).toBe('『洋服』を削除しました');
+    expect(tagDeletedMessage('ja', '洋服', 12)).toBe(
       '『洋服』を削除しました（12件の記録から外れました）',
     );
   });
@@ -775,44 +775,44 @@ describe('§4.2 絞り込みページの文言（案 35c〜35f）', () => {
 // 「誰が使っているか」を出すのはこの表示語だけなので、畳み方をここで固定する。
 describe('色の 2 群表示（設計案 50c）', () => {
   it('色名は日本語で持つ（読み上げにも使うので英語キーを出さない）', () => {
-    expect(presetColorLabel(PRESET_COLOR_HEXES.orange)).toBe('オレンジ');
-    expect(presetColorLabel('teal')).toBe('ティール');
+    expect(presetColorLabel('ja', PRESET_COLOR_HEXES.orange)).toBe('オレンジ');
+    expect(presetColorLabel('ja', 'teal')).toBe('ティール');
   });
 
   it('固定 11 色のどれでもない値は「自由色」', () => {
-    expect(presetColorLabel('#123456')).toBe(CUSTOM_COLOR_LABEL);
-    expect(presetColorLabel('')).toBe(CUSTOM_COLOR_LABEL);
+    expect(presetColorLabel('ja', '#123456')).toBe(customColorLabel('ja'));
+    expect(presetColorLabel('ja', '')).toBe(customColorLabel('ja'));
   });
 
   it('編集のときは自分の色を名指しする', () => {
-    expect(ownColorLabel(PRESET_COLOR_HEXES.orange, 'タグ')).toBe('オレンジ（このタグの色）');
-    expect(ownColorLabel(PRESET_COLOR_HEXES.red, '送料')).toBe('赤（この送料の色）');
+    expect(ownColorLabel('ja', PRESET_COLOR_HEXES.orange, 'タグ')).toBe('オレンジ（このタグの色）');
+    expect(ownColorLabel('ja', PRESET_COLOR_HEXES.red, '送料')).toBe('赤（この送料の色）');
   });
 
   it('残りの数は「N色」', () => {
-    expect(colorRemainingLabel(5)).toBe('5色');
-    expect(colorRemainingLabel(0)).toBe('0色');
+    expect(colorRemainingLabel('ja', 5)).toBe('5色');
+    expect(colorRemainingLabel('ja', 0)).toBe('0色');
   });
 
   it('下の群の見出しは、編集のときだけ「ほかの◯◯」になる', () => {
-    expect(COLOR_USED_SECTION_LABEL).toBe('使用中');
-    expect(otherUsedSectionLabel('タグ')).toBe('ほかのタグが使用中');
-    expect(otherUsedSectionLabel('梱包材')).toBe('ほかの梱包材が使用中');
+    expect(colorUsedSectionLabel('ja')).toBe('使用中');
+    expect(otherUsedSectionLabel('ja', 'タグ')).toBe('ほかのタグが使用中');
+    expect(otherUsedSectionLabel('ja', '梱包材')).toBe('ほかの梱包材が使用中');
   });
 
   it('同じ色を複数が使っていたら「ほか N件」に畳む（解除バーと同じ作法）', () => {
-    expect(colorUserLabel(['衣類'])).toBe('衣類');
-    expect(colorUserLabel(['衣類', '本'])).toBe('衣類 ほか1件');
-    expect(colorUserLabel(['衣類', '本', '雑貨'])).toBe('衣類 ほか2件');
+    expect(colorUserLabel('ja', ['衣類'])).toBe('衣類');
+    expect(colorUserLabel('ja', ['衣類', '本'])).toBe('衣類 ほか1件');
+    expect(colorUserLabel('ja', ['衣類', '本', '雑貨'])).toBe('衣類 ほか2件');
   });
 
   it('重なったときの注記も 1 件だけ名指しして、残りは件数にする', () => {
-    expect(sameColorNote(['衣類'])).toBe('「衣類」と同じ色です');
-    expect(sameColorNote(['衣類', '本'])).toBe('「衣類」ほか1件と同じ色です');
+    expect(sameColorNote('ja', ['衣類'])).toBe('「衣類」と同じ色です');
+    expect(sameColorNote('ja', ['衣類', '本'])).toBe('「衣類」ほか1件と同じ色です');
   });
 
   it('名前に「・」を含むプリセットでも区切りが紛れない（名前は 1 件しか書かない）', () => {
-    expect(sameColorNote(['A4・厚さ3cm以内', '宅配60サイズ'])).toBe(
+    expect(sameColorNote('ja', ['A4・厚さ3cm以内', '宅配60サイズ'])).toBe(
       '「A4・厚さ3cm以内」ほか1件と同じ色です',
     );
   });
@@ -823,18 +823,18 @@ describe('色の 2 群表示（設計案 50c）', () => {
 // 数を出さないことと、押せることを言う見出しになっていることを固定する。
 describe('色を使い切ったときの語（設計案 51b）', () => {
   it('副文言は固定色の数を言い切る（残り数「0色」は出さない）', () => {
-    expect(COLOR_ALL_USED_SUBTITLE).toBe('固定の11色は使い切りました');
-    expect(COLOR_ALL_USED_SUBTITLE).not.toContain('0色');
+    expect(colorAllUsedSubtitle('ja')).toBe('固定の11色は使い切りました');
+    expect(colorAllUsedSubtitle('ja')).not.toContain('0色');
   });
 
   it('主文言は、自由色を選んでいるかどうかで「作る」と「変える」に分かれる', () => {
-    expect(CUSTOM_COLOR_CREATE_LABEL).toBe('新しい色を作る');
-    expect(CUSTOM_COLOR_CHANGE_LABEL).toBe(`${CUSTOM_COLOR_LABEL}を変える`);
+    expect(customColorCreateLabel('ja')).toBe('新しい色を作る');
+    expect(customColorChangeLabel('ja')).toBe(`${customColorLabel('ja')}を変える`);
   });
 
   it('下の群の見出しは状態ではなく操作を言う（ここでしか固定色を選べない）', () => {
-    expect(COLOR_USED_PICK_SECTION_LABEL).toBe('使用中の色から選ぶ');
-    expect(COLOR_USED_PICK_SECTION_LABEL).toContain(COLOR_USED_SECTION_LABEL);
+    expect(colorUsedPickSectionLabel('ja')).toBe('使用中の色から選ぶ');
+    expect(colorUsedPickSectionLabel('ja')).toContain(colorUsedSectionLabel('ja'));
   });
 });
 
@@ -1128,32 +1128,32 @@ describe('achievementToastText（実績獲得トースト）', () => {
 
 describe('SPEC-V10 §1 梱包材の単価計算方式の語', () => {
   it('3 択の並びは PRESET_CALC_METHODS そのもの（既定の「個数から」が先頭）', () => {
-    expect(PRESET_CALC_METHOD_OPTIONS).toEqual(['個数から', '面積から', '使用回数から']);
-    expect(PRESET_CALC_METHOD_OPTIONS).toHaveLength(PRESET_CALC_METHODS.length);
+    expect(presetCalcMethodOptions('ja')).toEqual(['個数から', '面積から', '使用回数から']);
+    expect(presetCalcMethodOptions('ja')).toHaveLength(PRESET_CALC_METHODS.length);
   });
 
   it('割る数の欄は方式で名前が変わる（同じ列でも入れる数の意味が違う）', () => {
-    expect(presetPackQuantityFieldLabel('individual')).toBe('入数（個）');
-    expect(presetPackQuantityFieldLabel('area')).toBe('入数（個）');
-    expect(presetPackQuantityFieldLabel('usage')).toBe('想定使用回数（回）');
+    expect(presetPackQuantityFieldLabel('ja', 'individual')).toBe('入数（個）');
+    expect(presetPackQuantityFieldLabel('ja', 'area')).toBe('入数（個）');
+    expect(presetPackQuantityFieldLabel('ja', 'usage')).toBe('想定使用回数（回）');
   });
 
   it('計算結果の帯の見出しも方式で変わる（1 個あたり / 1 回あたり）', () => {
-    expect(presetUnitPriceRowLabel('individual')).toBe('1個あたり');
-    expect(presetUnitPriceRowLabel('area')).toBe('1回あたり');
-    expect(presetUnitPriceRowLabel('usage')).toBe('1回あたり');
+    expect(presetUnitPriceRowLabel('ja', 'individual')).toBe('1個あたり');
+    expect(presetUnitPriceRowLabel('ja', 'area')).toBe('1回あたり');
+    expect(presetUnitPriceRowLabel('ja', 'usage')).toBe('1回あたり');
   });
 
   it('保存できない理由は方式に合わせて欄を名指しする（§1.4）', () => {
-    expect(presetBlockedNote('pack-quantity-required', 'packaging', 'usage')).toBe(
+    expect(presetBlockedNote('ja', 'pack-quantity-required', 'packaging', 'usage')).toBe(
       '想定使用回数を入れてください',
     );
     // 方式を渡さない呼び出し（送料・販売サイト）は従来の文言のまま
-    expect(presetBlockedNote('pack-quantity-required', 'packaging')).toBe('入数を入れてください');
-    expect(presetBlockedNote('pack-size-required', 'packaging', 'area')).toBe(
+    expect(presetBlockedNote('ja', 'pack-quantity-required', 'packaging')).toBe('入数を入れてください');
+    expect(presetBlockedNote('ja', 'pack-size-required', 'packaging', 'area')).toBe(
       '購入サイズの縦・横を入れてください',
     );
-    expect(presetBlockedNote('use-size-invalid', 'packaging', 'area')).toBe(
+    expect(presetBlockedNote('ja', 'use-size-invalid', 'packaging', 'area')).toBe(
       '平均使用サイズは縦・横の両方を入れてください',
     );
   });
@@ -1163,22 +1163,22 @@ describe('SPEC-V10 §1.5 一覧・選択シートの行に出す「何あたり�
   const packaging = { type: 'packaging' as const, packQuantity: 0 };
 
   it('手で金額を入れた行には出さない（その額が 1 回ぶんそのもの）', () => {
-    expect(presetUnitNote(packaging)).toBeNull();
+    expect(presetUnitNote('ja', packaging)).toBeNull();
   });
 
   it('個数から計算した行は「1個あたり」', () => {
-    expect(presetUnitNote({ ...packaging, packQuantity: 100 })).toBe('1個あたり');
+    expect(presetUnitNote('ja', { ...packaging, packQuantity: 100 })).toBe('1個あたり');
   });
 
   it('使用回数から計算した行は「1回あたり」', () => {
-    expect(presetUnitNote({ ...packaging, calcMethod: 'usage', packQuantity: 50 })).toBe(
+    expect(presetUnitNote('ja', { ...packaging, calcMethod: 'usage', packQuantity: 50 })).toBe(
       '1回あたり',
     );
   });
 
   it('面積から計算した行は、平均使用サイズを添えて「1回あたり」', () => {
     expect(
-      presetUnitNote({
+      presetUnitNote('ja', {
         ...packaging,
         calcMethod: 'area',
         packHeight: 100,
@@ -1191,13 +1191,13 @@ describe('SPEC-V10 §1.5 一覧・選択シートの行に出す「何あたり�
 
   it('平均使用サイズを入れていない面積の行は「1㎡あたり」（額の単位が他の行と違う）', () => {
     expect(
-      presetUnitNote({ ...packaging, calcMethod: 'area', packHeight: 100, packWidth: 100 }),
+      presetUnitNote('ja', { ...packaging, calcMethod: 'area', packHeight: 100, packWidth: 100 }),
     ).toBe('1㎡あたり');
   });
 
   it('サイズの末尾の .0 は出さない（21.5cm はそのまま）', () => {
     expect(
-      presetUnitNote({
+      presetUnitNote('ja', {
         ...packaging,
         calcMethod: 'area',
         packHeight: 100,
@@ -1209,7 +1209,7 @@ describe('SPEC-V10 §1.5 一覧・選択シートの行に出す「何あたり�
   });
 
   it('梱包材以外には出さない（送料は「＋専用資材」の 1 行を持つ）', () => {
-    expect(presetUnitNote({ type: 'shipping', packQuantity: 100 })).toBeNull();
-    expect(presetUnitNote({ type: 'site', packQuantity: 0 })).toBeNull();
+    expect(presetUnitNote('ja', { type: 'shipping', packQuantity: 100 })).toBeNull();
+    expect(presetUnitNote('ja', { type: 'site', packQuantity: 0 })).toBeNull();
   });
 });

@@ -110,7 +110,7 @@ export function PresetPickerSheet({
               // 登録が 0 件でもボタン自体は出す（§4.1）ので、ここへ来る経路は普通にある
               <EmptyState
                 title={PRESET_PICKER_EMPTY_TITLE}
-                body={canOpenSettings ? presetEmptyBody(type) : presetPickerEmptyBodyWithoutLink(type)}
+                body={canOpenSettings ? presetEmptyBody('ja', type) : presetPickerEmptyBodyWithoutLink(type)}
                 actionLabel={canOpenSettings ? PRESET_PICKER_ADD_LINK : undefined}
                 onPressAction={
                   canOpenSettings

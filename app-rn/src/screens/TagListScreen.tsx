@@ -27,23 +27,27 @@ import { UndoBar } from '@/components/UndoBar';
 import type { Tag } from '@/db/schema';
 import { removeTag, restoreTag, useTagList } from '@/db/useTags';
 import {
-  DELETE_LABEL,
+  deleteLabel,
   presetCountLabel,
-  TAG_ADD_LABEL,
-  TAG_EMPTY_BODY,
-  TAG_EMPTY_TITLE,
-  TAG_LABEL,
-  TAG_LIST_NOTE,
+  tagAddLabel,
+  tagEmptyBody,
+  tagEmptyTitle,
+  tagLabel,
+  tagListNote,
   tagDeleteA11yLabel,
   tagDeletedMessage,
-  UNDO_LABEL,
+  undoLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 削除したタグと、剥がれた記録の id（§1.4）。取り消しは**両方**を書き戻す */
 type DeletedTag = { tag: Tag; recordIds: string[] };
 
 export function TagListScreen() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const { tags, counts, refresh } = useTagList();
@@ -88,7 +92,7 @@ export function TagListScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: TAG_LABEL }} />
+      <Stack.Screen options={{ title: tagLabel(locale) }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}>
@@ -96,9 +100,9 @@ export function TagListScreen() {
           // §2.2-4: 「記録を追加するときにも作れます」まで言う ── ここでしか作れないと
           // 読まれると、記録フォームの検索欄から作る経路（§3.2）に気付けない
           <EmptyState
-            title={TAG_EMPTY_TITLE}
-            body={TAG_EMPTY_BODY}
-            actionLabel={TAG_ADD_LABEL}
+            title={tagEmptyTitle(locale)}
+            body={tagEmptyBody(locale)}
+            actionLabel={tagAddLabel(locale)}
             onPressAction={() => openForm(null)}
           />
         ) : (
@@ -125,7 +129,7 @@ export function TagListScreen() {
               onPress={() => openForm(null)}
               accessibilityRole="button"
               style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
-              <Text style={[styles.addLabel, { color: colors.blue }]}>{TAG_ADD_LABEL}</Text>
+              <Text style={[styles.addLabel, { color: colors.blue }]}>{tagAddLabel(locale)}</Text>
             </Pressable>
           </View>
         )}
@@ -135,15 +139,15 @@ export function TagListScreen() {
             消せるものが 1 つも無い画面では読む用がない。見た目の上でも、中央寄せの空表示に
             左寄せ・左余白 4pt の 1 行が 8pt 下へ貼り付いて、揃っていない塊になる */}
         {tags.length > 0 && (
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{TAG_LIST_NOTE}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{tagListNote(locale)}</Text>
         )}
       </ScrollView>
 
       {deleted != null && (
         <UndoBar
           // 使用件数が 1 件以上のときだけ「記録から外れました」が付く（§2.2）
-          message={tagDeletedMessage(deleted.tag.name, deleted.recordIds.length)}
-          actionLabel={UNDO_LABEL}
+          message={tagDeletedMessage(locale, deleted.tag.name, deleted.recordIds.length)}
+          actionLabel={undoLabel(locale)}
           onAction={undoDelete}
           onHide={() => setDeleted(null)}
         />
@@ -170,6 +174,9 @@ function TagRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -181,8 +188,8 @@ function TagRow({
           style={[styles.deleteAction, { backgroundColor: colors.red }]}
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel={tagDeleteA11yLabel(tag.name)}>
-          <Text style={styles.deleteActionLabel}>{DELETE_LABEL}</Text>
+          accessibilityLabel={tagDeleteA11yLabel(locale, tag.name)}>
+          <Text style={styles.deleteActionLabel}>{deleteLabel(locale)}</Text>
         </Pressable>
       )}>
       {/* スワイプで下から出る赤が透けないよう、行そのものが地色を持つ */}
@@ -197,7 +204,7 @@ function TagRow({
           <TagChip tag={tag} />
         </View>
         <Text style={[styles.usageCount, { color: colors.secondaryLabel }]}>
-          {presetCountLabel('ja', usageCount)}
+          {presetCountLabel(locale, usageCount)}
         </Text>
         <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
       </Pressable>

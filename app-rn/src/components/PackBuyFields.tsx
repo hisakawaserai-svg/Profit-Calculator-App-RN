@@ -25,18 +25,19 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { CALCULATOR_GUTTER_WIDTH, NumericField } from '@/components/NumericField';
 import {
-  PRESET_AREA_UNIT_PRICE_LABEL,
-  PRESET_PACK_HEIGHT_FIELD_LABEL,
-  PRESET_PACK_PRICE_FIELD_LABEL,
-  PRESET_PACK_WIDTH_FIELD_LABEL,
-  PRESET_USE_HEIGHT_FIELD_LABEL,
-  PRESET_USE_SIZE_NOTE,
-  PRESET_USE_WIDTH_FIELD_LABEL,
+  presetAreaUnitPriceLabel,
+  presetPackHeightFieldLabel,
+  presetPackPriceFieldLabel,
+  presetPackWidthFieldLabel,
+  presetUseHeightFieldLabel,
+  presetUseSizeNote,
+  presetUseWidthFieldLabel,
   presetPackQuantityFieldLabel,
   presetUnitPriceRowLabel,
   presetUnitPriceText,
 } from '@/logic/labels';
 import { DEFAULT_PRESET_CALC_METHOD, type PresetCalcMethod } from '@/logic/preset';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -83,6 +84,9 @@ export function PackBuyFields({
   unitPrice,
   areaUnitPrice,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const isArea = method === 'area';
 
@@ -94,12 +98,12 @@ export function PackBuyFields({
               「見出し左・数値右」の形を崩さないため ── 1 行に 2 つ並べると、
               数値の右端がこの 2 行だけ他と揃わなくなる */}
           <SizeField
-            label={PRESET_PACK_HEIGHT_FIELD_LABEL}
+            label={presetPackHeightFieldLabel(locale)}
             value={packHeight}
             onChangeValue={onChangePackHeight}
           />
           <SizeField
-            label={PRESET_PACK_WIDTH_FIELD_LABEL}
+            label={presetPackWidthFieldLabel(locale)}
             value={packWidth}
             onChangeValue={onChangePackWidth}
             divided
@@ -109,7 +113,7 @@ export function PackBuyFields({
         <View style={styles.packRow}>
           <NumericField
             // 個数方式は入数、使用回数方式は想定使用回数（§1.2。同じ欄が名前を変える）
-            label={presetPackQuantityFieldLabel(method)}
+            label={presetPackQuantityFieldLabel(locale, method)}
             value={packQuantity}
             onChangeValue={onChangePackQuantity}
             // 数えた個数・見積もった回数で、式にならない（§2.6.2）
@@ -119,7 +123,7 @@ export function PackBuyFields({
       )}
       <View style={[styles.packRow, styles.packRowDivided, { borderTopColor: colors.separator }]}>
         <NumericField
-          label={PRESET_PACK_PRICE_FIELD_LABEL}
+          label={presetPackPriceFieldLabel(locale)}
           value={packPrice}
           onChangeValue={onChangePackPrice}
           // まとめ買いでいちばん割り算が要る欄なので、電卓はここにだけ置く（§2.6.2）。
@@ -131,18 +135,18 @@ export function PackBuyFields({
           平均使用サイズを入れる前からここに値が入る ── 何が確定していて、
           あと何を入れると 1 回あたりが出るのかが、上から順に読める */}
       {isArea && (
-        <UnitPriceRow label={PRESET_AREA_UNIT_PRICE_LABEL} value={areaUnitPrice ?? null} />
+        <UnitPriceRow label={presetAreaUnitPriceLabel(locale)} value={areaUnitPrice ?? null} />
       )}
       {isArea && (
         <>
           <SizeField
-            label={PRESET_USE_HEIGHT_FIELD_LABEL}
+            label={presetUseHeightFieldLabel(locale)}
             value={useHeight}
             onChangeValue={onChangeUseHeight}
             divided
           />
           <SizeField
-            label={PRESET_USE_WIDTH_FIELD_LABEL}
+            label={presetUseWidthFieldLabel(locale)}
             value={useWidth}
             onChangeValue={onChangeUseWidth}
             divided
@@ -151,10 +155,10 @@ export function PackBuyFields({
       )}
       {/* 計算結果の行（§2.6.2）。入力欄に見せない ── 直せる口は上の欄だけでよい。
           帯を敷くのは、上の行が「入れる欄」でこの行だけが「出る値」だと形で言うため */}
-      <UnitPriceRow label={presetUnitPriceRowLabel(method)} value={unitPrice} />
+      <UnitPriceRow label={presetUnitPriceRowLabel(locale, method)} value={unitPrice} />
       {/* 平均使用サイズが任意であることは、空欄のままでも保存できてしまうこの位置で言う（§1.3） */}
       {isArea && (
-        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{PRESET_USE_SIZE_NOTE}</Text>
+        <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetUseSizeNote(locale)}</Text>
       )}
     </>
   );
@@ -193,6 +197,9 @@ function SizeField({
 
 /** 計算結果の帯（§2.6.2 / §1.3）。面積方式では 2 枚出るので、行そのものを部品にしてある */
 function UnitPriceRow({ label, value }: { label: string; value: number | null }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -205,7 +212,7 @@ function UnitPriceRow({ label, value }: { label: string; value: number | null })
           // 青い横棒は値が入っているように見える
           { color: value == null ? colors.secondaryLabel : colors.blue },
         ]}>
-        {presetUnitPriceText(value)}
+        {presetUnitPriceText(locale, value)}
       </Text>
     </View>
   );

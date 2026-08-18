@@ -97,7 +97,7 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
               <EmptyState
                 title={PRESET_PICKER_EMPTY_TITLE}
                 body={
-                  canOpenSettings ? presetEmptyBody(TYPE) : presetPickerEmptyBodyWithoutLink(TYPE)
+                  canOpenSettings ? presetEmptyBody('ja', TYPE) : presetPickerEmptyBodyWithoutLink(TYPE)
                 }
                 actionLabel={canOpenSettings ? PRESET_PICKER_ADD_LINK : undefined}
                 onPressAction={

@@ -115,11 +115,11 @@ import {
   OTHERS_COST_LABEL,
   PHOTO_FIELD_LABEL,
   POSTAGE_LABEL,
-  PRESET_AREA_UNIT_PRICE_LABEL,
-  PRESET_CALC_METHOD_OPTIONS,
-  PRESET_PACK_PRICE_FIELD_LABEL,
-  PRESET_UNIT_PRICE_LABEL,
-  PRESET_USE_PRICE_LABEL,
+  presetAreaUnitPriceLabel,
+  presetCalcMethodOptions,
+  presetPackPriceFieldLabel,
+  presetUnitPriceLabel,
+  presetUsePriceLabel,
   PURCHASE_PRICE_LABEL,
   RECORD_KIND_COLUMN,
   SALES_PRICE_LABEL,
@@ -814,7 +814,7 @@ export function ExpenseItemsFigure() {
  */
 export function PackBuyFigure() {
   const colors = useThemeColors();
-  const [individualMethod, areaMethod, usageMethod] = PRESET_CALC_METHOD_OPTIONS;
+  const [individualMethod, areaMethod, usageMethod] = presetCalcMethodOptions('ja');
   const packArea = (PACK_HEIGHT_CM * PACK_WIDTH_CM) / SQUARE_CM_PER_M2;
   const useArea = (USE_HEIGHT_CM * USE_WIDTH_CM) / SQUARE_CM_PER_M2;
 
@@ -827,7 +827,7 @@ export function PackBuyFigure() {
       price: PACK_PRICE,
       divisorLabel: HELP_FIGURE_PACK_QUANTITY_LABEL,
       divisor: `${PACK_QUANTITY}`,
-      resultLabel: PRESET_UNIT_PRICE_LABEL,
+      resultLabel: presetUnitPriceLabel('ja'),
       result: presetUnitPrice(PACK_PRICE, PACK_QUANTITY),
     },
     {
@@ -836,7 +836,7 @@ export function PackBuyFigure() {
       price: ROLL_PRICE,
       divisorLabel: HELP_FIGURE_PACK_AREA_LABEL,
       divisor: `${packArea}㎡`,
-      resultLabel: PRESET_AREA_UNIT_PRICE_LABEL,
+      resultLabel: presetAreaUnitPriceLabel('ja'),
       result: presetAreaUnitPrice(ROLL_PRICE, PACK_HEIGHT_CM, PACK_WIDTH_CM),
     },
     {
@@ -845,7 +845,7 @@ export function PackBuyFigure() {
       price: ROLL_PRICE,
       divisorLabel: HELP_FIGURE_PACK_USAGE_LABEL,
       divisor: `${USAGE_COUNT}`,
-      resultLabel: PRESET_USE_PRICE_LABEL,
+      resultLabel: presetUsePriceLabel('ja'),
       result: presetUnitPrice(ROLL_PRICE, USAGE_COUNT),
     },
   ];
@@ -871,7 +871,7 @@ export function PackBuyFigure() {
           </Text>
           <View style={styles.formulaRow}>
             <FormulaBox
-              label={PRESET_PACK_PRICE_FIELD_LABEL}
+              label={presetPackPriceFieldLabel('ja')}
               value={groupDigits(row.price)}
               colors={colors}
             />

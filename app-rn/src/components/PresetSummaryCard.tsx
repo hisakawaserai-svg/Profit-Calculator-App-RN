@@ -20,6 +20,7 @@ import {
   presetValueText,
 } from '@/logic/labels';
 import { presetRowAmount } from '@/logic/shippingMaterial';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import { PresetBadge } from './PresetBadge';
@@ -39,6 +40,9 @@ type Props = {
 };
 
 export function PresetSummaryCard({ type, presets }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const preview = presets.slice(0, PREVIEW_LIMIT);
   const overflow = presets.length - preview.length;
@@ -55,14 +59,14 @@ export function PresetSummaryCard({ type, presets }: Props) {
           { backgroundColor: colors.secondaryBackground },
         ])}
         accessibilityRole="link"
-        accessibilityLabel={`${presetTypeLabel('ja', type)} ${presetCountLabel('ja', presets.length)}`}>
+        accessibilityLabel={`${presetTypeLabel(locale, type)} ${presetCountLabel(locale, presets.length)}`}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel('ja', type)}</Text>
+          <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel(locale, type)}</Text>
           {/* この部品はまだ多言語化していない（ステップ 2）。カードの他の語（種類名・
               「まだ登録がありません」）が日本語のままなので、件数だけ訳すと
               1 枚の中で言語が混ざる。移すときに locale を props で受け取る形へ変える */}
           <Text style={[styles.count, { color: colors.secondaryLabel }]}>
-            {presetCountLabel('ja', presets.length)}
+            {presetCountLabel(locale, presets.length)}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
         </View>
@@ -82,7 +86,7 @@ export function PresetSummaryCard({ type, presets }: Props) {
                 {/* 資材費のある送料プリセットは合計（SPEC-V6 §1）。一覧の行（PresetRow）と
                     同じ 1 本から取る ── 同じプリセットがカードと一覧で違う額に見えないように */}
                 <Text style={[styles.value, { color: colors.secondaryLabel }]}>
-                  {presetValueText(preset.type, presetRowAmount(preset))}
+                  {presetValueText(locale, preset.type, presetRowAmount(preset))}
                 </Text>
               </View>
             ))}

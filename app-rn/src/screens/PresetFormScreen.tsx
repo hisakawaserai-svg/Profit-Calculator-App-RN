@@ -38,29 +38,29 @@ import {
   usePresetList,
 } from '@/db/usePresets';
 import {
-  CANCEL_LABEL,
-  DELETE_CONFIRM_TITLE,
-  DELETE_LABEL,
+  cancelLabel,
+  deleteConfirmTitle,
+  deleteLabel,
   presetTypeLabel,
-  PRESET_INITIAL_EDITING_HINT,
-  PRESET_INITIAL_FIELD_LABEL,
-  PRESET_INITIAL_HINT,
-  PRESET_CALC_METHOD_LABEL,
-  PRESET_CALC_METHOD_OPTIONS,
-  PRESET_NAME_FIELD_LABEL,
-  PRESET_PRICE_MODE_LABEL,
-  PRESET_PRICE_MODE_OPTIONS,
+  presetInitialEditingHint,
+  presetInitialFieldLabel,
+  presetInitialHint,
+  presetCalcMethodLabel,
+  presetCalcMethodOptions,
+  presetNameFieldLabel,
+  presetPriceModeLabel,
+  presetPriceModeOptions,
   presetBlockedNote,
   presetDeleteConfirmMessage,
   presetDeleteLabel,
   presetEditValueNote,
   presetFormTitle,
   presetValueFieldLabel,
-  SAVE_LABEL,
-  SHIPPING_MATERIAL_FIELD_LABEL,
-  SHIPPING_MATERIAL_LABEL,
-  SHIPPING_TOTAL_LABEL,
-  SHIPPING_TOTAL_NOTE,
+  saveLabel,
+  shippingMaterialFieldLabel,
+  shippingMaterialLabel,
+  shippingTotalLabel,
+  shippingTotalNote,
 } from '@/logic/labels';
 import { formatYen } from '@/logic/format';
 import {
@@ -78,6 +78,7 @@ import {
   type PresetCalcMethod,
 } from '@/logic/preset';
 import { shippingPresetTotal } from '@/logic/shippingMaterial';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -87,6 +88,9 @@ type Props = {
 };
 
 export function PresetFormScreen({ type, preset }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const isNew = preset == null;
@@ -289,10 +293,10 @@ export function PresetFormScreen({ type, preset }: Props) {
   const note = !validation.valid ? (
     <Text style={[styles.blockedNote, { color: colors.red }]} accessibilityRole="alert">
       {/* 方式まで渡すのは、割る数の欄の名前が方式で変わるため（SPEC-V10 §1.4） */}
-      {presetBlockedNote(validation.reason, type, calcMethod)}
+      {presetBlockedNote(locale, validation.reason, type, calcMethod)}
     </Text>
   ) : !isNew ? (
-    <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetEditValueNote(type)}</Text>
+    <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetEditValueNote(locale, type)}</Text>
   ) : null;
 
   /** 下端の削除（設計案 25b）。確認の条件は一覧の削除（25c）と同じ */
@@ -308,11 +312,11 @@ export function PresetFormScreen({ type, preset }: Props) {
       remove();
       return;
     }
-    Alert.alert(DELETE_CONFIRM_TITLE, presetDeleteConfirmMessage(type, usage), [
-      { text: CANCEL_LABEL, style: 'cancel' },
-      { text: DELETE_LABEL, style: 'destructive', onPress: remove },
+    Alert.alert(deleteConfirmTitle(locale), presetDeleteConfirmMessage(locale, type, usage), [
+      { text: cancelLabel(locale), style: 'cancel' },
+      { text: deleteLabel(locale), style: 'destructive', onPress: remove },
     ]);
-  }, [preset, router, type]);
+  }, [preset, router, type, locale]);
 
   return (
     <>
@@ -322,7 +326,7 @@ export function PresetFormScreen({ type, preset }: Props) {
           下端の保存と役割がぶつからない */}
       <Stack.Screen
         options={{
-          title: presetFormTitle(type, isNew),
+          title: presetFormTitle(locale, type, isNew),
           headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
         }}
       />
@@ -352,20 +356,20 @@ export function PresetFormScreen({ type, preset }: Props) {
               />
               <View style={styles.badgeCaption}>
                 <Text style={[styles.badgeLabel, { color: colors.label }]}>
-                  {PRESET_INITIAL_FIELD_LABEL}
+                  {presetInitialFieldLabel(locale)}
                 </Text>
                 <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-                  {editingInitial ? PRESET_INITIAL_EDITING_HINT : PRESET_INITIAL_HINT}
+                  {editingInitial ? presetInitialEditingHint(locale) : presetInitialHint(locale)}
                 </Text>
               </View>
             </View>
             <View style={[styles.previewSeparator, { backgroundColor: colors.separator }]} />
-            <PresetRow preset={preview} namePlaceholder={PRESET_NAME_FIELD_LABEL} />
+            <PresetRow preset={preview} namePlaceholder={presetNameFieldLabel(locale)} />
           </View>
 
           <View style={[styles.card, styles.fieldCard, { backgroundColor: colors.secondaryBackground }]}>
             <TextField
-              label={PRESET_NAME_FIELD_LABEL}
+              label={presetNameFieldLabel(locale)}
               value={name}
               onChangeValue={setName}
             />
@@ -376,10 +380,10 @@ export function PresetFormScreen({ type, preset }: Props) {
             {packBuyTarget(type) === 'value' && (
               <View style={styles.modeRow}>
                 <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
-                  {PRESET_PRICE_MODE_LABEL}
+                  {presetPriceModeLabel(locale)}
                 </Text>
                 <SegmentedControl
-                  options={PRESET_PRICE_MODE_OPTIONS}
+                  options={presetPriceModeOptions(locale)}
                   selectedIndex={packBuy ? 1 : 0}
                   onChange={changePriceMode}
                 />
@@ -393,7 +397,7 @@ export function PresetFormScreen({ type, preset }: Props) {
                     梱包材を登録する画面で既存の梱包材を呼べると、「封筒」を登録するのに「封筒」を選べてしまう。
                     canPickPackaging は既定 false なので、ここでは渡さないことがそのまま「出さない」になる */}
                 <NumericField
-                  label={presetValueFieldLabel(type)}
+                  label={presetValueFieldLabel(locale, type)}
                   value={value}
                   onChangeValue={setValue}
                 />
@@ -414,10 +418,10 @@ export function PresetFormScreen({ type, preset }: Props) {
               ]}>
               <View style={[styles.modeRow, isPackBuyMode && styles.modeRowInset]}>
                 <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
-                  {SHIPPING_MATERIAL_LABEL}
+                  {shippingMaterialLabel(locale)}
                 </Text>
                 <SegmentedControl
-                  options={PRESET_PRICE_MODE_OPTIONS}
+                  options={presetPriceModeOptions(locale)}
                   selectedIndex={packBuy ? 1 : 0}
                   onChange={changePriceMode}
                 />
@@ -433,7 +437,7 @@ export function PresetFormScreen({ type, preset }: Props) {
                 />
               ) : (
                 <NumericField
-                  label={SHIPPING_MATERIAL_FIELD_LABEL}
+                  label={shippingMaterialFieldLabel(locale)}
                   value={materialCost}
                   onChangeValue={setMaterialCost}
                 />
@@ -449,31 +453,31 @@ export function PresetFormScreen({ type, preset }: Props) {
               <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
                 <View style={styles.breakdownRow}>
                   <Text style={[styles.breakdownLabel, { color: colors.label }]}>
-                    {presetValueFieldLabel(type)}
+                    {presetValueFieldLabel(locale, type)}
                   </Text>
                   <Text style={[styles.breakdownValue, { color: colors.label }]}>
-                    {formatYen('ja', Number.isNaN(previewValue) ? 0 : previewValue)}
+                    {formatYen(locale, Number.isNaN(previewValue) ? 0 : previewValue)}
                   </Text>
                 </View>
                 <View style={styles.breakdownRow}>
                   <Text style={[styles.breakdownLabel, { color: colors.label }]}>
-                    {SHIPPING_MATERIAL_LABEL}
+                    {shippingMaterialLabel(locale)}
                   </Text>
                   <Text style={[styles.breakdownValue, { color: colors.label }]}>
-                    {formatYen('ja', shippingTotal - (Number.isNaN(previewValue) ? 0 : previewValue))}
+                    {formatYen(locale, shippingTotal - (Number.isNaN(previewValue) ? 0 : previewValue))}
                   </Text>
                 </View>
                 <View style={[styles.breakdownSeparator, { backgroundColor: colors.separator }]} />
                 <View style={styles.breakdownRow}>
                   <Text style={[styles.breakdownTotalLabel, { color: colors.label }]}>
-                    {SHIPPING_TOTAL_LABEL}
+                    {shippingTotalLabel(locale)}
                   </Text>
                   <Text style={[styles.breakdownTotalValue, { color: colors.blue }]}>
-                    {formatYen('ja', shippingTotal)}
+                    {formatYen(locale, shippingTotal)}
                   </Text>
                 </View>
                 <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-                  {SHIPPING_TOTAL_NOTE}
+                  {shippingTotalNote(locale)}
                 </Text>
               </View>
               {note}
@@ -499,10 +503,10 @@ export function PresetFormScreen({ type, preset }: Props) {
                     カードをまたがない。2 択（何で登録するか）→ 3 択（何で割るか）の順に読める */}
                 <View style={[styles.modeRow, styles.modeRowInset]}>
                   <Text style={[styles.fieldLabel, { color: colors.secondaryLabel }]}>
-                    {PRESET_CALC_METHOD_LABEL}
+                    {presetCalcMethodLabel(locale)}
                   </Text>
                   <SegmentedControl
-                    options={PRESET_CALC_METHOD_OPTIONS}
+                    options={presetCalcMethodOptions(locale)}
                     selectedIndex={PRESET_CALC_METHODS.indexOf(calcMethod)}
                     onChange={changeCalcMethod}
                   />
@@ -540,7 +544,7 @@ export function PresetFormScreen({ type, preset }: Props) {
               // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
               // その色が上の群へ移ってしまわないように
               ownColor={preset?.colorKey}
-              entityLabel={presetTypeLabel('ja', type)}
+              entityLabel={presetTypeLabel(locale, type)}
             />
           </View>
 
@@ -556,14 +560,14 @@ export function PresetFormScreen({ type, preset }: Props) {
                 ])
               }>
               <Text style={[styles.deleteLabel, { color: colors.red }]}>
-                {presetDeleteLabel(type)}
+                {presetDeleteLabel(locale, type)}
               </Text>
             </Pressable>
           )}
         </ScrollView>
 
         {/* 設計案 49c: 保存は画面下端（タブバーの直上）。鍵盤が出ている間はその上に貼り付く */}
-        <KeyboardSaveBar label={SAVE_LABEL} onPress={save} enabled={validation.valid} />
+        <KeyboardSaveBar label={saveLabel(locale)} onPress={save} enabled={validation.valid} />
       </View>
 
       {/* この画面は設定タブの中なので、「最初から読む」で使いかた全体へ push できる */}

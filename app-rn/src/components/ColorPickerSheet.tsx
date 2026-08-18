@@ -14,10 +14,11 @@ import ColorPicker, { HueSlider, Panel1, Preview } from 'reanimated-color-picker
 import { SheetModal } from '@/components/SheetModal';
 import { normalizeHex } from '@/logic/color';
 import {
-  CANCEL_LABEL,
+  cancelLabel,
   COLOR_PICKER_DONE_LABEL,
   COLOR_PICKER_TITLE,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -30,6 +31,9 @@ type Props = {
 };
 
 export function ColorPickerSheet({ visible, value, onSelect, onClose }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 指を動かしている間の色。**確定するまで呼び出し側には渡さない**
   const [draft, setDraft] = useState(value);
@@ -40,7 +44,7 @@ export function ColorPickerSheet({ visible, value, onSelect, onClose }: Props) {
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={styles.header}>
             <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
-              <Text style={[styles.headerButton, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+              <Text style={[styles.headerButton, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
             </Pressable>
             <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
               {COLOR_PICKER_TITLE}

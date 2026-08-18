@@ -9,8 +9,9 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BLACK, isIndistinguishable } from '@/logic/color';
-import { PRESET_INITIAL_FIELD_LABEL } from '@/logic/labels';
+import { presetInitialFieldLabel } from '@/logic/labels';
 import { presetInitial, resolvePresetTone } from '@/logic/preset';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** §6.1 の「28px 角」。編集画面のプレビューだけ大きくするので size で受ける */
@@ -109,6 +110,9 @@ export function PresetBadgeInput({
   onBlur: () => void;
   onFocus?: () => void;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const tone = resolvePresetTone(preset.colorKey, colors.presetTones);
   const needsOutline = isIndistinguishable(tone.background, surface ?? colors.secondaryBackground);
@@ -133,7 +137,7 @@ export function PresetBadgeInput({
       // 2 文字しか入らないので、変換候補を出す鍵盤の学習に任せる（自動大文字化だけ切る）
       autoCapitalize="none"
       autoCorrect={false}
-      accessibilityLabel={PRESET_INITIAL_FIELD_LABEL}
+      accessibilityLabel={presetInitialFieldLabel(locale)}
       style={[
         styles.badge,
         styles.badgeInput,

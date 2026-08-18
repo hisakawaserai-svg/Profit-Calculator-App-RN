@@ -28,13 +28,13 @@ import {
   usePresetList,
 } from '@/db/usePresets';
 import {
-  CANCEL_LABEL,
-  DELETE_CONFIRM_TITLE,
-  DELETE_LABEL,
-  PRESET_EDIT_MODE_DONE_LABEL,
-  PRESET_EDIT_MODE_LABEL,
-  PRESET_EMPTY_TITLE,
-  UNDO_LABEL,
+  cancelLabel,
+  deleteConfirmTitle,
+  deleteLabel,
+  presetEditModeDoneLabel,
+  presetEditModeLabel,
+  presetEmptyTitle,
+  undoLabel,
   deleteAccessibilityLabel,
   presetAddLabel,
   presetDeleteConfirmMessage,
@@ -43,6 +43,7 @@ import {
   presetListNote,
   presetTypeLabel,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -50,6 +51,9 @@ type Props = {
 };
 
 export function PresetListScreen({ type }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const { presets, refresh } = usePresetList(type);
@@ -89,19 +93,19 @@ export function PresetListScreen({ type }: Props) {
         return;
       }
 
-      Alert.alert(DELETE_CONFIRM_TITLE, presetDeleteConfirmMessage(type, usage), [
-        { text: CANCEL_LABEL, style: 'cancel' },
-        { text: DELETE_LABEL, style: 'destructive', onPress: () => deleteNow(preset) },
+      Alert.alert(deleteConfirmTitle(locale), presetDeleteConfirmMessage(locale, type, usage), [
+        { text: cancelLabel(locale), style: 'cancel' },
+        { text: deleteLabel(locale), style: 'destructive', onPress: () => deleteNow(preset) },
       ]);
     },
-    [deleteNow, type],
+    [deleteNow, type, locale],
   );
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: presetTypeLabel('ja', type),
+          title: presetTypeLabel(locale, type),
           // 1 件も無いうちは編集するものが無いので出さない
           headerRight: () =>
             presets.length === 0 ? null : (
@@ -110,7 +114,7 @@ export function PresetListScreen({ type }: Props) {
                 hitSlop={8}
                 accessibilityRole="button">
                 <Text style={[styles.headerButton, { color: colors.blue }]}>
-                  {editing ? PRESET_EDIT_MODE_DONE_LABEL : PRESET_EDIT_MODE_LABEL}
+                  {editing ? presetEditModeDoneLabel(locale) : presetEditModeLabel(locale)}
                 </Text>
               </Pressable>
             ),
@@ -121,9 +125,9 @@ export function PresetListScreen({ type }: Props) {
         contentContainerStyle={styles.content}>
         {presets.length === 0 ? (
           <EmptyState
-            title={PRESET_EMPTY_TITLE}
-            body={presetEmptyBody(type)}
-            actionLabel={presetAddLabel(type)}
+            title={presetEmptyTitle(locale)}
+            body={presetEmptyBody(locale, type)}
+            actionLabel={presetAddLabel(locale, type)}
             onPressAction={() => openForm(null)}
           />
         ) : (
@@ -139,7 +143,7 @@ export function PresetListScreen({ type }: Props) {
                       onPress={() => requestDelete(preset)}
                       hitSlop={8}
                       accessibilityRole="button"
-                      accessibilityLabel={deleteAccessibilityLabel('ja', preset.name)}
+                      accessibilityLabel={deleteAccessibilityLabel(locale, preset.name)}
                       style={({ pressed }) => [styles.deleteButton, { opacity: pressed ? 0.5 : 1 }]}>
                       <Ionicons name="remove-circle" size={22} color={colors.red} />
                     </Pressable>
@@ -170,7 +174,7 @@ export function PresetListScreen({ type }: Props) {
               accessibilityRole="button"
               style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}>
               <Text style={[styles.addLabel, { color: colors.blue }]}>
-                {presetAddLabel(type)}
+                {presetAddLabel(locale, type)}
               </Text>
             </Pressable>
           </View>
@@ -182,14 +186,14 @@ export function PresetListScreen({ type }: Props) {
             17 件 seed する（§2）ので実際には空にならないが、タグの一覧（SPEC-V4 §2.2）と
             **同じ形のものを別の規則で動かさない**ために条件を揃える */}
         {presets.length > 0 && (
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetListNote(type)}</Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>{presetListNote(locale, type)}</Text>
         )}
       </ScrollView>
 
       {deleted != null && (
         <UndoBar
-          message={presetDeletedMessage(type)}
-          actionLabel={UNDO_LABEL}
+          message={presetDeletedMessage(locale, type)}
+          actionLabel={undoLabel(locale)}
           onAction={() => {
             restorePreset(deleted);
             setDeleted(null);
