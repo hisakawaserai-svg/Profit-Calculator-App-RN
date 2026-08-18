@@ -11,15 +11,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SheetModal } from '@/components/SheetModal';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  CANCEL_LABEL,
-  PRICE_APPLY_CONFIRM_LABEL,
-  PRICE_APPLY_CURRENT_LABEL,
-  PRICE_APPLY_EXTERNAL_NOTE,
-  PRICE_APPLY_NEXT_LABEL,
-  PRICE_APPLY_PROFIT_LABEL,
-  PRICE_APPLY_SHEET_TITLE,
+  cancelLabel,
+  priceApplyConfirmLabel,
+  priceApplyCurrentLabel,
+  priceApplyExternalNote,
+  priceApplyNextLabel,
+  priceApplyProfitLabel,
+  priceApplySheetTitle,
   priceChangeArrow,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -42,23 +43,27 @@ export function PriceApplySheet({
   onConfirm,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <SheetModal visible={visible} onClose={onClose}>
       {(close) => (
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          <Text style={[styles.title, { color: colors.label }]}>{PRICE_APPLY_SHEET_TITLE}</Text>
+          <Text style={[styles.title, { color: colors.label }]}>{priceApplySheetTitle(locale)}</Text>
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <Row label={PRICE_APPLY_CURRENT_LABEL} value={formatYenSymbol(currentPrice)} />
+            <Row label={priceApplyCurrentLabel(locale)} value={formatYenSymbol(currentPrice)} />
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             {/* 書き換えたあとの価格だけ大きく出す ── 押すと決まるのはこの数字 */}
-            <Row label={PRICE_APPLY_NEXT_LABEL} value={formatYenSymbol(nextPrice)} emphasized />
+            <Row label={priceApplyNextLabel(locale)} value={formatYenSymbol(nextPrice)} emphasized />
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <Row
-              label={PRICE_APPLY_PROFIT_LABEL}
-              value={priceChangeArrow(
+              label={priceApplyProfitLabel(locale)}
+              value={priceChangeArrow(locale, 
                 formatYenSymbol(currentProfit),
                 formatYenSymbol(nextProfit),
               )}
@@ -68,7 +73,7 @@ export function PriceApplySheet({
           </View>
 
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {PRICE_APPLY_EXTERNAL_NOTE}
+            {priceApplyExternalNote(locale)}
           </Text>
 
           <Pressable
@@ -81,7 +86,7 @@ export function PriceApplySheet({
               styles.button,
               { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
             ]}>
-            <Text style={styles.confirmLabel}>{PRICE_APPLY_CONFIRM_LABEL}</Text>
+            <Text style={styles.confirmLabel}>{priceApplyConfirmLabel(locale)}</Text>
           </Pressable>
 
           <Pressable
@@ -91,7 +96,7 @@ export function PriceApplySheet({
               styles.button,
               { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
             ]}>
-            <Text style={[styles.cancelLabel, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+            <Text style={[styles.cancelLabel, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
           </Pressable>
         </View>
       )}

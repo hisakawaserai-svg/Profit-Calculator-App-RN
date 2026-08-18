@@ -34,4 +34,9 @@ export const MIGRATED_FILES = [
   'src/components/RecordDetailSections.tsx',
   // 区切り 2-5: 帯グラフの結論行
   'src/components/RecordBreakdownBar.tsx',
+  // 区切り 4: 値付け（いくらで売る？ / どうだった？）
+  'src/screens/PricingScreen.tsx',
+  'src/screens/TargetProfitSheet.tsx',
+  'src/screens/PriceApplySheet.tsx',
+  'src/components/PriceLine.tsx',
 ] as const;

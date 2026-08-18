@@ -17,17 +17,18 @@ import { SheetModal } from '@/components/SheetModal';
 import type { RecordKind } from '@/db/schema';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  CANCEL_LABEL,
-  SAVE_LABEL,
-  TARGET_PREVIEW_PRICE_LABEL,
-  TARGET_PREVIEW_ROOM_LABEL,
-  TARGET_PROFIT_CLEAR_LABEL,
-  TARGET_PROFIT_UNSET_LABEL,
+  cancelLabel,
+  saveLabel,
+  targetPreviewPriceLabel,
+  targetPreviewRoomLabel,
+  targetProfitClearLabel,
+  targetProfitUnsetLabel,
   targetProfitLabel,
   targetProfitSheetTitle,
 } from '@/logic/labels';
 import { parseTargetProfitInput, targetProfitToInput } from '@/logic/recordForm';
 import { targetSalesPrice, type TargetCostInput } from '@/logic/profit';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -52,6 +53,10 @@ export function TargetProfitSheet({
   onSave,
   onClose,
 }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   // 入力中は文字列で持つ（記録フォームと同じ作法。§2.3）。**空欄 = null** の変換も同じ 1 本を通す
   const [input, setInput] = useState(() => targetProfitToInput(targetProfit));
@@ -66,16 +71,16 @@ export function TargetProfitSheet({
       {(close) => (
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <Text style={[styles.title, { color: colors.label }]}>
-            {targetProfitSheetTitle(kind)}
+            {targetProfitSheetTitle(locale, kind)}
           </Text>
 
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <NumericField
-              label={targetProfitLabel('ja', kind)}
+              label={targetProfitLabel(locale, kind)}
               value={input}
               onChangeValue={setInput}
               // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は 0 ではない
-              placeholder={TARGET_PROFIT_UNSET_LABEL}
+              placeholder={targetProfitUnsetLabel(locale)}
               valueStyle={[styles.inputValue, { color: colors.green }]}
               canOpenSettings={false}
             />
@@ -84,12 +89,12 @@ export function TargetProfitSheet({
           {/* 決めると足される 2 つの数字（§9.14）。**決める前に見せる**のがこの節の役目 */}
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <PreviewRow
-              label={TARGET_PREVIEW_PRICE_LABEL}
+              label={targetPreviewPriceLabel(locale)}
               value={previewPrice == null ? null : formatYenSymbol(previewPrice)}
             />
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <PreviewRow
-              label={TARGET_PREVIEW_ROOM_LABEL}
+              label={targetPreviewRoomLabel(locale)}
               value={previewRoom == null ? null : formatYenSymbol(previewRoom)}
             />
           </View>
@@ -104,7 +109,7 @@ export function TargetProfitSheet({
               styles.button,
               { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
             ]}>
-            <Text style={styles.saveLabel}>{SAVE_LABEL}</Text>
+            <Text style={styles.saveLabel}>{saveLabel(locale)}</Text>
           </Pressable>
 
           {/* 既に決めてある記録にだけ出す（§9.14）。空欄にして保存でも消せるが、
@@ -121,7 +126,7 @@ export function TargetProfitSheet({
                 { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
               ]}>
               <Text style={[styles.clearLabel, { color: colors.red }]}>
-                {TARGET_PROFIT_CLEAR_LABEL}
+                {targetProfitClearLabel(locale)}
               </Text>
             </Pressable>
           )}
@@ -130,7 +135,7 @@ export function TargetProfitSheet({
             onPress={close}
             accessibilityRole="button"
             style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.5 : 1 }]}>
-            <Text style={[styles.cancelLabel, { color: colors.blue }]}>{CANCEL_LABEL}</Text>
+            <Text style={[styles.cancelLabel, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
           </Pressable>
         </View>
       )}
@@ -140,6 +145,10 @@ export function TargetProfitSheet({
 
 /** 値が出せないとき（目標を決めていない）は語で埋める。**「¥0」とは書かない**（§1.2） */
 function PreviewRow({ label, value }: { label: string; value: string | null }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -150,7 +159,7 @@ function PreviewRow({ label, value }: { label: string; value: string | null }) {
           styles.rowValue,
           { color: value == null ? colors.mutedLabel : colors.label },
         ]}>
-        {value ?? TARGET_PROFIT_UNSET_LABEL}
+        {value ?? targetProfitUnsetLabel(locale)}
       </Text>
     </View>
   );

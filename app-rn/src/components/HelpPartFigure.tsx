@@ -451,7 +451,7 @@ export function SimulatorFigure() {
             {pricingHeroAmount(simulated.current?.netProfit ?? 0)}
           </Text>
           <Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-            {simulatorProfitNote(simulated.current?.profitRate ?? null)}
+            {simulatorProfitNote('ja', simulated.current?.profitRate ?? null)}
           </Text>
         </View>
       </View>

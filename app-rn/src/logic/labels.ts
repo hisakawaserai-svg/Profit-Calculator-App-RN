@@ -1663,7 +1663,7 @@ export function shortfallAmountLabel(shortfall: number): string {
  *
  * 販売価格が未設定（0 円）の記録は、費用だけを分母にした割合や「足りない」を出すと
  * 未確定の入力を確定した赤字に見せてしまう。帯そのものを不活性にして、この文だけを出す ──
- * 「いくらで売る?」画面の未設定時（E。PRICE_UNSET_DESCRIPTION）と同じ考え方。
+ * 「いくらで売る?」画面の未設定時（E。t('pricing.priceUnsetDescription', 'ja')）と同じ考え方。
  */
 export function breakdownBarUnpricedNote(locale: Locale): string {
   return t('conclusion.unpricedBreakdown', locale);
@@ -4217,7 +4217,9 @@ export const BACKUP_FOLDER_PICK_UNAVAILABLE =
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 画面のタイトル（§9.2）。「分析」とは言わない ── 見たいのは分析ではなく値段 */
-export const PRICING_SCREEN_TITLE = 'いくらで売る？';
+export function pricingScreenTitle(locale: Locale): string {
+  return t('pricing.title', locale);
+}
 
 /**
  * 商品名の右のバッジ（§9.3）:「出品中 14日目」。日数は logic/listingDays の暦日差 + 1
@@ -4226,17 +4228,21 @@ export const PRICING_SCREEN_TITLE = 'いくらで売る？';
  * **出品日が未来の記録（日数が負）では日付を出さず、状態だけを出す** ──
  * 「0日目」「-1日目」は読み方が無い。日付の誤りそのものは記録詳細のメタ行が見せる。
  */
-export function listingDayBadgeLabel(days: number): string {
+export function listingDayBadgeLabel(locale: Locale, days: number): string {
   return days < 0
-    ? t('list.listingStatus', 'ja')
-    : `${t('list.listingStatus', 'ja')} ${days + 1}日目`;
+    ? t('list.listingStatus', locale)
+    : t('pricing.listingDayBadge', locale, { day: days + 1 });
 }
 
 /** 価格が未設定の記録のバッジ（§9.7）。**「未入力」ではない** ── 空欄も 0 円も同じ値で保存されるため */
-export const PRICE_UNSET_BADGE_LABEL = '価格 未設定';
+export function priceUnsetBadgeLabel(locale: Locale): string {
+  return t('pricing.priceUnsetBadge', locale);
+}
 
 /** 主役の数字が負のときに添えるバッジ（§9.5） */
-export const LOSS_BADGE_LABEL = '赤字';
+export function lossBadgeLabel(locale: Locale): string {
+  return t('pricing.lossBadge', locale);
+}
 
 /** 主役の数字が出せないとき（価格未設定）の置き字（§9.7）。「¥0」とは書かない */
 export function amountPlaceholder(locale: Locale): string {
@@ -4244,24 +4250,23 @@ export function amountPlaceholder(locale: Locale): string {
 }
 
 /** 主役の数字の上（§9.4）:「今の価格 ¥5,000 で売れたら」 */
-export function currentPriceLeadLabel(price: number): string {
-  return `今の価格 ${formatYenSymbol(price)} で売れたら`;
+export function currentPriceLeadLabel(locale: Locale, price: number): string {
+  return t('pricing.currentPriceLead', locale, { price: formatYenSymbol(price) });
 }
 
 /**
  * 主役の数字の下（§9.4）:「手元に残る見込み・利益率 34.0%」。
  * 利益率は小数第 1 位まで（§4.5 の profitRate）。価格 0 では出せないので語だけになる。
  */
-export function netProfitEstimateNote(profitRate: number | null): string {
-  const head = '手元に残る見込み';
+export function netProfitEstimateNote(locale: Locale, profitRate: number | null): string {
   return profitRate == null
-    ? head
-    : `${head}・利益率 ${profitRate.toFixed(1)}%`;
+    ? t('pricing.netProfitEstimate', locale)
+    : t('pricing.netProfitEstimateWithRate', locale, { rate: profitRate.toFixed(1) });
 }
 
 /** 赤字のときの主役の数字の下（§9.5）:「売っても、手元のお金は ¥550 減ります」 */
-export function lossAmountNote(loss: number): string {
-  return `売っても、手元のお金は ${formatYenSymbol(Math.abs(loss))} 減ります`;
+export function lossAmountNote(locale: Locale, loss: number): string {
+  return t('pricing.lossAmountNote', locale, { amount: formatYenSymbol(Math.abs(loss)) });
 }
 
 /**
@@ -4271,39 +4276,62 @@ export function lossAmountNote(loss: number): string {
  * @param kind 目標の語を種別に合わせる（§5.2 の targetProfitLabel）
  */
 export function pricingConclusionText(
+  locale: Locale,
   conclusion: PricingConclusion,
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): { headline: string; detail: string } {
-  const target = targetProfitLabel('ja', kind);
-  const targetAmount =
+  // 文中に埋め込むので targetProfitInline（英語だけ小文字）を使う
+  const target = t(
+    kind === 'used' ? 'record.targetProfitInline.used' : 'record.targetProfitInline.sourced',
+    locale,
+  );
+  const amount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
+  const breakEven = formatYenSymbol(analysis.breakEven);
 
   switch (conclusion) {
     case 'safe':
       return {
-        headline: `${formatYenSymbol(analysis.breakEven)} までなら赤字になりません。`,
-        detail: discountRoomText(analysis.room),
+        headline: t('pricing.conclusionSafe', locale, { breakEven }),
+        detail: discountRoomText(locale, analysis.room),
       };
     case 'safeWithTarget':
       return {
-        headline: `${formatYenSymbol(analysis.floorPrice)} までなら、${target} ${targetAmount} を保てます。`,
-        detail: discountRoomText(analysis.room),
+        headline: t('pricing.conclusionSafeWithTarget', locale, {
+          floor: formatYenSymbol(analysis.floorPrice),
+          target,
+          amount,
+        }),
+        detail: discountRoomText(locale, analysis.room),
       };
     case 'belowTarget':
       return {
-        headline: `${target} ${targetAmount} まで、あと ${formatYenSymbol(analysis.targetShortfall ?? 0)} です。`,
-        detail: `${formatYenSymbol(analysis.breakEven)} までなら赤字にはなりません。`,
+        headline: t('pricing.conclusionBelowTarget', locale, {
+          target,
+          amount,
+          shortfall: formatYenSymbol(analysis.targetShortfall ?? 0),
+        }),
+        detail: t('pricing.conclusionBelowTargetDetail', locale, { breakEven }),
       };
     case 'loss':
       return {
-        headline: `あと ${formatYenSymbol(analysis.breakEvenShortfall)} の値上げで、赤字から抜けます。`,
-        detail: `${formatYenSymbol(analysis.breakEven)} で利益ゼロ。それより上なら手元にお金が残ります。`,
+        headline: t('pricing.conclusionLoss', locale, {
+          shortfall: formatYenSymbol(analysis.breakEvenShortfall),
+        }),
+        detail: t('pricing.conclusionLossDetail', locale, { breakEven }),
       };
     case 'lossWithTarget':
       return {
-        headline: `あと ${formatYenSymbol(analysis.breakEvenShortfall)} の値上げで、赤字から抜けます。`,
-        detail: `${target} ${targetAmount} まで戻すなら ${formatYenSymbol(analysis.targetPrice ?? 0)}（今より ${formatYenSymbol(analysis.targetShortfall ?? 0)} 上）`,
+        headline: t('pricing.conclusionLoss', locale, {
+          shortfall: formatYenSymbol(analysis.breakEvenShortfall),
+        }),
+        detail: t('pricing.conclusionLossWithTargetDetail', locale, {
+          target,
+          amount,
+          price: formatYenSymbol(analysis.targetPrice ?? 0),
+          gap: formatYenSymbol(analysis.targetShortfall ?? 0),
+        }),
       };
   }
 }
@@ -4315,12 +4343,12 @@ export function pricingConclusionText(
  * 今の価格が基準線ぴったり（分岐点＝価格）の記録では実際に起きる文で、
  * 「0 円ぶん下げられる」は下げられないことを回りくどく言っているだけになる。
  */
-function discountRoomText(room: number): string {
+function discountRoomText(locale: Locale, room: number): string {
   // 下限が分岐点か目標ラインかで「下げるとどうなるか」は変わるので、
   // ここでは行き先を言わずに「下限そのもの」だけを言う（行き先は 1 行目に出ている）
   return roundForDisplay(room) === 0
-    ? '今の価格がその下限です。これ以上は下げられません。'
-    : `交渉されても、あと ${formatYenSymbol(room)} は下げられます。`;
+    ? t('pricing.discountRoomNone', locale)
+    : t('pricing.discountRoom', locale, { room: formatYenSymbol(room) });
 }
 
 /**
@@ -4387,46 +4415,53 @@ export function recordDetailConclusionDetail(
 }
 
 /** 価格ラインの目盛りの説明（§9.8）。金額はその上に出るので、ここは「何の線か」だけを言う */
-export function priceTickLabel(key: PriceTickKey): string {
-  return PRICE_TICK_LABELS[key];
+export function priceTickLabel(locale: Locale, key: PriceTickKey): string {
+  return t(PRICE_TICK_KEYS[key], locale);
 }
 
-const PRICE_TICK_LABELS: Record<PriceTickKey, string> = {
-  breakEven: 'ここで利益ゼロ',
-  target: '目標利益ライン',
-  current: '今の価格',
-};
+const PRICE_TICK_KEYS = {
+  breakEven: 'pricing.tickBreakEven',
+  target: 'pricing.tickTarget',
+  current: 'pricing.tickCurrent',
+} as const satisfies Record<PriceTickKey, TranslationKey>;
 
 /**
  * 赤字のときだけ価格ラインの右端に添える向きの説明（§9.8）。
  * 黒字では出さない ── そちらは左へ動かす（値下げする）ことが読みたいことで、
  * 向きの意味が反転する赤字のときだけ、どちらへ動かすと良くなるかを語で言う。
  */
-export const PRICE_LINE_RAISE_HINT = '上げるほど残る →';
+export function priceLineRaiseHint(locale: Locale): string {
+  return t('pricing.priceLineRaiseHint', locale);
+}
 
 /** 価格ラインの 2 点の間に渡す差額（§9.8）:「あと ¥612」 */
-export function priceGapLabel(amount: number): string {
-  return `あと ${formatYenSymbol(amount)}`;
+export function priceGapLabel(locale: Locale, amount: number): string {
+  return t('pricing.priceGap', locale, { amount: formatYenSymbol(amount) });
 }
 
 /** 書き換える前の価格を示す灰色の点（§9.11）。画面を出るまでの表示で、保存はしない */
-export const PREVIOUS_PRICE_LABEL = '前の価格';
+export function previousPriceLabel(locale: Locale): string {
+  return t('pricing.previousPrice', locale);
+}
 
 /**
  * シミュレーターの見出し（§9.9）。**赤字では「値下げ」と言わない** ──
  * 赤字の記録でしたいのは値上げなので、見出しが操作と逆を向く。
  */
-export function simulatorTitle(state: PricingState): string {
-  return state === 'loss' ? '価格を動かしてみる' : '値下げしてみる';
+export function simulatorTitle(locale: Locale, state: PricingState): string {
+  return t(state === 'loss' ? 'pricing.simulatorTitleLoss' : 'pricing.simulatorTitleSafe', locale);
 }
 
 /** シミュレーターの見出しの右（§9.9）。触っても記録は動かないことを先に言う */
-export const SIMULATOR_NOTE = '動かしても記録は変わりません';
+export function simulatorNote(locale: Locale): string {
+  return t('pricing.simulatorNote', locale);
+}
 
 /** シミュレーターの右上の数字の下（§9.9）:「見込み利益・27.8%」 */
-export function simulatorProfitNote(profitRate: number | null): string {
-  const head = '見込み利益';
-  return profitRate == null ? head : `${head}・${profitRate.toFixed(1)}%`;
+export function simulatorProfitNote(locale: Locale, profitRate: number | null): string {
+  return profitRate == null
+    ? t('pricing.simulatorProfit', locale)
+    : t('pricing.simulatorProfitWithRate', locale, { rate: profitRate.toFixed(1) });
 }
 
 /**
@@ -4434,32 +4469,42 @@ export function simulatorProfitNote(profitRate: number | null): string {
  * 決めていない人に「達成」と言うと、決めた覚えのない基準に受かったように読める。
  */
 export function simulationVerdictText(
+  locale: Locale,
   verdict: SimulationVerdict,
   analysis: PricingAnalysis,
   kind: RecordKind,
 ): string {
-  const target = targetProfitLabel('ja', kind);
-  const targetAmount =
+  const target = t(
+    kind === 'used' ? 'record.targetProfitInline.used' : 'record.targetProfitInline.sourced',
+    locale,
+  );
+  const amount =
     analysis.targetProfit == null ? '' : formatYenSymbol(analysis.targetProfit);
   const net = formatYenSymbol(Math.abs(verdict.simulation.netProfit));
 
   switch (verdict.key) {
     case 'loss':
       // もともと赤字の記録なら「まだ」── 新しく赤字になるわけではない
-      return analysis.state === 'loss'
-        ? `まだ赤字です（−${net}）`
-        : `赤字になります（−${net}）`;
+      return t(
+        analysis.state === 'loss' ? 'pricing.verdictLossStill' : 'pricing.verdictLossNew',
+        locale,
+        { amount: net },
+      );
     case 'turnsProfit':
-      return `黒字になります（手元に残る ${net}）`;
+      return t('pricing.verdictTurnsProfit', locale, { amount: net });
     case 'roomLeft':
       // 余裕 0（下限ぴったり）で「まだ ¥0 の余裕があります」とは言わない
       return roundForDisplay(verdict.room) === 0
-        ? 'ここが下限です'
-        : `まだ ${formatYenSymbol(verdict.room)} の余裕があります`;
+        ? t('pricing.verdictAtFloor', locale)
+        : t('pricing.verdictRoomLeft', locale, { room: formatYenSymbol(verdict.room) });
     case 'belowTarget':
-      return `${target} ${targetAmount} まで あと ${formatYenSymbol(verdict.shortfall ?? 0)}`;
+      return t('pricing.verdictBelowTarget', locale, {
+        target,
+        amount,
+        shortfall: formatYenSymbol(verdict.shortfall ?? 0),
+      });
     case 'targetMet':
-      return `${target} ${targetAmount} を達成`;
+      return t('pricing.verdictTargetMet', locale, { target, amount });
   }
 }
 
@@ -4467,83 +4512,111 @@ export function simulationVerdictText(
  * シミュレーターのボタン（§9.10）。
  * 赤字では「記録する」ではなく**直すべき下限**を語にする ── この画面でしたいことがそれだから。
  */
-export function applyPriceButtonLabel(analysis: PricingAnalysis): string {
+export function applyPriceButtonLabel(locale: Locale, analysis: PricingAnalysis): string {
   return analysis.state === 'loss'
-    ? `価格を ${formatYenSymbol(analysis.breakEven)} 以上に直す`
-    : 'この価格でこのアプリに記録する';
+    ? t('pricing.applyPriceLoss', locale, { breakEven: formatYenSymbol(analysis.breakEven) })
+    : t('pricing.applyPriceSafe', locale);
 }
 
 /** ボタンの下の注記（§9.10）。**サービス名は書かない** */
-export const APPLY_PRICE_NOTE = '出品しているサイトの価格は変わりません。';
+export function applyPriceNote(locale: Locale): string {
+  return t('pricing.applyPriceNote', locale);
+}
 
 /** 書き換えの確認シート（§9.11） */
-export const PRICE_APPLY_SHEET_TITLE = 'この価格に書き換えます';
-export const PRICE_APPLY_CURRENT_LABEL = 'いまの記録';
-export const PRICE_APPLY_NEXT_LABEL = '書き換えたあと';
-export const PRICE_APPLY_PROFIT_LABEL = '見込みの利益';
-export const PRICE_APPLY_CONFIRM_LABEL = '書き換える';
+export function priceApplySheetTitle(locale: Locale): string {
+  return t('pricing.applySheetTitle', locale);
+}
+export function priceApplyCurrentLabel(locale: Locale): string {
+  return t('pricing.applyCurrent', locale);
+}
+export function priceApplyNextLabel(locale: Locale): string {
+  return t('pricing.applyNext', locale);
+}
+export function priceApplyProfitLabel(locale: Locale): string {
+  return t('pricing.applyProfit', locale);
+}
+export function priceApplyConfirmLabel(locale: Locale): string {
+  return t('pricing.applyConfirm', locale);
+}
 
 /**
  * 確認シートの注意文（§9.11）。**サービス名は書かない**（「あちら」で指す）。
  * このアプリの記録だけが変わることを、押す前に読める位置に置く。
  */
-export const PRICE_APPLY_EXTERNAL_NOTE =
-  '出品しているサイトの価格は変わりません。あちらはご自分で変更してください。';
+export function priceApplyExternalNote(locale: Locale): string {
+  return t('pricing.applyExternalNote', locale);
+}
 
 /** 「¥1,700 → ¥1,250」（確認シートの見込み利益の行。§9.11） */
-export function priceChangeArrow(before: string, after: string): string {
-  return `${before} → ${after}`;
+export function priceChangeArrow(locale: Locale, before: string, after: string): string {
+  return t('pricing.priceChangeArrow', locale, { before, after });
 }
 
 /** 書き換えたあとのバー（§9.12）。5 秒で消え、そのとき取り消しもできなくなる */
-export function priceAppliedMessage(price: number): string {
-  return `このアプリの記録を ${formatYenSymbol(price)} にしました`;
+export function priceAppliedMessage(locale: Locale, price: number): string {
+  return t('pricing.appliedMessage', locale, { price: formatYenSymbol(price) });
 }
 
 /** バーの取り消し（§9.12）。「元に戻す」（t('detail.undo', 'ja')）と役割は同じだが、語はモックに合わせる */
-export const PRICE_UNDO_LABEL = '取り消す';
+export function priceUndoLabel(locale: Locale): string {
+  return t('pricing.priceUndo', locale);
+}
 
 // ---- 価格が未設定のとき（E。§9.7） ----
 
 /** 主役の数字の代わりに出す見出し */
-export const PRICE_UNSET_LEAD_LABEL = '売る価格';
+export function priceUnsetLeadLabel(locale: Locale): string {
+  return t('pricing.priceUnsetLead', locale);
+}
 
-export const PRICE_UNSET_DESCRIPTION =
-  '売る価格を入れると、手元に残る金額と、いくらまで下げられるかが出ます。';
+export function priceUnsetDescription(locale: Locale): string {
+  return t('pricing.priceUnsetDescription', locale);
+}
 
 /** 価格を入れに行くボタン（記録の編集フォームを開く） */
-export const PRICE_INPUT_BUTTON_LABEL = '売る価格を入力する';
+export function priceInputButtonLabel(locale: Locale): string {
+  return t('pricing.priceInputButton', locale);
+}
 
 /** 価格が無くても出せる値の節（§9.7）。**空の主役を置いたまま終わらせないための面** */
-export const KNOWN_WITHOUT_PRICE_TITLE = '価格がなくても分かっていること';
-export const SPENT_COST_LABEL = 'すでにかかった費用';
-export const NO_LOSS_PRICE_LABEL = '赤字にならない価格';
-export const TARGET_REACHED_PRICE_LABEL = '目標が出る価格';
+export function knownWithoutPriceTitle(locale: Locale): string {
+  return t('pricing.knownWithoutPriceTitle', locale);
+}
+export function spentCostLabel(locale: Locale): string {
+  return t('pricing.spentCost', locale);
+}
+export function noLossPriceLabel(locale: Locale): string {
+  return t('pricing.noLossPrice', locale);
+}
+export function targetReachedPriceLabel(locale: Locale): string {
+  return t('pricing.targetReachedPrice', locale);
+}
 
 /** 「¥3,112 以上」（下限であることを金額そのものに書く） */
-export function minPriceLabel(price: number): string {
-  return `${formatYenSymbol(price)} 以上`;
+export function minPriceLabel(locale: Locale, price: number): string {
+  return t('pricing.minPrice', locale, { price: formatYenSymbol(price) });
 }
 
 /**
  * 上の 2〜3 行が何から出ているかの注記（§9.7）。
  * 内訳の金額を並べるのは、価格が無い記録でも**この下限だけは既に決まっている**ことを示すため。
  */
-export function knownWithoutPriceNote(costs: {
-  purchasePrice: number;
-  postage: number;
-  packing: number;
-}): string {
-  const parts = [
-    `仕入 ${formatYenSymbol(costs.purchasePrice)}`,
-    `送料 ${formatYenSymbol(costs.postage)}`,
-    `梱包 ${formatYenSymbol(costs.packing)}`,
-  ];
-  return `${parts.join('・')} から計算しています。価格を入れる前でも、この下限は決まります。`;
+export function knownWithoutPriceNote(
+  locale: Locale,
+  costs: { purchasePrice: number; postage: number; packing: number },
+): string {
+  return t('pricing.knownWithoutPriceNote', locale, {
+    purchase: formatYenSymbol(costs.purchasePrice),
+    postage: formatYenSymbol(costs.postage),
+    packing: formatYenSymbol(costs.packing),
+  });
 }
 
 /** 不活性なシミュレーターに重ねる語（§9.7） */
-export const SIMULATOR_DISABLED_NOTE = '価格を入れると、ここで値下げを試せます';
+export function simulatorDisabledNote(locale: Locale): string {
+  return t('pricing.simulatorDisabledNote', locale);
+}
 
 // ---- 最下段の 2 行（§9.13） ----
 
@@ -4551,37 +4624,51 @@ export const SIMULATOR_DISABLED_NOTE = '価格を入れると、ここで値下�
  * 費用の内訳への行（§9.13）。**行き先は記録詳細**（帯グラフ・レシートは既にあそこにある）──
  * この画面に複製すると、同じ 1 件の内訳が 2 か所で別々に育つ。
  */
-export const COST_BREAKDOWN_ROW_LABEL = '費用の内訳';
+export function costBreakdownRowLabel(locale: Locale): string {
+  return t('pricing.costBreakdownRow', locale);
+}
 
 /**
  * 目標利益の行の右の値（§9.13）。決めてあれば「この記録だけ」を添える ──
  * アプリ全体の既定値は無い（§1.3）ので、ここで見えている額が他の記録に及ばないことを言う。
  */
-export function targetProfitRowValue(targetProfit: number | null): string {
+export function targetProfitRowValue(locale: Locale, targetProfit: number | null): string {
   return targetProfit == null
-    ? t('form.targetProfitUnset', 'ja')
-    : `${formatYenSymbol(targetProfit)}（この記録だけ）`;
+    ? t('form.targetProfitUnset', locale)
+    : t('pricing.targetRowValue', locale, { amount: formatYenSymbol(targetProfit) });
 }
 
 // ---- 目標利益を決めるシート（§9.14） ----
 
 /** シートの見出し。語は記録フォームの欄と同じ（§5.2） */
-export function targetProfitSheetTitle(kind: RecordKind): string {
-  return `${targetProfitLabel('ja', kind)}を決める`;
+export function targetProfitSheetTitle(locale: Locale, kind: RecordKind): string {
+  // 文中に埋め込むので targetProfitInline（英語だけ小文字）を使う
+  return t('pricing.targetSheetTitle', locale, {
+    target: t(
+      kind === 'used' ? 'record.targetProfitInline.used' : 'record.targetProfitInline.sourced',
+      locale,
+    ),
+  });
 }
 
 /**
  * 入れた額から**その場で**出る 2 つの数字（§9.14）。
  * 決めたあとに何が変わるのかを、決める前の画面で見せるための行。
  */
-export const TARGET_PREVIEW_PRICE_LABEL = '目標が出る価格';
-export const TARGET_PREVIEW_ROOM_LABEL = 'あと下げられる額';
+export function targetPreviewPriceLabel(locale: Locale): string {
+  return t('pricing.targetPreviewPrice', locale);
+}
+export function targetPreviewRoomLabel(locale: Locale): string {
+  return t('pricing.targetPreviewRoom', locale);
+}
 
 /**
  * 目標を消す（§9.14）。**0 を入れて消す道は作らない** ──
  * 0 は「利益ゼロを目標にする」という有効な値で、消すこととは別（§1.2）。
  */
-export const TARGET_PROFIT_CLEAR_LABEL = '目標を消す';
+export function targetProfitClearLabel(locale: Locale): string {
+  return t('pricing.targetClear', locale);
+}
 
 /**
  * 主役の数字そのもの（§9.4 / §9.5）。**赤字は「−¥550」**（マイナス記号は U+2212）。
@@ -4591,9 +4678,7 @@ export const TARGET_PROFIT_CLEAR_LABEL = '目標を消す';
  */
 export function pricingHeroAmount(netProfit: number): string {
   const rounded = roundForDisplay(netProfit);
-  return rounded < 0
-    ? `−${formatYenSymbol(-rounded)}`
-    : formatYenSymbol(rounded);
+  return rounded < 0 ? `−${formatYenSymbol(-rounded)}` : formatYenSymbol(rounded);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -4601,54 +4686,64 @@ export function pricingHeroAmount(netProfit: number): string {
 // **「分析」とは言わない**のは §9 と同じ理由（見たいのは分析ではなく結果）。
 // ─────────────────────────────────────────────────────────────────────────
 
-/** 画面のタイトル。出品中の PRICING_SCREEN_TITLE（「いくらで売る？」）とは別の語 */
-export const SOLD_ANALYSIS_SCREEN_TITLE = 'どうだった？';
+/** 画面のタイトル。出品中の t('pricing.title', 'ja')（「いくらで売る？」）とは別の語 */
+export function soldAnalysisScreenTitle(locale: Locale): string {
+  return t('pricing.soldTitle', locale);
+}
 
 /** 主役の数字の上（§9.4 と対）:「残った利益」。「見込み」ではない ── もう確定した額 */
-export const REMAINING_PROFIT_LEAD_LABEL = '残った利益';
+export function remainingProfitLeadLabel(locale: Locale): string {
+  return t('pricing.remainingProfitLead', locale);
+}
 
 /** 商品名の右のバッジ:「8/14 に売れました」。一覧・詳細の「売れた」バッジと違い、日付まで言う */
-export function soldOnBadgeLabel(saleDate: Date): string {
-  return `${formatShortDate(saleDate)} に売れました`;
+export function soldOnBadgeLabel(locale: Locale, saleDate: Date): string {
+  return t('pricing.soldOnBadge', locale, { date: formatShortDate(saleDate) });
 }
 
 /** 主役の数字の下:「販売価格 ¥5,000・利益率 34.0%」。利益率は価格 0 では出さない語だけになる */
 export function soldPriceRateNote(
+  locale: Locale,
   price: number,
   profitRate: number | null,
 ): string {
-  const rate = profitRate == null ? '' : `・利益率 ${profitRate.toFixed(1)}%`;
-  return `販売価格 ${formatYenSymbol(price)}${rate}`;
+  const amount = formatYenSymbol(price);
+  return profitRate == null
+    ? t('pricing.soldPriceRate', locale, { price: amount })
+    : t('pricing.soldPriceRateWithRate', locale, { price: amount, rate: profitRate.toFixed(1) });
 }
 
 /** 達成バッジ「目標より +¥700」。赤字で目標を割っていても符号つきでそのまま言える */
-export function targetAchievementBadgeLabel(diff: number): string {
-  return `目標より ${formatSignedYenSymbol(diff)}`;
+export function targetAchievementBadgeLabel(locale: Locale, diff: number): string {
+  return t('pricing.targetAchievementBadge', locale, { diff: formatSignedYenSymbol(diff) });
 }
 
 /** 未達成のときの帯「目標まであと¥323でした」。**過去形** ── もう売れたあとの結果を言う語なので */
-export function targetShortfallPastLabel(shortfall: number): string {
-  return `目標まであと${formatYenSymbol(shortfall)}でした`;
+export function targetShortfallPastLabel(locale: Locale, shortfall: number): string {
+  return t('pricing.targetShortfallPast', locale, { amount: formatYenSymbol(shortfall) });
 }
 
 /** 達成バーの左端「目標 ¥1,000」 */
-export function soldTargetBarLabel(target: number): string {
-  return `目標 ${formatYenSymbol(target)}`;
+export function soldTargetBarLabel(locale: Locale, target: number): string {
+  return t('pricing.soldTargetBar', locale, { amount: formatYenSymbol(target) });
 }
 
 /** 達成バーの右端「実際 ¥1,700」 */
-export function soldActualBarLabel(actual: number): string {
-  return `実際 ${formatYenSymbol(actual)}`;
+export function soldActualBarLabel(locale: Locale, actual: number): string {
+  return t('pricing.soldActualBar', locale, { amount: formatYenSymbol(actual) });
 }
 
 /**
  * 見出しが状態で変わるセクション（目標なし / 目標あり）。
  * 目標の有無だけで分かれる ── 達成したかどうかは本文（soldSectionBody）側の語尾で言う。
  */
-export function soldSectionTitle(conclusion: SoldConclusion): string {
-  return conclusion === 'noTarget'
-    ? 'どこまで下げられた取引だったか'
-    : '値下げの余裕はどれだけあったか';
+export function soldSectionTitle(locale: Locale, conclusion: SoldConclusion): string {
+  return t(
+    conclusion === 'noTarget'
+      ? 'pricing.soldSectionTitleNoTarget'
+      : 'pricing.soldSectionTitleTarget',
+    locale,
+  );
 }
 
 /**
@@ -4656,18 +4751,32 @@ export function soldSectionTitle(conclusion: SoldConclusion): string {
  * 語尾だけが変わる（見出しは B/C で共通・A だけ別）。
  */
 export function soldSectionBody(
+  locale: Locale,
   conclusion: SoldConclusion,
   analysis: PricingAnalysis,
 ): string {
   const price = formatYenSymbol(analysis.currentPrice);
+  const room = formatYenSymbol(analysis.room);
 
   switch (conclusion) {
     case 'noTarget':
-      return `${formatYenSymbol(analysis.breakEven)}で利益ゼロでした。${price}で売れたので、交渉されても${formatYenSymbol(analysis.room)}は応じられた計算です。`;
+      return t('pricing.soldBodyNoTarget', locale, {
+        breakEven: formatYenSymbol(analysis.breakEven),
+        price,
+        room,
+      });
     case 'targetMet':
-      return `${formatYenSymbol(analysis.floorPrice)}までなら目標を保てました。実際は${price}で売れたので、${formatYenSymbol(analysis.room)}は応じられた計算です。`;
+      return t('pricing.soldBodyTargetMet', locale, {
+        floor: formatYenSymbol(analysis.floorPrice),
+        price,
+        room,
+      });
     case 'belowTarget':
-      return `${formatYenSymbol(analysis.floorPrice)}以上で売れていれば目標を保てましたが、実際は${price}で売れたため、${formatYenSymbol(analysis.targetShortfall ?? 0)}足りませんでした。`;
+      return t('pricing.soldBodyBelowTarget', locale, {
+        floor: formatYenSymbol(analysis.floorPrice),
+        price,
+        shortfall: formatYenSymbol(analysis.targetShortfall ?? 0),
+      });
   }
 }
 
@@ -4738,13 +4847,19 @@ export function soldPerDayProfitLabel(locale: Locale, perDay: number): string {
 }
 
 /** 1 日あたり利益の注記。不用品には出ないことをここで断る */
-export const SOLD_PER_DAY_CAPTION = '仕入品のみ表示';
+export function soldPerDayCaption(locale: Locale): string {
+  return t('pricing.soldPerDayCaption', locale);
+}
 
 /** 日付が逆転している記録（販売日 < 記録日）に出す黄色い帯 */
-export const SOLD_DATE_REVERSED_LABEL = '記録した日より前に売れています';
+export function soldDateReversedLabel(locale: Locale): string {
+  return t('pricing.soldDateReversed', locale);
+}
 
 /** 逆転した日付を直す導線（記録編集フォームを開く） */
-export const FIX_DATE_LABEL = '日付を直す';
+export function fixDateLabel(locale: Locale): string {
+  return t('pricing.fixDate', locale);
+}
 
 // ---- 初回起動チュートリアル（オンボーディング） ----
 //
@@ -4902,3 +5017,9 @@ export const REVERT_TO_LISTING_CONFIRM_LABEL = t('detail.revertToListingConfirmL
 // 詳細の結論行を移したぶんの日本語固定の写し（多言語化ステップ 2-5）。
 // PricingScreen（区切り 4）がまだ参照している
 export const SOLD_SAME_DAY_LABEL = t('elapsed.soldSameDay', 'ja');
+
+// ---- 値付けの節を移したぶんの日本語固定の写し（多言語化ステップ 4） ----
+export const SIMULATOR_NOTE = t('pricing.simulatorNote', 'ja');
+export const SIMULATOR_DISABLED_NOTE = t('pricing.simulatorDisabledNote', 'ja');
+export const PRICE_APPLY_EXTERNAL_NOTE = t('pricing.applyExternalNote', 'ja');
+export const TARGET_PREVIEW_ROOM_LABEL = t('pricing.targetPreviewRoom', 'ja');

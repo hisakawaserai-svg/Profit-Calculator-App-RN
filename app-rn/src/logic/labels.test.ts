@@ -854,12 +854,12 @@ describe('SPEC-V9 §9 「いくらで売る？」の表示語', () => {
     const analysis = analyze(salesPrice, targetProfit);
     const conclusion = pricingConclusion(analysis);
     if (conclusion == null) throw new Error('価格未設定では帯を出さない');
-    return pricingConclusionText(conclusion, analysis, 'sourced');
+    return pricingConclusionText('ja', conclusion, analysis, 'sourced');
   };
 
   const verdictOf = (salesPrice: number, targetProfit: number | null, price: number) => {
     const analysis = analyze(salesPrice, targetProfit);
-    return simulationVerdictText(simulationVerdict(analysis, price, costs), analysis, 'sourced');
+    return simulationVerdictText('ja', simulationVerdict(analysis, price, costs), analysis, 'sourced');
   };
 
   it('A. 目標なし・黒字（モックの文）', () => {
@@ -914,8 +914,8 @@ describe('SPEC-V9 §9 「いくらで売る？」の表示語', () => {
 
   it('**「手取り」は使わない**（SPEC-V2 §7-8）', () => {
     const texts = [
-      netProfitEstimateNote(34),
-      lossAmountNote(-550),
+      netProfitEstimateNote('ja', 34),
+      lossAmountNote('ja', -550),
       verdictOf(2500, null, 3200),
       conclusionOf(2500, null).detail,
     ];
@@ -929,21 +929,21 @@ describe('SPEC-V9 §9 「いくらで売る？」の表示語', () => {
   });
 
   it('バッジは出品当日が 1 日目。**日付が逆転していれば日数を出さない**', () => {
-    expect(listingDayBadgeLabel(13)).toBe('出品中 14日目');
-    expect(listingDayBadgeLabel(0)).toBe('出品中 1日目');
-    expect(listingDayBadgeLabel(-2)).toBe('出品中');
+    expect(listingDayBadgeLabel('ja', 13)).toBe('出品中 14日目');
+    expect(listingDayBadgeLabel('ja', 0)).toBe('出品中 1日目');
+    expect(listingDayBadgeLabel('ja', -2)).toBe('出品中');
   });
 
   it('最下段の目標の行は、決めていなければ語・決めてあれば「この記録だけ」を添える', () => {
-    expect(targetProfitRowValue(null)).toBe('決めていません');
-    expect(targetProfitRowValue(1000)).toBe('¥1,000（この記録だけ）');
+    expect(targetProfitRowValue('ja', null)).toBe('決めていません');
+    expect(targetProfitRowValue('ja', 1000)).toBe('¥1,000（この記録だけ）');
     // **目標 0 円は「決めていません」ではない**（§1.2）
-    expect(targetProfitRowValue(0)).toBe('¥0（この記録だけ）');
+    expect(targetProfitRowValue('ja', 0)).toBe('¥0（この記録だけ）');
   });
 
   it('ボタンの語は赤字だけ「直す」に変わる（§9.10）', () => {
-    expect(applyPriceButtonLabel(analyze(5000, null))).toBe('この価格でこのアプリに記録する');
-    expect(applyPriceButtonLabel(analyze(2500, null))).toBe('価格を ¥3,112 以上に直す');
+    expect(applyPriceButtonLabel('ja', analyze(5000, null))).toBe('この価格でこのアプリに記録する');
+    expect(applyPriceButtonLabel('ja', analyze(2500, null))).toBe('価格を ¥3,112 以上に直す');
   });
 
   it('注意文にサービス名を出さない（§9.1）', () => {

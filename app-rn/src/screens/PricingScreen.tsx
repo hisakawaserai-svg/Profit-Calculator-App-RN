@@ -43,30 +43,30 @@ import type { SaleRecord } from '@/db/schema';
 import { setSalesPrice, setTargetProfit, useRecord } from '@/db/useRecords';
 import { formatYenSymbol } from '@/logic/format';
 import {
-  AMOUNT_PLACEHOLDER,
-  APPLY_PRICE_NOTE,
-  COST_BREAKDOWN_ROW_LABEL,
-  FIX_DATE_LABEL,
-  KNOWN_WITHOUT_PRICE_TITLE,
-  LOSS_BADGE_LABEL,
-  NO_LOSS_PRICE_LABEL,
-  PRICE_INPUT_BUTTON_LABEL,
-  PRICE_UNDO_LABEL,
-  PRICE_UNSET_BADGE_LABEL,
-  PRICE_UNSET_DESCRIPTION,
-  PRICE_UNSET_LEAD_LABEL,
-  PRICING_SCREEN_TITLE,
-  REMAINING_PROFIT_LEAD_LABEL,
-  SIMULATOR_DISABLED_NOTE,
-  SIMULATOR_NOTE,
-  SOLD_ANALYSIS_SCREEN_TITLE,
-  SOLD_BADGE_LABEL,
-  SOLD_DATE_REVERSED_LABEL,
-  SOLD_PER_DAY_CAPTION,
-  SOLD_SAME_DAY_LABEL,
-  SPENT_COST_LABEL,
-  TARGET_REACHED_PRICE_LABEL,
-  UNTITLED_LABEL,
+  amountPlaceholder,
+  applyPriceNote,
+  costBreakdownRowLabel,
+  fixDateLabel,
+  knownWithoutPriceTitle,
+  lossBadgeLabel,
+  noLossPriceLabel,
+  priceInputButtonLabel,
+  priceUndoLabel,
+  priceUnsetBadgeLabel,
+  priceUnsetDescription,
+  priceUnsetLeadLabel,
+  pricingScreenTitle,
+  remainingProfitLeadLabel,
+  simulatorDisabledNote,
+  simulatorNote,
+  soldAnalysisScreenTitle,
+  soldBadgeLabel,
+  soldDateReversedLabel,
+  soldPerDayCaption,
+  soldSameDayLabel,
+  spentCostLabel,
+  targetReachedPriceLabel,
+  untitledLabel,
   applyPriceButtonLabel,
   currentPriceLeadLabel,
   knownWithoutPriceNote,
@@ -114,6 +114,7 @@ import { elapsedDays, type TargetCostInput } from '@/logic/profit';
 import { PriceApplySheet } from '@/screens/PriceApplySheet';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { TargetProfitSheet } from '@/screens/TargetProfitSheet';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 記録詳細へ戻る先（§9.13）。**push ではなく dismissTo** ── 積み増さずに元の 1 枚へ返す */
@@ -127,6 +128,10 @@ const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 const PRICE_UNDO_MS = 5000;
 
 export function PricingScreen() {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
@@ -190,13 +195,13 @@ export function PricingScreen() {
   // 段階的に手を入れている領域）とみられるが、念のため両方明示しておく。
   const screenOptions = useMemo(
     () => ({
-      title: record?.isSold ? SOLD_ANALYSIS_SCREEN_TITLE : PRICING_SCREEN_TITLE,
+      title: record?.isSold ? soldAnalysisScreenTitle(locale) : pricingScreenTitle(locale),
       headerBackTitle: '記録',
       gestureEnabled: false,
       fullScreenSwipeEnabled: false,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
-    [record?.isSold],
+    [record?.isSold, locale],
   );
 
   if (record == null) {
@@ -294,6 +299,10 @@ function PricingContent({
   setShowForm,
   onOpenBreakdown,
 }: ContentProps) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const analysis = analyzePricing(record);
   // 経費一式。SaleRecord をそのまま渡せる形（余分な列は使われない）
   const costs: TargetCostInput = record;
@@ -323,8 +332,8 @@ function PricingContent({
     setUndoPrice(before);
     refresh();
     // バーは数秒で消えるので、バーだけに情報を載せない（UI-SPEC §8.3 と同じ作法）
-    AccessibilityInfo.announceForAccessibility(priceAppliedMessage(simPrice));
-  }, [record.id, record.salesPrice, refresh, setPreviousPrices, setUndoPrice, simPrice]);
+    AccessibilityInfo.announceForAccessibility(priceAppliedMessage(locale, simPrice));
+  }, [record.id, record.salesPrice, refresh, setPreviousPrices, setUndoPrice, simPrice, locale]);
 
   const handleUndo = useCallback(() => {
     if (undoPrice == null) return;
@@ -351,7 +360,7 @@ function PricingContent({
         {/* 1. 商品名 ＋ バッジ（§9.3） */}
         <View style={styles.titleRow}>
           <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={2}>
-            {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+            {record.itemName === '' ? untitledLabel(locale) : record.itemName}
           </Text>
           <StatusBadge record={record} today={today} unpriced={unpriced} colors={colors} />
         </View>
@@ -368,7 +377,7 @@ function PricingContent({
             {/* 2. 主役の数字（§9.4 / §9.5） */}
             <View style={styles.heroBlock}>
               <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
-                {currentPriceLeadLabel(analysis.currentPrice)}
+                {currentPriceLeadLabel(locale, analysis.currentPrice)}
               </Text>
               <View style={styles.heroRow}>
                 <Text
@@ -380,14 +389,14 @@ function PricingContent({
                 </Text>
                 {analysis.state === 'loss' && (
                   <View style={[styles.lossBadge, { backgroundColor: colors.red }]}>
-                    <Text style={styles.badgeText}>{LOSS_BADGE_LABEL}</Text>
+                    <Text style={styles.badgeText}>{lossBadgeLabel(locale)}</Text>
                   </View>
                 )}
               </View>
               <Text style={[styles.heroNote, { color: colors.secondaryLabel }]}>
                 {analysis.state === 'loss'
-                  ? lossAmountNote(analysis.current?.netProfit ?? 0)
-                  : netProfitEstimateNote(analysis.current?.profitRate ?? null)}
+                  ? lossAmountNote(locale, analysis.current?.netProfit ?? 0)
+                  : netProfitEstimateNote(locale, analysis.current?.profitRate ?? null)}
               </Text>
             </View>
 
@@ -395,7 +404,7 @@ function PricingContent({
             {conclusion != null && (
               <ConclusionBand
                 tone={CONCLUSION_TONES[conclusion]}
-                text={pricingConclusionText(conclusion, analysis, record.kind)}
+                text={pricingConclusionText(locale, conclusion, analysis, record.kind)}
                 colors={colors}
               />
             )}
@@ -417,18 +426,18 @@ function PricingContent({
           ]}>
           <View style={styles.simulatorHead}>
             <Text style={[styles.simulatorTitle, { color: unpriced ? colors.mutedLabel : colors.label }]}>
-              {simulatorTitle(analysis.state)}
+              {simulatorTitle(locale, analysis.state)}
             </Text>
             {!unpriced && (
               <Text style={[styles.simulatorNote, { color: colors.secondaryLabel }]}>
-                {SIMULATOR_NOTE}
+                {simulatorNote(locale)}
               </Text>
             )}
           </View>
 
           <View style={styles.simulatorValueRow}>
             <Text style={[styles.simulatorPrice, { color: unpriced ? colors.mutedLabel : colors.label }]}>
-              {unpriced ? AMOUNT_PLACEHOLDER : formatYenSymbol(simPrice)}
+              {unpriced ? amountPlaceholder(locale) : formatYenSymbol(simPrice)}
             </Text>
             {!unpriced && (
               <View style={styles.simulatorProfit}>
@@ -440,7 +449,7 @@ function PricingContent({
                   {pricingHeroAmount(verdict.simulation.netProfit)}
                 </Text>
                 <Text style={[styles.simulatorNote, { color: colors.secondaryLabel }]}>
-                  {simulatorProfitNote(verdict.simulation.profitRate)}
+                  {simulatorProfitNote(locale, verdict.simulation.profitRate)}
                 </Text>
               </View>
             )}
@@ -454,7 +463,7 @@ function PricingContent({
             // 分岐点・目標ラインは「ちょうど」を指で出したい点なので吸い付かせる
             snapPoints={[analysis.breakEven, ...(analysis.targetPrice == null ? [] : [analysis.targetPrice])]}
             disabled={unpriced}
-            accessibilityLabel={simulatorTitle(analysis.state)}
+            accessibilityLabel={simulatorTitle(locale, analysis.state)}
             onDragStart={() => setSliderDragging(true)}
             onDragEnd={() => setSliderDragging(false)}
           />
@@ -475,13 +484,13 @@ function PricingContent({
 
           {unpriced ? (
             <Text style={[styles.disabledNote, { color: colors.secondaryLabel }]}>
-              {SIMULATOR_DISABLED_NOTE}
+              {simulatorDisabledNote(locale)}
             </Text>
           ) : (
             <>
               <VerdictRow
                 tone={verdict.tone}
-                text={simulationVerdictText(verdict, analysis, record.kind)}
+                text={simulationVerdictText(locale, verdict, analysis, record.kind)}
                 colors={colors}
               />
 
@@ -502,12 +511,12 @@ function PricingContent({
                     styles.applyLabel,
                     { color: canApply ? '#FFFFFF' : colors.disabledContent },
                   ]}>
-                  {applyPriceButtonLabel(analysis)}
+                  {applyPriceButtonLabel(locale, analysis)}
                 </Text>
               </Pressable>
 
               <Text style={[styles.applyNote, { color: colors.secondaryLabel }]}>
-                {APPLY_PRICE_NOTE}
+                {applyPriceNote(locale)}
               </Text>
             </>
           )}
@@ -523,15 +532,15 @@ function PricingContent({
           { backgroundColor: colors.secondaryBackground, borderTopColor: colors.separator },
         ]}>
         <FooterRow
-          label={COST_BREAKDOWN_ROW_LABEL}
+          label={costBreakdownRowLabel(locale)}
           value={formatYenSymbol(totalCost(record))}
           onPress={onOpenBreakdown}
           colors={colors}
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <FooterRow
-          label={targetProfitLabel('ja', record.kind)}
-          value={targetProfitRowValue(record.targetProfit)}
+          label={targetProfitLabel(locale, record.kind)}
+          value={targetProfitRowValue(locale, record.targetProfit)}
           muted={record.targetProfit == null}
           onPress={() => setShowTarget(true)}
           colors={colors}
@@ -541,8 +550,8 @@ function PricingContent({
       {/* 書き換えたあとの合図（§9.12）。5 秒で消え、そのとき取り消しもできなくなる */}
       {undoPrice != null && (
         <UndoBar
-          message={priceAppliedMessage(record.salesPrice)}
-          actionLabel={PRICE_UNDO_LABEL}
+          message={priceAppliedMessage(locale, record.salesPrice)}
+          actionLabel={priceUndoLabel(locale)}
           onAction={handleUndo}
           onHide={() => setUndoPrice(null)}
           durationMs={PRICE_UNDO_MS}
@@ -614,6 +623,10 @@ function SoldContent({
   setShowForm,
   onOpenBreakdown,
 }: SoldContentProps) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const analysis = analyzePricing(record);
   const costs: TargetCostInput = record;
   const conclusion = soldConclusion(analysis);
@@ -642,11 +655,11 @@ function SoldContent({
         {/* 1. 商品名 ＋ バッジ */}
         <View style={styles.titleRow}>
           <Text style={[styles.itemName, { color: colors.label }]} numberOfLines={2}>
-            {record.itemName === '' ? UNTITLED_LABEL : record.itemName}
+            {record.itemName === '' ? untitledLabel(locale) : record.itemName}
           </Text>
           <View style={[styles.badge, { backgroundColor: colors.green }]}>
             <Text style={styles.badgeText}>
-              {saleDate == null ? SOLD_BADGE_LABEL : soldOnBadgeLabel(saleDate)}
+              {saleDate == null ? soldBadgeLabel(locale) : soldOnBadgeLabel(locale, saleDate)}
             </Text>
           </View>
         </View>
@@ -654,7 +667,7 @@ function SoldContent({
         {/* 2. 「残った利益」＋ 主役の数字（確定純利益）＋ 達成バッジ ＋ 販売価格・利益率 */}
         <View style={styles.heroBlock}>
           <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
-            {REMAINING_PROFIT_LEAD_LABEL}
+            {remainingProfitLeadLabel(locale)}
           </Text>
           <View style={styles.heroRow}>
             <Text
@@ -663,7 +676,7 @@ function SoldContent({
                 { color: analysis.state === 'loss' ? colors.red : colors.label },
               ]}>
               {analysis.state === 'unpriced'
-                ? `¥ ${AMOUNT_PLACEHOLDER}`
+                ? `¥ ${amountPlaceholder(locale)}`
                 : pricingHeroAmount(analysis.current?.netProfit ?? 0)}
             </Text>
             {/* 達成バッジ（§3）。目標があるときだけ、主役の数字と同じ行に置く */}
@@ -677,7 +690,7 @@ function SoldContent({
             )}
           </View>
           <Text style={[styles.heroNote, { color: colors.secondaryLabel }]}>
-            {soldPriceRateNote(analysis.currentPrice, analysis.current?.profitRate ?? null)}
+            {soldPriceRateNote(locale, analysis.currentPrice, analysis.current?.profitRate ?? null)}
           </Text>
         </View>
 
@@ -694,10 +707,10 @@ function SoldContent({
 
             <View style={styles.soldSection}>
               <Text style={[styles.soldHeadline, { color: colors.label }]}>
-                {soldSectionTitle(conclusion)}
+                {soldSectionTitle(locale, conclusion)}
               </Text>
               <Text style={[styles.soldBody, { color: colors.secondaryLabel }]}>
-                {soldSectionBody(conclusion, analysis)}
+                {soldSectionBody(locale, conclusion, analysis)}
               </Text>
             </View>
 
@@ -711,14 +724,14 @@ function SoldContent({
           (elapsed.kind === 'reversed' ? (
             <View style={[styles.warningBand, { backgroundColor: colors.warningBackground }]}>
               <Text style={[styles.warningText, { color: colors.orange }]}>
-                {SOLD_DATE_REVERSED_LABEL}
+                {soldDateReversedLabel(locale)}
               </Text>
               <Pressable
                 onPress={() => setShowForm(true)}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.fixDateButton, { opacity: pressed ? 0.6 : 1 }]}>
                 <Text style={[styles.fixDateLabel, { color: colors.orange }]}>
-                  {FIX_DATE_LABEL}
+                  {fixDateLabel(locale)}
                 </Text>
               </Pressable>
             </View>
@@ -740,15 +753,15 @@ function SoldContent({
           { backgroundColor: colors.secondaryBackground, borderTopColor: colors.separator },
         ]}>
         <FooterRow
-          label={COST_BREAKDOWN_ROW_LABEL}
+          label={costBreakdownRowLabel(locale)}
           value={formatYenSymbol(totalCost(record))}
           onPress={onOpenBreakdown}
           colors={colors}
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <FooterRow
-          label={targetProfitLabel('ja', record.kind)}
-          value={targetProfitRowValue(record.targetProfit)}
+          label={targetProfitLabel(locale, record.kind)}
+          value={targetProfitRowValue(locale, record.targetProfit)}
           muted={record.targetProfit == null}
           onPress={() => setShowTarget(true)}
           colors={colors}
@@ -790,6 +803,10 @@ function AchievementBadge({
   actual: number;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const background = met ? colors.successBackground : colors.warningBackground;
   const foreground = met ? colors.green : colors.orange;
 
@@ -797,8 +814,8 @@ function AchievementBadge({
     <View style={[styles.achieveBadge, { backgroundColor: background }]}>
       <Text style={[styles.achieveBadgeText, { color: foreground }]}>
         {met
-          ? targetAchievementBadgeLabel(actual - targetProfit)
-          : targetShortfallPastLabel(Math.max(0, targetProfit - actual))}
+          ? targetAchievementBadgeLabel(locale, actual - targetProfit)
+          : targetShortfallPastLabel(locale, Math.max(0, targetProfit - actual))}
       </Text>
     </View>
   );
@@ -821,8 +838,12 @@ function ElapsedBand({
   perDayProfit: number | null;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const headline =
-    elapsed.kind === 'sameDay' ? SOLD_SAME_DAY_LABEL : soldElapsedDaysLabel('ja', elapsed.days);
+    elapsed.kind === 'sameDay' ? soldSameDayLabel(locale) : soldElapsedDaysLabel(locale, elapsed.days);
 
   return (
     <View
@@ -834,17 +855,17 @@ function ElapsedBand({
         <Text style={[styles.elapsedBandHeadline, { color: colors.label }]}>{headline}</Text>
         {saleDate != null && (
           <Text style={[styles.elapsedBandDetail, { color: colors.secondaryLabel }]}>
-            {soldDateRangeNote('ja', saleStartDate, saleDate)}
+            {soldDateRangeNote(locale, saleStartDate, saleDate)}
           </Text>
         )}
       </View>
       {perDayProfit != null && (
         <View style={styles.elapsedBandPerDay}>
           <Text style={[styles.elapsedBandHeadline, { color: colors.label }]}>
-            {soldPerDayProfitLabel('ja', perDayProfit)}
+            {soldPerDayProfitLabel(locale, perDayProfit)}
           </Text>
           <Text style={[styles.elapsedBandDetail, { color: colors.secondaryLabel }]}>
-            {SOLD_PER_DAY_CAPTION}
+            {soldPerDayCaption(locale)}
           </Text>
         </View>
       )}
@@ -858,6 +879,10 @@ function ElapsedBand({
  * （超過分の量はバッジが言う）。
  */
 function AchievementBar({ analysis, colors }: { analysis: PricingAnalysis; colors: ThemeColors }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const ratio = targetAchievementRatio(analysis);
   if (ratio == null || analysis.targetProfit == null || analysis.current == null) return null;
 
@@ -870,10 +895,10 @@ function AchievementBar({ analysis, colors }: { analysis: PricingAnalysis; color
       </View>
       <View style={styles.achievementLabels}>
         <Text style={[styles.achievementLabel, { color: colors.secondaryLabel }]}>
-          {soldTargetBarLabel(analysis.targetProfit)}
+          {soldTargetBarLabel(locale, analysis.targetProfit)}
         </Text>
         <Text style={[styles.achievementLabel, styles.achievementLabelActual, { color: colors.green }]}>
-          {soldActualBarLabel(analysis.current.netProfit)}
+          {soldActualBarLabel(locale, analysis.current.netProfit)}
         </Text>
       </View>
     </View>
@@ -903,11 +928,15 @@ function StatusBadge({
   unpriced: boolean;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   if (unpriced) {
     return (
       <View style={[styles.badge, { backgroundColor: colors.disabledBackground }]}>
         <Text style={[styles.badgeText, { color: colors.secondaryLabel }]}>
-          {PRICE_UNSET_BADGE_LABEL}
+          {priceUnsetBadgeLabel(locale)}
         </Text>
       </View>
     );
@@ -916,7 +945,7 @@ function StatusBadge({
   if (record.isSold) {
     return (
       <View style={[styles.badge, { backgroundColor: colors.green }]}>
-        <Text style={styles.badgeText}>{SOLD_BADGE_LABEL}</Text>
+        <Text style={styles.badgeText}>{soldBadgeLabel(locale)}</Text>
       </View>
     );
   }
@@ -931,7 +960,7 @@ function StatusBadge({
 
   return (
     <View style={[styles.badge, { backgroundColor: colors.highlightBackground }]}>
-      <Text style={[styles.badgeText, { color: colors.blue }]}>{listingDayBadgeLabel(days)}</Text>
+      <Text style={[styles.badgeText, { color: colors.blue }]}>{listingDayBadgeLabel(locale, days)}</Text>
     </View>
   );
 }
@@ -1005,19 +1034,23 @@ function UnpricedBlock({
   colors: ThemeColors;
   onInputPrice: () => void;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   return (
     <>
       <View style={styles.heroBlock}>
         <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
-          {PRICE_UNSET_LEAD_LABEL}
+          {priceUnsetLeadLabel(locale)}
         </Text>
         <Text style={[styles.heroAmount, { color: colors.mutedLabel }]}>
-          {`¥ ${AMOUNT_PLACEHOLDER}`}
+          {`¥ ${amountPlaceholder(locale)}`}
         </Text>
       </View>
 
       <Text style={[styles.unpricedDescription, { color: colors.label }]}>
-        {PRICE_UNSET_DESCRIPTION}
+        {priceUnsetDescription(locale)}
       </Text>
 
       <Pressable
@@ -1027,11 +1060,11 @@ function UnpricedBlock({
           styles.applyButton,
           { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
         ]}>
-        <Text style={[styles.applyLabel, { color: '#FFFFFF' }]}>{PRICE_INPUT_BUTTON_LABEL}</Text>
+        <Text style={[styles.applyLabel, { color: '#FFFFFF' }]}>{priceInputButtonLabel(locale)}</Text>
       </Pressable>
 
       <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-        {KNOWN_WITHOUT_PRICE_TITLE}
+        {knownWithoutPriceTitle(locale)}
       </Text>
 
       <View
@@ -1040,16 +1073,16 @@ function UnpricedBlock({
           { backgroundColor: colors.cardBackground, borderColor: colors.separator },
         ]}>
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.label }]}>{SPENT_COST_LABEL}</Text>
+          <Text style={[styles.rowLabel, { color: colors.label }]}>{spentCostLabel(locale)}</Text>
           <Text style={[styles.rowValue, { color: colors.label }]}>
             {formatYenSymbol(analysis.spent)}
           </Text>
         </View>
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.label }]}>{NO_LOSS_PRICE_LABEL}</Text>
+          <Text style={[styles.rowLabel, { color: colors.label }]}>{noLossPriceLabel(locale)}</Text>
           <Text style={[styles.rowValue, { color: colors.red }]}>
-            {minPriceLabel(analysis.breakEven)}
+            {minPriceLabel(locale, analysis.breakEven)}
           </Text>
         </View>
         {/* 目標があるときだけ 3 行目（§9.7）。**無いときに空の行を残さない** */}
@@ -1058,10 +1091,10 @@ function UnpricedBlock({
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <View style={styles.row}>
               <Text style={[styles.rowLabel, { color: colors.label }]}>
-                {TARGET_REACHED_PRICE_LABEL}
+                {targetReachedPriceLabel(locale)}
               </Text>
               <Text style={[styles.rowValue, { color: colors.orange }]}>
-                {minPriceLabel(analysis.targetPrice)}
+                {minPriceLabel(locale, analysis.targetPrice)}
               </Text>
             </View>
           </>
@@ -1069,7 +1102,7 @@ function UnpricedBlock({
       </View>
 
       <Text style={[styles.knownNote, { color: colors.secondaryLabel }]}>
-        {knownWithoutPriceNote({
+        {knownWithoutPriceNote(locale, {
           purchasePrice: record.purchasePrice,
           postage: record.postage,
           packing: record.envelopeCost + record.othersCost,

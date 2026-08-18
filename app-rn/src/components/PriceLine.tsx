@@ -20,12 +20,13 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { formatYenSymbol } from '@/logic/format';
 import {
-  PREVIOUS_PRICE_LABEL,
-  PRICE_LINE_RAISE_HINT,
+  previousPriceLabel,
+  priceLineRaiseHint,
   priceGapLabel,
   priceTickLabel,
 } from '@/logic/labels';
 import { priceLineTicks, type PricingAnalysis, type PriceTickKey } from '@/logic/pricing';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 線の太さ。金額の文字より細く、下地の帯より太い */
@@ -56,6 +57,10 @@ type Props = {
 };
 
 export function PriceLine({ analysis, previousPrices = [] }: Props) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const ticks = priceLineTicks(analysis);
   // 説明の列を点の真下へ置くために測る。0（初回描画）のときは全部左端に重なるが、
@@ -96,7 +101,7 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
           <Text
             style={[styles.gapLabel, { color: colors.red, left: `${gapCenter * 100}%` }]}
             numberOfLines={1}>
-            {priceGapLabel(analysis.breakEvenShortfall)}
+            {priceGapLabel(locale, analysis.breakEvenShortfall)}
           </Text>
         </View>
       )}
@@ -132,7 +137,7 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
         {previousPrices.map((price) => (
           <View
             key={price}
-            accessibilityLabel={`${PREVIOUS_PRICE_LABEL} ${formatYenSymbol(price)}`}
+            accessibilityLabel={`${previousPriceLabel(locale)} ${formatYenSymbol(price)}`}
             style={[
               styles.ghost,
               {
@@ -166,7 +171,7 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
               {formatYenSymbol(tick.value)}
             </Text>
             <Text style={[styles.labelCaption, { color: colors.secondaryLabel }]} numberOfLines={1}>
-              {priceTickLabel(tick.key)}
+              {priceTickLabel(locale, tick.key)}
             </Text>
           </View>
         ))}
@@ -177,7 +182,7 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
           **金額の列とは別の行**に置く ── 目盛りが 3 点あるとその列と場所を取り合う */}
       {analysis.state === 'loss' && (
         <Text style={[styles.hint, { color: colors.secondaryLabel }]}>
-          {PRICE_LINE_RAISE_HINT}
+          {priceLineRaiseHint(locale)}
         </Text>
       )}
     </View>
