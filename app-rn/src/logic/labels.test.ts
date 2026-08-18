@@ -1114,13 +1114,13 @@ describe('データタブのセグメント（収支 / タグ）の語', () => {
 
 describe('achievementToastText（実績獲得トースト）', () => {
   it('1個だけなら実績名をそのまま出す', () => {
-    expect(achievementToastText(['first_sale'])).toBe(
+    expect(achievementToastText('ja', ['first_sale'])).toBe(
       '実績「初めての一歩」を達成しました',
     );
   });
 
   it('複数なら件数でまとめる', () => {
-    expect(achievementToastText(['first_sale', 'first_profit'])).toBe(
+    expect(achievementToastText('ja', ['first_sale', 'first_profit'])).toBe(
       '実績を2件達成しました',
     );
   });

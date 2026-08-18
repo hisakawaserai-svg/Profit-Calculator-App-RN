@@ -19,6 +19,7 @@ import { AchievementDetailModal } from '@/components/AchievementDetailModal';
 import { CATEGORY_ICONS, categoryColor, TIER_COLORS } from '@/components/AchievementsSection';
 import { achievementBadgeTier, achievementCategory, type Achievement } from '@/logic/achievements';
 import { achievementName } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 const BADGE_SIZE = 20;
@@ -32,6 +33,9 @@ type Props = {
 };
 
 export function StrikeAchievementBadge({ achievement }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [visible, setVisible] = useState(false);
 
@@ -46,7 +50,7 @@ export function StrikeAchievementBadge({ achievement }: Props) {
         onPress={() => setVisible(true)}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel={achievementName(achievement.id)}
+        accessibilityLabel={achievementName(locale, achievement.id)}
         style={[styles.badge, { backgroundColor: tint, borderColor: tierColor }]}
       >
         <Ionicons name={CATEGORY_ICONS[category]} size={12} color="#FFFFFF" />

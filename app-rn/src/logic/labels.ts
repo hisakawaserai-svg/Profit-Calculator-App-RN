@@ -49,6 +49,7 @@ import type { CalcRowSign, CalcSubmitBlockedReason } from './calcMemo';
 import {
   formatApproxYenSymbol,
   formatElapsedDays,
+  formatMonthCell,
   formatMonthKeyTitle,
   formatShortDate,
   formatSignedYenSymbol,
@@ -1259,11 +1260,16 @@ export function dataModeAchievementsLabel(locale: Locale): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 「次の実績」カードの見出し */
-export const NEXT_ACHIEVEMENT_LABEL = '次の実績';
+export function nextAchievementLabel(locale: Locale): string {
+  return t('achievement.next', locale);
+}
 /** 全実績を達成したときのコンプリート表示（構成の「判断はお任せ」を受けた決定） */
-export const ACHIEVEMENTS_COMPLETE_TITLE = 'すべての実績を達成しました';
-export const ACHIEVEMENTS_COMPLETE_MESSAGE =
-  'お疲れさまです。新しい実績が増えたらまたお知らせします。';
+export function achievementsCompleteTitle(locale: Locale): string {
+  return t('achievement.completeTitle', locale);
+}
+export function achievementsCompleteMessage(locale: Locale): string {
+  return t('achievement.completeMessage', locale);
+}
 
 /**
  * 実績ごとの名前・目標の単位（獲得済みバッジ・次の実績カードの両方で使う）。
@@ -1272,127 +1278,49 @@ export const ACHIEVEMENTS_COMPLETE_MESSAGE =
  * 段階が増えても命名規則を覚え直さずに済む（利益ハンターだけ、💰累計利益★5=¥1,000,000の
  * 元からの固有名を残した特別扱い）。
  */
-const ACHIEVEMENT_NAMES: Record<AchievementId, string> = {
-  // 特殊実績: はじめる系
-  first_sale: '初めての一歩',
-  sale_debut: '販売デビュー',
-  first_profit: '初利益',
-  career_profit_1000: '累計¥1,000',
-  record_count_10: '記録を続けよう',
-  // 特殊実績: タグ系
-  tag_debut: 'タグデビュー',
-  tag_synergy: 'タグの総合力',
-  tag_mastery: 'タグの達人',
-  // 特殊実績: その他
-  long_battle: '長期戦突破',
-  instant_sale: '即売れ',
-  goal_kept: '有言実行',
-  goal_master: '目標マスター',
-  all_rounder: 'なんでも屋',
-  // 成長系: ⚡一撃
-  profit_1000: '一撃¥1,000',
-  profit_5000: '一撃¥5,000',
-  profit_10000: '一撃¥10,000',
-  profit_30000: '一撃¥30,000',
-  profit_50000: '一撃¥50,000',
-  // 成長系: 💰累計利益
-  career_profit_10000: '累計利益¥10,000',
-  career_profit_50000: '累計利益¥50,000',
-  career_profit_100000: '累計利益¥100,000',
-  career_profit_500000: '累計利益¥500,000',
-  career_profit_1000000: '利益ハンター',
-  // 成長系: 📦販売件数
-  sold_1: '1個売れました',
-  sold_10: '10個販売',
-  sold_50: '50個販売',
-  sold_250: '250個販売',
-  sold_500: '500個販売',
-  // 成長系: 🎯得意分野
-  tag_specialty_1000: '得意分野¥1,000',
-  tag_specialty_5000: '得意分野¥5,000',
-  tag_specialty_10000: '得意分野¥10,000',
-  tag_specialty_50000: '得意分野¥50,000',
-  tag_specialty_100000: '得意分野¥100,000',
-  // 成長系: 🔍売れ筋
-  tag_bestseller_3: '売れ筋3件',
-  tag_bestseller_10: '売れ筋10件',
-  tag_bestseller_25: '売れ筋25件',
-  tag_bestseller_50: '売れ筋50件',
-  tag_bestseller_100: '売れ筋100件',
-};
-
-export function achievementName(id: AchievementId): string {
-  return ACHIEVEMENT_NAMES[id];
+/**
+ * 実績の名前は辞書から引く（`achievement.name.<id>`）。
+ * **Record<id, 文字列> をここに持たない** ── import 時に固まって言語の切り替えに追従しない。
+ */
+export function achievementName(locale: Locale, id: AchievementId): string {
+  return t(`achievement.name.${id}` as TranslationKey, locale);
 }
+
 
 /**
  * 記録保存時の実績獲得トースト（text1）。
  * 1個だけ新規獲得なら実績名をそのまま、複数なら件数でまとめる。
  */
-export function achievementToastText(newlyCompletedIds: readonly AchievementId[]): string {
+export function achievementToastText(
+  locale: Locale,
+  newlyCompletedIds: readonly AchievementId[],
+): string {
   if (newlyCompletedIds.length === 1) {
-    return `実績「${achievementName(newlyCompletedIds[0])}」を達成しました`;
+    return t('achievement.toastOne', locale, { name: achievementName(locale, newlyCompletedIds[0]) });
   }
-  return `実績を${newlyCompletedIds.length}件達成しました`;
+  return t('achievement.toastMany', locale, { count: newlyCompletedIds.length });
 }
 
 /** 実績ごとの説明文（全画面表示。獲得した実績の一覧はこれを出さない） */
-const ACHIEVEMENT_DESCRIPTIONS: Record<AchievementId, string> = {
-  first_sale: '初めて商品が売れた',
-  sale_debut: '初めて商品を出品した',
-  first_profit: '初めて純利益がプラスの記録で売れた',
-  career_profit_1000: '累計純利益¥1,000に到達',
-  record_count_10: '記録を10件作った',
-  tag_debut: '初めてタグを付けた記録を作った',
-  tag_synergy: '3つの異なるタグで、それぞれ累計純利益¥5,000以上を達成',
-  tag_mastery: '3つの異なるタグで、それぞれ累計純利益¥10,000以上を達成',
-  long_battle: `出品から${LONG_BATTLE_DAYS_THRESHOLD}日以上かけて売れた商品がある`,
-  instant_sale: '出品したその日のうちに売れた商品がある',
-  goal_kept: '目標利益を達成した記録がある',
-  goal_master: '目標利益を達成した記録が10件以上',
-  all_rounder: '仕入品・不用品の両方で純利益がプラスの記録がある',
-  profit_1000: '1件の商品で純利益¥1,000以上を達成',
-  profit_5000: '1件の商品で純利益¥5,000以上を達成',
-  profit_10000: '1件の商品で純利益¥10,000以上を達成',
-  profit_30000: '1件の商品で純利益¥30,000以上を達成',
-  profit_50000: '1件の商品で純利益¥50,000以上を達成',
-  career_profit_10000: '累計純利益¥10,000に到達',
-  career_profit_50000: '累計純利益¥50,000に到達',
-  career_profit_100000: '累計純利益¥100,000に到達',
-  career_profit_500000: '累計純利益¥500,000に到達',
-  career_profit_1000000: '累計純利益¥1,000,000に到達',
-  sold_1: '累計1件を販売',
-  sold_10: '累計10件を販売',
-  sold_50: '累計50件を販売',
-  sold_250: '累計250件を販売',
-  sold_500: '累計500件を販売',
-  tag_specialty_1000: '1つのタグで累計純利益¥1,000以上',
-  tag_specialty_5000: '1つのタグで累計純利益¥5,000以上',
-  tag_specialty_10000: '1つのタグで累計純利益¥10,000以上',
-  tag_specialty_50000: '1つのタグで累計純利益¥50,000以上',
-  tag_specialty_100000: '1つのタグで累計純利益¥100,000以上',
-  tag_bestseller_3: '1つのタグで売却済み記録が3件以上',
-  tag_bestseller_10: '1つのタグで売却済み記録が10件以上',
-  tag_bestseller_25: '1つのタグで売却済み記録が25件以上',
-  tag_bestseller_50: '1つのタグで売却済み記録が50件以上',
-  tag_bestseller_100: '1つのタグで売却済み記録が100件以上',
-};
-
-export function achievementDescription(id: AchievementId): string {
-  return ACHIEVEMENT_DESCRIPTIONS[id];
+export function achievementDescription(locale: Locale, id: AchievementId): string {
+  // long_battle だけ日数を差し込む（閾値は achievements.ts が持つ）
+  return t(`achievement.description.${id}` as TranslationKey, locale, {
+    days: LONG_BATTLE_DAYS_THRESHOLD,
+  });
 }
 
-/** 段位（ブロンズ〜レジェンド）の表示語 */
-const BADGE_TIER_NAMES: Record<AchievementBadgeTier, string> = {
-  bronze: 'ブロンズ',
-  silver: 'シルバー',
-  gold: 'ゴールド',
-  platinum: 'プラチナ',
-  legend: 'レジェンド',
-};
 
-export function achievementBadgeTierName(tier: AchievementBadgeTier): string {
-  return BADGE_TIER_NAMES[tier];
+/** 段位（ブロンズ〜レジェンド）の表示語 */
+const BADGE_TIER_KEYS = {
+  bronze: 'achievement.tierBronze',
+  silver: 'achievement.tierSilver',
+  gold: 'achievement.tierGold',
+  platinum: 'achievement.tierPlatinum',
+  legend: 'achievement.tierLegend',
+} as const satisfies Record<AchievementBadgeTier, TranslationKey>;
+
+export function achievementBadgeTierName(locale: Locale, tier: AchievementBadgeTier): string {
+  return t(BADGE_TIER_KEYS[tier], locale);
 }
 
 /** 全画面表示「達成した記録」行の純利益（符号つき。緑／赤の色分けは呼び出し側） */
@@ -1428,47 +1356,63 @@ function isProfitAchievement(id: AchievementId): boolean {
 }
 
 /** 「次の実績」カードのリング中央「32 / 50件」（利益系の実績は円で出す） */
-export function nextAchievementProgressText(next: NextAchievement): string {
-  const unit = isProfitAchievement(next.id) ? '円' : '件';
-  return `${groupDigits(next.current)} / ${groupDigits(next.target)}${unit}`;
+export function nextAchievementProgressText(locale: Locale, next: NextAchievement): string {
+  return t(
+    isProfitAchievement(next.id) ? 'achievement.progressYen' : 'achievement.progressCount2',
+    locale,
+    { current: groupDigits(next.current), target: groupDigits(next.target) },
+  );
 }
 
 /** 「あと18件で解除」（構成のモック文言どおり。利益系は「あと¥◯◯」） */
-export function remainingToUnlockText(next: NextAchievement): string {
+export function remainingToUnlockText(locale: Locale, next: NextAchievement): string {
   const remaining = Math.max(0, next.target - next.current);
   return isProfitAchievement(next.id)
-    ? `あと${formatYenSymbol(remaining)}で解除`
-    : `あと${groupDigits(remaining)}件で解除`;
+    ? t('achievement.remainingYen', locale, { amount: formatYenSymbol(remaining) })
+    : t('achievement.remainingCount', locale, { count: groupDigits(remaining) });
 }
 
 /**
  * 「次点」の 1 行（構成の「次点の実績名も小さく添える」）。次の実績の次に進捗率が高い
  * 未達成の実績を、その実績の達成条件つきで小さく示す。無ければ出さない（呼び出し側で判定）。
  */
-export function nextAchievementRunnerUpText(runnerUp: Achievement): string {
+export function nextAchievementRunnerUpText(locale: Locale, runnerUp: Achievement): string {
   const remaining = Math.max(0, runnerUp.target - runnerUp.current);
-  const remainingText = isProfitAchievement(runnerUp.id)
-    ? formatYenSymbol(remaining)
-    : `${groupDigits(remaining)}件`;
-  return `次点：${achievementName(runnerUp.id)}達成（あと${remainingText}）`;
+  const name = achievementName(locale, runnerUp.id);
+  return isProfitAchievement(runnerUp.id)
+    ? t('achievement.runnerUpYen', locale, { name, amount: formatYenSymbol(remaining) })
+    : t('achievement.runnerUpCount', locale, { name, count: groupDigits(remaining) });
 }
 
-export const YOUR_RECORDS_LABEL = 'あなたの記録';
-export const CAREER_NET_PROFIT_LABEL = '累計純利益';
-export const CAREER_SALES_LABEL = '累計売上';
+export function yourRecordsLabel(locale: Locale): string {
+  return t('personalBest.yourRecords', locale);
+}
+export function careerNetProfitLabel(locale: Locale): string {
+  return t('personalBest.careerNetProfit', locale);
+}
+export function careerSalesLabel(locale: Locale): string {
+  return t('personalBest.careerSales', locale);
+}
 
-export const EARNED_ACHIEVEMENTS_LABEL = '獲得した実績';
+export function earnedAchievementsLabel(locale: Locale): string {
+  return t('achievement.earned', locale);
+}
 /** 「獲得した実績」見出し横の「すべて見る ›」（実績一覧画面への導線） */
-export const VIEW_ALL_ACHIEVEMENTS_LABEL = 'すべて見る';
+export function viewAllAchievementsLabel(locale: Locale): string {
+  return t('achievement.viewAll', locale);
+}
 /** 実績一覧画面（AchievementListScreen）のヘッダタイトル */
-export const ACHIEVEMENT_LIST_TITLE = '実績一覧';
+export function achievementListTitle(locale: Locale): string {
+  return t('achievement.listTitle', locale);
+}
 
 /** 獲得した実績カード見出し右の「4/8」 */
 export function achievementProgressCountText(
+  locale: Locale,
   earnedCount: number,
   totalCount: number,
 ): string {
-  return `${earnedCount}/${totalCount}`;
+  return t('achievement.progressCount', locale, { earned: earnedCount, total: totalCount });
 }
 
 /**
@@ -1476,105 +1420,133 @@ export function achievementProgressCountText(
  * 「獲得した実績」カードの未解除チップ列・実績一覧画面（AchievementListScreen）の
  * 未解除グリッドの両方で使う（同じ言い回しを 1 か所にまとめる）。
  */
-export function lockedAchievementsSectionTitle(count: number): string {
-  return `未解除（${count}）`;
+export function lockedAchievementsSectionTitle(locale: Locale, count: number): string {
+  return t('achievement.lockedSectionTitle', locale, { count });
 }
 
 /** 実績一覧画面（AchievementListScreen）のジャンル別カードの見出し（AchievementCategory → 表示名） */
-const ACHIEVEMENT_GENRE_TITLES: Record<AchievementCategory, string> = {
-  strike: '⚡一撃',
-  career_profit: '💰累計利益',
-  sold_count: '📦販売件数',
-  tag_specialty: '🎯得意分野',
-  tag_bestseller: '🔍売れ筋',
-  start: '🌱はじめる系',
-  tag: '🏷️タグ系',
-  sales_technique: 'その他',
-};
+const ACHIEVEMENT_GENRE_KEYS = {
+  strike: 'achievement.genreStrike',
+  career_profit: 'achievement.genreCareerProfit',
+  sold_count: 'achievement.genreSoldCount',
+  tag_specialty: 'achievement.genreTagSpecialty',
+  tag_bestseller: 'achievement.genreTagBestseller',
+  start: 'achievement.genreStart',
+  tag: 'achievement.genreTag',
+  sales_technique: 'achievement.genreOther',
+} as const satisfies Record<AchievementCategory, TranslationKey>;
 
-export function achievementGenreTitle(category: AchievementCategory): string {
-  return ACHIEVEMENT_GENRE_TITLES[category];
+export function achievementGenreTitle(locale: Locale, category: AchievementCategory): string {
+  return t(ACHIEVEMENT_GENRE_KEYS[category], locale);
 }
 
 /** 全画面表示（実績タップ時）の「達成した記録」行の見出し */
-export const ACHIEVEMENT_COMPLETED_RECORD_LABEL = '達成した記録';
+export function achievementCompletedRecordLabel(locale: Locale): string {
+  return t('achievement.completedRecord', locale);
+}
 
 /**
  * 全画面表示「達成した記録」セクションの見出し。1 件なら件数を付けない（従来どおり）。
  * 累計利益・販売件数などの積み重ね系は複数件になるので「達成した記録（12件）」と件数を添える。
  */
-export function achievementCompletedRecordsSectionTitle(count: number): string {
+export function achievementCompletedRecordsSectionTitle(locale: Locale, count: number): string {
   return count <= 1
-    ? ACHIEVEMENT_COMPLETED_RECORD_LABEL
-    : `${ACHIEVEMENT_COMPLETED_RECORD_LABEL}（${count}件）`;
+    ? t('achievement.completedRecord', locale)
+    : t('achievement.completedRecordWithCount', locale, { count });
 }
 
 /** 「達成した記録」アコーディオンの「もっと見る」（構成：最初の3件だけ表示し、残りは開いて見る） */
-export function achievementShowMoreRecordsText(hiddenCount: number): string {
-  return `すべて見る（あと${groupDigits(hiddenCount)}件）`;
+export function achievementShowMoreRecordsText(locale: Locale, hiddenCount: number): string {
+  return t('achievement.showMoreRecords', locale, { count: groupDigits(hiddenCount) });
 }
 
 /** 「達成した記録」アコーディオンを閉じるボタン */
-export const ACHIEVEMENT_COLLAPSE_RECORDS_LABEL = '閉じる';
+export function achievementCollapseRecordsLabel(locale: Locale): string {
+  return t('achievement.collapseRecords', locale);
+}
 
 /** 全画面表示のページ番号「3 / 4」 */
 export function achievementPageIndicatorText(
+  locale: Locale,
   index: number,
   total: number,
 ): string {
-  return `${index + 1} / ${total}`;
+  return t('achievement.pageIndicator', locale, { index: index + 1, total });
 }
 
 /** 全画面表示の左右の矢印。スワイプ以外にも移動できることを示す（読み上げ用） */
-export const ACHIEVEMENT_DETAIL_PREVIOUS_LABEL = '前の実績を見る';
-export const ACHIEVEMENT_DETAIL_NEXT_LABEL = '次の実績を見る';
+export function achievementDetailPreviousLabel(locale: Locale): string {
+  return t('achievement.detailPrevious', locale);
+}
+export function achievementDetailNextLabel(locale: Locale): string {
+  return t('achievement.detailNext', locale);
+}
 
-export const PERSONAL_BESTS_LABEL = '自己ベスト';
-export const BEST_NET_PROFIT_LABEL = '最高純利益';
-export const BEST_SALES_PRICE_LABEL = '最高販売価格';
-export const FASTEST_SALE_LABEL = '最速販売';
-export const BEST_MONTH_BY_COUNT_LABEL = '最多販売月';
-export const BEST_MONTH_BY_PROFIT_LABEL = '最高月間利益';
-export const BEST_TAG_LABEL = '最多販売タグ';
+export function personalBestsLabel(locale: Locale): string {
+  return t('personalBest.sectionTitle', locale);
+}
+export function bestNetProfitLabel(locale: Locale): string {
+  return t('personalBest.bestNetProfit', locale);
+}
+export function bestSalesPriceLabel(locale: Locale): string {
+  return t('personalBest.bestSalesPrice', locale);
+}
+export function fastestSaleLabel(locale: Locale): string {
+  return t('personalBest.fastestSale', locale);
+}
+export function bestMonthByCountLabel(locale: Locale): string {
+  return t('personalBest.bestMonthByCount', locale);
+}
+export function bestMonthByProfitLabel(locale: Locale): string {
+  return t('personalBest.bestMonthByProfit', locale);
+}
+export function bestTagLabel(locale: Locale): string {
+  return t('personalBest.bestTag', locale);
+}
 
 /**
  * 自己ベストのタイルに値が無い（0 件）ときのプレースホルダ。
  * t('detail.amountPlaceholder', 'ja') と同じ表記だが、定義がこの位置より後ろにあるため文字列を直書きする
  * （TDZ を避けるための重複。値は 1 か所で変えられるよう t('detail.amountPlaceholder', 'ja') 側が真実）。
  */
-const PERSONAL_BEST_EMPTY_VALUE = 'ーー';
+function personalBestEmptyValue(locale: Locale): string {
+  return t('personalBest.emptyValue', locale);
+}
 
 /** 最速販売のタイルの値「2日」 */
-export function fastestSaleValueText(bests: PersonalBests): string {
+export function fastestSaleValueText(locale: Locale, bests: PersonalBests): string {
   return bests.fastestSale == null
-    ? PERSONAL_BEST_EMPTY_VALUE
-    : `${bests.fastestSale.days}日`;
+    ? personalBestEmptyValue(locale)
+    : t('personalBest.fastestSaleValue', locale, { days: bests.fastestSale.days });
 }
 
 /** 最多販売月のタイルの値「8月・9件」 */
-export function bestMonthByCountValueText(bests: PersonalBests): string {
-  if (bests.bestMonthByCount == null) return PERSONAL_BEST_EMPTY_VALUE;
+export function bestMonthByCountValueText(locale: Locale, bests: PersonalBests): string {
+  if (bests.bestMonthByCount == null) return personalBestEmptyValue(locale);
   const [, month] = bests.bestMonthByCount.monthKey.split('-').map(Number);
-  return `${month}月・${bests.bestMonthByCount.count}件`;
+  return t('personalBest.bestMonthByCountValue', locale, {
+    month: formatMonthCell(locale, month),
+    count: bests.bestMonthByCount.count,
+  });
 }
 
 /** 最高月間利益のタイルのサブ見出し「2026年8月」 */
-export function bestMonthProfitDateText(bests: PersonalBests): string | null {
+export function bestMonthProfitDateText(locale: Locale, bests: PersonalBests): string | null {
   return bests.bestMonthByProfit == null
     ? null
-    : formatMonthKeyTitle('ja', bests.bestMonthByProfit.monthKey);
+    : formatMonthKeyTitle(locale, bests.bestMonthByProfit.monthKey);
 }
 
 /**
  * 最多販売タグのタイルの値「未分類・7件」「全32件中」。タグ名は呼び出し側（tags 一覧を
  * 持つ画面）が解決する ── logic 層は tagId しか知らないため（DataScreen の joinTagRanking と同じ分担）。
  */
-export function bestTagValueText(tagName: string, count: number): string {
-  return `${tagName}・${count}件`;
+export function bestTagValueText(locale: Locale, tagName: string, count: number): string {
+  return t('personalBest.bestTagValue', locale, { tag: tagName, count });
 }
 
-export function bestTagOfTotalText(totalCount: number): string {
-  return `全${totalCount}件中`;
+export function bestTagOfTotalText(locale: Locale, totalCount: number): string {
+  return t('personalBest.bestTagOfTotal', locale, { count: totalCount });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

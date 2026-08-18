@@ -91,7 +91,7 @@ describe('実績の図（AchievementKindsFigure）', () => {
   // 同じ段位名が 2 度出ると、段位の列が段の区別になっていないことになる
   it('段位名は 5 つとも違う', () => {
     const names = ACHIEVEMENT_LADDER_IDS.map((id) =>
-      achievementBadgeTierName(achievementBadgeTier(id)),
+      achievementBadgeTierName('ja', achievementBadgeTier(id)),
     );
     expect(new Set(names).size).toBe(names.length);
   });
@@ -111,7 +111,7 @@ describe('実績の図（AchievementKindsFigure）', () => {
   // 図は単発の実績にも★と段位名を出す（実物の実績詳細と同じ）。段位が引けないと
   // その行だけ★の無い行になり、「違うのは段を登るかどうかだけ」が読めなくなる
   it('1 回だけ付く例にも段位がある', () => {
-    expect(achievementBadgeTierName(achievementBadgeTier(ACHIEVEMENT_ONCE_ID))).not.toBe('');
+    expect(achievementBadgeTierName('ja', achievementBadgeTier(ACHIEVEMENT_ONCE_ID))).not.toBe('');
   });
 });
 

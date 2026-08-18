@@ -67,9 +67,9 @@ import {
 } from '@/logic/achievements';
 import { formatRecordDate } from '@/logic/format';
 import {
-  ACHIEVEMENT_COLLAPSE_RECORDS_LABEL,
-  ACHIEVEMENT_DETAIL_NEXT_LABEL,
-  ACHIEVEMENT_DETAIL_PREVIOUS_LABEL,
+  achievementCollapseRecordsLabel,
+  achievementDetailNextLabel,
+  achievementDetailPreviousLabel,
   achievementBadgeTierName,
   achievementCompletedRecordProfitText,
   achievementCompletedRecordsSectionTitle,
@@ -77,10 +77,11 @@ import {
   achievementName,
   achievementPageIndicatorText,
   achievementShowMoreRecordsText,
-  CLOSE_LABEL,
+  closeLabel,
   nextAchievementProgressText,
   remainingToUnlockText,
 } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -153,6 +154,9 @@ export function AchievementDetailModal({
   onClose,
   resolveTag,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -254,7 +258,7 @@ export function AchievementDetailModal({
             onPress={onClose}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel={CLOSE_LABEL}
+            accessibilityLabel={closeLabel(locale)}
           >
             <Ionicons name="close" size={24} color={colors.label} />
           </Pressable>
@@ -285,7 +289,7 @@ export function AchievementDetailModal({
           <Text
             style={[styles.pageIndicator, { color: colors.secondaryLabel }]}
           >
-            {achievementPageIndicatorText(index, achievements.length)}
+            {achievementPageIndicatorText(locale, index, achievements.length)}
           </Text>
         </View>
 
@@ -330,7 +334,7 @@ export function AchievementDetailModal({
             onPress={() => goToIndex(index - 1)}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel={ACHIEVEMENT_DETAIL_PREVIOUS_LABEL}
+            accessibilityLabel={achievementDetailPreviousLabel(locale)}
             style={({ pressed }) => [
               styles.navArrow,
               styles.navArrowLeft,
@@ -348,7 +352,7 @@ export function AchievementDetailModal({
             onPress={() => goToIndex(index + 1)}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel={ACHIEVEMENT_DETAIL_NEXT_LABEL}
+            accessibilityLabel={achievementDetailNextLabel(locale)}
             style={({ pressed }) => [
               styles.navArrow,
               styles.navArrowRight,
@@ -438,6 +442,9 @@ export function AchievementPageContent({
   onPressRecord: (recordId: string) => void;
   resolveTag: TagLookup;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const category = achievementCategory(achievement.id);
   const difficulty = achievementDifficulty(achievement.id);
   const tier = achievementBadgeTier(achievement.id);
@@ -498,24 +505,24 @@ export function AchievementPageContent({
 
         <View style={styles.textBlock}>
           <Text style={[styles.name, { color: colors.label }]}>
-            {achievementName(achievement.id)}
+            {achievementName(locale, achievement.id)}
           </Text>
           <Text style={[styles.description, { color: colors.secondaryLabel }]}>
-            {achievementDescription(achievement.id)}
+            {achievementDescription(locale, achievement.id)}
           </Text>
 
           <View style={styles.tierRow}>
             <StarRating filled={difficulty} tint={tint} colors={colors} />
             <View style={[styles.tierChip, { borderColor: tierChipColor }]}>
               <Text style={[styles.tierChipText, { color: tierChipColor }]}>
-                {achievementBadgeTierName(tier)}
+                {achievementBadgeTierName(locale, tier)}
               </Text>
             </View>
           </View>
 
           {achievement.completed && achievement.completedAt != null && (
             <Text style={[styles.dateText, { color: colors.secondaryLabel }]}>
-              {formatRecordDate('ja', achievement.completedAt)}
+              {formatRecordDate(locale, achievement.completedAt)}
             </Text>
           )}
         </View>
@@ -535,7 +542,7 @@ export function AchievementPageContent({
           <ProgressBar progress={progress} tint={tint} colors={colors} />
           <View style={styles.progressTextRow}>
             <Text style={[styles.progressValueText, { color: colors.label }]}>
-              {nextAchievementProgressText(progressLike)}
+              {nextAchievementProgressText(locale, progressLike)}
             </Text>
             <Text
               style={[
@@ -543,7 +550,7 @@ export function AchievementPageContent({
                 { color: colors.secondaryLabel },
               ]}
             >
-              {remainingToUnlockText(progressLike)}
+              {remainingToUnlockText(locale, progressLike)}
             </Text>
           </View>
         </View>
@@ -611,6 +618,9 @@ function CompletedRecordsSection({
   onPressRecord: (recordId: string) => void;
   resolveTag: TagLookup;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const [expanded, setExpanded] = useState(false);
   const visibleRecords = expanded
     ? records
@@ -623,7 +633,7 @@ function CompletedRecordsSection({
       <Text
         style={[styles.recordsSectionLabel, { color: colors.secondaryLabel }]}
       >
-        {achievementCompletedRecordsSectionTitle(records.length)}
+        {achievementCompletedRecordsSectionTitle(locale, records.length)}
       </Text>
 
       {rows.map((row) =>
@@ -683,7 +693,7 @@ function CompletedRecordsSection({
           style={styles.showAllButton}
         >
           <Text style={[styles.showAllText, { color: colors.blue }]}>
-            {achievementShowMoreRecordsText(hiddenCount)}
+            {achievementShowMoreRecordsText(locale, hiddenCount)}
           </Text>
         </Pressable>
       )}
@@ -698,7 +708,7 @@ function CompletedRecordsSection({
           <Text
             style={[styles.showAllText, { color: colors.secondaryLabel }]}
           >
-            {ACHIEVEMENT_COLLAPSE_RECORDS_LABEL}
+            {achievementCollapseRecordsLabel(locale)}
           </Text>
         </Pressable>
       )}

@@ -1230,7 +1230,7 @@ function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean
 
   return (
     <View style={styles.achievementRow}>
-      <Text style={[styles.achievementName, { color: colors.label }]}>{achievementName(id)}</Text>
+      <Text style={[styles.achievementName, { color: colors.label }]}>{achievementName('ja', id)}</Text>
       <View style={styles.achievementTierLine}>
         <View style={styles.achievementStars}>
           {Array.from({ length: ACHIEVEMENT_STAR_COUNT }, (_, index) => (
@@ -1243,7 +1243,7 @@ function AchievementTierRow({ id, isDark }: { id: AchievementId; isDark: boolean
           ))}
         </View>
         <Text style={[styles.achievementTierName, { color: tierTextColor }]}>
-          {achievementBadgeTierName(tier)}
+          {achievementBadgeTierName('ja', tier)}
         </Text>
       </View>
     </View>

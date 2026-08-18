@@ -350,7 +350,7 @@ export function DataScreen() {
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
   // タグ名の解決を毎回作り直さない（自己ベストの最多販売タグが 1 回だけ引くコールバック）
-  const resolveTagName = useMemo(() => resolveTagNameFrom(tags), [tags]);
+  const resolveTagName = useMemo(() => resolveTagNameFrom(locale, tags), [tags, locale]);
   const resolveTag = useMemo(() => resolveTagFrom(tags), [tags]);
 
   /**

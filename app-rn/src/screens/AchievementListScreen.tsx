@@ -23,7 +23,8 @@ import { AchievementDetailModal } from '@/components/AchievementDetailModal';
 import { useAchievementsData } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
 import { groupAchievementsByGenre } from '@/logic/achievements';
-import { ACHIEVEMENT_LIST_TITLE, achievementGenreTitle } from '@/logic/labels';
+import { achievementListTitle, achievementGenreTitle } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /**
@@ -40,6 +41,9 @@ const AchievementPreviewCard: ComponentType | null = __DEV__
   : null;
 
 export function AchievementListScreen() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const { achievements } = useAchievementsData();
   // タグ系実績（🎯得意分野・🔍売れ筋・🏷️タグの総合力・タグの達人）の「達成した記録」に
@@ -66,7 +70,7 @@ export function AchievementListScreen() {
   }, [allInOrder]);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
 
-  const screenOptions = useMemo(() => ({ title: ACHIEVEMENT_LIST_TITLE }), []);
+  const screenOptions = useMemo(() => ({ title: achievementListTitle(locale) }), [locale]);
 
   return (
     <>
@@ -83,7 +87,7 @@ export function AchievementListScreen() {
                 style={[styles.card, { backgroundColor: colors.secondaryBackground }]}
               >
                 <Text style={[styles.cardTitle, { color: colors.label }]}>
-                  {achievementGenreTitle(section.category)}
+                  {achievementGenreTitle(locale, section.category)}
                 </Text>
                 <ScrollView
                   horizontal

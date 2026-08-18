@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import { tagRepository } from '@/db/client';
 import { achievementCategory, type Achievement, type AchievementId } from '@/logic/achievements';
 import { achievementToastText } from '@/logic/labels';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import {
@@ -41,6 +42,9 @@ function toastAchievementIcon(id: AchievementId): keyof typeof Ionicons.glyphMap
 }
 
 export function AchievementToastHost() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [pending, setPending] = useState<Pending | null>(null);
 
@@ -60,7 +64,7 @@ export function AchievementToastHost() {
       };
       Toast.show({
         type: ACHIEVEMENT_TOAST_TYPE,
-        text1: achievementToastText(list.map((a) => a.id)),
+        text1: achievementToastText(locale, list.map((a) => a.id)),
         props,
         onPress: () => {
           Toast.hide();
@@ -70,7 +74,7 @@ export function AchievementToastHost() {
       });
     });
     return () => registerAchievementToastListener(null);
-  }, [colors]);
+  }, [colors, locale]);
 
   return (
     <AchievementDetailModal

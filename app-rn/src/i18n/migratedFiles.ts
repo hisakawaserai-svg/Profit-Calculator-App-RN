@@ -51,4 +51,10 @@ export const MIGRATED_FILES = [
   'src/components/DateChips.tsx',
   'src/components/DateField.tsx',
   'src/components/PeriodPicker.tsx',
+  // 区切り 7: 実績
+  'src/screens/AchievementListScreen.tsx',
+  'src/components/AchievementDetailModal.tsx',
+  'src/components/AchievementToastHost.tsx',
+  'src/components/AchievementsSection.tsx',
+  'src/components/StrikeAchievementBadge.tsx',
 ] as const;

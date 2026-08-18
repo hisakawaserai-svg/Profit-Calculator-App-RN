@@ -40,26 +40,26 @@ import {
 } from '@/logic/achievements';
 import { formatShortDate, formatYenSymbol } from '@/logic/format';
 import {
-  ACHIEVEMENTS_COMPLETE_MESSAGE,
-  ACHIEVEMENTS_COMPLETE_TITLE,
-  BEST_MONTH_BY_COUNT_LABEL,
-  BEST_MONTH_BY_PROFIT_LABEL,
-  BEST_NET_PROFIT_LABEL,
-  BEST_SALES_PRICE_LABEL,
-  BEST_TAG_LABEL,
-  CAREER_NET_PROFIT_LABEL,
-  CAREER_SALES_LABEL,
-  DATA_MODE_ACHIEVEMENTS_LABEL,
-  DATA_MODE_PROFIT_LABEL,
-  DATA_MODE_TAG_LABEL,
-  EARNED_ACHIEVEMENTS_LABEL,
-  FASTEST_SALE_LABEL,
-  NEXT_ACHIEVEMENT_LABEL,
-  PERSONAL_BESTS_LABEL,
-  SOLD_COUNT_LABEL,
-  UNCLASSIFIED_TAG_LABEL,
-  VIEW_ALL_ACHIEVEMENTS_LABEL,
-  YOUR_RECORDS_LABEL,
+  achievementsCompleteMessage,
+  achievementsCompleteTitle,
+  bestMonthByCountLabel,
+  bestMonthByProfitLabel,
+  bestNetProfitLabel,
+  bestSalesPriceLabel,
+  bestTagLabel,
+  careerNetProfitLabel,
+  careerSalesLabel,
+  dataModeAchievementsLabel,
+  dataModeProfitLabel,
+  dataModeTagLabel,
+  earnedAchievementsLabel,
+  fastestSaleLabel,
+  nextAchievementLabel,
+  personalBestsLabel,
+  soldCountLabel,
+  unclassifiedTagLabel,
+  viewAllAchievementsLabel,
+  yourRecordsLabel,
   achievementName,
   achievementProgressCountText,
   bestMonthByCountValueText,
@@ -73,6 +73,7 @@ import {
   recordCountValue,
   remainingToUnlockText,
 } from '@/logic/labels';
+import { useLocale, type Locale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 実績一覧画面のルート（データタブの Stack に積む。app/(tabs)/data/achievements.tsx） */
@@ -318,6 +319,9 @@ export function AchievementsSection({
   dataMode,
   onChangeDataMode,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const router = useRouter();
   // 「獲得した実績」の並びは達成日の新しい順（直近が先頭）に統一する。
@@ -362,9 +366,9 @@ export function AchievementsSection({
         >
           <DataModeTabs
             options={[
-              DATA_MODE_PROFIT_LABEL,
-              DATA_MODE_TAG_LABEL,
-              DATA_MODE_ACHIEVEMENTS_LABEL,
+              dataModeProfitLabel(locale),
+              dataModeTagLabel(locale),
+              dataModeAchievementsLabel(locale),
             ]}
             selectedIndex={dataMode}
             onChange={onChangeDataMode}
@@ -374,7 +378,7 @@ export function AchievementsSection({
             <View style={styles.completeBlock}>
               <Ionicons name="trophy" size={32} color={colors.orange} />
               <Text style={[styles.completeTitle, { color: colors.label }]}>
-                {ACHIEVEMENTS_COMPLETE_TITLE}
+                {achievementsCompleteTitle(locale)}
               </Text>
               <Text
                 style={[
@@ -382,7 +386,7 @@ export function AchievementsSection({
                   { color: colors.secondaryLabel },
                 ]}
               >
-                {ACHIEVEMENTS_COMPLETE_MESSAGE}
+                {achievementsCompleteMessage(locale)}
               </Text>
             </View>
           ) : (
@@ -402,13 +406,13 @@ export function AchievementsSection({
                 <Text
                   style={[styles.nextLabel, { color: colors.secondaryLabel }]}
                 >
-                  {NEXT_ACHIEVEMENT_LABEL}
+                  {nextAchievementLabel(locale)}
                 </Text>
                 <Text style={[styles.nextName, { color: colors.label }]}>
-                  {achievementName(nextAchievement.id)}
+                  {achievementName(locale, nextAchievement.id)}
                 </Text>
                 <Text style={[styles.nextRemaining, { color: colors.orange }]}>
-                  {remainingToUnlockText(nextAchievement)}
+                  {remainingToUnlockText(locale, nextAchievement)}
                 </Text>
                 <Text
                   style={[
@@ -416,14 +420,14 @@ export function AchievementsSection({
                     { color: colors.secondaryLabel },
                   ]}
                 >
-                  {nextAchievementProgressText(nextAchievement)}
+                  {nextAchievementProgressText(locale, nextAchievement)}
                 </Text>
                 {runnerUp != null && (
                   <Text
                     style={[styles.runnerUp, { color: colors.secondaryLabel }]}
                     numberOfLines={1}
                   >
-                    {nextAchievementRunnerUpText(runnerUp)}
+                    {nextAchievementRunnerUpText(locale, runnerUp)}
                   </Text>
                 )}
               </View>
@@ -436,16 +440,16 @@ export function AchievementsSection({
           style={[styles.card, { backgroundColor: colors.secondaryBackground }]}
         >
           <Text style={[styles.cardTitle, { color: colors.label }]}>
-            {YOUR_RECORDS_LABEL}
+            {yourRecordsLabel(locale)}
           </Text>
           <View style={styles.totalsRow}>
             <TotalStat
-              label={SOLD_COUNT_LABEL}
-              value={recordCountValue('ja', totals.recordCount)}
+              label={soldCountLabel(locale)}
+              value={recordCountValue(locale, totals.recordCount)}
               colors={colors}
             />
             <TotalStat
-              label={CAREER_NET_PROFIT_LABEL}
+              label={careerNetProfitLabel(locale)}
               value={formatYenSymbol(totals.totalNetProfit)}
               valueColor={
                 totals.totalNetProfit >= 0 ? colors.green : colors.red
@@ -453,7 +457,7 @@ export function AchievementsSection({
               colors={colors}
             />
             <TotalStat
-              label={CAREER_SALES_LABEL}
+              label={careerSalesLabel(locale)}
               value={formatYenSymbol(totals.totalSales)}
               valueColor={colors.blue}
               colors={colors}
@@ -467,13 +471,13 @@ export function AchievementsSection({
         >
           <View style={styles.headerRow}>
             <Text style={[styles.cardTitle, { color: colors.label }]}>
-              {EARNED_ACHIEVEMENTS_LABEL}
+              {earnedAchievementsLabel(locale)}
             </Text>
             <View style={styles.headerRight}>
               <Text
                 style={[styles.headerCount, { color: colors.secondaryLabel }]}
               >
-                {achievementProgressCountText(
+                {achievementProgressCountText(locale, 
                   earned.length,
                   achievements.length,
                 )}
@@ -484,7 +488,7 @@ export function AchievementsSection({
                 accessibilityRole="button"
               >
                 <Text style={[styles.viewAllText, { color: colors.blue }]}>
-                  {VIEW_ALL_ACHIEVEMENTS_LABEL} ›
+                  {viewAllAchievementsLabel(locale)} ›
                 </Text>
               </Pressable>
             </View>
@@ -493,8 +497,8 @@ export function AchievementsSection({
           {earned.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.secondaryLabel }]}>
               {nextAchievement == null
-                ? ACHIEVEMENTS_COMPLETE_TITLE
-                : `${achievementName(nextAchievement.id)}${remainingToUnlockText(nextAchievement)}`}
+                ? achievementsCompleteTitle(locale)
+                : `${achievementName(locale, nextAchievement.id)}${remainingToUnlockText(locale, nextAchievement)}`}
             </Text>
           ) : (
             <ScrollView
@@ -520,7 +524,7 @@ export function AchievementsSection({
               <Text
                 style={[styles.lockedTitle, { color: colors.secondaryLabel }]}
               >
-                {lockedAchievementsSectionTitle(locked.length)}
+                {lockedAchievementsSectionTitle(locale, locked.length)}
               </Text>
               <ScrollView
                 horizontal
@@ -549,11 +553,11 @@ export function AchievementsSection({
           style={[styles.card, { backgroundColor: colors.secondaryBackground }]}
         >
           <Text style={[styles.cardTitle, { color: colors.label }]}>
-            {PERSONAL_BESTS_LABEL}
+            {personalBestsLabel(locale)}
           </Text>
           <View style={styles.bestGrid}>
             <BestTile
-              label={BEST_NET_PROFIT_LABEL}
+              label={bestNetProfitLabel(locale)}
               value={
                 personalBests.bestNetProfit == null
                   ? undefined
@@ -563,12 +567,12 @@ export function AchievementsSection({
               sub={
                 personalBests.bestNetProfit == null
                   ? undefined
-                  : formatShortDate('ja', personalBests.bestNetProfit.date)
+                  : formatShortDate(locale, personalBests.bestNetProfit.date)
               }
               colors={colors}
             />
             <BestTile
-              label={BEST_SALES_PRICE_LABEL}
+              label={bestSalesPriceLabel(locale)}
               value={
                 personalBests.bestSalesPrice == null
                   ? undefined
@@ -578,34 +582,34 @@ export function AchievementsSection({
               sub={
                 personalBests.bestSalesPrice == null
                   ? undefined
-                  : formatShortDate('ja', personalBests.bestSalesPrice.date)
+                  : formatShortDate(locale, personalBests.bestSalesPrice.date)
               }
               colors={colors}
             />
             <BestTile
-              label={FASTEST_SALE_LABEL}
-              value={fastestSaleValueText(personalBests)}
+              label={fastestSaleLabel(locale)}
+              value={fastestSaleValueText(locale, personalBests)}
               sub={
                 personalBests.fastestSale == null
                   ? undefined
-                  : formatShortDate('ja', personalBests.fastestSale.date)
+                  : formatShortDate(locale, personalBests.fastestSale.date)
               }
               colors={colors}
             />
             <BestTile
-              label={BEST_MONTH_BY_PROFIT_LABEL}
+              label={bestMonthByProfitLabel(locale)}
               value={
                 personalBests.bestMonthByProfit == null
                   ? undefined
                   : formatYenSymbol(personalBests.bestMonthByProfit.amount)
               }
               valueColor={colors.green}
-              sub={bestMonthProfitDateText(personalBests) ?? undefined}
+              sub={bestMonthProfitDateText(locale, personalBests) ?? undefined}
               colors={colors}
             />
             <BestTile
-              label={BEST_MONTH_BY_COUNT_LABEL}
-              value={bestMonthByCountValueText(personalBests)}
+              label={bestMonthByCountLabel(locale)}
+              value={bestMonthByCountValueText(locale, personalBests)}
               sub={
                 personalBests.bestMonthByCount == null
                   ? undefined
@@ -614,16 +618,16 @@ export function AchievementsSection({
               colors={colors}
             />
             <BestTile
-              label={BEST_TAG_LABEL}
+              label={bestTagLabel(locale)}
               value={
                 personalBests.bestTag == null
                   ? undefined
-                  : bestTagValueText(
+                  : bestTagValueText(locale, 
                       resolveTagName(personalBests.bestTag.tagId),
                       personalBests.bestTag.count,
                     )
               }
-              sub={bestTagOfTotalText(totals.recordCount)}
+              sub={bestTagOfTotalText(locale, totals.recordCount)}
               colors={colors}
             />
           </View>
@@ -699,6 +703,9 @@ export function AchievementBadge({
    * （未達成は進捗バー表示。モーダル側の分岐） */
   onPress?: () => void;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const category = achievementCategory(achievement.id);
   const tier = achievementBadgeTier(achievement.id);
   const tint = achievement.completed
@@ -747,11 +754,11 @@ export function AchievementBadge({
         ]}
         numberOfLines={2}
       >
-        {achievementName(achievement.id)}
+        {achievementName(locale, achievement.id)}
       </Text>
       {achievement.completed && achievement.completedAt != null && (
         <Text style={[styles.earnedDate, { color: colors.secondaryLabel }]}>
-          {formatShortDate('ja', achievement.completedAt)}
+          {formatShortDate(locale, achievement.completedAt)}
         </Text>
       )}
     </Pressable>
@@ -857,11 +864,12 @@ function ProgressRing({
 
 /** タグ名の解決（未分類含む）。DataScreen の joinTagRanking と同じ考え方の簡易版 */
 export function resolveTagNameFrom(
+  locale: Locale,
   tags: readonly { id: string; name: string }[],
 ): TagNameResolver {
   return (tagId) => {
-    if (tagId == null) return UNCLASSIFIED_TAG_LABEL;
-    return tags.find((tag) => tag.id === tagId)?.name ?? UNCLASSIFIED_TAG_LABEL;
+    if (tagId == null) return unclassifiedTagLabel(locale);
+    return tags.find((tag) => tag.id === tagId)?.name ?? unclassifiedTagLabel(locale);
   };
 }
 
