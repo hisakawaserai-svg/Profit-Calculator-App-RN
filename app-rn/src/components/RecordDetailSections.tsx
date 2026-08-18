@@ -119,7 +119,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
         <LongPressCopy label={salesPriceLabel(locale)} text={record.salesPrice.toString()}>
           <Text
             style={[styles.salesPrice, { color: priced ? colors.label : colors.mutedLabel }]}>
-            {priced ? formatYen('ja', record.salesPrice) : unsetInputLabel(locale)}
+            {priced ? formatYen(locale, record.salesPrice) : unsetInputLabel(locale)}
           </Text>
         </LongPressCopy>
       </View>
@@ -175,10 +175,10 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
               （赤字のときは帯に緑の区画が無いのでグレーになる） */}
           <View style={[styles.dot, { backgroundColor: dotColor('kept') }]} />
           <Text style={[styles.resultLabel, { color: colors.label }]}>
-            {profitLabel('ja', record.kind)}
+            {profitLabel(locale, record.kind)}
           </Text>
         </View>
-        <LongPressCopy label={profitLabel('ja', record.kind)} text={profit.toString()}>
+        <LongPressCopy label={profitLabel(locale, record.kind)} text={profit.toString()}>
           <Text
             style={[
               styles.resultAmount,
@@ -188,7 +188,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
                 color: !priced ? colors.mutedLabel : profit >= 0 ? colors.green : colors.red,
               },
             ]}>
-            {priced ? formatYen('ja', profit) : amountPlaceholder(locale)}
+            {priced ? formatYen(locale, profit) : amountPlaceholder(locale)}
           </Text>
         </LongPressCopy>
       </View>
@@ -212,13 +212,15 @@ function ReceiptDeductionRow({
   /** 渡すと金額の代わりにこの文字を 40% グレーで出す */
   unsetText?: string;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
   const colors = useThemeColors();
 
   return (
     <View style={styles.receiptRow}>
       <View style={styles.receiptLabelGroup}>
         <View style={[styles.dot, { backgroundColor: dotColor }]} />
-        <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel('ja', label)}</Text>
+        <Text style={[styles.receiptLabel, { color: colors.label }]}>{deductionLabel(locale, label)}</Text>
       </View>
       <LongPressCopy label={label} text={amount.toString()}>
         <Text
@@ -226,7 +228,7 @@ function ReceiptDeductionRow({
             styles.deductionAmount,
             { color: unsetText != null ? colors.mutedLabel : color },
           ]}>
-          {unsetText ?? formatYen('ja', amount)}
+          {unsetText ?? formatYen(locale, amount)}
         </Text>
       </LongPressCopy>
     </View>
@@ -419,11 +421,11 @@ function SoldDateRow({
 
   // 当日は「今日（2026/08/10）」、それ以外は日付そのもの（§8.2。§1.3-12 と同じ規則）
   const isToday = daysBetween(value, today) === 0;
-  const text = isToday ? todayDateLabel('ja', formatRecordDate(value)) : formatRecordDate(value);
+  const text = isToday ? todayDateLabel(locale, formatRecordDate(value)) : formatRecordDate(value);
   const range = saleDateRange(saleStartDate, today);
   const chips = dayChips({ today, range: { min: range.min, max: range.max }, selected: value });
   // 淡色のチップと理由の一行は 1 組（§8.10.5）。語は記録フォームの販売日の行と同じ
-  const notes = soldDateNotes('ja', saleStartDate, today);
+  const notes = soldDateNotes(locale, saleStartDate, today);
 
   /** 行に触れた時点でハイライトは役目を終える（§8.3）。チップで直した場合も同じ */
   const changeValue = (next: Date) => {

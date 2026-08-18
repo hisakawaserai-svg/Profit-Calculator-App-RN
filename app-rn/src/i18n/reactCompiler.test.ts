@@ -15,40 +15,8 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-/** 多言語化済みの画面（ステップ 2 で移した画面もここに足す） */
-const MIGRATED_SCREENS = [
-  'app/(tabs)/_layout.tsx',
-  'app/(tabs)/settings/index.tsx',
-  'app/(tabs)/(calc)/index.tsx',
-  'src/components/AddRecordFab.tsx',
-  'src/components/AddRecordMenuSheet.tsx',
-  'src/components/CostProportionBar.tsx',
-  'src/components/LanguageSelector.tsx',
-  'src/components/MiniCalculator.tsx',
-  'src/components/NumericField.tsx',
-  'src/components/PresetTagButton.tsx',
-  'src/components/RecordKindSelector.tsx',
-  'src/components/SiteNameRow.tsx',
-  'src/components/Stepper.tsx',
-  // 区切り 2-2: 記録タブの一覧
-  'src/screens/RecordListScreen.tsx',
-  'src/components/LongPressCopy.tsx',
-  'src/components/MonthNavBar.tsx',
-  'src/components/PeriodSheet.tsx',
-  'src/components/RecordRow.tsx',
-  'src/components/SearchBar.tsx',
-  // 区切り 2-3: 記録の入力フォーム
-  'src/screens/RecordFormSheet.tsx',
-  'src/components/PhotoField.tsx',
-  'src/components/TagChip.tsx',
-  'src/components/TagPickerSheet.tsx',
-  // 区切り 2-4: レコード詳細・絞り込み・複製
-  'src/screens/SaleRecordDetailScreen.tsx',
-  'src/screens/RecordFilterScreen.tsx',
-  'src/screens/DuplicateSourceScreen.tsx',
-  'src/components/PhotoViewer.tsx',
-  'src/components/RecordDetailSections.tsx',
-];
+import { MIGRATED_FILES } from './migratedFiles';
+
 
 /**
  * 「一度だけ計算して固定する」枝の中に labels.ts の**関数呼び出し**が入っていないか。
@@ -86,7 +54,7 @@ function compileWithReactCompiler(file: string): string {
 }
 
 describe('React Compiler が表示語を固定していない', () => {
-  it.each(MIGRATED_SCREENS)('%s', (file) => {
+  it.each(MIGRATED_FILES)('%s', (file) => {
     expect(frozenLabelCalls(compileWithReactCompiler(file))).toEqual([]);
   });
 

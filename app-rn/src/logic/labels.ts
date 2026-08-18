@@ -613,7 +613,7 @@ export function commissionFieldLabel(locale: Locale, rate: number): string {
 export function optionalCostsLabel(locale: Locale, total: number): string {
   return total === 0
     ? t('calc.optionalCosts', locale)
-    : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight('ja', total) });
+    : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight(locale, total) });
 }
 
 /** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
@@ -644,15 +644,15 @@ export function requiredPriceSummary(
   const deductions: string[] = [];
   if (result.commissionAmount !== 0) {
     deductions.push(
-      t('calc.deductionCommission', locale, { amount: formatYenTight('ja', result.commissionAmount) }),
+      t('calc.deductionCommission', locale, { amount: formatYenTight(locale, result.commissionAmount) }),
     );
   }
   if (result.expenses !== 0) {
-    deductions.push(t('calc.deductionExpenses', locale, { amount: formatYenTight('ja', result.expenses) }));
+    deductions.push(t('calc.deductionExpenses', locale, { amount: formatYenTight(locale, result.expenses) }));
   }
 
-  const price = formatYenTight('ja', result.requiredPrice);
-  const kept = formatYenTight('ja', result.kept);
+  const price = formatYenTight(locale, result.requiredPrice);
+  const kept = formatYenTight(locale, result.kept);
   // 引かれるものが無いときは別の文にする（「〜と〜が引かれて」の形が成り立たないため）
   return deductions.length === 0
     ? t('calc.summaryNoDeductions', locale, { price, kept })
@@ -694,11 +694,11 @@ export function requiredPriceFormulaLines(
   // 行ごとに 1 つのキーをひく。部品を連結すると、語順の違う言語で組み立て直せない
   const lines = [
     formula.expenses === 0
-      ? t('calc.formulaTargetOnly', locale, { target: formatYenTight('ja', formula.targetProfit) })
+      ? t('calc.formulaTargetOnly', locale, { target: formatYenTight(locale, formula.targetProfit) })
       : t('calc.formulaTargetAndExpenses', locale, {
-          target: formatYenTight('ja', formula.targetProfit),
-          expenses: formatYenTight('ja', formula.expenses),
-          subtotal: formatYenTight('ja', formula.subtotal),
+          target: formatYenTight(locale, formula.targetProfit),
+          expenses: formatYenTight(locale, formula.expenses),
+          subtotal: formatYenTight(locale, formula.subtotal),
         }),
   ];
 
@@ -715,9 +715,9 @@ export function requiredPriceFormulaLines(
     formula.roundedUp
       ? t('calc.formulaResultRoundedUp', locale, {
           exact: formatExactPrice(formula.exact),
-          price: formatYenTight('ja', formula.requiredPrice),
+          price: formatYenTight(locale, formula.requiredPrice),
         })
-      : t('calc.formulaResult', locale, { price: formatYenTight('ja', formula.requiredPrice) }),
+      : t('calc.formulaResult', locale, { price: formatYenTight(locale, formula.requiredPrice) }),
   );
 
   return lines;
@@ -735,8 +735,8 @@ export function lowerPriceWarning(
   example: { price: number; profit: number },
 ): string {
   return t('calc.lowerPriceWarning', locale, {
-    price: formatYenTight('ja', example.price),
-    profit: formatYenTight('ja', example.profit),
+    price: formatYenTight(locale, example.price),
+    profit: formatYenTight(locale, example.profit),
   });
 }
 
@@ -854,7 +854,7 @@ export function targetProfitUnsetLabel(locale: Locale): string {
  * 決めていなければ語、決めていれば金額。**null と 0 がここで見分けられる。**
  */
 export function targetProfitSummary(locale: Locale, targetProfit: number | null): string {
-  return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen('ja', targetProfit);
+  return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen(locale, targetProfit);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

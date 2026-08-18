@@ -525,7 +525,7 @@ function RecordForm({
               率の ± は行名と額の間に置き、行の形（左が名前・右が金額）を崩さない */}
           <View style={[styles.commissionRow, { height: RECEIPT_ROW_HEIGHT }]}>
             <Text style={[styles.rowLabel, { color: colors.label }]} numberOfLines={1}>
-              {deductionLabel(locale, commissionFieldLabel('ja', values.commission))}
+              {deductionLabel(locale, commissionFieldLabel(locale, values.commission))}
             </Text>
             {/* タグボタンはラベルの直後（SPEC-V3 §4.4 / 設計案 29b）。± はそのまま残す */}
             <PresetTagButton
@@ -543,7 +543,7 @@ function RecordForm({
               minimumValue={MIN_COMMISSION}
               maximumValue={MAX_COMMISSION}
               onChangeValue={(value) => update('commission', value)}
-              accessibilityLabel={commissionFieldLabel('ja', values.commission)}
+              accessibilityLabel={commissionFieldLabel(locale, values.commission)}
             />
             {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う */}
             <Text style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}>
@@ -557,7 +557,7 @@ function RecordForm({
 
           {/* 10. 梱包材・その他。畳んだ状態では「未入力」か合計だけを出す（UI-SPEC §1.3-10） */}
           <CollapsibleSection
-            label={additionLabel('ja', envelopeAndOthersFieldLabel(locale))}
+            label={additionLabel(locale, envelopeAndOthersFieldLabel(locale))}
             tone="link"
             expanded={costsOpen}
             onToggle={() => setCostsOpen((open) => !open)}
@@ -595,7 +595,7 @@ function RecordForm({
           <View style={styles.resultRow}>
             {/* 1 件を指すので種別語（SPEC-V2 §5.3） */}
             <Text style={[styles.resultLabel, { color: colors.label }]}>
-              {profitLabel('ja', values.kind)}
+              {profitLabel(locale, values.kind)}
             </Text>
             <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
               {formatYen(locale, profit)}
@@ -634,7 +634,7 @@ function RecordForm({
             金額として書くと、決めた覚えのない目標が記録に出ることになる */}
         <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
           <CollapsibleSection
-            label={targetProfitLabel('ja', values.kind)}
+            label={targetProfitLabel(locale, values.kind)}
             tone="link"
             expanded={targetOpen}
             onToggle={() => setTargetOpen((open) => !open)}
@@ -648,7 +648,7 @@ function RecordForm({
               </Text>
             }>
             <NumericField
-              label={targetProfitLabel('ja', values.kind)}
+              label={targetProfitLabel(locale, values.kind)}
               value={values.targetProfit}
               onChangeValue={(value) => update('targetProfit', value)}
               // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は

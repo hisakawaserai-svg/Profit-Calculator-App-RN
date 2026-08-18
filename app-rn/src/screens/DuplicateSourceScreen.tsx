@@ -179,7 +179,7 @@ export function DuplicateSourceScreen() {
             <Pressable
               onPress={() => setPicked(item)}
               accessibilityRole="button"
-              accessibilityLabel={recordDetailAccessibilityLabel('ja', item.itemName)}
+              accessibilityLabel={recordDetailAccessibilityLabel(locale, item.itemName)}
               style={({ pressed }) => [
                 styles.rowCard,
                 {

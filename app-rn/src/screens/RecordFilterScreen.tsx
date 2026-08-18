@@ -117,7 +117,7 @@ export function RecordFilterScreen() {
   const noMatchNote =
     matchCount === 0
       ? filterNoMatchNote(locale, 
-          isAllPeriod(period) ? null : periodTitle('ja', period),
+          isAllPeriod(period) ? null : periodTitle(locale, period),
           activeFilterCount(filter),
         )
       : null;

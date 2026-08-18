@@ -143,7 +143,7 @@ export function RecordRow({
         <View style={styles.metaLine}>
           <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {/* 金額ラベルを廃止したぶん、種別はここで常時読めるようにする（§6-1） */}
-            {recordKindLabel('ja', record.kind)}
+            {recordKindLabel(locale, record.kind)}
             {dateText === '' ? '' : `　${dateText}`}
           </Text>
           <Text style={[styles.meta, { color: colors.secondaryLabel }]} numberOfLines={1}>
