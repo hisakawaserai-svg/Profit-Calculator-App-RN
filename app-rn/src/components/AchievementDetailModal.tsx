@@ -515,7 +515,7 @@ export function AchievementPageContent({
 
           {achievement.completed && achievement.completedAt != null && (
             <Text style={[styles.dateText, { color: colors.secondaryLabel }]}>
-              {formatRecordDate(achievement.completedAt)}
+              {formatRecordDate('ja', achievement.completedAt)}
             </Text>
           )}
         </View>

@@ -492,7 +492,7 @@ export function formatChartLabel(date: Date, unit: ChartUnit): string {
  * 指しているように読めるため。
  */
 export function formatPointDate(date: Date, unit: ChartUnit): string {
-  if (unit === 'day') return formatMonthDay(date);
-  if (unit === 'year') return formatYearTitle(date.getFullYear());
-  return formatMonthTitle(date);
+  if (unit === 'day') return formatMonthDay('ja', date);
+  if (unit === 'year') return formatYearTitle('ja', date.getFullYear());
+  return formatMonthTitle('ja', date);
 }

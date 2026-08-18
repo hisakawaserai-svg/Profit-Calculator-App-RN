@@ -80,7 +80,7 @@ export function DateField({
 }: Props) {
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
-  const text = valueText ?? formatRecordDate(value);
+  const text = valueText ?? formatRecordDate('ja', value);
 
   const chips = useMemo(
     () => dayChips({ today, range: { min: minDate, max: maxDate }, selected: value }),

@@ -106,7 +106,7 @@ export function RecordRow({
   const dateText =
     basisDate == null
       ? ''
-      : `${formatShortDate(fromDbDate(basisDate))} ${isSoldMode ? soldDateLabel(locale) : listedDateLabel(locale)}`;
+      : `${formatShortDate(locale, fromDbDate(basisDate))} ${isSoldMode ? soldDateLabel(locale) : listedDateLabel(locale)}`;
 
   return (
     <View style={styles.row}>

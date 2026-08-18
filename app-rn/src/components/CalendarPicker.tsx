@@ -27,7 +27,7 @@ import {
   NEXT_MONTH_LABEL,
   PREVIOUS_MONTH_LABEL,
   TODAY_MARKER_LABEL,
-  WEEKDAY_LABELS,
+  weekdayLabels,
   calendarDayAccessibilityLabel,
 } from '@/logic/labels';
 import {
@@ -45,7 +45,7 @@ import { clampToRange, type PartialDateRange } from '@/logic/saleDate';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 日曜・土曜の見出しの色分けはしない（祝日を持たないので、色が意味を持てない） */
-const WEEKDAY_COUNT = WEEKDAY_LABELS.length;
+const WEEKDAY_COUNT = weekdayLabels('ja').length;
 
 type Props = {
   /** シートの見出し（例:「売れた日」） */
@@ -161,7 +161,7 @@ export function CalendarPicker({
             accessibilityState={{ expanded: choosingMonth }}
             style={({ pressed }) => [styles.monthTitleButton, { opacity: pressed ? 0.5 : 1 }]}>
             <Text style={[styles.monthTitle, { color: colors.label }]}>
-              {formatMonthTitle(month)}
+              {formatMonthTitle('ja', month)}
             </Text>
             <Ionicons
               name={choosingMonth ? 'chevron-up' : 'chevron-down'}
@@ -183,7 +183,7 @@ export function CalendarPicker({
             {years.map((block) => (
               <View key={block.year} style={styles.yearBlock}>
                 <Text style={[styles.yearHeading, { color: colors.secondaryLabel }]}>
-                  {formatYearTitle(block.year)}
+                  {formatYearTitle('ja', block.year)}
                 </Text>
                 <View style={styles.monthGrid}>
                   {block.months.map((cell) => (
@@ -205,7 +205,7 @@ export function CalendarPicker({
         ) : (
           <>
             <View style={styles.week}>
-              {WEEKDAY_LABELS.map((weekday) => (
+              {weekdayLabels('ja').map((weekday: string) => (
                 <Text
                   key={weekday}
                   style={[styles.weekdayLabel, { color: colors.secondaryLabel }]}
@@ -352,7 +352,7 @@ function MonthGridCell({
                 : colors.mutedLabel,
           },
         ]}>
-        {formatMonthCell(cell.month)}
+        {formatMonthCell('ja', cell.month)}
       </Text>
     </Pressable>
   );

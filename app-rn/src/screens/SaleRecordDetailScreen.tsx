@@ -184,7 +184,7 @@ export function SaleRecordDetailScreen() {
       return;
     }
 
-    Alert.alert(revertToListingConfirmTitle(locale, formatShortDate(fromDbDate(record.saleDate))), undefined, [
+    Alert.alert(revertToListingConfirmTitle(locale, formatShortDate(locale, fromDbDate(record.saleDate))), undefined, [
       { text: cancelLabel(locale), style: 'cancel' },
       { text: revertToListingConfirmLabel(locale), style: 'destructive', onPress: revert },
     ]);
@@ -378,10 +378,10 @@ function timelineText(locale: Locale, record: SaleRecord, today: Date): string {
 
   return recordTimelineText(locale, {
     kind: record.kind,
-    listedDate: formatShortDate(saleStartDate),
+    listedDate: formatShortDate(locale, saleStartDate),
     // 出品中は行き先の日付がない。バッジが「出品中」でも saleDate を見て判定するのは、
     // 「売れた記録なのに販売日が無い」状態（旧データ）でも矢印の右が空にならないようにするため
-    soldDate: saleDate == null ? null : formatShortDate(saleDate),
+    soldDate: saleDate == null ? null : formatShortDate(locale, saleDate),
     days: listingDays({ saleStartDate, saleDate }, today),
   });
 }

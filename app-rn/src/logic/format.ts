@@ -187,9 +187,27 @@ export function formatElapsedDays(locale: Locale, days: number): string {
   return t('elapsed.listing', locale, { count: days });
 }
 
+/**
+ * 英語の月名。**日本語側は数字（8月）なので辞書には置かない** ── 訳語ではなく暦の名前で、
+ * 12 個そろって初めて意味を持つ表。ここに置いて日付の書式と一緒に読めるようにする。
+ */
+const EN_MONTHS_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+
+/** 幅の無い場所（月グリッドの 1 マス・一覧のメタ行）で使う短縮形 */
+const EN_MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
 /** 一覧のメタ行に出す短い日付「8/9」（UI-SPEC §1.2「M/D 販売」） */
-export function formatShortDate(date: Date): string {
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+export function formatShortDate(locale: Locale, date: Date): string {
+  // 英語で `8/9` は 8 月 9 日とも 9 月 8 日とも読めるので、月名を出して曖昧さを消す
+  return locale === 'en'
+    ? `${EN_MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`
+    : `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 /**
@@ -197,45 +215,57 @@ export function formatShortDate(date: Date): string {
  * メタ行の formatShortDate（「8/9」）と分けてあるのは、こちらが見出しの語
  * （「…の記録」）に続く位置にあり、スラッシュ表記だと日付の切れ目が読み取りにくいため。
  */
-export function formatMonthDay(date: Date): string {
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+export function formatMonthDay(locale: Locale, date: Date): string {
+  return locale === 'en'
+    ? `${EN_MONTHS_LONG[date.getMonth()]} ${date.getDate()}`
+    : `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 /** 月セクションの見出し「2026年08月」（Swift 版 .dateTime.year().month(.twoDigits) 相当） */
-export function formatMonthHeader(date: Date): string {
+export function formatMonthHeader(locale: Locale, date: Date): string {
+  if (locale === 'en') return `${EN_MONTHS_LONG[date.getMonth()]} ${date.getFullYear()}`;
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${date.getFullYear()}年${month}月`;
 }
 
 /** 期間シートの年ブロックの見出し「2026年」（UI-SPEC §1.2-3） */
-export function formatYearTitle(year: number): string {
-  return `${year}年`;
+export function formatYearTitle(locale: Locale, year: number): string {
+  // 英語は年に付ける語がないので数字だけ
+  return locale === 'en' ? String(year) : `${year}年`;
 }
 
 /**
  * 期間シートの月グリッドの 1 マス「8月」（UI-SPEC §1.2-3）。
  * 年は見出しが持っているので、マスには月だけを出す（4 列に 12 個入る幅に収めるため）。
  */
-export function formatMonthCell(month: number): string {
-  return `${month}月`;
+export function formatMonthCell(locale: Locale, month: number): string {
+  // 4 列 12 マスに収める必要があるので、英語は短縮形
+  return locale === 'en' ? EN_MONTHS_SHORT[month - 1] : `${month}月`;
 }
 
 /** ナビゲーションタイトル用の「2026年8月」（SPEC §3.2「YYYY年M月の収支」） */
-export function formatMonthTitle(date: Date): string {
-  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+export function formatMonthTitle(locale: Locale, date: Date): string {
+  return locale === 'en'
+    ? `${EN_MONTHS_LONG[date.getMonth()]} ${date.getFullYear()}`
+    : `${date.getFullYear()}年${date.getMonth() + 1}月`;
 }
 
 /**
  * 月キー "YYYY-MM" → 「2026年8月」（月バー・絞り込みの注記）。
  * Date を経由しないのは、期間の表示語（labels.periodTitle）が db/dates を参照しないため。
  */
-export function formatMonthKeyTitle(monthKey: string): string {
+export function formatMonthKeyTitle(locale: Locale, monthKey: string): string {
   const [year, month] = monthKey.split('-').map(Number);
-  return `${year}年${month}月`;
+  return locale === 'en'
+    ? `${EN_MONTHS_LONG[month - 1]} ${year}`
+    : `${year}年${month}月`;
 }
 
 /** 行に出す日付「2026/08/09」（Swift 版 .year().month(.twoDigits).day() の ja 表記相当） */
-export function formatRecordDate(date: Date): string {
+export function formatRecordDate(locale: Locale, date: Date): string {
+  if (locale === 'en') {
+    return `${EN_MONTHS_SHORT[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  }
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}/${month}/${day}`;

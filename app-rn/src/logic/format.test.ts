@@ -7,6 +7,12 @@ import {
   formatApproxYenSymbol,
   formatCalcTotal,
   formatCompactYen,
+  formatMonthCell,
+  formatMonthKeyTitle,
+  formatMonthTitle,
+  formatRecordDate,
+  formatShortDate,
+  formatYearTitle,
   formatSignedYenSymbol,
   formatYen,
   formatYenSymbol,
@@ -229,5 +235,49 @@ describe('英語表示の金額', () => {
       const en = formatYen('en', value).replace(/[^\d-]/g, '');
       expect(en).toBe(ja);
     }
+  });
+});
+
+// ---- 英語表示の日付（多言語化。暦は日本のまま、書式だけ言語に合わせる） ----
+//
+// **週の始まりも暦も変えない。** 変えるのは月の呼び方と並びだけ ──
+// 利用者は日本の出品者で、英語表示を選んでも見ている暦は日本のもの。
+
+describe('英語表示の日付', () => {
+  const day = new Date(2026, 7, 9);
+
+  it('一覧のメタ行は月名を出す（8/9 は 8月9日とも 9月8日とも読めるため）', () => {
+    expect(formatShortDate('ja', day)).toBe('8/9');
+    expect(formatShortDate('en', day)).toBe('Aug 9');
+  });
+
+  it('見出しは月名 ＋ 年（2026年8月 → August 2026）', () => {
+    expect(formatMonthTitle('ja', day)).toBe('2026年8月');
+    expect(formatMonthTitle('en', day)).toBe('August 2026');
+    expect(formatMonthKeyTitle('ja', '2026-08')).toBe('2026年8月');
+    expect(formatMonthKeyTitle('en', '2026-08')).toBe('August 2026');
+  });
+
+  it('年に付ける語は英語には無いので数字だけ', () => {
+    expect(formatYearTitle('ja', 2026)).toBe('2026年');
+    expect(formatYearTitle('en', 2026)).toBe('2026');
+  });
+
+  it('月グリッドの 1 マスは短縮形（4 列 12 マスに収める）', () => {
+    expect(formatMonthCell('ja', 8)).toBe('8月');
+    expect(formatMonthCell('en', 1)).toBe('Jan');
+    expect(formatMonthCell('en', 8)).toBe('Aug');
+    expect(formatMonthCell('en', 12)).toBe('Dec');
+  });
+
+  it('詳細の日付は年まで出す', () => {
+    expect(formatRecordDate('ja', day)).toBe('2026/08/09');
+    expect(formatRecordDate('en', day)).toBe('Aug 9, 2026');
+  });
+
+  it('12 か月ぶんの月名が全部そろっている（表の抜けを防ぐ）', () => {
+    const cells = Array.from({ length: 12 }, (_, i) => formatMonthCell('en', i + 1));
+    expect(new Set(cells).size).toBe(12);
+    expect(cells.every((cell) => /^[A-Z][a-z]{2}$/.test(cell))).toBe(true);
   });
 });

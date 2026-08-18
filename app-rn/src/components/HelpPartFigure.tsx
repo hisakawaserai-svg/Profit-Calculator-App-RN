@@ -653,7 +653,7 @@ export function MonthBarFigure() {
         <Ionicons name="chevron-back" size={20} color={colors.disabledContent} />
         <View style={styles.monthTitle}>
           <Text style={[styles.monthText, { color: colors.label }]}>
-            {formatMonthKeyTitle('2026-08')}
+            {formatMonthKeyTitle('ja', '2026-08')}
           </Text>
           <Ionicons name="chevron-down" size={14} color={colors.secondaryLabel} />
         </View>

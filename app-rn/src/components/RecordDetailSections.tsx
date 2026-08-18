@@ -421,7 +421,7 @@ function SoldDateRow({
 
   // 当日は「今日（2026/08/10）」、それ以外は日付そのもの（§8.2。§1.3-12 と同じ規則）
   const isToday = daysBetween(value, today) === 0;
-  const text = isToday ? todayDateLabel(locale, formatRecordDate(value)) : formatRecordDate(value);
+  const text = isToday ? todayDateLabel(locale, formatRecordDate(locale, value)) : formatRecordDate(locale, value);
   const range = saleDateRange(saleStartDate, today);
   const chips = dayChips({ today, range: { min: range.min, max: range.max }, selected: value });
   // 淡色のチップと理由の一行は 1 組（§8.10.5）。語は記録フォームの販売日の行と同じ

@@ -81,7 +81,7 @@ import {
   SOLD_DATE_ROW_LABEL,
   SOLD_RECORDS_LABEL,
   UNDO_LABEL,
-  WEEKDAY_LABELS,
+  weekdayLabels,
   TARGET_TAB_LABEL,
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
@@ -519,7 +519,7 @@ describe('UI-SPEC §8.9 状態カードのバッジ（案 16a）', () => {
 
 describe('UI-SPEC §8.10 カレンダーの語（案 16d）', () => {
   it('週の始まりは日曜固定（ロケールで振らない）', () => {
-    expect(WEEKDAY_LABELS).toEqual(['日', '月', '火', '水', '木', '金', '土']);
+    expect(weekdayLabels('ja')).toEqual(['日', '月', '火', '水', '木', '金', '土']);
   });
 
   it('選べない理由は両端を名指しする（淡いマスの説明を推測させない）', () => {

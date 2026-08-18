@@ -147,11 +147,11 @@ export function PeriodPicker({
             onPress={() => onSelect(yearPeriod(block.year))}
             accessibilityRole="button"
             accessibilityState={{ selected: yearSelected }}
-            accessibilityLabel={`${formatYearTitle(block.year)}・${
+            accessibilityLabel={`${formatYearTitle('ja', block.year)}・${
               yearSelected ? YEAR_SELECTED_HINT_LABEL : YEAR_TAP_HINT_LABEL
             }`}>
             <Text style={[styles.yearTitle, { color: colors.blue }]}>
-              {formatYearTitle(block.year)}
+              {formatYearTitle('ja', block.year)}
             </Text>
             {/* 選択中だけ出る。未選択のときに場所を空けておくことはしない
                 （カードの高さが変わるが、シートは中身ぴったりなので下端が動くだけ） */}
@@ -288,10 +288,10 @@ function MonthButton({
         accessibilityRole="button"
         accessibilityState={{ selected, disabled: cell.isFuture }}
         // 読み上げでは年も込みで言う（マスには月しか出ていないため）
-        accessibilityLabel={`${formatMonthKeyTitle(cell.monthKey)}${
+        accessibilityLabel={`${formatMonthKeyTitle('ja', cell.monthKey)}${
           cell.hasRecord ? `・${HAS_RECORDS_LEGEND_LABEL}` : `・${NO_RECORDS_LEGEND_LABEL}`
         }`}>
-        <Text style={[styles.monthLabel, { color: textColor }]}>{formatMonthCell(cell.month)}</Text>
+        <Text style={[styles.monthLabel, { color: textColor }]}>{formatMonthCell('ja', cell.month)}</Text>
       </Pressable>
     </View>
   );

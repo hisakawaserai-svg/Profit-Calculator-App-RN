@@ -386,8 +386,8 @@ function RecordForm({
   // 日付欄は「今日」だけ青くして、既定値のまま出していることが分かるようにする（UI-SPEC §1.3-12）
   const dateText = (value: Date) =>
     daysBetween(value, today) === 0
-      ? todayDateLabel(locale, formatRecordDate(value))
-      : formatRecordDate(value);
+      ? todayDateLabel(locale, formatRecordDate(locale, value))
+      : formatRecordDate(locale, value);
   // 畳んだ見出しに出すのは、その状態で意味を持つほうの日付（出品中に販売日はない）
   const primaryDate = values.isSold ? values.saleDate : values.saleStartDate;
   // 出品日をこのフォームで動かせるので、範囲と「選べない理由」は入力中の出品日から引き直す（§8.5）

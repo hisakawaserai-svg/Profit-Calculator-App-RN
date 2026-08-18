@@ -563,7 +563,7 @@ export function AchievementsSection({
               sub={
                 personalBests.bestNetProfit == null
                   ? undefined
-                  : formatShortDate(personalBests.bestNetProfit.date)
+                  : formatShortDate('ja', personalBests.bestNetProfit.date)
               }
               colors={colors}
             />
@@ -578,7 +578,7 @@ export function AchievementsSection({
               sub={
                 personalBests.bestSalesPrice == null
                   ? undefined
-                  : formatShortDate(personalBests.bestSalesPrice.date)
+                  : formatShortDate('ja', personalBests.bestSalesPrice.date)
               }
               colors={colors}
             />
@@ -588,7 +588,7 @@ export function AchievementsSection({
               sub={
                 personalBests.fastestSale == null
                   ? undefined
-                  : formatShortDate(personalBests.fastestSale.date)
+                  : formatShortDate('ja', personalBests.fastestSale.date)
               }
               colors={colors}
             />
@@ -751,7 +751,7 @@ export function AchievementBadge({
       </Text>
       {achievement.completed && achievement.completedAt != null && (
         <Text style={[styles.earnedDate, { color: colors.secondaryLabel }]}>
-          {formatShortDate(achievement.completedAt)}
+          {formatShortDate('ja', achievement.completedAt)}
         </Text>
       )}
     </Pressable>

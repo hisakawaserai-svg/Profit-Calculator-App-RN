@@ -754,7 +754,7 @@ export function periodProfitLabel(locale: Locale, period: Period): string {
     kind === 'all'
       ? t('period.allInline', locale)
       : kind === 'year'
-        ? formatYearTitle(periodYear(period) as number)
+        ? formatYearTitle(locale, periodYear(period) as number)
         : t('period.thisMonth', locale);
   return t('period.profitLabel', locale, { subject, total: totalProfitLabel(locale) });
 }
@@ -792,8 +792,8 @@ export function periodTitle(locale: Locale, period: Period): string {
   const kind = periodKind(period);
   if (kind === 'all') return t('period.all', locale);
   // 年・月の表記は日付の書式そのものなので、まだ日本語のまま（数値・日付の書式は別途）
-  if (kind === 'year') return formatYearTitle(periodYear(period) as number);
-  return formatMonthKeyTitle(period as string);
+  if (kind === 'year') return formatYearTitle(locale, periodYear(period) as number);
+  return formatMonthKeyTitle(locale, period as string);
 }
 
 /**
@@ -1544,7 +1544,7 @@ export function bestMonthByCountValueText(bests: PersonalBests): string {
 export function bestMonthProfitDateText(bests: PersonalBests): string | null {
   return bests.bestMonthByProfit == null
     ? null
-    : formatMonthKeyTitle(bests.bestMonthByProfit.monthKey);
+    : formatMonthKeyTitle('ja', bests.bestMonthByProfit.monthKey);
 }
 
 /**
@@ -1628,17 +1628,14 @@ export function revertToListingConfirmLabel(locale: Locale): string {
 
 /**
  * カレンダーの曜日見出し（UI-SPEC §8.10）。
- * **週の始まりは日曜固定**。ロケールで振らない ── 本アプリは日本語のみ・日本の利用者向け（§0）。
+ * **週の始まりは日曜固定**。言語を変えても動かさない ── 利用者は日本の出品者で、
+ * 英語表示を選んでも見ている暦は日本のもの（§0）。
  */
-export const WEEKDAY_LABELS = [
-  '日',
-  '月',
-  '火',
-  '水',
-  '木',
-  '金',
-  '土',
-] as const;
+export function weekdayLabels(locale: Locale): readonly string[] {
+  return locale === 'en'
+    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    : ['日', '月', '火', '水', '木', '金', '土'];
+}
 
 /**
  * カレンダーの今日の印の読み上げ語（UI-SPEC §8.10）。
@@ -1812,7 +1809,7 @@ export function soldDateNotes(
   saleStartDate: Date,
   today: Date,
 ): { calendar: string; chips: string } {
-  const listedDateText = formatShortDate(saleStartDate);
+  const listedDateText = formatShortDate('ja', saleStartDate);
 
   if (daysBetween(saleStartDate, today) < 0) {
     const singleDay = soldDatePickerSingleDayNote(locale, listedDateText);
@@ -4783,7 +4780,7 @@ export function remainingProfitLeadLabel(locale: Locale): string {
 
 /** 商品名の右のバッジ:「8/14 に売れました」。一覧・詳細の「売れた」バッジと違い、日付まで言う */
 export function soldOnBadgeLabel(locale: Locale, saleDate: Date): string {
-  return t('pricing.soldOnBadge', locale, { date: formatShortDate(saleDate) });
+  return t('pricing.soldOnBadge', locale, { date: formatShortDate(locale, saleDate) });
 }
 
 /** 主役の数字の下:「販売価格 ¥5,000・利益率 34.0%」。利益率は価格 0 では出さない語だけになる */
@@ -4921,8 +4918,8 @@ export function soldSameDayLabel(locale: Locale): string {
 /** 記録日 → 販売日「8/1 に記録 → 8/14 に販売」 */
 export function soldDateRangeNote(locale: Locale, saleStartDate: Date, saleDate: Date): string {
   return t('elapsed.soldDateRange', locale, {
-    listed: formatShortDate(saleStartDate),
-    sold: formatShortDate(saleDate),
+    listed: formatShortDate(locale, saleStartDate),
+    sold: formatShortDate(locale, saleDate),
   });
 }
 
