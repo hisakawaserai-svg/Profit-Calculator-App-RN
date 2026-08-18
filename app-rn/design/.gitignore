@@ -1,0 +1,5 @@
+# アイコンの生成物。gen_uritsumi_icon.py から再生成できるので追跡しない。
+# 本番アセットは assets/images/ 側にコミットされる。
+icons/out/
+icons/archive/output*/
+icons/archive/final/
