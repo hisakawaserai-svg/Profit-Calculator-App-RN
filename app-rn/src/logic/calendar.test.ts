@@ -166,21 +166,21 @@ describe('dayChips: 行に常設する「今日・昨日・一昨日」（§8.10
   const today = at(2026, 8, 10, 15, 45);
 
   it('並びは今日 → 昨日 → 一昨日の固定で、添字がそのまま遡る日数', () => {
-    const chips = dayChips({ today });
+    const chips = dayChips('ja', { today });
 
     expect(chips.map((chip) => chip.label)).toEqual(['今日', '昨日', '一昨日']);
     expect(chips.map((chip) => chip.date.getDate())).toEqual([10, 9, 8]);
   });
 
   it('時刻は today から引き継ぐ（日付だけを選ぶ欄なので時刻は編集しない）', () => {
-    const [chip] = dayChips({ today });
+    const [chip] = dayChips('ja', { today });
 
     expect(chip.date.getHours()).toBe(15);
     expect(chip.date.getMinutes()).toBe(45);
   });
 
   it('月をまたいでも遡れる（8/1 の「昨日」は 7/31）', () => {
-    const chips = dayChips({ today: at(2026, 8, 1) });
+    const chips = dayChips('ja', { today: at(2026, 8, 1) });
 
     expect(chips.map((chip) => [chip.date.getMonth() + 1, chip.date.getDate()])).toEqual([
       [8, 1],
@@ -191,30 +191,30 @@ describe('dayChips: 行に常設する「今日・昨日・一昨日」（§8.10
 
   it('範囲外のチップは落とさず selectable = false で残す（§8.10 の方針 3）', () => {
     // 当日出品なら「昨日」「一昨日」が出品日より前になって落ちる
-    const chips = dayChips({ today, range: saleDateRange(today, today) });
+    const chips = dayChips('ja', { today, range: saleDateRange(today, today) });
 
     expect(chips).toHaveLength(3);
     expect(chips.map((chip) => chip.selectable)).toEqual([true, false, false]);
   });
 
   it('出品日が 1 日前なら「一昨日」だけが落ちる', () => {
-    const chips = dayChips({ today, range: saleDateRange(at(2026, 8, 9), today) });
+    const chips = dayChips('ja', { today, range: saleDateRange(at(2026, 8, 9), today) });
 
     expect(chips.map((chip) => chip.selectable)).toEqual([true, true, false]);
   });
 
   it('範囲を渡さなければ全部選べる（出品日の欄は過去に下限がない）', () => {
-    expect(dayChips({ today }).every((chip) => chip.selectable)).toBe(true);
+    expect(dayChips('ja', { today }).every((chip) => chip.selectable)).toBe(true);
   });
 
   it('選択中のチップだけが isSelected（暦日で判定するので時刻は問わない）', () => {
-    const chips = dayChips({ today, selected: at(2026, 8, 9, 3, 20) });
+    const chips = dayChips('ja', { today, selected: at(2026, 8, 9, 3, 20) });
 
     expect(chips.filter((chip) => chip.isSelected).map((chip) => chip.label)).toEqual(['昨日']);
   });
 
   it('チップにない日付を選んでいるときはどれも選択状態にならない', () => {
-    const chips = dayChips({ today, selected: at(2026, 7, 3) });
+    const chips = dayChips('ja', { today, selected: at(2026, 7, 3) });
 
     expect(chips.some((chip) => chip.isSelected)).toBe(false);
   });

@@ -21,14 +21,14 @@ import { DateChips } from '@/components/DateChips';
 import { SheetModal } from '@/components/SheetModal';
 import { formatMonthCell, formatMonthTitle, formatYearTitle } from '@/logic/format';
 import {
-  CHOOSE_MONTH_LABEL,
-  CLOSE_LABEL,
-  LISTED_DATE_FIELD_LABEL,
-  NEXT_MONTH_LABEL,
-  PREVIOUS_MONTH_LABEL,
-  TODAY_MARKER_LABEL,
-  weekdayLabels,
   calendarDayAccessibilityLabel,
+  chooseMonthLabel,
+  closeLabel,
+  listedDateFieldLabel,
+  nextMonthLabel,
+  previousMonthLabel,
+  todayMarkerLabel,
+  weekdayLabels,
 } from '@/logic/labels';
 import {
   MONTH_GRID_COLUMNS,
@@ -42,9 +42,11 @@ import {
   type MonthCell,
 } from '@/logic/calendar';
 import { clampToRange, type PartialDateRange } from '@/logic/saleDate';
+import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 日曜・土曜の見出しの色分けはしない（祝日を持たないので、色が意味を持てない） */
+/** 週の日数。言語では変わらないので、どちらの表で数えても同じ */
 const WEEKDAY_COUNT = weekdayLabels('ja').length;
 
 type Props = {
@@ -75,9 +77,14 @@ export function CalendarPicker({
   maxDate,
   today,
   flagDate,
-  flagLabel = LISTED_DATE_FIELD_LABEL,
+  flagLabel,
   note,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+  // 既定の語は locale が決まってからでないと出せないので、引数の既定値には書けない
+  const flagText = flagLabel ?? listedDateFieldLabel(locale);
+
   const colors = useThemeColors();
   const range: PartialDateRange = useMemo(
     () => ({ min: minDate, max: maxDate }),
@@ -103,8 +110,8 @@ export function CalendarPicker({
   );
 
   const chips = useMemo(
-    () => dayChips({ today, range, selected: value }),
-    [today, range, value],
+    () => dayChips(locale, { today, range, selected: value }),
+    [today, range, value, locale],
   );
 
   const years = useMemo(
@@ -149,7 +156,7 @@ export function CalendarPicker({
             name="chevron-back"
             enabled={canShiftMonth(month, -1, range)}
             onPress={() => setMonth(shiftMonth(month, -1))}
-            accessibilityLabel={PREVIOUS_MONTH_LABEL}
+            accessibilityLabel={previousMonthLabel(locale)}
             colors={colors}
           />
           {/* 見出し自体がボタン（§8.10.2 の 3）。◀ の連打を年月グリッドで置き換える */}
@@ -157,11 +164,11 @@ export function CalendarPicker({
             onPress={() => setChoosingMonth((open) => !open)}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={CHOOSE_MONTH_LABEL}
+            accessibilityLabel={chooseMonthLabel(locale)}
             accessibilityState={{ expanded: choosingMonth }}
             style={({ pressed }) => [styles.monthTitleButton, { opacity: pressed ? 0.5 : 1 }]}>
             <Text style={[styles.monthTitle, { color: colors.label }]}>
-              {formatMonthTitle('ja', month)}
+              {formatMonthTitle(locale, month)}
             </Text>
             <Ionicons
               name={choosingMonth ? 'chevron-up' : 'chevron-down'}
@@ -173,7 +180,7 @@ export function CalendarPicker({
             name="chevron-forward"
             enabled={canShiftMonth(month, 1, range)}
             onPress={() => setMonth(shiftMonth(month, 1))}
-            accessibilityLabel={NEXT_MONTH_LABEL}
+            accessibilityLabel={nextMonthLabel(locale)}
             colors={colors}
           />
         </View>
@@ -183,7 +190,7 @@ export function CalendarPicker({
             {years.map((block) => (
               <View key={block.year} style={styles.yearBlock}>
                 <Text style={[styles.yearHeading, { color: colors.secondaryLabel }]}>
-                  {formatYearTitle('ja', block.year)}
+                  {formatYearTitle(locale, block.year)}
                 </Text>
                 <View style={styles.monthGrid}>
                   {block.months.map((cell) => (
@@ -205,7 +212,7 @@ export function CalendarPicker({
         ) : (
           <>
             <View style={styles.week}>
-              {weekdayLabels('ja').map((weekday: string) => (
+              {weekdayLabels(locale).map((weekday) => (
                 <Text
                   key={weekday}
                   style={[styles.weekdayLabel, { color: colors.secondaryLabel }]}
@@ -226,7 +233,7 @@ export function CalendarPicker({
                     <DayCell
                       key={column}
                       day={day}
-                      flagLabel={flagLabel}
+                      flagLabel={flagText}
                       onPress={() => selectAndClose(day.date, close)}
                       colors={colors}
                     />
@@ -246,7 +253,7 @@ export function CalendarPicker({
           style={[styles.closeButton, { backgroundColor: colors.blue }]}
           onPress={close}
           accessibilityRole="button">
-          <Text style={styles.closeLabel}>{CLOSE_LABEL}</Text>
+          <Text style={styles.closeLabel}>{closeLabel(locale)}</Text>
         </Pressable>
       </View>
       )}
@@ -272,6 +279,9 @@ function DayCell({
   onPress: () => void;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   // 印は丸の**外**に置くので、選択中でも白にしない（白い旗はシートの地色に溶けて見えなくなる）
   const markerColor = day.selectable || day.isSelected ? colors.blue : colors.mutedLabel;
   const numberColor = day.isSelected
@@ -280,7 +290,7 @@ function DayCell({
       ? colors.label
       : colors.mutedLabel;
 
-  const marks = [day.isToday ? TODAY_MARKER_LABEL : null, day.isFlagged ? flagLabel : null]
+  const marks = [day.isToday ? todayMarkerLabel(locale) : null, day.isFlagged ? flagLabel : null]
     .filter((mark) => mark != null)
     .join(' ');
 
@@ -292,8 +302,8 @@ function DayCell({
       accessibilityState={{ disabled: !day.selectable, selected: day.isSelected }}
       accessibilityLabel={
         marks === ''
-          ? calendarDayAccessibilityLabel(day.day)
-          : `${calendarDayAccessibilityLabel(day.day)} ${marks}`
+          ? calendarDayAccessibilityLabel(locale, day.day)
+          : `${calendarDayAccessibilityLabel(locale, day.day)} ${marks}`
       }
       style={({ pressed }) => [styles.cell, { opacity: pressed && day.selectable ? 0.5 : 1 }]}>
       <View
@@ -330,6 +340,9 @@ function MonthGridCell({
   onPress: () => void;
   colors: ThemeColors;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   return (
     <Pressable
       onPress={onPress}
@@ -352,7 +365,7 @@ function MonthGridCell({
                 : colors.mutedLabel,
           },
         ]}>
-        {formatMonthCell('ja', cell.month)}
+        {formatMonthCell(locale, cell.month)}
       </Text>
     </Pressable>
   );

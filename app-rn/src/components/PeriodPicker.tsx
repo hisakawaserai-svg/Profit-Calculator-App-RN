@@ -35,19 +35,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatMonthCell, formatMonthKeyTitle, formatYearTitle } from '@/logic/format';
 import {
-  ALL_PERIOD_LABEL,
-  HAS_RECORDS_LEGEND_LABEL,
-  LAST_MONTH_LABEL,
-  MONTH_TAP_HINT_LABEL,
-  NEXT_YEAR_LABEL,
-  NO_RECORDS_LEGEND_LABEL,
-  PREVIOUS_YEAR_LABEL,
-  THIS_MONTH_LABEL,
-  YEAR_SELECTED_HINT_LABEL,
-  YEAR_TAP_HINT_LABEL,
+  allPeriodLabel,
+  hasRecordsLegendLabel,
+  lastMonthLabel,
+  monthTapHintLabel,
+  nextYearLabel,
+  noRecordsLegendLabel,
+  previousYearLabel,
+  thisMonthLabel,
+  yearSelectedHintLabel,
+  yearTapHintLabel,
 } from '@/logic/labels';
 import { isYearPeriod, periodYear, shiftMonthKey, yearPeriod, type Period } from '@/logic/period';
 import { periodGrid, type MonthCell } from '@/logic/periodGrid';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
@@ -77,6 +78,9 @@ export function PeriodPicker({
   onSelect,
   resetKey,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   const lastMonthKey = useMemo(() => shiftMonthKey(currentMonthKey, -1), [currentMonthKey]);
@@ -106,17 +110,17 @@ export function PeriodPicker({
           **両方**がハイライトされる。グリッドから直接その月を選んだ場合も同じ状態になる */}
       <View style={styles.quickRow}>
         <QuickButton
-          label={THIS_MONTH_LABEL}
+          label={thisMonthLabel(locale)}
           selected={period === currentMonthKey}
           onPress={() => onSelect(currentMonthKey)}
         />
         <QuickButton
-          label={LAST_MONTH_LABEL}
+          label={lastMonthLabel(locale)}
           selected={period === lastMonthKey}
           onPress={() => onSelect(lastMonthKey)}
         />
         <QuickButton
-          label={ALL_PERIOD_LABEL}
+          label={allPeriodLabel(locale)}
           // 全期間のときグリッドにハイライトは出ない（月も年も選んでいないため）
           selected={period == null}
           onPress={() => onSelect(null)}
@@ -140,24 +144,24 @@ export function PeriodPicker({
             name="chevron-back"
             enabled={block.canGoBack}
             onPress={() => setViewYear(block.year - 1)}
-            accessibilityLabel={PREVIOUS_YEAR_LABEL}
+            accessibilityLabel={previousYearLabel(locale)}
           />
           <Pressable
             style={({ pressed }) => [styles.yearButton, { opacity: pressed ? 0.6 : 1 }]}
             onPress={() => onSelect(yearPeriod(block.year))}
             accessibilityRole="button"
             accessibilityState={{ selected: yearSelected }}
-            accessibilityLabel={`${formatYearTitle('ja', block.year)}・${
-              yearSelected ? YEAR_SELECTED_HINT_LABEL : YEAR_TAP_HINT_LABEL
+            accessibilityLabel={`${formatYearTitle(locale, block.year)}・${
+              yearSelected ? yearSelectedHintLabel(locale) : yearTapHintLabel(locale)
             }`}>
             <Text style={[styles.yearTitle, { color: colors.blue }]}>
-              {formatYearTitle('ja', block.year)}
+              {formatYearTitle(locale, block.year)}
             </Text>
             {/* 選択中だけ出る。未選択のときに場所を空けておくことはしない
                 （カードの高さが変わるが、シートは中身ぴったりなので下端が動くだけ） */}
             {yearSelected && (
               <Text style={[styles.yearSelectedHint, { color: colors.blue }]}>
-                {YEAR_SELECTED_HINT_LABEL}
+                {yearSelectedHintLabel(locale)}
               </Text>
             )}
           </Pressable>
@@ -165,7 +169,7 @@ export function PeriodPicker({
             name="chevron-forward"
             enabled={block.canGoForward}
             onPress={() => setViewYear(block.year + 1)}
-            accessibilityLabel={NEXT_YEAR_LABEL}
+            accessibilityLabel={nextYearLabel(locale)}
           />
         </View>
 
@@ -184,7 +188,7 @@ export function PeriodPicker({
 
         {/* 注記は「いま押せるもう一方」を言う。年を選んだ後は年の押し方の説明が要らない */}
         <Text style={[styles.cardHint, { color: colors.secondaryLabel }]}>
-          {yearSelected ? MONTH_TAP_HINT_LABEL : YEAR_TAP_HINT_LABEL}
+          {yearSelected ? monthTapHintLabel(locale) : yearTapHintLabel(locale)}
         </Text>
       </View>
 
@@ -264,6 +268,9 @@ function MonthButton({
   selected: boolean;
   onPress: () => void;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   // 記録のない月と未来の月は同じ薄さ（§1.2）。違いは disabled かどうかだけ
@@ -288,10 +295,10 @@ function MonthButton({
         accessibilityRole="button"
         accessibilityState={{ selected, disabled: cell.isFuture }}
         // 読み上げでは年も込みで言う（マスには月しか出ていないため）
-        accessibilityLabel={`${formatMonthKeyTitle('ja', cell.monthKey)}${
-          cell.hasRecord ? `・${HAS_RECORDS_LEGEND_LABEL}` : `・${NO_RECORDS_LEGEND_LABEL}`
+        accessibilityLabel={`${formatMonthKeyTitle(locale, cell.monthKey)}${
+          cell.hasRecord ? `・${hasRecordsLegendLabel(locale)}` : `・${noRecordsLegendLabel(locale)}`
         }`}>
-        <Text style={[styles.monthLabel, { color: textColor }]}>{formatMonthCell('ja', cell.month)}</Text>
+        <Text style={[styles.monthLabel, { color: textColor }]}>{formatMonthCell(locale, cell.month)}</Text>
       </Pressable>
     </View>
   );
@@ -302,12 +309,15 @@ function MonthButton({
  * 未来の月は「記録なし」と同じ薄さなので項目を足さない ── 押せないことは押せば分かる。
  */
 function Legend() {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
     <View style={[styles.legend, { borderTopColor: colors.separator }]}>
-      <LegendItem color={colors.label} label={HAS_RECORDS_LEGEND_LABEL} />
-      <LegendItem color={colors.disabledContent} label={NO_RECORDS_LEGEND_LABEL} />
+      <LegendItem color={colors.label} label={hasRecordsLegendLabel(locale)} />
+      <LegendItem color={colors.disabledContent} label={noRecordsLegendLabel(locale)} />
     </View>
   );
 }

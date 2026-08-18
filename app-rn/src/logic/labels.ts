@@ -335,8 +335,12 @@ export function duplicateTagFilterLabel(locale: Locale): string {
 }
 
 /** カレンダーの前後の月へ送るボタン（UI-SPEC §8.10）。矢印 1 つなので語は読み上げにしかない */
-export const PREVIOUS_MONTH_LABEL = '前の月';
-export const NEXT_MONTH_LABEL = '次の月';
+export function previousMonthLabel(locale: Locale): string {
+  return t('calendar.previousMonth', locale);
+}
+export function nextMonthLabel(locale: Locale): string {
+  return t('calendar.nextMonth', locale);
+}
 
 /** 月バーの期間ボタンの読み上げ（UI-SPEC §1.2）。押すと開くのが期間シートであることを言う */
 export function periodButtonAccessibilityLabel(locale: Locale, title: string): string {
@@ -369,8 +373,8 @@ export function calculatorAccessibilityLabel(locale: Locale, fieldLabel: string)
 }
 
 /** カレンダーの日のマス（UI-SPEC §8.10）。印（今日・出品日）は呼び出し側が後ろに足す */
-export function calendarDayAccessibilityLabel(day: number): string {
-  return `${day}日`;
+export function calendarDayAccessibilityLabel(locale: Locale, day: number): string {
+  return t('calendar.dayAccessibility', locale, { day });
 }
 
 /**
@@ -413,8 +417,12 @@ export function periodSheetTitle(locale: Locale): string {
  * 「全期間」は月バーと同じ語（t('period.all', 'ja')）を使う ── 選んだ結果が月バーに出るので、
  * ボタンとバーで語が違うと同じものを指していると読めない。
  */
-export const THIS_MONTH_LABEL = '今月';
-export const LAST_MONTH_LABEL = '先月';
+export function thisMonthLabel(locale: Locale): string {
+  return t('periodPicker.thisMonth', locale);
+}
+export function lastMonthLabel(locale: Locale): string {
+  return t('periodPicker.lastMonth', locale);
+}
 
 /**
  * 期間シートのカードの注記（UI-SPEC §1.2「期間シート」・案 39b。SPEC-V3 §5.5 の改訂）。
@@ -427,17 +435,27 @@ export const LAST_MONTH_LABEL = '先月';
  * **「今年」「昨年」のクイック選択は足さない** ── 年見出しが 1 タップで同じ場所に届くので、
  * どの画面でもクイック選択は「今月 / 先月 / 全期間」の 3 つに揃う。
  */
-export const YEAR_TAP_HINT_LABEL = '年を押すと1年分';
-export const MONTH_TAP_HINT_LABEL = '月を押すとその月だけ';
-export const YEAR_SELECTED_HINT_LABEL = '1年分を選択中';
+export function yearTapHintLabel(locale: Locale): string {
+  return t('periodPicker.yearTapHint', locale);
+}
+export function monthTapHintLabel(locale: Locale): string {
+  return t('periodPicker.monthTapHint', locale);
+}
+export function yearSelectedHintLabel(locale: Locale): string {
+  return t('periodPicker.yearSelectedHint', locale);
+}
 
 /**
  * 月グリッドの凡例（UI-SPEC §1.2-4）。
  * 濃淡の意味を名指しする ── 薄いマスを見た人に理由を自分で埋めさせないため（§8.10.5 と同じ方針）。
  * 未来の月も「記録なし」と同じ薄さで、違いは押せるかどうかだけなので、凡例は 2 項目で足りる。
  */
-export const HAS_RECORDS_LEGEND_LABEL = '記録あり';
-export const NO_RECORDS_LEGEND_LABEL = '記録なし';
+export function hasRecordsLegendLabel(locale: Locale): string {
+  return t('periodPicker.hasRecords', locale);
+}
+export function noRecordsLegendLabel(locale: Locale): string {
+  return t('periodPicker.noRecords', locale);
+}
 
 /** 記録タブの状態チップ（UI-SPEC §1.2）。「出品中」側は listingCountLabel('ja') と同じ語 */
 export function soldRecordsLabel(locale: Locale): string {
@@ -1642,7 +1660,9 @@ export function weekdayLabels(locale: Locale): readonly string[] {
  * 印そのものは記号（今日 = 点、出品日 = 小さな旗）なので、読み上げにだけ語を出す。
  * 出品日の旗の語は t('form.listedDate', 'ja') をそのまま使う。
  */
-export const TODAY_MARKER_LABEL = '今日';
+export function todayMarkerLabel(locale: Locale): string {
+  return t('calendar.todayMarker', locale);
+}
 
 /** カレンダーを閉じる（日付は押した時点で入るので「決定」ではない） */
 export function closeLabel(locale: Locale): string {
@@ -1659,13 +1679,17 @@ export function closeLabel(locale: Locale): string {
  * 大半の日付が今日・昨日に偏るのに、ホイールはその多数派にまで回す操作を強いていた（§8.10）。
  * 3 つに絞るのは、4 つ目以降は「何日前か」を数える手間がカレンダーを開くより重くなるため。
  */
-export const RELATIVE_DAY_LABELS = ['今日', '昨日', '一昨日'] as const;
+export function relativeDayLabels(locale: Locale): readonly string[] {
+  return [t('calendar.today', locale), t('calendar.yesterday', locale), t('calendar.dayBeforeYesterday', locale)];
+}
 
 /**
  * 年月見出しのボタンの読み上げ語（UI-SPEC §8.10.3）。
  * 見出しそのものは「2026年8月 ▾」だが、押すと何が起きるかは形からは読めない。
  */
-export const CHOOSE_MONTH_LABEL = '年月を選ぶ';
+export function chooseMonthLabel(locale: Locale): string {
+  return t('calendar.chooseMonth', locale);
+}
 
 /** 商品名の欄（UI-SPEC §1.3-4）。必須であることは欄名ではなくキャプションで示す（SPEC §5.2） */
 export function itemNameLabel(locale: Locale): string {

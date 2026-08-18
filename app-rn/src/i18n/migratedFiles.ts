@@ -46,4 +46,9 @@ export const MIGRATED_FILES = [
   'src/components/FilterNoticeRow.tsx',
   'src/components/PeriodComparisonCard.tsx',
   'src/components/TagProfitSection.tsx',
+  // 区切り 6: 日付を選ぶ（カレンダー・チップ・期間ピッカー）
+  'src/components/CalendarPicker.tsx',
+  'src/components/DateChips.tsx',
+  'src/components/DateField.tsx',
+  'src/components/PeriodPicker.tsx',
 ] as const;

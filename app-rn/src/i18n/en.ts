@@ -450,6 +450,27 @@ export const en: Translations = {
     filterNoticeHint: 'Change the filter conditions',
   },
 
+  calendar: {
+    chooseMonth: 'Pick a month',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    todayMarker: 'Today',
+    dayAccessibility: 'Day {{day}}',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    dayBeforeYesterday: 'Two days ago',
+  },
+
+  periodPicker: {
+    thisMonth: 'This month',
+    lastMonth: 'Last month',
+    hasRecords: 'Has records',
+    noRecords: 'No records',
+    yearTapHint: 'Tap a year for the whole year',
+    monthTapHint: 'Tap a month for that month only',
+    yearSelectedHint: 'A whole year is selected',
+  },
+
   settings: {
     help: {
       label: 'How to Use',

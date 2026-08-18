@@ -423,7 +423,7 @@ function SoldDateRow({
   const isToday = daysBetween(value, today) === 0;
   const text = isToday ? todayDateLabel(locale, formatRecordDate(locale, value)) : formatRecordDate(locale, value);
   const range = saleDateRange(saleStartDate, today);
-  const chips = dayChips({ today, range: { min: range.min, max: range.max }, selected: value });
+  const chips = dayChips(locale, { today, range: { min: range.min, max: range.max }, selected: value });
   // 淡色のチップと理由の一行は 1 組（§8.10.5）。語は記録フォームの販売日の行と同じ
   const notes = soldDateNotes(locale, saleStartDate, today);
 

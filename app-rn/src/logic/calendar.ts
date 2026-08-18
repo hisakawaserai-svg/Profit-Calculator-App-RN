@@ -11,7 +11,9 @@
 // 判定はすべて暦日（listingDays.daysBetween）で行う。時刻まで見ると「同じ日なのに範囲外」が
 // 起きて、経過日数の数え方（§5-2）とも食い違うため（saleDate.ts と同じ理由）。
 
-import { RELATIVE_DAY_LABELS } from './labels';
+import type { Locale } from '@/settings/language';
+
+import { relativeDayLabels } from './labels';
 import { daysBetween } from './listingDays';
 import type { PartialDateRange } from './saleDate';
 
@@ -162,7 +164,9 @@ export type DayChip = {
   isSelected: boolean;
 };
 
-export function dayChips({
+export function dayChips(
+  locale: Locale,
+  {
   today,
   range = {},
   selected,
@@ -170,8 +174,9 @@ export function dayChips({
   today: Date;
   range?: PartialDateRange;
   selected?: Date | null;
-}): DayChip[] {
-  return RELATIVE_DAY_LABELS.map((label, offset) => {
+  },
+): DayChip[] {
+  return relativeDayLabels(locale).map((label, offset) => {
     const date = new Date(
       today.getFullYear(),
       today.getMonth(),

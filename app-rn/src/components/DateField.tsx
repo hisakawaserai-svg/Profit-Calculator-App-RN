@@ -21,6 +21,7 @@ import { CalendarPicker } from '@/components/CalendarPicker';
 import { DateChips } from '@/components/DateChips';
 import { dayChips } from '@/logic/calendar';
 import { formatRecordDate } from '@/logic/format';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 /** 選べる範囲（両端を含む）。省略した側は制限なし */
@@ -78,13 +79,16 @@ export function DateField({
   note,
   chipsNote,
 }: Props) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
-  const text = valueText ?? formatRecordDate('ja', value);
+  const text = valueText ?? formatRecordDate(locale, value);
 
   const chips = useMemo(
-    () => dayChips({ today, range: { min: minDate, max: maxDate }, selected: value }),
-    [today, minDate, maxDate, value],
+    () => dayChips(locale, { today, range: { min: minDate, max: maxDate }, selected: value }),
+    [today, minDate, maxDate, value, locale],
   );
 
   return (

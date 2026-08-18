@@ -581,6 +581,31 @@ export const ja = {
     filterNoticeHint: '絞り込みの条件を変えます',
   },
 
+  /** 日付を選ぶ（カレンダー・日付チップ・期間ピッカー。UI-SPEC §8.10 / §1.2-3） */
+  calendar: {
+    chooseMonth: '年月を選ぶ',
+    previousMonth: '前の月',
+    nextMonth: '次の月',
+    /** 今日の印の読み上げ。印そのものは記号なので、語が出るのは読み上げだけ */
+    todayMarker: '今日',
+    dayAccessibility: '{{day}}日',
+    /** 日付チップの相対表記。3 日ぶんだけ持つ（それより前は日付そのものを出す） */
+    today: '今日',
+    yesterday: '昨日',
+    dayBeforeYesterday: '一昨日',
+  },
+
+  /** 期間を選ぶ（年グリッド ＋ 月グリッド） */
+  periodPicker: {
+    thisMonth: '今月',
+    lastMonth: '先月',
+    hasRecords: '記録あり',
+    noRecords: '記録なし',
+    yearTapHint: '年を押すと1年分',
+    monthTapHint: '月を押すとその月だけ',
+    yearSelectedHint: '1年分を選択中',
+  },
+
   // ---- 設定タブの一覧画面（UI-SPEC §1.6） ----
   settings: {
     /** §1.6-1: 見出しなしの 1 行カードと、その下の注記 */
