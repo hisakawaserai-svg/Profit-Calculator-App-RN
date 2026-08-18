@@ -10,6 +10,8 @@
 // 'year' だけは後から戻っている ── **切替としてではなく**、全期間が長くなったときに
 // 自動で選ばれる刻みとして（36 か月超。YEAR_UNIT_MONTH_THRESHOLD）。
 
+import type { Locale } from '@/settings/language';
+
 import { formatMonthDay, formatMonthTitle, formatYearTitle } from './format';
 import { isMonthPeriod, isYearPeriod, periodYear, type Period } from './period';
 
@@ -251,6 +253,20 @@ export type TagSeriesRow = ChartPoint & { tagId: string | null };
  * 選択中のタグぶんだけ、収支推移グラフと同じ span/unit で密な点列にする。
  * `selectedTagIds` に無いタグは結果に含めない（チェックを外すと系列が消える）。
  * 順序は selectedTagIds の反復順（呼び出し側が Set の挿入順＝チェックした順を渡せば、それが凡例の順になる）。
+ *
+ * **`profit` は期間の初めからの累計に積み直す**（2026-08-18 に変更）。
+ *
+ * 以前は刻みごとの額をそのまま返していたが、それを**折れ線**で描くと、売れた日だけ跳ね上がって
+ * 0 に戻る棘の列になり、売れていない日にも線が引かれて「その間も何かが起きている」ように読めた。
+ * 折れ線が答えるのは「いまいくらまで積み上がったか」で、累計ならその高さが常に意味を持つ ──
+ * 売れない日は水平（＝一定）になり、右端の高さがその期間のタグ合計（＝一覧モードの金額）と一致する。
+ * 収支タブが同じ数字を棒（刻みごと）と折れ線（累計。cumulativeProfits）に分けているのと同じ整理で、
+ * タグ側は線しか持たないので線のほうを累計にする。
+ *
+ * **`recordCount` は刻みごとのまま**（積み上げない）── これは「その日に記録があったか」を
+ * 言う値で、タップの寄せ先（nearestRecordedIndex）と日別内訳が見る。累計にすると
+ * 1 件でも売れた日以降が全部「記録のある日」になってしまう。
+ * 同じ理由で、点をタップして出る日別内訳（呼び出し側が生の行から組む）も**その日の増分**のまま。
  */
 export function tagTrendSeries(
   rows: readonly TagSeriesRow[],
@@ -260,8 +276,16 @@ export function tagTrendSeries(
 ): Map<string | null, ChartPoint[]> {
   const result = new Map<string | null, ChartPoint[]>();
   for (const tagId of selectedTagIds) {
-    const points = rows.filter((row) => row.tagId === tagId);
-    result.set(tagId, densifySeries(points, unit, span));
+    const points = densifySeries(
+      rows.filter((row) => row.tagId === tagId),
+      unit,
+      span,
+    );
+    const running = cumulativeProfits(points.map((point) => point.profit));
+    result.set(
+      tagId,
+      points.map((point, index) => ({ ...point, profit: running[index] })),
+    );
   }
   return result;
 }
@@ -491,8 +515,8 @@ export function formatChartLabel(date: Date, unit: ChartUnit): string {
  * 刻みと同じ粒度で出す ── 月ごとの点に日付まで出すと、実在しない「その月の 1 日」を
  * 指しているように読めるため。
  */
-export function formatPointDate(date: Date, unit: ChartUnit): string {
-  if (unit === 'day') return formatMonthDay('ja', date);
-  if (unit === 'year') return formatYearTitle('ja', date.getFullYear());
-  return formatMonthTitle('ja', date);
+export function formatPointDate(locale: Locale, date: Date, unit: ChartUnit): string {
+  if (unit === 'day') return formatMonthDay(locale, date);
+  if (unit === 'year') return formatYearTitle(locale, date.getFullYear());
+  return formatMonthTitle(locale, date);
 }

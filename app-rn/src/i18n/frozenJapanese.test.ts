@@ -6,8 +6,19 @@
 // 型は通り、テストも通り、実機でその部分だけ日本語で残る
 // （逆算の式・レシートの利益ラベル・帯グラフの項目名が実際にこれで残っていた）。
 //
-// 判定は単純で、**`const locale = useLocale()` を持つ関数の本文に `'ja'` があったら落とす**。
-// その関数は locale を持っているのだから、日本語で固定する理由がない。
+// 判定は 2 つある。
+//
+// 1. **`const locale = useLocale()` を持つ関数の本文に `'ja'` があったら落とす。**
+//    その関数は locale を持っているのだから、日本語で固定する理由がない。
+// 2. **移行済みファイルのどこであれ `fn('ja', …)` があったら落とす。**
+//    1 だけでは、**locale を購読していない component** が漏れる ── 数字しか出さない
+//    つもりの部品が、実は単位や日付を語で持っていることがある。データタブの Y 軸の目盛り
+//    （`formatCompactYen('ja', …)`。「9千円」が英語でも出ていた）とタグ選択シートの件数が
+//    実際にこれで残っていた。**その場合は component に `useLocale()` を足すのが直し方**で、
+//    「locale を持っていないから 'ja' でよい」は理由にならない。
+//
+// 2 の対象は移行済みファイルだけ ── 未移行の画面と、CSV / バックアップのように
+// 出力の中身がまだ日本語固定の logic は、意図して `'ja'` を渡している。
 
 import { readFileSync } from 'node:fs';
 
@@ -26,6 +37,15 @@ function bodyEnd(text: string, open: number): number {
     }
   }
   return text.length;
+}
+
+/**
+ * ファイル全体に残った `fn('ja', …)`。**関数の外（モジュールスコープ）も見る** ──
+ * `const OPTIONS = KINDS.map((k) => label('ja', k))` のような畳み込みは、
+ * 言語を切り替えても最初の言語の配列が残る（実際に絞り込みの種別がこれで残っていた）。
+ */
+function frozenCallsAnywhere(source: string): string[] {
+  return (source.match(/(?<![.\w])\w+\('ja'[,)]/g) ?? []).map((call) => call);
 }
 
 /** locale を購読している関数の中に残った `'ja'` の呼び出しを拾う */
@@ -57,5 +77,13 @@ function frozenCalls(source: string): string[] {
 describe('多言語化済みのファイルに日本語固定の呼び出しが残っていない', () => {
   it.each(MIGRATED_FILES)('%s', (file) => {
     expect(frozenCalls(readFileSync(file, 'utf8'))).toEqual([]);
+  });
+});
+
+// locale を購読していない component にも `'ja'` が残せてしまう（上の検査は素通りする）。
+// 移行済みのファイルなら、**関数の外も含めて** 1 つも残っていないのが正しい状態。
+describe('多言語化済みのファイルには locale を購読しない `ja` 固定も残っていない', () => {
+  it.each(MIGRATED_FILES)('%s', (file) => {
+    expect(frozenCallsAnywhere(readFileSync(file, 'utf8'))).toEqual([]);
   });
 });

@@ -326,8 +326,11 @@ describe('売却済み分析「どうだった？」の見出し状態（soldCon
     expect(soldConclusion(decidedLater)).toBe('targetMet');
   });
 
-  it('価格未設定は null（見出しそのものを出さない）', () => {
-    expect(soldConclusion(stateE)).toBeNull();
+  // **null を返してはいけない**（2026-08-18 の回帰）。記録詳細の入口の行は戻り値が
+  // null かどうかで出す・出さないを決めているので、null だと売値未入力のまま
+  // 「売れた」を押した記録だけ、この画面へ到達できなくなる
+  it('価格未設定は unpriced（結論は出せないが、状態としては返す）', () => {
+    expect(soldConclusion(stateE)).toBe('unpriced');
   });
 });
 

@@ -193,7 +193,7 @@ export function RecordListScreen() {
   const filterCount = activeFilterCount(appliedFilter);
   // 青い行の件数は**いま一覧に出ている数**（＝検索も効いた後）。文のすぐ下に並ぶのが
   // その一覧だから。シート下部の「この条件に合う記録 N 件」は検索を含めない数で、別物（§4.6）
-  const summaryText = filterSummaryText(appliedFilter, tags, records.length);
+  const summaryText = filterSummaryText(locale, appliedFilter, tags, records.length);
 
   const handleDelete = useCallback(
     (id: string) => {

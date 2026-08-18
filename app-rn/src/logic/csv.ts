@@ -305,7 +305,8 @@ function taxDayRow(group: CsvDayGroup): string[] {
   return [
     // 出品中の行は販売日を空のままにする（グループを状態で分けてある理由。CsvDayGroup 参照）
     group.isSold ? group.day : '',
-    csvDaySiteNames(group.records.map((record) => record.siteName)),
+    // CSV の中身はまだ日本語のまま（列名も CSV_TAX_COLUMNS で固定）。隣の行と同じく 'ja' を渡す
+    csvDaySiteNames('ja', group.records.map((record) => record.siteName)),
     csvDayItemNames('ja', group.records.map((record) => record.itemName)),
     dayKindField(group.records),
     toAmountField(amounts.salesPrice),

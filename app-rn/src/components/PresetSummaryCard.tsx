@@ -92,7 +92,7 @@ export function PresetSummaryCard({ type, presets }: Props) {
             ))}
             {overflow > 0 && (
               <Text style={[styles.overflow, { color: colors.secondaryLabel }]}>
-                {presetOverflowLabel(overflow)}
+                {presetOverflowLabel(locale, overflow)}
               </Text>
             )}
           </View>

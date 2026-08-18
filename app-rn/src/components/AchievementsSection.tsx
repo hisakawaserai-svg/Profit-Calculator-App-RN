@@ -38,7 +38,7 @@ import {
   type NextAchievement,
   type PersonalBests,
 } from '@/logic/achievements';
-import { formatShortDate, formatYenSymbol } from '@/logic/format';
+import { formatShortDate, formatYearTitle, formatYenSymbol } from '@/logic/format';
 import {
   achievementsCompleteMessage,
   achievementsCompleteTitle,
@@ -613,7 +613,7 @@ export function AchievementsSection({
               sub={
                 personalBests.bestMonthByCount == null
                   ? undefined
-                  : personalBests.bestMonthByCount.monthKey.split('-')[0] + '年'
+                  : formatYearTitle(locale, Number(personalBests.bestMonthByCount.monthKey.split('-')[0]))
               }
               colors={colors}
             />

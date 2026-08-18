@@ -46,8 +46,8 @@ import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 日曜・土曜の見出しの色分けはしない（祝日を持たないので、色が意味を持てない） */
-/** 週の日数。言語では変わらないので、どちらの表で数えても同じ */
-const WEEKDAY_COUNT = weekdayLabels('ja').length;
+/** 週の日数。言語では変わらない（曜日の語は weekdayLabels が locale ごとに持つ） */
+const WEEKDAY_COUNT = 7;
 
 type Props = {
   /** シートの見出し（例:「売れた日」） */

@@ -8,27 +8,27 @@ import { periodComparisonMetrics, periodComparisonQuery } from './periodComparis
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0, 0);
 
 describe('periodComparisonQuery: 表示中の期間 → 比較対象の月範囲', () => {
+  // 語（「7月 → 8月」）はここでは作らない ── locale ごとの組み立ては labels.ts の
+  // periodComparisonRangeLabel が持ち、その文言は labels.test.ts が見る
   it('月を選択中は前月と比較する', () => {
     const result = periodComparisonQuery('2026-08', d(2026, 8, 16));
     expect(result).toEqual({
       monthKeyRange: { from: '2026-07', to: '2026-07' },
-      label: '7月 → 8月',
-      previousLabel: '7月',
+      range: { kind: 'month', previousMonth: 7, currentMonth: 8 },
     });
   });
 
   it('年をまたぐ月（1月）の前月は前年の12月', () => {
     const result = periodComparisonQuery('2026-01', d(2026, 1, 15));
     expect(result?.monthKeyRange).toEqual({ from: '2025-12', to: '2025-12' });
-    expect(result?.label).toBe('12月 → 1月');
+    expect(result?.range).toEqual({ kind: 'month', previousMonth: 12, currentMonth: 1 });
   });
 
   it('今年を選択中は前年同期間（今年がまだ8月までなら去年も1〜8月で揃える）', () => {
     const result = periodComparisonQuery('2026', d(2026, 8, 16));
     expect(result).toEqual({
       monthKeyRange: { from: '2025-01', to: '2025-08' },
-      label: '2025年1〜8月 → 2026年1〜8月',
-      previousLabel: '2025年1〜8月',
+      range: { kind: 'year', previousYear: 2025, currentYear: 2026, endMonth: 8 },
     });
   });
 
@@ -36,8 +36,7 @@ describe('periodComparisonQuery: 表示中の期間 → 比較対象の月範囲
     const result = periodComparisonQuery('2025', d(2026, 8, 16));
     expect(result).toEqual({
       monthKeyRange: { from: '2024-01', to: '2024-12' },
-      label: '2024年 → 2025年',
-      previousLabel: '2024年',
+      range: { kind: 'year', previousYear: 2024, currentYear: 2025, endMonth: 12 },
     });
   });
 

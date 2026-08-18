@@ -253,6 +253,9 @@ function TagRow({
   usageCount: number;
   onPress: () => void;
 }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   return (
@@ -270,9 +273,8 @@ function TagRow({
       <View style={styles.rowName}>
         <TagChip tag={tag} />
       </View>
-      {/* このシートはまだ多言語化していない（ステップ 2）ので、件数も日本語で出す */}
       <Text style={[styles.usageCount, { color: colors.secondaryLabel }]}>
-        {presetCountLabel('ja', usageCount)}
+        {presetCountLabel(locale, usageCount)}
       </Text>
     </Pressable>
   );

@@ -473,7 +473,9 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
     });
     const span = { from: d(2026, 7, 1), to: d(2026, 7, 3) };
 
-    it('選択中のタグぶんだけ、収支推移グラフと同じ span/unit で密な点列にする', () => {
+    // **折れ線は累計**（売れていない日は横ばい）。刻みごとの額をそのまま折れ線にすると、
+    // 売れた日だけ跳ね上がって 0 に戻る棘の列になり、線の高さが何も意味しなくなる
+    it('選択中のタグぶんだけ、収支推移グラフと同じ span/unit で密な点列にする（額は累計）', () => {
       const rows = [
         row('a', '2026-07-01', d(2026, 7, 1), 1000),
         row('a', '2026-07-03', d(2026, 7, 3), 500),
@@ -483,8 +485,30 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
       const result = tagTrendSeries(rows, new Set(['a', 'b']), 'day', span);
 
       expect([...result.keys()]).toEqual(['a', 'b']);
-      expect(result.get('a')?.map((point) => point.profit)).toEqual([1000, 0, 500]);
-      expect(result.get('b')?.map((point) => point.profit)).toEqual([0, 300, 0]);
+      // 7/2 は売れていないので 7/1 の高さのまま。右端は期間合計（1000 + 500）
+      expect(result.get('a')?.map((point) => point.profit)).toEqual([1000, 1000, 1500]);
+      expect(result.get('b')?.map((point) => point.profit)).toEqual([0, 300, 300]);
+    });
+
+    it('赤字の刻みでは累計が下がる（積み上げるだけの線にはしない）', () => {
+      const rows = [
+        row('a', '2026-07-01', d(2026, 7, 1), 1000),
+        row('a', '2026-07-02', d(2026, 7, 2), -400),
+      ];
+
+      const result = tagTrendSeries(rows, new Set(['a']), 'day', span);
+
+      expect(result.get('a')?.map((point) => point.profit)).toEqual([1000, 600, 600]);
+    });
+
+    // 記録の有無は刻みごとの事実で、タップの寄せ先（nearestRecordedIndex）が見る。
+    // ここまで累計にすると、1 件売れた日以降が全部「記録のある日」になってしまう
+    it('recordCount は刻みごとのまま（累計にしない）', () => {
+      const rows = [row('a', '2026-07-01', d(2026, 7, 1), 1000)];
+
+      const result = tagTrendSeries(rows, new Set(['a']), 'day', span);
+
+      expect(result.get('a')?.map((point) => point.recordCount)).toEqual([1, 0, 0]);
     });
 
     it('チェックを外すと選択集合から抜け、系列そのものが結果から消える', () => {
@@ -507,7 +531,7 @@ describe('UI-SPEC §1.5-4 X 軸を日付の軸にする', () => {
 
       const result = tagTrendSeries(rows, new Set<string | null>([null]), 'day', span);
 
-      expect(result.get(null)?.map((point) => point.profit)).toEqual([0, 700, 0]);
+      expect(result.get(null)?.map((point) => point.profit)).toEqual([0, 700, 700]);
     });
 
     it('選択が空集合なら結果も空の Map', () => {
@@ -636,8 +660,12 @@ describe('§6.2 / §1.5-5 軸ラベル・選択した点の見出しの書式', 
   });
 
   it('選択した点の見出しは刻みの粒度に合わせる', () => {
-    expect(formatPointDate(date, 'day')).toBe('8月9日');
-    expect(formatPointDate(date, 'month')).toBe('2026年8月');
-    expect(formatPointDate(date, 'year')).toBe('2026年');
+    expect(formatPointDate('ja', date, 'day')).toBe('8月9日');
+    expect(formatPointDate('ja', date, 'month')).toBe('2026年8月');
+    expect(formatPointDate('ja', date, 'year')).toBe('2026年');
+    // 英語でも刻みごとに同じ粒度で出す（データタブの見出し・棒タップの一覧が日本語で残っていた）
+    expect(formatPointDate('en', date, 'day')).toBe('August 9');
+    expect(formatPointDate('en', date, 'month')).toBe('August 2026');
+    expect(formatPointDate('en', date, 'year')).toBe('2026');
   });
 });

@@ -20,6 +20,8 @@ import {
   periodComparisonRateDiffText,
   perRecordProfitLabel,
   periodComparisonEmptyText,
+  periodComparisonPreviousLabel,
+  periodComparisonRangeLabel,
   periodComparisonTitle,
   profitRateLabel,
   soldCountLabel,
@@ -31,25 +33,28 @@ import type {
   ComparisonAmountRow,
   ComparisonPerRecordProfitRow,
   PeriodComparisonMetrics,
+  PeriodComparisonRange,
 } from '@/logic/periodComparison';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 type Props = {
-  /** 見出し脇の期間ラベル「7月 → 8月」 */
-  label: string;
-  /** 各行の比較対象側に添える短いラベル「7月」 */
-  previousLabel: string;
+  /** どの期間どうしの比較か。語（「7月 → 8月」/「Jul → Aug」）はここで組む */
+  range: PeriodComparisonRange;
   /** 比較対象に売却済み記録が 1 件も無ければ null（periodComparisonEmptyText(locale) を出す） */
   metrics: PeriodComparisonMetrics | null;
 };
 
-export function PeriodComparisonCard({ label, previousLabel, metrics }: Props) {
+export function PeriodComparisonCard({ range, metrics }: Props) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
   const colors = useThemeColors();
+
+  // 期間の語はこの層で組む ── 集計側（logic/periodComparison.ts）は locale を知らない
+  const label = periodComparisonRangeLabel(locale, range);
+  const previousLabel = periodComparisonPreviousLabel(locale, range);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>

@@ -29,7 +29,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { TagDot } from '@/components/TagChip';
 import { useFilteredRecordCount } from '@/db/useRecords';
 import { useSiteNames, useTagCountsForFilter, useTagList } from '@/db/useTags';
-import { KIND_FILTER_OPTIONS } from '@/logic/kindFilter';
+import { kindFilterOptions } from '@/logic/kindFilter';
 import {
   filterAllLabel,
   filterClearAllLabel,
@@ -66,6 +66,7 @@ export function RecordFilterScreen() {
 
   const colors = useThemeColors();
   const { scope, filter, setFilter, isSoldMode, period, clearFilter } = useRecordFilterState();
+  const kindOptions = kindFilterOptions(locale);
 
   const { tags } = useTagList();
   const siteNames = useSiteNames();
@@ -156,14 +157,13 @@ export function RecordFilterScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          {/* §4.2-2: 種別。選択肢は KIND_FILTER_OPTIONS をそのまま使う（SPEC-V2 §4.2） */}
+          {/* §4.2-2: 種別。選択肢は kindFilterOptions をそのまま使う（SPEC-V2 §4.2）。
+              **描画のたびに引き直す** ── 表示名は locale で決まる（定数に畳むと言語が固定される） */}
           <Section label={filterKindSectionLabel(locale)}>
             <SegmentedControl
-              options={KIND_FILTER_OPTIONS.map((option) => option.label)}
-              selectedIndex={KIND_FILTER_OPTIONS.findIndex(
-                (option) => option.value === filter.kind,
-              )}
-              onChange={(index) => setFilter({ ...filter, kind: KIND_FILTER_OPTIONS[index].value })}
+              options={kindOptions.map((option) => option.label)}
+              selectedIndex={kindOptions.findIndex((option) => option.value === filter.kind)}
+              onChange={(index) => setFilter({ ...filter, kind: kindOptions[index].value })}
             />
           </Section>
 

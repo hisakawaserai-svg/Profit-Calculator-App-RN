@@ -26,7 +26,7 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AchievementsSection, resolveTagFrom, resolveTagNameFrom } from '@/components/AchievementsSection';
@@ -687,7 +687,7 @@ export function DataScreen() {
    * 「文のすぐ下にあるものを説明する」という §4.3 の趣旨に合う。
    * 検索欄がないので、記録タブのような「下部の件数との食い違い」も起きない。
    */
-  const summaryText = filterSummaryText(recordFilter, tags, summary.recordCount);
+  const summaryText = filterSummaryText(locale, recordFilter, tags, summary.recordCount);
 
   // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
   // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
@@ -843,8 +843,7 @@ export function DataScreen() {
                     null になり、そのままセクションごと出ない（logic/periodComparison.ts） */}
                 {comparison != null && (
                   <PeriodComparisonCard
-                    label={comparison.label}
-                    previousLabel={comparison.previousLabel}
+                    range={comparison.range}
                     metrics={comparison.metrics}
                   />
                 )}
@@ -887,6 +886,7 @@ export function DataScreen() {
                   {tagChartSelectedBreakdownTagId !== undefined && (
                     <SelectedTagChartTagList
                       dateText={formatPointDate(
+                        locale,
                         densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
                         unit,
                       )}
@@ -1088,7 +1088,7 @@ function ChartHeadRow({
     <View style={styles.headRow}>
       {/* 日付は下の一覧の見出しと同じ粒度で出す（刻みが月なら「2026年8月」。formatPointDate） */}
       <Text style={[styles.valueDate, { color: colors.secondaryLabel }]} numberOfLines={1}>
-        {formatPointDate(selected.point.date, unit)}
+        {formatPointDate(locale, selected.point.date, unit)}
       </Text>
       <View style={styles.legendItem}>
         {/* 見本も金額も、その日の棒と同じ色（赤字なら赤）。
@@ -1236,6 +1236,15 @@ function ChartView({
         barWidth={barWidth}
       />
 
+      {/* 選択中のスロットを貫く縦の点線（タグ別の折れ線グラフと同じ目印）。
+          **累計の折れ線より先に置く** ── 折れ線とその丸印が線の上に来るように */}
+      <SelectionLine
+        selectedIndex={selectedIndex}
+        heights={heights}
+        pitch={pitch}
+        barWidth={barWidth}
+      />
+
       {withCumulative && (
         <CumulativeLine
           values={cumulative}
@@ -1283,6 +1292,11 @@ function YAxisTicks({
   /** 折れ線を出しているか。出していないなら累計の目盛りも要らない */
   showCumulative: boolean;
 }) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。目盛りは単位を字で持つ（「9千円」/「¥9K」）ので、
+  // この component は表示語を出さなくても locale を購読する必要がある
+  const locale = useLocale();
+
   const colors = useThemeColors();
 
   const barStepValue = bounds.barMax / bounds.sections;
@@ -1318,7 +1332,7 @@ function YAxisTicks({
               top: topOf(level),
             },
           ]}>
-          {formatCompactYen('ja', level * barStepValue)}
+          {formatCompactYen(locale, level * barStepValue)}
         </Text>
       ))}
 
@@ -1339,7 +1353,7 @@ function YAxisTicks({
                   top: topOf(level),
                 },
               ]}>
-              {formatCompactYen('ja', level * cumulativeStepValue)}
+              {formatCompactYen(locale, level * cumulativeStepValue)}
             </Text>
           ))}
     </View>
@@ -1428,6 +1442,53 @@ function cumulativeY(value: number, bounds: DualAxisBounds, above: number): numb
  * 消えたのはラベルの列だけで、線を描く写像も「0 の高さを棒と揃える」決定もそのまま
  * （§1.5「目盛りはキリのいい数」）。最後の値は右端のピル（CumulativePill）が数字で言う。
  */
+/**
+ * 選択中のスロットを上から下まで貫く縦の点線（タグ別の折れ線グラフの目印線と同じもの。
+ * TagProfitSection の「選択中の点を貫く縦の目印線」）。
+ *
+ * 棒の濃さ（barData の frontColor）だけでも選択は分かるが、**空きスロット・0 に近い日**では
+ * 濃くする棒そのものが無く、どこを触っているのかが本体の中に残らない。線なら値によらず必ず出る。
+ *
+ * x は棒・タップ列・累計の折れ線と**同じ式**（EDGE_SPACING + i × pitch + barWidth / 2）で出す ──
+ * 別に計算すると 1px ずれて、棒の中心から外れた線になる。
+ * 高さは 0 より下の段も含めた合計（heights.total）── 赤字の日は棒が下へ伸びるので、
+ * 上半分だけの線だとその棒を指せない。
+ */
+function SelectionLine({
+  selectedIndex,
+  heights,
+  pitch,
+  barWidth,
+}: {
+  /** 選択中のスロットの位置。-1 = 未選択（線ごと出さない） */
+  selectedIndex: number;
+  heights: ChartHeights;
+  pitch: number;
+  barWidth: number;
+}) {
+  const colors = useThemeColors();
+
+  if (selectedIndex < 0) return null;
+
+  const x = EDGE_SPACING + selectedIndex * pitch + barWidth / 2;
+
+  return (
+    <Svg
+      style={[styles.lineOverlay, { top: heights.top, height: heights.total }]}
+      pointerEvents="none">
+      <Line
+        x1={x}
+        x2={x}
+        y1={0}
+        y2={heights.total}
+        stroke={colors.secondaryLabel}
+        strokeWidth={StyleSheet.hairlineWidth}
+        strokeDasharray="4,4"
+      />
+    </Svg>
+  );
+}
+
 function CumulativeLine({
   values,
   bounds,
@@ -1643,7 +1704,7 @@ function SelectedPointList({
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
-  const title = selectedPointTitle(locale, formatPointDate(point.date, unit), point.recordCount);
+  const title = selectedPointTitle(locale, formatPointDate(locale, point.date, unit), point.recordCount);
   return (
     // key で選択のたびに作り直す ── 前の点で開いた「すべて見る」が次の点にも残らないようにするため
     <SelectedRecordsCard

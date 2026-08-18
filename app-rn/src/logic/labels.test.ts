@@ -14,15 +14,17 @@ import {
 } from './pricing';
 
 import {
-  ALMOST_ALL_PERCENT_LABEL,
+  almostAllPercentLabel,
   AMOUNT_PLACEHOLDER,
   DETAILS_COLLAPSE_LABEL,
   DETAILS_EXPAND_LABEL,
-  LESS_THAN_ONE_PERCENT_LABEL,
+  lessThanOnePercentLabel,
   averageSaleDaysValue,
   detailsToggleLabel,
   perRecordProfitValue,
   percentLabel,
+  periodComparisonPreviousLabel,
+  periodComparisonRangeLabel,
   applyPriceButtonLabel,
   listingDayBadgeLabel,
   lossAmountNote,
@@ -349,6 +351,9 @@ describe('UI-SPEC §1.5 データタブの語', () => {
 
   it('選択した点の見出しは日付と件数を並べる（§1.5-5）', () => {
     expect(selectedPointTitle('ja', '8月9日', 3)).toBe('8月9日の記録　3件');
+    // 英語は 1 件だけ語形が変わる（「1 records」と出ていた）
+    expect(selectedPointTitle('en', 'August 9', 3)).toBe('August 9 · 3 records');
+    expect(selectedPointTitle('en', 'August 9', 1)).toBe('August 9 · 1 record');
   });
 
   it('注記は年・全期間で何が変わるかを名指しする（年ごとへの切替も含めて。§1.5-6）', () => {
@@ -398,6 +403,34 @@ describe('UI-SPEC §1.5 データタブの語', () => {
   it('記録のないタグの開閉行は開閉状態で語を変える', () => {
     expect(zeroRecordTagsToggleLabel('ja', 3, false)).toBe('記録のない3タグを見る');
     expect(zeroRecordTagsToggleLabel('ja', 3, true)).toBe('記録のない3タグを閉じる');
+  });
+});
+
+/**
+ * 前期間比較カードの期間の語。**集計側（logic/periodComparison.ts）は文字列を持たない** ──
+ * 語順も月の書き方も言語で変わるので、ここで組む。日本語で固定されていた回帰の検査でもある。
+ */
+describe('前期間比較の期間ラベル', () => {
+  const month = { kind: 'month', previousMonth: 7, currentMonth: 8 } as const;
+  const partialYear = { kind: 'year', previousYear: 2025, currentYear: 2026, endMonth: 8 } as const;
+  const fullYear = { kind: 'year', previousYear: 2024, currentYear: 2025, endMonth: 12 } as const;
+
+  it('月どうしは月の語だけを並べる', () => {
+    expect(periodComparisonRangeLabel('ja', month)).toBe('7月 → 8月');
+    expect(periodComparisonPreviousLabel('ja', month)).toBe('7月');
+    expect(periodComparisonRangeLabel('en', month)).toBe('Jul → Aug');
+    expect(periodComparisonPreviousLabel('en', month)).toBe('Jul');
+  });
+
+  it('年の途中までは範囲まで言う（今年は来ていない月まで伸ばさない）', () => {
+    expect(periodComparisonRangeLabel('ja', partialYear)).toBe('2025年1〜8月 → 2026年1〜8月');
+    expect(periodComparisonPreviousLabel('ja', partialYear)).toBe('2025年1〜8月');
+    expect(periodComparisonRangeLabel('en', partialYear)).toBe('2025 Jan–Aug → 2026 Jan–Aug');
+  });
+
+  it('完結した年は年だけ（1〜12月とは言わない）', () => {
+    expect(periodComparisonRangeLabel('ja', fullYear)).toBe('2024年 → 2025年');
+    expect(periodComparisonRangeLabel('en', fullYear)).toBe('2024 → 2025');
   });
 });
 
@@ -647,7 +680,9 @@ describe('SPEC-V3 §3 プリセットの表示語', () => {
 
   it('設定タブのカードは件数と「ほかN件」で数に戻す（§3.1 / 設計案 24a）', () => {
     expect(presetCountLabel('ja', 4)).toBe('4件');
-    expect(presetOverflowLabel(2)).toBe('ほか2件');
+    expect(presetOverflowLabel('ja', 2)).toBe('ほか2件');
+    // 英語で「ほか2件」が残っていた（プリセットのカード・解除バーのタグ）
+    expect(presetOverflowLabel('en', 2)).toBe('+2 more');
   });
 
   it('追加行は記録フォームの「＋ …」と同じ形（§3.2-3）', () => {
@@ -1005,16 +1040,11 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
 
   const headlineOf = (salesPrice: number, targetProfit: number | null) => {
     const analysis = analyze(salesPrice, targetProfit);
-    const conclusion = soldConclusion(analysis);
-    if (conclusion == null) throw new Error('価格未設定では行を出さない');
-    return soldRecordDetailConclusionHeadline('ja', conclusion, analysis);
+    return soldRecordDetailConclusionHeadline('ja', soldConclusion(analysis), analysis);
   };
 
-  const detailOf = (salesPrice: number, targetProfit: number | null) => {
-    const conclusion = soldConclusion(analyze(salesPrice, targetProfit));
-    if (conclusion == null) throw new Error('価格未設定では行を出さない');
-    return soldRecordDetailConclusionDetail('ja', conclusion);
-  };
+  const detailOf = (salesPrice: number, targetProfit: number | null) =>
+    soldRecordDetailConclusionDetail('ja', soldConclusion(analyze(salesPrice, targetProfit)));
 
   it('目標なし', () => {
     expect(headlineOf(5000, null)).toBe('交渉されても、あと¥1,888は応じられた計算でした');
@@ -1031,8 +1061,12 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
     expect(detailOf(3500, 1000)).toBe('目標にどれだけ届かなかったか見る');
   });
 
-  it('価格未設定では行自体を出さない（soldConclusion が null）', () => {
-    expect(soldConclusion(analyze(0, null))).toBeNull();
+  // 出品中側（'unpriced'）と同じく、売れた記録でも**行は出す**。
+  // 語は分ける ── 「売る価格」ではもう売れた記録に合わない
+  it('価格未設定でも行は出し、売れた記録用の語に差し替える', () => {
+    expect(soldConclusion(analyze(0, null))).toBe('unpriced');
+    expect(headlineOf(0, null)).toBe('売れた価格を入れると、残った利益が出ます');
+    expect(detailOf(0, null)).toBe('売れた価格を入力する');
   });
 });
 
@@ -1040,24 +1074,31 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
 // 仕入 400,000 円・手数料 100 円の記録で「仕入価格 100%」と「1%未満」が同時に出ていた。
 describe('帯グラフの割合の語', () => {
   it('丸めて 0% になる区画は「1%未満」（「無い」と読ませない）', () => {
-    expect(percentLabel(0.004)).toBe(LESS_THAN_ONE_PERCENT_LABEL);
-    expect(percentLabel(0.0000025)).toBe(LESS_THAN_ONE_PERCENT_LABEL);
+    expect(percentLabel('ja', 0.004)).toBe(lessThanOnePercentLabel('ja'));
+    expect(percentLabel('ja', 0.0000025)).toBe(lessThanOnePercentLabel('ja'));
   });
 
   it('**全部ではないのに「100%」と言わない**', () => {
     // 400000 / 400100 = 99.975%
-    expect(percentLabel(400000 / 400100)).toBe(ALMOST_ALL_PERCENT_LABEL);
-    expect(percentLabel(0.999)).toBe(ALMOST_ALL_PERCENT_LABEL);
+    expect(percentLabel('ja', 400000 / 400100)).toBe(almostAllPercentLabel('ja'));
+    expect(percentLabel('ja', 0.999)).toBe(almostAllPercentLabel('ja'));
   });
 
   it('ちょうど全部のときだけ「100%」', () => {
-    expect(percentLabel(1)).toBe('100%');
+    expect(percentLabel('ja', 1)).toBe('100%');
   });
 
   it('間の値は整数に丸めるだけ', () => {
-    expect(percentLabel(0.5)).toBe('50%');
-    expect(percentLabel(0.324)).toBe('32%');
-    expect(percentLabel(0.985)).toBe('99%');
+    expect(percentLabel('ja', 0.5)).toBe('50%');
+    expect(percentLabel('ja', 0.324)).toBe('32%');
+    expect(percentLabel('ja', 0.985)).toBe('99%');
+  });
+
+  // 両端だけは数字ではなく語なので、英語で日本語が残っていた（帯の引き出し線・区画の中）
+  it('英語では両端も英語の語で出す', () => {
+    expect(percentLabel('en', 0.004)).toBe('<1%');
+    expect(percentLabel('en', 0.999)).toBe('~100%');
+    expect(percentLabel('en', 0.5)).toBe('50%');
   });
 });
 

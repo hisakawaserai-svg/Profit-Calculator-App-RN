@@ -62,12 +62,14 @@ import {
 } from './format';
 import { daysBetween } from './listingDays';
 import { periodKind, periodYear, type Period } from './period';
+import type { PeriodComparisonRange } from './periodComparison';
 import type {
   PriceTickKey,
   PricingAnalysis,
   PricingConclusion,
   PricingState,
   RecordDetailConclusion,
+  PricedSoldConclusion,
   SimulationVerdict,
   SoldConclusion,
 } from './pricing';
@@ -1099,6 +1101,47 @@ export function periodComparisonEmptyText(locale: Locale): string {
 }
 
 /**
+ * 比較する期間の片側「7月」「2025年1〜8月」（英語では「Jul」「2025 Jan–Aug」）。
+ *
+ * 月の書き方は formatMonthCell に任せる（「8月」/「Aug」）── 期間シートの月グリッドと
+ * 同じ語にする。年の途中までを指すときだけ、年と月の範囲を 1 文にまとめた語を使う
+ * （日本語は「1〜8月」で始まりの月を字で持たないので、`start` は英語の文だけが使う）。
+ */
+function periodComparisonSideLabel(
+  locale: Locale,
+  range: PeriodComparisonRange,
+  side: 'previous' | 'current',
+): string {
+  if (range.kind === 'month') {
+    return formatMonthCell(locale, side === 'previous' ? range.previousMonth : range.currentMonth);
+  }
+
+  const year = side === 'previous' ? range.previousYear : range.currentYear;
+  if (range.endMonth === 12) return formatYearTitle(locale, year);
+  return t('data.periodComparisonYearPartial', locale, {
+    year,
+    start: formatMonthCell(locale, 1),
+    end: formatMonthCell(locale, range.endMonth),
+  });
+}
+
+/** カードの見出しの期間「7月 → 8月」。矢印の向きは言語によらない（前 → 今） */
+export function periodComparisonRangeLabel(locale: Locale, range: PeriodComparisonRange): string {
+  return t('data.periodComparisonRange', locale, {
+    previous: periodComparisonSideLabel(locale, range, 'previous'),
+    current: periodComparisonSideLabel(locale, range, 'current'),
+  });
+}
+
+/** 各行の比較対象側に添える短いラベル「7月」 */
+export function periodComparisonPreviousLabel(
+  locale: Locale,
+  range: PeriodComparisonRange,
+): string {
+  return periodComparisonSideLabel(locale, range, 'previous');
+}
+
+/**
  * 金額差分の 1 行「▲+¥3,200」「▼-¥1,234」（前期間比較カード）。
  * 増加は ▲・減少は ▼、変化なしは記号なし。符号つきの金額そのものは
  * formatSignedYenSymbol（一覧の行の純利益と同じ表記）に任せる。
@@ -1195,6 +1238,15 @@ export function tagOverlayEmptyNote(locale: Locale): string {
 
 export function tagSparklineNote(locale: Locale): string {
   return t('data.tagSparklineNote', locale);
+}
+
+/**
+ * 折れ線カードの下の 1 行。**線が累計であること**を言う（analytics.ts の tagTrendSeries）。
+ * 収支タブは折れ線に「累計収支」という名前が付いているが、こちらの線はタグ名が名前なので、
+ * 累計だと言える場所が凡例に無い ── だから 1 行の注記で言う。
+ */
+export function tagOverlayCumulativeNote(locale: Locale): string {
+  return t('data.tagOverlayCumulativeNote', locale);
 }
 
 /**
@@ -1697,25 +1749,33 @@ export function unsetInputLabel(locale: Locale): string {
   return t('form.unsetInput', locale);
 }
 
-/** 帯グラフの凡例の割合（例:「32%」）。整数に丸める ── 小数第 1 位まで読む場面ではない */
-export function percentLabel(ratio: number): string {
+/**
+ * 帯グラフの凡例の割合（例:「32%」）。整数に丸める ── 小数第 1 位まで読む場面ではない。
+ *
+ * 数字だけの行に見えるが、両端の 2 つは語（「1%未満」/「<1%」）なので locale を取る。
+ */
+export function percentLabel(locale: Locale, ratio: number): string {
   const percent = Math.round(ratio * 100);
   // 丸めて 0% になる項目は「無い」ように読めるので、0 とは言わずに小ささのほうを言う。
   // 帯にはこの項目も最低幅の区画で残っている（消えると合計が合わないように見えるため）
-  if (percent === 0) return LESS_THAN_ONE_PERCENT_LABEL;
+  if (percent === 0) return lessThanOnePercentLabel(locale);
   // **全部ではないのに「100%」と言わない**（上の 0% と同じ話の裏返し）。
   // 仕入 400,000 円・手数料 100 円の記録では 99.975% が 100% に丸まり、
   // 隣の区画が「1%未満」と出ているのに合計が 100% を超えて読める。
   // 帯は「どう分かれたか」を見せる面なので、区画の割合の和が 100% を超えて見えてはいけない
-  if (percent >= 100 && ratio < 1) return ALMOST_ALL_PERCENT_LABEL;
+  if (percent >= 100 && ratio < 1) return almostAllPercentLabel(locale);
   return `${percent}%`;
 }
 
 /** 丸めると 0% になる項目に出す語（percentLabel） */
-export const LESS_THAN_ONE_PERCENT_LABEL = '1%未満';
+export function lessThanOnePercentLabel(locale: Locale): string {
+  return t('common.percentLessThanOne', locale);
+}
 
 /** 丸めると 100% になるが、全部ではない項目に出す語（percentLabel） */
-export const ALMOST_ALL_PERCENT_LABEL = 'ほぼ100%';
+export function almostAllPercentLabel(locale: Locale): string {
+  return t('common.percentAlmostAll', locale);
+}
 
 /**
  * 赤字の帯で、黒字の「手元に残る」の位置に入る斜線の区画の名前。
@@ -2188,8 +2248,8 @@ export function presetCountLabel(locale: Locale, count: number): string {
  * カードに出しきれなかった残りの数（設計案 24a）。
  * 「＋3」ではなく件数として読める語にする ── カードの中の他の文字（金額）と並ぶため。
  */
-export function presetOverflowLabel(count: number): string {
-  return `ほか${presetCountLabel('ja', count)}`;
+export function presetOverflowLabel(locale: Locale, count: number): string {
+  return t('common.overflow', locale, { count });
 }
 
 /**
@@ -3024,17 +3084,19 @@ export function filterAllLabel(locale: Locale): string {
 }
 
 /** 解除バーの販売サイトの部分（§4.3）。名前だけでは何の名前か読めないので種類まで言う */
-export function filterSitePartLabel(name: string): string {
-  return `${t('filter.siteSection', 'ja')}「${name}」`;
+export function filterSitePartLabel(locale: Locale, name: string): string {
+  return t('filter.sitePart', locale, { name });
 }
 
 /**
  * 解除バーのタグの部分（§4.3）。2 つ以上は「タグ「洋服」ほか1件」と畳む ──
  * 全部並べると 1 行に収まらない。件数の表記は presetCountLabel と揃える。
  */
-export function filterTagPartLabel(name: string, extraCount: number): string {
-  const head = `${TAG_LABEL}「${name}」`;
-  return extraCount === 0 ? head : `${head}${presetOverflowLabel(extraCount)}`;
+export function filterTagPartLabel(locale: Locale, name: string, extraCount: number): string {
+  const head = t('filter.tagPart', locale, { name });
+  if (extraCount === 0) return head;
+  // 連ね方も辞書が持つ（日本語は続けて、英語は空きを挟んで）
+  return t('filter.tagPartMore', locale, { head, overflow: presetOverflowLabel(locale, extraCount) });
 }
 
 /**
@@ -3045,8 +3107,10 @@ export function filterTagPartLabel(name: string, extraCount: number): string {
  * 絞り込み中には出さない交代制にしたので（案 34a-D）、その数をこの文が引き取る ──
  * 同じ数を 2 か所に出さないため。条件の並べ方は変えていない（filterSummaryText のまま）。
  */
-export function filterSummaryLabel(parts: string[], count: number): string {
-  return `${parts.join('・')}の${presetCountLabel('ja', count)}だけ`;
+export function filterSummaryLabel(locale: Locale, parts: string[], count: number): string {
+  // 語順は言語で入れ替わる（日本語は条件が先、英語は件数が先）ので、文ごと辞書から引く。
+  // 区切りも辞書が持つ ── 英語は「・」ではなく前後に空きのある「 · 」
+  return t('filter.summary', locale, { parts: parts.join(t('filter.partSeparator', locale)), count });
 }
 
 /**
@@ -3215,7 +3279,7 @@ export function filterTagSearchEmptyBody(
   const names =
     selectedNames.length === 1
       ? head
-      : `${head}${presetOverflowLabel(selectedNames.length - 1)}`;
+      : `${head}${presetOverflowLabel(locale, selectedNames.length - 1)}`;
   return t('filter.tagSearchEmptyBody', locale, { names });
 }
 
@@ -3400,11 +3464,11 @@ export function csvKindMixedLabel(locale: Locale): string {
  * **数えるのは名前の種類**（同じサイトが 3 件でも「ほか」は付かない）。
  * 名前が 1 つも無ければ空文字 ── 未設定の記録だけの日に語を足さない（§5.4「空値は空文字」）。
  */
-export function csvDaySiteNames(siteNames: readonly string[]): string {
+export function csvDaySiteNames(locale: Locale, siteNames: readonly string[]): string {
   const unique = [...new Set(siteNames.filter((name) => name !== ''))];
   if (unique.length === 0) return '';
   if (unique.length === 1) return unique[0];
-  return `${unique[0]} ${presetOverflowLabel(unique.length - 1)}`;
+  return `${unique[0]} ${presetOverflowLabel(locale, unique.length - 1)}`;
 }
 
 /**
@@ -3416,7 +3480,7 @@ export function csvDayItemNames(locale: Locale, itemNames: readonly string[]): s
   if (itemNames.length === 0) return '';
   const head = itemNames[0] === '' ? t('list.untitled', locale) : itemNames[0];
   if (itemNames.length === 1) return head;
-  return `${head} ${presetOverflowLabel(itemNames.length - 1)}`;
+  return `${head} ${presetOverflowLabel(locale, itemNames.length - 1)}`;
 }
 
 /** ファイル名の先頭（§5.4）。種類で変える ── 後から見て何の書き出しか読めるように */
@@ -5192,6 +5256,26 @@ export function priceInputButtonLabel(locale: Locale): string {
   return t('pricing.priceInputButton', locale);
 }
 
+// ---- 価格が未設定のまま売れたとき（E の売却済み版） ----
+//
+// 出品中版と語を分ける ── あちらは「これから売る価格」、こちらは**もう売れた価格**で、
+// 入れる数字の意味が違う。「売る価格を入力する」を売れた記録に出すと、
+// これから決める額を訊かれているように読める。
+
+/** 主役の数字（残った利益）の代わりに出す見出し */
+export function soldPriceUnsetLeadLabel(locale: Locale): string {
+  return t('pricing.soldPriceUnsetLead', locale);
+}
+
+export function soldPriceUnsetDescription(locale: Locale): string {
+  return t('pricing.soldPriceUnsetDescription', locale);
+}
+
+/** 売れた価格を入れに行くボタン（記録の編集フォームを開く） */
+export function soldPriceInputButtonLabel(locale: Locale): string {
+  return t('pricing.soldPriceInputButton', locale);
+}
+
 /** 価格が無くても出せる値の節（§9.7）。**空の主役を置いたまま終わらせないための面** */
 export function knownWithoutPriceTitle(locale: Locale): string {
   return t('pricing.knownWithoutPriceTitle', locale);
@@ -5349,8 +5433,11 @@ export function soldActualBarLabel(locale: Locale, actual: number): string {
 /**
  * 見出しが状態で変わるセクション（目標なし / 目標あり）。
  * 目標の有無だけで分かれる ── 達成したかどうかは本文（soldSectionBody）側の語尾で言う。
+ *
+ * 価格未設定（`unpriced`）は受け取らない（PricedSoldConclusion）── 額が 1 つも出せないので、
+ * 呼び出し側は節ごと出さずに価格を入れる口（SoldUnpricedBlock）へ差し替える。
  */
-export function soldSectionTitle(locale: Locale, conclusion: SoldConclusion): string {
+export function soldSectionTitle(locale: Locale, conclusion: PricedSoldConclusion): string {
   return t(
     conclusion === 'noTarget'
       ? 'pricing.soldSectionTitleNoTarget'
@@ -5365,7 +5452,7 @@ export function soldSectionTitle(locale: Locale, conclusion: SoldConclusion): st
  */
 export function soldSectionBody(
   locale: Locale,
-  conclusion: SoldConclusion,
+  conclusion: PricedSoldConclusion,
   analysis: PricingAnalysis,
 ): string {
   const price = formatYenSymbol(analysis.currentPrice);
@@ -5417,6 +5504,10 @@ export function soldRecordDetailConclusionHeadline(
       return t('conclusion.soldBelowTarget', locale, {
         shortfall: formatYenSymbol(analysis.targetShortfall ?? 0),
       });
+    case 'unpriced':
+      // 売れた価格が入っていないと達成の判定ができないので、結論文は出せない。
+      // 出品中側の 'unpriced' と同じく、入れる口への誘導文言に差し替える
+      return t('conclusion.soldUnpriced', locale);
   }
 }
 
@@ -5425,6 +5516,7 @@ const SOLD_RECORD_DETAIL_CONCLUSION_KEYS = {
   noTarget: 'conclusion.soldDetailRoom',
   targetMet: 'conclusion.soldDetailRoom',
   belowTarget: 'conclusion.soldDetailShortfall',
+  unpriced: 'conclusion.soldDetailUnpriced',
 } as const satisfies Record<SoldConclusion, TranslationKey>;
 
 export function soldRecordDetailConclusionDetail(

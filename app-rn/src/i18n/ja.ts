@@ -32,6 +32,14 @@ export const ja = {
      * 参照されている。それらを `tagLabel()` に移すまで、同じ語がここと定数の 2 か所にある。
      */
     tag: 'タグ',
+    /**
+     * 帯グラフの割合（labels.ts の percentLabel）の両端。丸めた「0%」「100%」を出さない
+     * ための語なので、数字ではなく**小ささ・大きさのほう**を言う。
+     */
+    percentLessThanOne: '1%未満',
+    percentAlmostAll: 'ほぼ100%',
+    /** 並べきれない残りの数（labels.ts の presetOverflowLabel）。「フリマA ほか1件」 */
+    overflow: 'ほか{{count}}件',
   },
 
   // ---- 画面の名前（UI-SPEC §1） ----
@@ -392,6 +400,17 @@ export const ja = {
     /** 0 件になったときの理由。月を絞っているかで文が変わる */
     noMatchConditions: 'この{{count}}つが揃った記録がありません。',
     noMatchWithMonth: '{{month}}には、この{{count}}つが揃った記録がありません。',
+    /**
+     * 絞り込み中の青い行（解除バー）。**条件の並びと、それを閉じる文**をここで持つ。
+     * 語順が言語で入れ替わる（日本語は条件が先、英語は件数が先）ので、
+     * 文そのものをキーにする ── labels.ts 側で連結すると英語の語順を作れない。
+     */
+    partSeparator: '・',
+    sitePart: '販売サイト「{{name}}」',
+    tagPart: 'タグ「{{name}}」',
+    /** 2 つ以上のタグ。日本語は続けて書くが、英語は語の間に空きが要る */
+    tagPartMore: '{{head}}{{overflow}}',
+    summary: { one: '{{parts}}の{{count}}件だけ', other: '{{parts}}の{{count}}件だけ' } as PluralForms,
     matchingRecordSold: 'この条件に合う記録',
     matchingRecordListing: 'この条件に合う出品中の記録',
   },
@@ -449,6 +468,9 @@ export const ja = {
     soldBelowTarget: '目標まであと{{shortfall}}でした',
     soldDetailRoom: 'どこまで下げられたか見る',
     soldDetailShortfall: '目標にどれだけ届かなかったか見る',
+    /** 売れた × 価格未設定。結論は出せないので、入れる口だけを言う */
+    soldUnpriced: '売れた価格を入れると、残った利益が出ます',
+    soldDetailUnpriced: '売れた価格を入力する',
   },
 
   /** いくらで売る？ / どうだった？（PricingScreen。SPEC-V9 §9） */
@@ -526,6 +548,10 @@ export const ja = {
     targetPreviewPrice: '目標が出る価格',
     targetPreviewRoom: 'あと下げられる額',
     /** 売れたあとの節（§9.12） */
+    /** 売れた × 価格未設定（G の売却済み版）。出品中の priceUnset* と対になる語 */
+    soldPriceUnsetLead: '売れた価格',
+    soldPriceUnsetDescription: '売れた価格を入れると、この取引で手元に残った金額が出ます。',
+    soldPriceInputButton: '売れた価格を入力する',
     soldSectionTitleNoTarget: 'どこまで下げられた取引だったか',
     soldSectionTitleTarget: '値下げの余裕はどれだけあったか',
     soldBodyNoTarget: '{{breakEven}}で利益ゼロでした。{{price}}で売れたので、交渉されても{{room}}は応じられた計算です。',
@@ -574,12 +600,21 @@ export const ja = {
     averageSaleDays: '平均販売日数',
     averageSaleDaysValue: '{{days}}日',
     profitRateValue: '{{rate}}%',
-    /** グラフの点をタップしたときの見出し */
-    selectedPointTitle: '{{date}}の記録　{{count}}件',
+    /**
+     * グラフの点をタップしたときの見出し。**複数形にしておく** ── 日本語は 1 件でも
+     * 語形が変わらないが、英語は「1 record / 2 records」で変わる（「1 records」と出ていた）
+     */
+    selectedPointTitle: {
+      one: '{{date}}の記録　{{count}}件',
+      other: '{{date}}の記録　{{count}}件',
+    } as PluralForms,
     selectedRecordsShowMore: 'すべて見る（あと{{count}}件）',
     /** 前期間比較（差分は矢印つき） */
     periodComparisonTitle: '前期間比較',
     periodComparisonEmpty: '比較対象のデータがありません',
+    /** 比較する 2 期間「7月 → 8月」。{{start}} は英語の文だけが使う（日本語は「1〜」で固定） */
+    periodComparisonRange: '{{previous}} → {{current}}',
+    periodComparisonYearPartial: '{{year}}年1〜{{end}}',
     periodComparisonCountDiff: '{{arrow}}{{sign}}{{count}}件',
     periodComparisonRateDiff: '{{arrow}}{{sign}}{{value}}pt',
     /** タグ別 */
@@ -587,10 +622,17 @@ export const ja = {
     tagSectionList: '一覧',
     tagSectionOverlay: 'グラフ',
     tagOverlayEmptyNote: 'タグを選ぶと、ここに折れ線が重なって表示されます。',
-    tagSparklineNote: '小さな線は1月から12月。高さは全タグ共通の目盛りで、比べられます。',
+    tagSparklineNote: '小さな線は1月から12月の累計。高さは全タグ共通の目盛りで、比べられます。',
+    tagOverlayCumulativeNote: '線は期間の初めからの累計です。売れていない日は横ばいになります。',
     unclassifiedTag: '未分類',
-    selectedTagTitle: '{{tag}}の記録　{{count}}件',
-    selectedTagChartTitle: '{{date}}の{{tag}}の記録　{{count}}件',
+    selectedTagTitle: {
+      one: '{{tag}}の記録　{{count}}件',
+      other: '{{tag}}の記録　{{count}}件',
+    } as PluralForms,
+    selectedTagChartTitle: {
+      one: '{{date}}の{{tag}}の記録　{{count}}件',
+      other: '{{date}}の{{tag}}の記録　{{count}}件',
+    } as PluralForms,
     tagChartDaySummaryMeta: '{{tagCount}}タグ・{{records}}',
     tagProfitMeta: '{{rateLabel}} {{rate}}・{{count}}',
     tagSectionMeta: '{{period}}・{{count}}',
@@ -765,7 +807,8 @@ export const ja = {
     bestMonthByCount: '最多販売月',
     bestTag: '最多販売タグ',
     fastestSale: '最速販売',
-    bestMonthByCountValue: '{{month}}月・{{count}}件',
+    /** {{month}} は formatMonthCell の戻り値（「8月」）。ここで「月」を足すと「8月月」になる */
+    bestMonthByCountValue: '{{month}}・{{count}}件',
     bestTagValue: '{{tag}}・{{count}}件',
     bestTagOfTotal: '全{{count}}件中',
     fastestSaleValue: '{{days}}日',

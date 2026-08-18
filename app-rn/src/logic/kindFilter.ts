@@ -10,7 +10,9 @@
 
 import type { RecordKind } from '@/db/schema';
 
-import { recordKindLabel } from './labels';
+import type { Locale } from '@/settings/language';
+
+import { filterAllLabel, recordKindLabel } from './labels';
 
 /** 画面が持つ種別フィルタの状態。'all' = 絞り込みなし */
 export type KindFilter = 'all' | RecordKind;
@@ -22,8 +24,9 @@ export const KIND_FILTERS: readonly KindFilter[] = ['all', 'used', 'sourced'];
 export const DEFAULT_KIND_FILTER: KindFilter = 'all';
 
 /** 選択肢の表示名。種別そのものの表示名は labels.ts の確定値を使う（§1.1） */
-export function kindFilterLabel(value: KindFilter): string {
-  return value === 'all' ? 'すべて' : recordKindLabel('ja', value);
+export function kindFilterLabel(locale: Locale, value: KindFilter): string {
+  // 「すべて」は絞り込みシートの節の右に出る語と同じもの（filterAllLabel）
+  return value === 'all' ? filterAllLabel(locale) : recordKindLabel(locale, value);
 }
 
 /** repository の RecordListFilter.kind / AnalyticsFilter.kind へ渡す値（§4.2） */
@@ -35,7 +38,8 @@ export function toKindCondition(value: KindFilter): RecordKind | null {
  * 選択肢の配列（`SheetOption<KindFilter>[]` と同じ形）。
  * データタブの SegmentedControl はここからラベルの配列だけを使う。
  */
-export const KIND_FILTER_OPTIONS = KIND_FILTERS.map((value) => ({
-  label: kindFilterLabel(value),
-  value,
-}));
+// **モジュールスコープで畳まない** ── 表示名は locale で決まるので、import 時に作ると
+// 言語を切り替えても最初の言語の配列が残る（CsvTable の wideColumnWidths と同じ理由）
+export function kindFilterOptions(locale: Locale): { label: string; value: KindFilter }[] {
+  return KIND_FILTERS.map((value) => ({ label: kindFilterLabel(locale, value), value }));
+}

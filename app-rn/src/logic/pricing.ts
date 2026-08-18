@@ -297,14 +297,27 @@ export function canApplyPrice(analysis: PricingAnalysis, price: number): boolean
  * - `noTarget` … 目標なし（標準）。「どこまで下げられた取引だったか」
  * - `targetMet` … 目標あり・達成。「値下げの余裕はどれだけあったか」
  * - `belowTarget` … 目標あり・未達成。同じ見出しだが「保てませんでした」側の文言になる
+ * - `unpriced` … 売れた価格が未設定。**結論文は出せない**（達成の判定に価格が必要）ので、
+ *   出品中側（`recordDetailConclusion`）とまったく同じく専用の一種類として扱う
  *
- * 価格未設定（`unpriced`）は売却済みでは通常起きないが、型の上ではあり得るので null を返す
- * （主役の数字が出せないのと同じ理由で、見出しも出しようがない）。
+ * **`unpriced` で null を返してはいけない。** 記録詳細の入口の行（PricingEntryRow）は
+ * この戻り値が null かどうかで出す・出さないを決めているので、null にすると
+ * 「売れた × 価格未設定」の記録だけこの画面へ**到達できなくなる**（2026-08-18 に実機で発覚）。
+ * この状態は「通常起きない」ものではない ── 記録詳細の「売れた」は価格を一切見ずに
+ * 販売日を入れるだけなので（SaleRecordDetailScreen の handleMarkSold）、
+ * 売値を入れないまま売却済みにするのは普通の使い方でできる。
  */
-export type SoldConclusion = 'noTarget' | 'targetMet' | 'belowTarget';
+export type SoldConclusion = 'noTarget' | 'targetMet' | 'belowTarget' | 'unpriced';
 
-export function soldConclusion(analysis: PricingAnalysis): SoldConclusion | null {
-  if (analysis.state === 'unpriced') return null;
+/**
+ * 価格が入っている売却済みの 3 状態。**結論文（見出し・本文）を出せるのはこれだけ**なので、
+ * 文言側（labels.ts の soldSectionTitle / soldSectionBody）はこちらを受け取る ──
+ * `unpriced` を渡せないことを型で示しておけば、呼ぶ前に必ず分岐が要る。
+ */
+export type PricedSoldConclusion = Exclude<SoldConclusion, 'unpriced'>;
+
+export function soldConclusion(analysis: PricingAnalysis): SoldConclusion {
+  if (analysis.state === 'unpriced') return 'unpriced';
   if (!analysis.hasTarget) return 'noTarget';
   return analysis.meetsTarget ? 'targetMet' : 'belowTarget';
 }

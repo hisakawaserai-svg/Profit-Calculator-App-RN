@@ -87,6 +87,9 @@ import {
   soldOnBadgeLabel,
   soldPerDayProfitLabel,
   soldPriceRateNote,
+  soldPriceInputButtonLabel,
+  soldPriceUnsetDescription,
+  soldPriceUnsetLeadLabel,
   soldSectionBody,
   soldSectionTitle,
   soldTargetBarLabel,
@@ -108,7 +111,6 @@ import {
   targetAchievementRatio,
   type PricingAnalysis,
   type PricingTone,
-  type SoldConclusion,
   type SoldElapsed,
 } from '@/logic/pricing';
 import { elapsedDays, type TargetCostInput } from '@/logic/profit';
@@ -633,6 +635,9 @@ function SoldContent({
   const analysis = analyzePricing(record);
   const costs: TargetCostInput = record;
   const conclusion = soldConclusion(analysis);
+  // 売れた価格が未設定（0 円）。**売却済みでも普通に起きる** ── 記録詳細の「売れた」は
+  // 価格を見ずに販売日を入れるだけなので、値段を入れる前に押せる
+  const unpriced = conclusion === 'unpriced';
 
   const saleDate = record.saleDate == null ? null : fromDbDate(record.saleDate);
   const saleStartDate = fromDbDate(record.saleStartDate);
@@ -667,35 +672,39 @@ function SoldContent({
           </View>
         </View>
 
-        {/* 2. 「残った利益」＋ 主役の数字（確定純利益）＋ 達成バッジ ＋ 販売価格・利益率 */}
-        <View style={styles.heroBlock}>
-          <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
-            {remainingProfitLeadLabel(locale)}
-          </Text>
-          <View style={styles.heroRow}>
-            <Text
-              style={[
-                styles.heroAmount,
-                { color: analysis.state === 'loss' ? colors.red : colors.label },
-              ]}>
-              {analysis.state === 'unpriced'
-                ? `¥ ${amountPlaceholder(locale)}`
-                : pricingHeroAmount(analysis.current?.netProfit ?? 0)}
+        {/* 2. 「残った利益」＋ 主役の数字（確定純利益）＋ 達成バッジ ＋ 販売価格・利益率。
+            売れた価格が未設定なら主役の数字が 1 つも出せないので、代わりに入れる口を置く
+            （出品中側の UnpricedBlock と同じ作り。空の「¥ ーー」だけで終わらせない） */}
+        {unpriced ? (
+          <SoldUnpricedBlock colors={colors} onInputPrice={() => setShowForm(true)} />
+        ) : (
+          <View style={styles.heroBlock}>
+            <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
+              {remainingProfitLeadLabel(locale)}
             </Text>
-            {/* 達成バッジ（§3）。目標があるときだけ、主役の数字と同じ行に置く */}
-            {analysis.hasTarget && analysis.targetProfit != null && analysis.current != null && (
-              <AchievementBadge
-                met={conclusion === 'targetMet'}
-                targetProfit={analysis.targetProfit}
-                actual={analysis.current.netProfit}
-                colors={colors}
-              />
-            )}
+            <View style={styles.heroRow}>
+              <Text
+                style={[
+                  styles.heroAmount,
+                  { color: analysis.state === 'loss' ? colors.red : colors.label },
+                ]}>
+                {pricingHeroAmount(analysis.current?.netProfit ?? 0)}
+              </Text>
+              {/* 達成バッジ（§3）。目標があるときだけ、主役の数字と同じ行に置く */}
+              {analysis.hasTarget && analysis.targetProfit != null && analysis.current != null && (
+                <AchievementBadge
+                  met={conclusion === 'targetMet'}
+                  targetProfit={analysis.targetProfit}
+                  actual={analysis.current.netProfit}
+                  colors={colors}
+                />
+              )}
+            </View>
+            <Text style={[styles.heroNote, { color: colors.secondaryLabel }]}>
+              {soldPriceRateNote(locale, analysis.currentPrice, analysis.current?.profitRate ?? null)}
+            </Text>
           </View>
-          <Text style={[styles.heroNote, { color: colors.secondaryLabel }]}>
-            {soldPriceRateNote(locale, analysis.currentPrice, analysis.current?.profitRate ?? null)}
-          </Text>
-        </View>
+        )}
 
         {/* 3. 達成バー（目標があるときだけ）。主役の数字のすぐ下 ── 目標に対する量を面積で見せる */}
         {analysis.hasTarget && analysis.targetProfit != null && analysis.current != null && (
@@ -704,7 +713,7 @@ function SoldContent({
 
         {/* 4・5. 見出し ＋ 本文 ＋ 価格ライン。色は付けない ── 帯グラフ的な強調は出品中側の
             「結論の帯」だけの語彙で、売却済みは既に確定した結果を淡々と言う */}
-        {conclusion != null && (
+        {conclusion !== 'unpriced' && (
           <>
             <View style={[styles.sectionDivider, { backgroundColor: colors.separator }]} />
 
@@ -717,7 +726,7 @@ function SoldContent({
               </Text>
             </View>
 
-            {analysis.state !== 'unpriced' && <PriceLine analysis={analysis} />}
+            <PriceLine analysis={analysis} />
           </>
         )}
 
@@ -1111,6 +1120,55 @@ function UnpricedBlock({
           packing: record.envelopeCost + record.othersCost,
         })}
       </Text>
+    </>
+  );
+}
+
+/**
+ * 売れた価格が未設定のときの主役の代わり（E の売却済み版）。
+ *
+ * 出品中側の UnpricedBlock と同じ「見出し ＋ ¥ ーー ＋ 説明 ＋ 入れに行くボタン」だが、
+ * **「価格がなくても分かっていること」の表は持たない** ── あちらはこれから価格を決める
+ * ための下限（赤字にならない価格・目標が出る価格）を出す表で、もう売れた記録では
+ * 決める余地が無い。すでにかかった費用は最下段の「費用の内訳」の行が言う。
+ */
+function SoldUnpricedBlock({
+  colors,
+  onInputPrice,
+}: {
+  colors: ThemeColors;
+  onInputPrice: () => void;
+}) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  return (
+    <>
+      <View style={styles.heroBlock}>
+        <Text style={[styles.heroLead, { color: colors.secondaryLabel }]}>
+          {soldPriceUnsetLeadLabel(locale)}
+        </Text>
+        <Text style={[styles.heroAmount, { color: colors.mutedLabel }]}>
+          {`¥ ${amountPlaceholder(locale)}`}
+        </Text>
+      </View>
+
+      <Text style={[styles.unpricedDescription, { color: colors.label }]}>
+        {soldPriceUnsetDescription(locale)}
+      </Text>
+
+      <Pressable
+        onPress={onInputPrice}
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.applyButton,
+          { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
+        ]}>
+        <Text style={[styles.applyLabel, { color: '#FFFFFF' }]}>
+          {soldPriceInputButtonLabel(locale)}
+        </Text>
+      </Pressable>
     </>
   );
 }

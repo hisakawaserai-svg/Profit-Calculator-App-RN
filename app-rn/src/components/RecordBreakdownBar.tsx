@@ -15,16 +15,16 @@
 //
 // 数字は logic/recordBreakdown.ts が作る（ここでは計算しない）。
 //
-// **結論行（O3 案）もこのカードの中で描く。** 出品中だけ、帯の直下に
-// 「いくらまで動かせるか」の 1 行 ＋ pricing 画面への導線を足す（SPEC-V9 未反映）。
-// 売却済みではこの行を出さず、元の帯グラフ＋レシートに戻る ── 売れたあとは
-// 動かせる価格という概念自体が無い。判定・数字は logic/pricing.ts（analyzePricing）が持ち、
-// ここでは並べるだけ。
+// **結論行（O3 案）もこのカードの中で描く。** 帯の直下に 1 行 ＋ pricing 画面への導線を
+// 足す（SPEC-V9 未反映）。出品中は「いくらまで動かせるか」、売却済みは「どう終わったか」で、
+// 語だけが変わる。判定・数字は logic/pricing.ts（analyzePricing）が持ち、ここでは並べるだけ。
 //
-// **価格未設定の出品中でも入口だけは出す。** pricing 画面には価格が無くても見られる
-// 状態（G）があるので、行き先はあるのに記録詳細に入口が無いと到達不能になる。
-// ただし結論文は出せない（赤字/目標達成の判定には価格が必要）ので、専用の誘導文言に
-// 差し替える（RecordDetailConclusion の 'unpriced'）。
+// **価格未設定でも入口だけは必ず出す（出品中・売却済みとも）。** pricing 画面には価格が
+// 無くても見られる状態（G とその売却済み版）があるので、行き先はあるのに記録詳細に
+// 入口が無いと到達不能になる。ただし結論文は出せない（赤字/目標達成の判定には価格が必要）
+// ので、専用の誘導文言に差し替える（RecordDetailConclusion / SoldConclusion の 'unpriced'）。
+// 売却済み側をここで出し分けていたのが 2026-08-18 に直したバグで、価格を入れないまま
+// 「売れた」を押した記録だけ、この行ごと入口が消えていた。
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -87,40 +87,39 @@ export function RecordBreakdownBar({ record }: { record: SaleRecord }) {
   const locale = useLocale();
   const colors = useThemeColors();
 
+  // 結論行は出品中・売却済みのどちらでも出す（pricing 画面への入口。§9）。
+  // record は PricingInput の形をそのまま満たすので analyzePricing にそのまま渡せる。
+  // 出品中は「これから動かせる価格」（recordDetailConclusion）、売却済みは
+  // 「どう終わったか」（soldConclusion）で、見る先の状態（PricingContent / SoldContent）に揃える。
+  // **どちらも価格未設定の一種類（'unpriced'）を必ず返す**ので、入口の行が消えることはない
+  const analysis = analyzePricing(record);
+  const conclusion = record.isSold ? soldConclusion(analysis) : recordDetailConclusion(analysis);
+
   // 販売価格が未設定（0 円）だと、費用だけを分母にした割合や「足りない」が
   // 確定した赤字のように見えてしまう（まだ価格を入れていないだけ）。帯は出さず、
   // 不活性な文に差し替える ──「いくらで売る?」画面の未設定時（E）と同じ考え方
   //
-  // それでも pricing 画面には価格未設定でも見られる状態（G）があるので、入口だけは出す。
-  // 結論文は出せない（赤字/目標達成の判定には価格が必要）ので、専用の誘導文言にする ──
-  // これが無いと G は記録詳細から実際には到達不能になっていた
+  // それでも pricing 画面には価格未設定でも見られる状態（G / その売却済み版）があるので、
+  // 入口だけは出す。結論文は出せない（赤字・目標達成の判定には価格が必要）ので、
+  // 専用の誘導文言にする ── これが無いとその状態は記録詳細から到達不能になる。
+  // **出品中に限らない。** 価格を入れないまま「売れた」を押せる以上（handleMarkSold）、
+  // 売却済み × 価格未設定も普通に起きる状態で、ここで出し分けると入口ごと消えていた
   if (!showsPricedAmounts(record)) {
-    const analysis = analyzePricing(record);
-    const conclusion = recordDetailConclusion(analysis);
     return (
       <View>
         <UnpricedBar colors={colors} />
-        {!record.isSold && (
-          <PricingEntryRow
-            record={record}
-            analysis={analysis}
-            isSold={false}
-            conclusion={conclusion}
-            colors={colors}
-          />
-        )}
+        <PricingEntryRow
+          record={record}
+          analysis={analysis}
+          isSold={record.isSold}
+          conclusion={conclusion}
+          colors={colors}
+        />
       </View>
     );
   }
 
   const breakdown = recordBreakdown(locale, record);
-
-  // 結論行は出品中・売却済みのどちらでも出す（pricing 画面への入口。§9）。
-  // record は PricingInput の形をそのまま満たすので analyzePricing にそのまま渡せる。
-  // 出品中は「これから動かせる価格」（recordDetailConclusion）、売却済みは
-  // 「どう終わったか」（soldConclusion）で、見る先の状態（PricingContent / SoldContent）に揃える
-  const analysis = analyzePricing(record);
-  const conclusion = record.isSold ? soldConclusion(analysis) : recordDetailConclusion(analysis);
 
   // カード（面）は持たない。レシートと同じカードの中に入り、間はレシート側の余白だけ ──
   // 帯と、その下の行に付いたドットの色を目で結べる距離に保つ
@@ -132,15 +131,13 @@ export function RecordBreakdownBar({ record }: { record: SaleRecord }) {
         <SurplusBar breakdown={breakdown} colors={colors} />
       )}
 
-      {conclusion != null && (
-        <PricingEntryRow
-          record={record}
-          analysis={analysis}
-          isSold={record.isSold}
-          conclusion={conclusion}
-          colors={colors}
-        />
-      )}
+      <PricingEntryRow
+        record={record}
+        analysis={analysis}
+        isSold={record.isSold}
+        conclusion={conclusion}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -233,6 +230,9 @@ function PricingEntryRow({
 
 /** 黒字の 1 本。全長 ＝ 販売価格で、利益（緑）まで含めて内訳がそのまま収まる */
 function SurplusBar({ breakdown, colors }: { breakdown: SurplusBreakdown; colors: ThemeColors }) {
+  // 割合の両端は語（「1%未満」「ほぼ100%」。percentLabel）なので、数字だけの帯でも locale が要る
+  const locale = useLocale();
+
   const segments: BarSegment[] = breakdown.parts
     .filter((part) => part.inBar)
     .map((part) => ({
@@ -245,7 +245,7 @@ function SurplusBar({ breakdown, colors }: { breakdown: SurplusBreakdown; colors
   const leaders: BarLeader[] = leaderLines(breakdown.parts).map((leader) => ({
     key: leader.key,
     tier: leader.tier,
-    text: percentLabel(leader.ratio),
+    text: percentLabel(locale, leader.ratio),
     color: partColor(leader.key, colors),
   }));
 
@@ -320,7 +320,7 @@ function DeficitBar({ breakdown, colors }: { breakdown: DeficitBreakdown; colors
     : leaderLines(breakdown.parts).map((leader) => ({
         key: leader.key,
         tier: leader.tier,
-        text: percentLabel(leader.ratio),
+        text: percentLabel(locale, leader.ratio),
         color: partColor(leader.key, colors),
       }));
 
@@ -348,6 +348,9 @@ function DeficitBar({ breakdown, colors }: { breakdown: DeficitBreakdown; colors
 
 /** 区画の中の項目名 ＋ 割合（黒字・赤字の費用側で共通） */
 function CostSegmentLabel({ part }: { part: RecordBarPart }) {
+  // 割合の両端は語（「1%未満」「ほぼ100%」。percentLabel）
+  const locale = useLocale();
+
   return (
     // 項目名と割合は**別の Text に分ける**。1 つの文にすると、名前の長い項目
     //（「仕入価格」「販売手数料 (10%)」）で末尾から切れて**割合のほうが消える** ──
@@ -359,7 +362,7 @@ function CostSegmentLabel({ part }: { part: RecordBarPart }) {
         {part.label}
       </Text>
       <Text style={[styles.segmentLabel, { color: barLabelColor(part) }]}>
-        {percentLabel(part.ratio ?? 0)}
+        {percentLabel(locale, part.ratio ?? 0)}
       </Text>
     </View>
   );

@@ -11,13 +11,21 @@
 import { periodProfitPerRecord, periodProfitRate } from './profit';
 import { isAllPeriod, isMonthPeriod, periodYear, shiftMonthKey, type Period } from './period';
 
+/**
+ * 見出し・各行に出す期間の指し示し方。**ここでは文字列を作らない** ── 語順も月の書き方も
+ * 言語で変わる（「7月 → 8月」/「Jul → Aug」）ので、組み立ては labels.ts に任せて
+ * ここは「どの月・どの年を指しているか」だけを持つ（この層は locale を知らない）。
+ */
+export type PeriodComparisonRange =
+  | { kind: 'month'; previousMonth: number; currentMonth: number }
+  /** `endMonth` が 12 なら年まるごと、それ未満なら年初からその月まで（今年の途中） */
+  | { kind: 'year'; previousYear: number; currentYear: number; endMonth: number };
+
 /** 前期間比較の対象範囲（AnalyticsFilter.monthKeyRange にそのまま渡せる形） */
 export type PeriodComparisonQuery = {
   monthKeyRange: { from: string; to: string };
-  /** 見出しに出す期間ラベル「7月 → 8月」「2025年1〜8月 → 2026年1〜8月」 */
-  label: string;
-  /** 各行の比較対象側に添える短いラベル「7月」「2025年1〜8月」 */
-  previousLabel: string;
+  /** 見出し「7月 → 8月」・各行の「7月」を組む材料（labels.ts の periodComparison*Label） */
+  range: PeriodComparisonRange;
 };
 
 /**
@@ -28,13 +36,13 @@ export function periodComparisonQuery(period: Period, today: Date): PeriodCompar
 
   if (isMonthPeriod(period) && period != null) {
     const previousMonthKey = shiftMonthKey(period, -1);
-    const currentMonth = Number(period.slice(5, 7));
-    const previousMonth = Number(previousMonthKey.slice(5, 7));
-    const previousLabel = `${previousMonth}月`;
     return {
       monthKeyRange: { from: previousMonthKey, to: previousMonthKey },
-      label: `${previousLabel} → ${currentMonth}月`,
-      previousLabel,
+      range: {
+        kind: 'month',
+        previousMonth: Number(previousMonthKey.slice(5, 7)),
+        currentMonth: Number(period.slice(5, 7)),
+      },
     };
   }
 
@@ -44,14 +52,9 @@ export function periodComparisonQuery(period: Period, today: Date): PeriodCompar
   const endMonth = isCurrentYear ? today.getMonth() + 1 : 12;
   const previousYear = year - 1;
 
-  const rangeSuffix = endMonth === 12 ? '' : `1〜${endMonth}月`;
-  const currentLabel = `${year}年${rangeSuffix}`;
-  const previousLabel = `${previousYear}年${rangeSuffix}`;
-
   return {
     monthKeyRange: { from: `${previousYear}-01`, to: `${previousYear}-${String(endMonth).padStart(2, '0')}` },
-    label: `${previousLabel} → ${currentLabel}`,
-    previousLabel,
+    range: { kind: 'year', previousYear, currentYear: year, endMonth },
   };
 }
 

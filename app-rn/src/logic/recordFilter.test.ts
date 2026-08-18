@@ -57,44 +57,54 @@ describe('§4.1 activeFilterCount: 条件の本数を数える（決定 §9-2）
 
 describe('§4.3 filterSummaryText: 絞り込み中の青い行の文言（案 34a-C）', () => {
   it('0 件なら null（行ごと出さない）', () => {
-    expect(filterSummaryText(EMPTY_RECORD_FILTER, tags, 0)).toBeNull();
+    expect(filterSummaryText('ja', EMPTY_RECORD_FILTER, tags, 0)).toBeNull();
   });
 
   it('種別だけ。末尾は件数を含む「の N件だけ」', () => {
-    expect(filterSummaryText(draft({ kind: 'sourced' }), tags, 14)).toBe('仕入品の14件だけ');
+    expect(filterSummaryText('ja', draft({ kind: 'sourced' }), tags, 14)).toBe('仕入品の14件だけ');
   });
 
   it('販売サイトは種類まで言う（名前だけでは何の名前か読めない）', () => {
-    expect(filterSummaryText(draft({ siteName: 'フリマA' }), tags, 3)).toBe(
+    expect(filterSummaryText('ja', draft({ siteName: 'フリマA' }), tags, 3)).toBe(
       '販売サイト「フリマA」の3件だけ',
     );
   });
 
   it('タグ 1 つ', () => {
-    expect(filterSummaryText(draft({ tagIds: [clothes.id] }), tags, 2)).toBe('タグ「洋服」の2件だけ');
+    expect(filterSummaryText('ja', draft({ tagIds: [clothes.id] }), tags, 2)).toBe('タグ「洋服」の2件だけ');
   });
 
   it('タグ 2 つ以上は「ほか N件」に畳む（末尾の件数とは別物）', () => {
-    expect(filterSummaryText(draft({ tagIds: [clothes.id, summer.id, books.id] }), tags, 9)).toBe(
+    expect(filterSummaryText('ja', draft({ tagIds: [clothes.id, summer.id, books.id] }), tags, 9)).toBe(
       'タグ「洋服」ほか2件の9件だけ',
     );
   });
 
   it('0 件に絞られても行は出る（条件が効いている事実は消えない）', () => {
-    expect(filterSummaryText(draft({ kind: 'sourced' }), tags, 0)).toBe('仕入品の0件だけ');
+    expect(filterSummaryText('ja', draft({ kind: 'sourced' }), tags, 0)).toBe('仕入品の0件だけ');
   });
 
   it('3 条件は「・」で連なり、並ぶ数は activeFilterCount と一致する', () => {
     const filter = draft({ kind: 'sourced', siteName: 'フリマA', tagIds: [clothes.id] });
 
-    expect(filterSummaryText(filter, tags, 1)).toBe(
+    expect(filterSummaryText('ja', filter, tags, 1)).toBe(
       '仕入品・販売サイト「フリマA」・タグ「洋服」の1件だけ',
     );
     expect(activeFilterCount(filter)).toBe(3);
   });
 
+  // 英語では語順が入れ替わる（件数が先、条件があと）。日本語のまま出ていた回帰の検査
+  it('英語は件数を先に言う（条件は「 · 」で連ねる）', () => {
+    expect(filterSummaryText('en', draft({ kind: 'sourced' }), tags, 14)).toBe(
+      'Only 14 records · Item for resale',
+    );
+    expect(filterSummaryText('en', draft({ tagIds: [clothes.id, summer.id] }), tags, 1)).toBe(
+      'Only 1 record · Tag “洋服” +1 more',
+    );
+  });
+
   it('名前を引けないタグは文言に出ない（§4.7 で落とし切れなかった場合の防御）', () => {
-    expect(filterSummaryText(draft({ tagIds: ['deleted'] }), tags, 5)).toBeNull();
+    expect(filterSummaryText('ja', draft({ tagIds: ['deleted'] }), tags, 5)).toBeNull();
   });
 });
 
@@ -159,7 +169,7 @@ describe('§4.7 pruneMissingTags: 消えたタグを落とす', () => {
 
     expect(pruned.tagIds).toEqual([]);
     expect(activeFilterCount(pruned)).toBe(0);
-    expect(filterSummaryText(pruned, tags, 5)).toBeNull();
+    expect(filterSummaryText('ja', pruned, tags, 5)).toBeNull();
   });
 
   it('種別・販売サイトは触らない', () => {

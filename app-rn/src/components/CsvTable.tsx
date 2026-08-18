@@ -48,7 +48,7 @@ function wideColumnWidths(locale: Locale): Record<string, number> {
     [soldDateFieldLabel(locale)]: 112,
     [listedDateFieldLabel(locale)]: 112,
     [itemNameLabel(locale)]: 150,
-    [presetTypeLabel('ja', 'site')]: 120,
+    [presetTypeLabel(locale, 'site')]: 120,
     [tagLabel(locale)]: 130,
     [memoLabel(locale)]: 170,
     [recordIdColumn(locale)]: 250,

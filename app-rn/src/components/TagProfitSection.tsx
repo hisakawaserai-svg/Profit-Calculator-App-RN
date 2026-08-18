@@ -46,6 +46,7 @@ import {
   tagProfitTrendLabel,
   tagSectionListModeLabel,
   tagSectionOverlayModeLabel,
+  tagOverlayCumulativeNote,
   tagOverlayEmptyNote,
   tagSparklineNote,
   unclassifiedTagLabel,
@@ -459,6 +460,12 @@ export function TagProfitTrendCard({
 
           <TagTrendLegendRow legendItems={legendItems} />
 
+          {/* 線が累計であることを言う 1 行。凡例はタグ名で埋まっていて、
+              収支タブの「累計収支」に当たる名前を置く場所が無い（tagOverlayCumulativeNote） */}
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {tagOverlayCumulativeNote(locale)}
+          </Text>
+
           {selectedPoint != null && (
             <TagChartDaySummary
               point={selectedPoint}
@@ -540,7 +547,7 @@ function TagChartDaySummary({
       <View style={styles.daySummaryHeader}>
         <View style={styles.daySummaryHeaderText}>
           <Text style={[styles.daySummaryDate, { color: colors.label }]} numberOfLines={1}>
-            {formatPointDate(point.date, unit)}
+            {formatPointDate(locale, point.date, unit)}
           </Text>
           <Text style={[styles.daySummaryMeta, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {tagChartDaySummaryMetaText(locale, items.length, point.recordCount)}

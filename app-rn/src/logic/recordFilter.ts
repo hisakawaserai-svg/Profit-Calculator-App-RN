@@ -10,6 +10,7 @@
 // 表示語は labels.ts 経由（SPEC-V2 §5.3）。ここでは語を持たず、並べ方だけを持つ。
 
 import type { Tag } from '@/db/schema';
+import type { Locale } from '@/settings/language';
 
 import { DEFAULT_KIND_FILTER, kindFilterLabel, toKindCondition, type KindFilter } from './kindFilter';
 import { filterSitePartLabel, filterSummaryLabel, filterTagPartLabel } from './labels';
@@ -100,20 +101,21 @@ export function hasActiveFilter(filter: RecordFilterDraft): boolean {
  * 消えたタグ（§4.7）は名前が引けないので、ここに来る前に落としておくこと（pruneMissingTags）。
  */
 export function filterSummaryText(
+  locale: Locale,
   filter: RecordFilterDraft,
   tags: Tag[],
   matchCount: number,
 ): string | null {
   const parts: string[] = [];
-  if (filter.kind !== DEFAULT_KIND_FILTER) parts.push(kindFilterLabel(filter.kind));
-  if (filter.siteName != null) parts.push(filterSitePartLabel(filter.siteName));
+  if (filter.kind !== DEFAULT_KIND_FILTER) parts.push(kindFilterLabel(locale, filter.kind));
+  if (filter.siteName != null) parts.push(filterSitePartLabel(locale, filter.siteName));
 
   const names = filter.tagIds
     .map((id) => tags.find((tag) => tag.id === id)?.name)
     .filter((name): name is string => name != null);
-  if (names.length > 0) parts.push(filterTagPartLabel(names[0], names.length - 1));
+  if (names.length > 0) parts.push(filterTagPartLabel(locale, names[0], names.length - 1));
 
-  return parts.length === 0 ? null : filterSummaryLabel(parts, matchCount);
+  return parts.length === 0 ? null : filterSummaryLabel(locale, parts, matchCount);
 }
 
 /**

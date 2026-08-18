@@ -25,6 +25,7 @@ import { chartUnitFor, type ChartUnit } from '@/logic/analytics';
 import {
   periodComparisonMetrics,
   periodComparisonQuery,
+  type PeriodComparisonRange,
   type PeriodComparisonMetrics,
 } from '@/logic/periodComparison';
 import { periodAverageSaleDays } from '@/logic/profit';
@@ -406,10 +407,11 @@ export function deleteRecord(id: string): void {
  * 全期間を選択中は null（比較の基準がないので呼び出し側はセクションごと隠す）。
  */
 export type PeriodComparisonSection = {
-  /** 見出しに出す期間ラベル「7月 → 8月」 */
-  label: string;
-  /** 各行の比較対象側に添える短いラベル「7月」 */
-  previousLabel: string;
+  /**
+   * どの期間どうしの比較か（「7月 → 8月」の材料）。**文字列ではなく指し示す値で持つ** ──
+   * この層は locale を知らないので、語に組むのは描画側（PeriodComparisonCard）
+   */
+  range: PeriodComparisonRange;
   /** 比較対象（前月・前年同期間）に売却済み記録が 1 件も無ければ null */
   metrics: PeriodComparisonMetrics | null;
 };
@@ -479,8 +481,7 @@ function queryAnalytics(
     comparisonQuery == null
       ? null
       : {
-          label: comparisonQuery.label,
-          previousLabel: comparisonQuery.previousLabel,
+          range: comparisonQuery.range,
           metrics: periodComparisonMetrics(
             summary,
             repository.analyticsSummary({ ...filter, period: null, monthKeyRange: comparisonQuery.monthKeyRange }),
