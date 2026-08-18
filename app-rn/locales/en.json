@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Uritsumi"
+  },
+  "android": {
+    "app_name": "Uritsumi"
+  }
+}

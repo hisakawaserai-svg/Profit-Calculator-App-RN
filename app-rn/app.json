@@ -6,10 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "uritsumi",
+    "locales": {
+      "en": "./locales/en.json"
+    },
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.sera.profit-calculator"
+      "bundleIdentifier": "com.sera.profit-calculator",
+      "appleTeamId": "NHKTC768TP"
     },
     "android": {
       "adaptiveIcon": {
