@@ -14,11 +14,14 @@ import { partColor } from '@/components/CostProportionBar';
 import type { SaleRecord } from '@/db/schema';
 import { formatYenSymbol } from '@/logic/format';
 import { miniBarItems } from '@/logic/recordBreakdown';
+import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 export function MiniBreakdownBar({ record, price }: { record: SaleRecord; price: number }) {
+  // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
+  const locale = useLocale();
   const colors = useThemeColors();
-  const items = miniBarItems(record, price);
+  const items = miniBarItems(locale, record, price);
   const segments = items.filter((item) => item.inBar);
 
   return (

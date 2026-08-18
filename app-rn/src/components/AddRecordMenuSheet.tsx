@@ -9,6 +9,7 @@
 // **行は 2 つとも同じ重さで描く。** 片方を大きくしたり色を付けたりすると、
 // もう片方が「上級者向け」に見える ── どちらも記録を 1 件作るだけの、対等な入口。
 import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SheetModal } from '@/components/SheetModal';
@@ -44,14 +45,32 @@ export function AddRecordMenuSheet({
 
   const colors = useThemeColors();
 
+  /**
+   * 選んだ行き先。**シートが下がり切るまで持っておく**（すぐには実行しない）。
+   *
+   * 以前は `close()` の直後に実行していたが、それだと**閉じ始めたシートがまだ出ている間に
+   * 次のモーダルを開く**ことになる。iOS は表示中のモーダルの上に別のモーダルを出せず、
+   * 後から出したほうが表示されないまま終わる ── 画面は一覧に戻るのに何も開かず、
+   * `showForm` は true のままなので＋を押し直しても反応しない（固まったように見える）。
+   */
+  const pendingSelection = useRef<(() => void) | null>(null);
+
+  const handleClose = () => {
+    onClose();
+
+    const action = pendingSelection.current;
+    pendingSelection.current = null;
+    // onClose でこのシートの Modal が外れるので、その 1 フレームあとに次を開く
+    if (action != null) requestAnimationFrame(action);
+  };
+
   return (
-    <SheetModal visible={visible} onClose={onClose}>
+    <SheetModal visible={visible} onClose={handleClose}>
       {(close) => {
-        // 選んだ先を開くのは**シートが下がり切ってから**（SheetModal の close の作り）──
-        // 先に開くと、下がっていくシートの上にフォームが重なって出る
+        // 実行は handleClose（下がり切ったあと）。ここでは行き先を覚えて閉じるだけ
         const select = (action: () => void) => {
+          pendingSelection.current = action;
           close();
-          action();
         };
 
         return (

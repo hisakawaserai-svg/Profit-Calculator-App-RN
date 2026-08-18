@@ -1786,9 +1786,7 @@ export function commissionRowLabel(locale: Locale, rate: number): string {
  * 引数は**切り替えた先**の状態。見出し行には今の状態が出ているので、リンクは行き先を名乗る。
  */
 export function switchStatusLabel(locale: Locale, toSold: boolean): string {
-  return t('form.switchStatus', locale, {
-    status: t(toSold ? 'list.soldRecords' : 'list.listingStatus', locale),
-  });
+  return t(toSold ? 'form.switchToSold' : 'form.switchToListing', locale);
 }
 
 /**

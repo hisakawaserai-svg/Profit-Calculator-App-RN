@@ -8,16 +8,18 @@
 // 各項を先に丸めてから足し引きするので、帯・凡例・レシートに出る額が互いに 1 円ずれない。
 // 色は決めない。区画と凡例のドットの色は components/CostProportionBar.partColor が持つ
 // （計算タブの逆算の配色をそのまま使う）ので、ここは色の対応づけに使う key だけを返す。
+import type { Locale } from '@/settings/language';
+
 import type { SaleRecord } from '@/db/schema';
 
 import type { BreakdownPartKey } from './calcForm';
 import {
-  ENVELOPE_AND_OTHERS_FIELD_LABEL,
-  POSTAGE_LABEL,
-  PURCHASE_PRICE_LABEL,
   SHORTFALL_SEGMENT_LABEL,
   commissionRowLabel,
+  envelopeAndOthersFieldLabel,
+  postageLabel,
   profitLabel,
+  purchasePriceLabel,
 } from './labels';
 import { commissionCost, roundForDisplay } from './profit';
 
@@ -153,7 +155,7 @@ export function showsPricedAmounts(record: Pick<SaleRecord, 'salesPrice'>): bool
  * - 利益は引き算の結果（販売価格 − 丸めた費用の合計）。netProfit を丸めた値と
  *   同じ額になり、レシートの結果行と一致する。
  */
-export function recordBreakdown(record: SaleRecord): RecordBreakdown {
+export function recordBreakdown(locale: Locale, record: SaleRecord): RecordBreakdown {
   const salesPrice = roundForDisplay(record.salesPrice);
   const purchasePrice = roundForDisplay(record.purchasePrice);
   const postage = roundForDisplay(record.postage);
@@ -164,16 +166,16 @@ export function recordBreakdown(record: SaleRecord): RecordBreakdown {
   const costs: { key: BreakdownPartKey; label: string; amount: number }[] = [
     // 不用品には仕入価格の概念がない（常に 0）ので項目ごと作らない
     ...(record.kind === 'sourced'
-      ? [{ key: 'purchasePrice' as const, label: PURCHASE_PRICE_LABEL, amount: purchasePrice }]
+      ? [{ key: 'purchasePrice' as const, label: purchasePriceLabel(locale), amount: purchasePrice }]
       : []),
-    { key: 'postage', label: POSTAGE_LABEL, amount: postage },
-    { key: 'commission', label: commissionRowLabel('ja', roundForDisplay(record.commission)), amount: commission },
-    { key: 'envelopeCost', label: ENVELOPE_AND_OTHERS_FIELD_LABEL, amount: packing },
+    { key: 'postage', label: postageLabel(locale), amount: postage },
+    { key: 'commission', label: commissionRowLabel(locale, roundForDisplay(record.commission)), amount: commission },
+    { key: 'envelopeCost', label: envelopeAndOthersFieldLabel(locale), amount: packing },
   ];
 
   const costTotal = costs.reduce((sum, cost) => sum + cost.amount, 0);
   const profit = salesPrice - costTotal;
-  const profitPart = { key: 'kept' as const, label: profitLabel('ja', record.kind), amount: profit };
+  const profitPart = { key: 'kept' as const, label: profitLabel(locale, record.kind), amount: profit };
 
   // 帯の全長。黒字は販売価格（＝ 費用 ＋ 手元に残る額）、
   // 赤字はその「手元に残る額」を「足りなかった額」に置き換えた 費用 ＋ 不足額
@@ -323,8 +325,8 @@ export type MiniBarItem = {
  * 黒字・赤字のどちらでも区画の位置は変わらない（MINI_BAR_ORDER で固定）。赤字では
  * 「利益」の位置が「足りない」に入れ替わるだけで、費用側は黒字とまったく同じ項目・色・順。
  */
-export function miniBarItems(record: SaleRecord, price: number): MiniBarItem[] {
-  const breakdown = recordBreakdown({ ...record, salesPrice: price });
+export function miniBarItems(locale: Locale, record: SaleRecord, price: number): MiniBarItem[] {
+  const breakdown = recordBreakdown(locale, { ...record, salesPrice: price });
 
   return MINI_BAR_ORDER.map((key): MiniBarItem | null => {
     const part = breakdown.parts.find((candidate) => candidate.key === key);

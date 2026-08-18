@@ -83,6 +83,8 @@ function barLabelColor(part: RecordBarPart): string {
  * 違うだけで、どちらも同じ Bar が積み上げ本体と引き出し線を描く。
  */
 export function RecordBreakdownBar({ record }: { record: SaleRecord }) {
+  // **早期 return より前**でフックを呼ぶ（フックの数は呼び出しごとに変えられない）
+  const locale = useLocale();
   const colors = useThemeColors();
 
   // 販売価格が未設定（0 円）だと、費用だけを分母にした割合や「足りない」が
@@ -111,7 +113,7 @@ export function RecordBreakdownBar({ record }: { record: SaleRecord }) {
     );
   }
 
-  const breakdown = recordBreakdown(record);
+  const breakdown = recordBreakdown(locale, record);
 
   // 結論行は出品中・売却済みのどちらでも出す（pricing 画面への入口。§9）。
   // record は PricingInput の形をそのまま満たすので analyzePricing にそのまま渡せる。

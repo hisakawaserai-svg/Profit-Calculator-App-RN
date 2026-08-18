@@ -279,8 +279,13 @@ export const ja = {
     soldDatePickerNote: '出品（{{date}}）より前と、今日より後は選べません',
     soldDateSingleDayNote: '出品日（{{date}}）だけが選べます',
     soldDateChipsNote: '出品日（{{date}}）より前は選べません',
-    /** 状態を切り替えるボタン。「売れた記録にする」「出品中にする」 */
-    switchStatus: '{{status}}にする',
+    /**
+     * 状態を切り替えるボタン。**1 文まるごとを 1 キーにする** ── 「{{status}}にする」の
+     * 形で状態名を差し込むと、英語が「Mark as Sold records」のように崩れる
+     * （状態名は一覧の見出し用の語で、文中に置ける形ではない）。
+     */
+    switchToSold: '売れた記録にする',
+    switchToListing: '出品中にする',
     /** 一覧の行の「− 送料」のような引き算の表記。記号は全角（additionLabel と対） */
     deduction: '− {{name}}',
   },

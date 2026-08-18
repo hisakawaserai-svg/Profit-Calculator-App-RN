@@ -191,7 +191,8 @@ export const en: Translations = {
     soldDatePickerNote: 'Dates before it was listed ({{date}}) and after today cannot be picked',
     soldDateSingleDayNote: 'Only the listing date ({{date}}) can be picked',
     soldDateChipsNote: 'Dates before it was listed ({{date}}) cannot be picked',
-    switchStatus: 'Mark as {{status}}',
+    switchToSold: 'Mark as sold',
+    switchToListing: 'Move back to listed',
     deduction: '− {{name}}',
   },
 

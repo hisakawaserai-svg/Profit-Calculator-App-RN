@@ -54,7 +54,7 @@ const partOf = (breakdown: ReturnType<typeof recordBreakdown>, key: string) => {
 
 describe('並び（計算タブの帯と同じ順に固定する）', () => {
   it('仕入 → 送料 → 販売手数料 → 梱包材・その他 → 利益', () => {
-    expect(keys(recordBreakdown(record()))).toEqual([
+    expect(keys(recordBreakdown('ja', record()))).toEqual([
       'purchasePrice',
       'postage',
       'commission',
@@ -64,14 +64,14 @@ describe('並び（計算タブの帯と同じ順に固定する）', () => {
   });
 
   it('赤字でも並びは変わらない（黒字/赤字の切り替えで順番が入れ替わらない）', () => {
-    const deficit = recordBreakdown(record({ salesPrice: 100 }));
+    const deficit = recordBreakdown('ja', record({ salesPrice: 100 }));
 
     expect(deficit.deficit).toBe(true);
-    expect(keys(deficit)).toEqual(keys(recordBreakdown(record())));
+    expect(keys(deficit)).toEqual(keys(recordBreakdown('ja', record())));
   });
 
   it('額の大小で並べ替えない（送料が仕入より大きくても順は同じ）', () => {
-    expect(keys(recordBreakdown(record({ purchasePrice: 10, postage: 500 })))).toEqual([
+    expect(keys(recordBreakdown('ja', record({ purchasePrice: 10, postage: 500 })))).toEqual([
       'purchasePrice',
       'postage',
       'commission',
@@ -94,7 +94,7 @@ describe('並び（計算タブの帯と同じ順に固定する）', () => {
     );
 
     // 計算タブは梱包材とその他を別の行にするので、そこから先は比べない
-    expect(keys(recordBreakdown(record())).slice(0, 4)).toEqual(
+    expect(keys(recordBreakdown('ja', record())).slice(0, 4)).toEqual(
       calc.parts.map((part) => part.key).slice(0, 4),
     );
   });
@@ -121,7 +121,7 @@ describe('showsPricedAmounts（価格未設定では帯グラフ・レシート�
 });
 
 describe('黒字（帯 1 本 ＝ 販売価格）', () => {
-  const breakdown = recordBreakdown(record());
+  const breakdown = recordBreakdown('ja', record());
 
   it('全長は販売価格', () => {
     expect(breakdown.deficit).toBe(false);
@@ -143,7 +143,7 @@ describe('黒字（帯 1 本 ＝ 販売価格）', () => {
 
   it('利益 0 円でも帯は成立する（利益の区画だけが消える）', () => {
     // 販売価格 = 費用の合計
-    const even = recordBreakdown(record({ salesPrice: 500, purchasePrice: 325, postage: 100, envelopeCost: 25, othersCost: 0 }));
+    const even = recordBreakdown('ja', record({ salesPrice: 500, purchasePrice: 325, postage: 100, envelopeCost: 25, othersCost: 0 }));
 
     expect(even.deficit).toBe(false);
     expect(partOf(even, 'kept').amount).toBe(0);
@@ -152,7 +152,7 @@ describe('黒字（帯 1 本 ＝ 販売価格）', () => {
 });
 
 describe('0 円の項目', () => {
-  const breakdown = recordBreakdown(record({ postage: 0 }));
+  const breakdown = recordBreakdown('ja', record({ postage: 0 }));
 
   it('帯には区画を作らない', () => {
     expect(partOf(breakdown, 'postage').inBar).toBe(false);
@@ -167,29 +167,29 @@ describe('0 円の項目', () => {
   });
 
   it('梱包材とその他は 1 行にまとめる（両方 0 なら 1 行が 0 円）', () => {
-    const merged = recordBreakdown(record({ envelopeCost: 20, othersCost: 5 }));
+    const merged = recordBreakdown('ja', record({ envelopeCost: 20, othersCost: 5 }));
 
     expect(partOf(merged, 'envelopeCost').amount).toBe(25);
-    expect(partOf(recordBreakdown(record({ envelopeCost: 0, othersCost: 0 })), 'envelopeCost').inBar)
+    expect(partOf(recordBreakdown('ja', record({ envelopeCost: 0, othersCost: 0 })), 'envelopeCost').inBar)
       .toBe(false);
   });
 });
 
 describe('不用品（仕入価格が無い記録）', () => {
-  const breakdown = recordBreakdown(record({ kind: 'used', purchasePrice: 0 }));
+  const breakdown = recordBreakdown('ja', record({ kind: 'used', purchasePrice: 0 }));
 
   it('仕入の項目自体を作らない（0 円の行としても出さない）', () => {
     expect(keys(breakdown)).toEqual(['postage', 'commission', 'envelopeCost', 'kept']);
   });
 
   it('その分だけ他の項目の割合が大きくなる', () => {
-    const sourced = recordBreakdown(record());
+    const sourced = recordBreakdown('ja', record());
 
     expect(partOf(breakdown, 'kept').ratio).toBeGreaterThan(partOf(sourced, 'kept').ratio ?? 0);
   });
 
   it('保存値に仕入価格が残っていても計算に入れない（種別の意味として出さない）', () => {
-    const withStale = recordBreakdown(record({ kind: 'used', purchasePrice: 300 }));
+    const withStale = recordBreakdown('ja', record({ kind: 'used', purchasePrice: 300 }));
 
     expect(keys(withStale)).not.toContain('purchasePrice');
     expect(partOf(withStale, 'kept').amount).toBe(700);
@@ -198,7 +198,7 @@ describe('不用品（仕入価格が無い記録）', () => {
 
 describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒字と同じ積み上げ ＋ 斜線の「足りない」区画）', () => {
   // 販売価格 450・費用 300 + 175 + 45 + 25 = 545 → 95 円足りない
-  const breakdown = recordBreakdown(record({ salesPrice: 450 }));
+  const breakdown = recordBreakdown('ja', record({ salesPrice: 450 }));
 
   it('不足額は かかった費用 − 売った金額', () => {
     expect(breakdown.deficit).toBe(true);
@@ -253,7 +253,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
   });
 
   it('1 円も売れていない記録（販売価格 0）も同じ形', () => {
-    const zero = recordBreakdown(record({ salesPrice: 0 }));
+    const zero = recordBreakdown('ja', record({ salesPrice: 0 }));
 
     expect(zero.deficit).toBe(true);
     if (!zero.deficit) return;
@@ -265,7 +265,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
   describe('軽い赤字（確認用データ 1: 仕入 2,000・送料 750・手数料 500・梱包 50・販売 2,500）', () => {
     // 費用 2,000 + 750 + 500 + 50 = 3,300 → 800 円足りない
     // （手数料は率で持つフィールドなので、額 500 円 ＝ 販売価格 2,500 の 20% で入力する）
-    const light = recordBreakdown(
+    const light = recordBreakdown('ja', 
       record({
         salesPrice: 2500,
         purchasePrice: 2000,
@@ -296,7 +296,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
   });
 
   describe('極端な赤字（確認用データ 2: 仕入 400,000・販売 1,000）', () => {
-    const extreme = recordBreakdown(
+    const extreme = recordBreakdown('ja', 
       record({ salesPrice: 1000, purchasePrice: 400000, postage: 0, envelopeCost: 0, othersCost: 0, commission: 10 }),
     );
 
@@ -340,7 +340,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
     // 不足額そのものが小さい（＝損益分岐点にわずかに届かなかった）記録に限られる
     it('不足額が小さくても、1 項目が全長の 9 割に届かなければまとめない', () => {
       // 費用 800 + 200 = 1,000。販売 990 → 不足額 10。全長 1,010。仕入の割合 ≈ 79.2%
-      const under = recordBreakdown(
+      const under = recordBreakdown('ja', 
         record({
           salesPrice: 990,
           purchasePrice: 800,
@@ -359,7 +359,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
 
     it('1 項目が全長の 9 割を超えたらまとめる', () => {
       // 費用 10,000 + 10 = 10,010。販売 9,900 → 不足額 110。全長 10,120。仕入の割合 ≈ 98.8%
-      const over = recordBreakdown(
+      const over = recordBreakdown('ja', 
         record({
           salesPrice: 9900,
           purchasePrice: 10000,
@@ -381,7 +381,7 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
     });
 
     it('まとめても項目の金額はそのまま残り、引き出し線は出ない（指す先の区画が無い）', () => {
-      const over = recordBreakdown(
+      const over = recordBreakdown('ja', 
         record({
           salesPrice: 9900,
           purchasePrice: 10000,
@@ -402,28 +402,28 @@ describe('赤字（費用が販売価格を上回る。2026-08-14: 案 C — 黒
 
 describe('帯の中の文字（幅が足りる区画だけ）', () => {
   it('全体の 15% 以上の区画には入れる', () => {
-    const breakdown = recordBreakdown(record());
+    const breakdown = recordBreakdown('ja', record());
 
     expect(showsBarLabel(partOf(breakdown, 'purchasePrice'))).toBe(true); // 30%
     expect(showsBarLabel(partOf(breakdown, 'postage'))).toBe(true); // 17.5%
   });
 
   it('15% 未満の区画は色だけにする', () => {
-    const breakdown = recordBreakdown(record());
+    const breakdown = recordBreakdown('ja', record());
 
     expect(partOf(breakdown, 'envelopeCost').ratio).toBeLessThan(BAR_LABEL_MIN_RATIO);
     expect(showsBarLabel(partOf(breakdown, 'envelopeCost'))).toBe(false); // 2.5%
   });
 
   it('ちょうど 15% は入れる（境界）', () => {
-    const breakdown = recordBreakdown(record({ salesPrice: 1000, postage: 150 }));
+    const breakdown = recordBreakdown('ja', record({ salesPrice: 1000, postage: 150 }));
 
     expect(partOf(breakdown, 'postage').ratio).toBe(BAR_LABEL_MIN_RATIO);
     expect(showsBarLabel(partOf(breakdown, 'postage'))).toBe(true);
   });
 
   it('帯に無い項目には入れない', () => {
-    expect(showsBarLabel(partOf(recordBreakdown(record({ postage: 0 })), 'postage'))).toBe(false);
+    expect(showsBarLabel(partOf(recordBreakdown('ja', record({ postage: 0 })), 'postage'))).toBe(false);
   });
 });
 
@@ -433,23 +433,23 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
 
   it('15% 未満の区画にだけ出す（帯の中に文字が入る区画には出さない）', () => {
     // 利益 40% / 手数料 10% / 仕入 30% / 送料 17.5% / 梱包 2.5%
-    expect(leadersOf(recordBreakdown(record())).map((leader) => leader.key)).toEqual([
+    expect(leadersOf(recordBreakdown('ja', record())).map((leader) => leader.key)).toEqual([
       'commission',
       'envelopeCost',
     ]);
   });
 
   it('閾値は帯の中の文字と同じ（ちょうど 15% の区画には出さない）', () => {
-    const breakdown = recordBreakdown(record({ salesPrice: 1000, postage: 150 }));
+    const breakdown = recordBreakdown('ja', record({ salesPrice: 1000, postage: 150 }));
 
     expect(partOf(breakdown, 'postage').ratio).toBe(BAR_LABEL_MIN_RATIO);
     expect(leadersOf(breakdown).map((leader) => leader.key)).not.toContain('postage');
   });
 
   it('帯に区画のない項目には出さない（0 円・不用品の仕入・赤字の利益）', () => {
-    const zeroPostage = recordBreakdown(record({ postage: 0 }));
-    const used = recordBreakdown(record({ kind: 'used' }));
-    const deficit = recordBreakdown(record({ salesPrice: 450 }));
+    const zeroPostage = recordBreakdown('ja', record({ postage: 0 }));
+    const used = recordBreakdown('ja', record({ kind: 'used' }));
+    const deficit = recordBreakdown('ja', record({ salesPrice: 450 }));
 
     expect(leadersOf(zeroPostage).map((leader) => leader.key)).not.toContain('postage');
     expect(leadersOf(used).map((leader) => leader.key)).not.toContain('purchasePrice');
@@ -458,7 +458,7 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
 
   it('隣り合う細い区画は段をずらす（線の長さが変わってラベルが重ならない）', () => {
     // 手数料 2% / 梱包 1% が並ぶ（どちらも 15% 未満）
-    const breakdown = recordBreakdown(
+    const breakdown = recordBreakdown('ja', 
       record({ salesPrice: 1000, purchasePrice: 300, postage: 0, commission: 2, envelopeCost: 10, othersCost: 0 }),
     );
     const leaders = leadersOf(breakdown);
@@ -468,7 +468,7 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
   });
 
   it('3 本以上でも隣どうしは必ず別の段になる（交互）', () => {
-    const breakdown = recordBreakdown(
+    const breakdown = recordBreakdown('ja', 
       record({ salesPrice: 1000, purchasePrice: 50, postage: 30, commission: 1, envelopeCost: 20, othersCost: 0 }),
     );
     const tiers = leadersOf(breakdown).map((leader) => leader.tier);
@@ -478,7 +478,7 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
   });
 
   it('割合だけを持つ（金額は持たない ── 額はレシートの行が言う）', () => {
-    const leader = leadersOf(recordBreakdown(record()))[0];
+    const leader = leadersOf(recordBreakdown('ja', record()))[0];
 
     expect(leader.ratio).toBeCloseTo(0.1);
     expect(leader).not.toHaveProperty('amount');
@@ -489,7 +489,7 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
   // 「赤字（費用が販売価格を上回る）」の節の「極端な赤字」が見る
 
   it('細い区画が無い記録では 1 本も出さない', () => {
-    const breakdown = recordBreakdown(
+    const breakdown = recordBreakdown('ja', 
       record({ salesPrice: 1000, purchasePrice: 400, postage: 200, commission: 0, envelopeCost: 200, othersCost: 0 }),
     );
 
@@ -499,25 +499,25 @@ describe('引き出し線（帯に文字が入らない細い区画の割合）'
 
 describe('レシートの行に付けるドット（findBarPart）', () => {
   it('帯に区画のある項目は引ける（その色で塗る）', () => {
-    const part = findBarPart(recordBreakdown(record()), 'kept');
+    const part = findBarPart(recordBreakdown('ja', record()), 'kept');
 
     expect(part?.inBar).toBe(true);
   });
 
   it('0 円の項目は inBar が false（ドットはグレーになる）', () => {
-    expect(findBarPart(recordBreakdown(record({ postage: 0 })), 'postage')?.inBar).toBe(false);
+    expect(findBarPart(recordBreakdown('ja', record({ postage: 0 })), 'postage')?.inBar).toBe(false);
   });
 
   it('赤字のときの利益も false（帯に緑の区画が無い）', () => {
-    expect(findBarPart(recordBreakdown(record({ salesPrice: 100 })), 'kept')?.inBar).toBe(false);
+    expect(findBarPart(recordBreakdown('ja', record({ salesPrice: 100 })), 'kept')?.inBar).toBe(false);
   });
 
   it('不用品の仕入は項目自体が無いので null（レシートも行を出さない）', () => {
-    expect(findBarPart(recordBreakdown(record({ kind: 'used' })), 'purchasePrice')).toBeNull();
+    expect(findBarPart(recordBreakdown('ja', record({ kind: 'used' })), 'purchasePrice')).toBeNull();
   });
 
   it('梱包材・その他の行は envelopeCost の区画に対応する（1 行にまとめてある）', () => {
-    const part = findBarPart(recordBreakdown(record()), 'envelopeCost');
+    const part = findBarPart(recordBreakdown('ja', record()), 'envelopeCost');
 
     expect(part?.amount).toBe(25);
     expect(part?.inBar).toBe(true);
@@ -526,7 +526,7 @@ describe('レシートの行に付けるドット（findBarPart）', () => {
 
 describe('端数（表示値どうしで足し引きする）', () => {
   it('各項を丸めてから引くので、帯の額を足すと販売価格に一致する', () => {
-    const breakdown = recordBreakdown(record({ salesPrice: 999.5, postage: 175.4, commission: 7 }));
+    const breakdown = recordBreakdown('ja', record({ salesPrice: 999.5, postage: 175.4, commission: 7 }));
     const total = breakdown.parts.reduce((sum, part) => sum + part.amount, 0);
 
     // 利益 ＝ 販売価格 − 費用 なので、利益を含めた全項目の和は必ず販売価格に戻る（黒字・赤字とも）
@@ -545,19 +545,19 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
 
   it('並びは MINI_BAR_ORDER と同じ（記録詳細の帯・計算タブの帯とも同じ順）', () => {
     expect(MINI_BAR_ORDER).toEqual(['purchasePrice', 'postage', 'commission', 'envelopeCost', 'kept']);
-    expect(itemKeys(miniBarItems(record(), 1000))).toEqual(MINI_BAR_ORDER);
+    expect(itemKeys(miniBarItems('ja', record(), 1000))).toEqual(MINI_BAR_ORDER);
   });
 
   it('価格をシミュレーター値に差し替えて計算する（記録の salesPrice は使わない）', () => {
     // 記録の salesPrice は 1000 のまま、シミュレーター値 450 で計算する
-    const items = miniBarItems(record(), 450);
+    const items = miniBarItems('ja', record(), 450);
 
     expect(itemOf(items, 'purchasePrice').amount).toBe(300); // 費用側は価格に依存しない
     expect(itemOf(items, 'kept').label).toBe('足りない'); // 450 では赤字になる
   });
 
   describe('黒字（シミュレーター価格 1000）', () => {
-    const items = miniBarItems(record(), 1000);
+    const items = miniBarItems('ja', record(), 1000);
 
     it('全項目が仕入→送料→手数料→梱包→利益の順に並ぶ', () => {
       expect(itemKeys(items)).toEqual(['purchasePrice', 'postage', 'commission', 'envelopeCost', 'kept']);
@@ -572,7 +572,7 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
     });
 
     it('費用側の額は記録詳細の帯（recordBreakdown）と同じ数字（計算式を作り直していない）', () => {
-      const full = recordBreakdown(record());
+      const full = recordBreakdown('ja', record());
 
       expect(itemOf(items, 'purchasePrice').amount).toBe(findBarPart(full, 'purchasePrice')?.amount);
       expect(itemOf(items, 'postage').amount).toBe(findBarPart(full, 'postage')?.amount);
@@ -582,7 +582,7 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
   });
 
   describe('赤字（シミュレーター価格 450。費用 545 のところ 450 でしか売れない）', () => {
-    const items = miniBarItems(record(), 450);
+    const items = miniBarItems('ja', record(), 450);
 
     it('並びは黒字と変わらない（利益の位置がそのまま「足りない」に入れ替わるだけ）', () => {
       expect(itemKeys(items)).toEqual(['purchasePrice', 'postage', 'commission', 'envelopeCost', 'kept']);
@@ -598,7 +598,7 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
     });
 
     it('価格に依存しない費用（仕入・送料・梱包）は黒字とまったく同じ額・同じ位置', () => {
-      const surplus = miniBarItems(record(), 1000);
+      const surplus = miniBarItems('ja', record(), 1000);
 
       for (const key of ['purchasePrice', 'postage', 'envelopeCost']) {
         expect(itemOf(items, key).amount).toBe(itemOf(surplus, key).amount);
@@ -616,18 +616,18 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
     const prices = [100, 450, 1000, 3000, 50000];
 
     for (const price of prices) {
-      expect(itemKeys(miniBarItems(record(), price))).toEqual(MINI_BAR_ORDER);
+      expect(itemKeys(miniBarItems('ja', record(), price))).toEqual(MINI_BAR_ORDER);
     }
   });
 
   it('不用品（仕入価格が無い記録）は仕入の項目自体を作らない。並びはそのまま', () => {
-    const items = miniBarItems(record({ kind: 'used', purchasePrice: 0 }), 1000);
+    const items = miniBarItems('ja', record({ kind: 'used', purchasePrice: 0 }), 1000);
 
     expect(itemKeys(items)).toEqual(['postage', 'commission', 'envelopeCost', 'kept']);
   });
 
   it('0 円の項目は凡例には残るが、帯には区画を作らない（inBar が false）', () => {
-    const items = miniBarItems(record({ postage: 0 }), 1000);
+    const items = miniBarItems('ja', record({ postage: 0 }), 1000);
     const postage = itemOf(items, 'postage');
 
     expect(postage.amount).toBe(0);
@@ -638,7 +638,7 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
 
   it('利益がちょうど 0 円（損益分岐点）でも帯には区画を作らない', () => {
     // 費用の合計 = シミュレーター価格（手数料は率を 0 にして計算を単純にする）
-    const items = miniBarItems(
+    const items = miniBarItems('ja', 
       record({ purchasePrice: 300, postage: 175, commission: 0, envelopeCost: 20, othersCost: 5 }),
       500,
     );
@@ -652,7 +652,7 @@ describe('miniBarItems（PricingScreen シミュレーターのミニ帯グラ�
 
 describe('金額が 1 つも無い記録', () => {
   it('区画は 1 つも作らない（0 除算にしない）', () => {
-    const empty = recordBreakdown(
+    const empty = recordBreakdown('ja', 
       record({ salesPrice: 0, purchasePrice: 0, postage: 0, envelopeCost: 0, othersCost: 0 }),
     );
 

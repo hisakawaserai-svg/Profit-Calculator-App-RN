@@ -94,7 +94,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
 
   // 帯グラフ（カード先頭）と行を色で結ぶためのドット。独立した凡例は置かない ──
   // 同じ項目名が 2 つの列に分かれて並び、どちらを読む列なのかが決まらなかったため。
-  const breakdown = recordBreakdown(record);
+  const breakdown = recordBreakdown(locale, record);
   const dotColor = (key: BreakdownPartKey): string => {
     const part = findBarPart(breakdown, key);
     // 金額が出ていない項目（0 円・赤字の利益）はグレー。**`inBar` では判定しない** ──
