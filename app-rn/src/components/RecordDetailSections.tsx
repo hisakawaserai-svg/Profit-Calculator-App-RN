@@ -114,7 +114,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
         <LongPressCopy label={SALES_PRICE_LABEL} text={record.salesPrice.toString()}>
           <Text
             style={[styles.salesPrice, { color: priced ? colors.label : colors.mutedLabel }]}>
-            {priced ? formatYen(record.salesPrice) : UNSET_INPUT_LABEL}
+            {priced ? formatYen('ja', record.salesPrice) : UNSET_INPUT_LABEL}
           </Text>
         </LongPressCopy>
       </View>
@@ -183,7 +183,7 @@ export function ReceiptCard({ record }: { record: SaleRecord }) {
                 color: !priced ? colors.mutedLabel : profit >= 0 ? colors.green : colors.red,
               },
             ]}>
-            {priced ? formatYen(profit) : AMOUNT_PLACEHOLDER}
+            {priced ? formatYen('ja', profit) : AMOUNT_PLACEHOLDER}
           </Text>
         </LongPressCopy>
       </View>
@@ -221,7 +221,7 @@ function ReceiptDeductionRow({
             styles.deductionAmount,
             { color: unsetText != null ? colors.mutedLabel : color },
           ]}>
-          {unsetText ?? formatYen(amount)}
+          {unsetText ?? formatYen('ja', amount)}
         </Text>
       </LongPressCopy>
     </View>

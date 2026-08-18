@@ -1305,7 +1305,7 @@ function YAxisTicks({
               top: topOf(level),
             },
           ]}>
-          {formatCompactYen(level * barStepValue)}
+          {formatCompactYen('ja', level * barStepValue)}
         </Text>
       ))}
 
@@ -1326,7 +1326,7 @@ function YAxisTicks({
                   top: topOf(level),
                 },
               ]}>
-              {formatCompactYen(level * cumulativeStepValue)}
+              {formatCompactYen('ja', level * cumulativeStepValue)}
             </Text>
           ))}
     </View>

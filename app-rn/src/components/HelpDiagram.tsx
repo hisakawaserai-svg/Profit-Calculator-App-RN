@@ -880,7 +880,7 @@ export function PackBuyFigure() {
             <Text style={[styles.formulaOp, { color: colors.secondaryLabel }]}>=</Text>
             <FormulaBox
               label={row.resultLabel}
-              value={row.result == null ? HELP_FIGURE_NONE_MARK : formatUnitYen(row.result)}
+              value={row.result == null ? HELP_FIGURE_NONE_MARK : formatUnitYen('ja', row.result)}
               colors={colors}
               highlight
             />
@@ -892,7 +892,7 @@ export function PackBuyFigure() {
           下に 1 行で添える（1㎡ あたりのままでも経費には入る、は本文が言う） */}
       {usePrice != null && (
         <Text style={[styles.figureNote, styles.rowTitleSpaced, { color: colors.secondaryLabel }]}>
-          {helpFigurePackUseNote(`${useArea}㎡`, formatUnitYen(usePrice))}
+          {helpFigurePackUseNote(`${useArea}㎡`, formatUnitYen('ja', usePrice))}
         </Text>
       )}
     </FigureFrame>

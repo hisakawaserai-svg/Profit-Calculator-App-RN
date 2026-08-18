@@ -297,7 +297,7 @@ export function MiniCalculator({
               <Text
                 style={[styles.totalAmount, { color: total < 0 ? colors.red : colors.label }]}
                 numberOfLines={1}>
-                {formatCalcTotal(total)}
+                {formatCalcTotal(locale, total)}
               </Text>
             </View>
             {blocked != null && (

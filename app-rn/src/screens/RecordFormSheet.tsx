@@ -547,7 +547,7 @@ function RecordForm({
             />
             {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う */}
             <Text style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}>
-              {formatYen(commissionCost(costs))}
+              {formatYen(locale, commissionCost(costs))}
             </Text>
           </View>
 
@@ -567,7 +567,7 @@ function RecordForm({
                   styles.packingSummary,
                   { color: packingCost === 0 ? colors.mutedLabel : colors.red },
                 ]}>
-                {packingCost === 0 ? unsetInputLabel(locale) : formatYen(packingCost)}
+                {packingCost === 0 ? unsetInputLabel(locale) : formatYen(locale, packingCost)}
               </Text>
             }>
             <NumericField
@@ -598,7 +598,7 @@ function RecordForm({
               {profitLabel('ja', values.kind)}
             </Text>
             <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
-              {formatYen(profit)}
+              {formatYen(locale, profit)}
             </Text>
           </View>
         </View>

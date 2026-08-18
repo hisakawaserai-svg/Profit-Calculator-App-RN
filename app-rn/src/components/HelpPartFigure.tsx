@@ -258,7 +258,7 @@ export function ShippingMaterialFigure() {
         }}
         belowName={
           <SegmentedControl
-            options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen(materialCost))]}
+            options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen('ja', materialCost))]}
             selectedIndex={1}
             onChange={noop}
           />
@@ -327,7 +327,7 @@ export function RecordBarFigure() {
             <View style={[styles.receiptDot, { backgroundColor: partColor(row.key, colors) }]} />
             <Text style={[styles.fieldLabel, { color: colors.label }]}>{row.label}</Text>
             <Text style={[styles.fieldValue, { color: colors.label }]}>
-              {formatUnitYen(row.amount)}
+              {formatUnitYen('ja', row.amount)}
             </Text>
           </View>
         ))}

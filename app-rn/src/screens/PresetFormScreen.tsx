@@ -452,7 +452,7 @@ export function PresetFormScreen({ type, preset }: Props) {
                     {presetValueFieldLabel(type)}
                   </Text>
                   <Text style={[styles.breakdownValue, { color: colors.label }]}>
-                    {formatYen(Number.isNaN(previewValue) ? 0 : previewValue)}
+                    {formatYen('ja', Number.isNaN(previewValue) ? 0 : previewValue)}
                   </Text>
                 </View>
                 <View style={styles.breakdownRow}>
@@ -460,7 +460,7 @@ export function PresetFormScreen({ type, preset }: Props) {
                     {SHIPPING_MATERIAL_LABEL}
                   </Text>
                   <Text style={[styles.breakdownValue, { color: colors.label }]}>
-                    {formatYen(shippingTotal - (Number.isNaN(previewValue) ? 0 : previewValue))}
+                    {formatYen('ja', shippingTotal - (Number.isNaN(previewValue) ? 0 : previewValue))}
                   </Text>
                 </View>
                 <View style={[styles.breakdownSeparator, { backgroundColor: colors.separator }]} />
@@ -469,7 +469,7 @@ export function PresetFormScreen({ type, preset }: Props) {
                     {SHIPPING_TOTAL_LABEL}
                   </Text>
                   <Text style={[styles.breakdownTotalValue, { color: colors.blue }]}>
-                    {formatYen(shippingTotal)}
+                    {formatYen('ja', shippingTotal)}
                   </Text>
                 </View>
                 <Text style={[styles.note, { color: colors.secondaryLabel }]}>

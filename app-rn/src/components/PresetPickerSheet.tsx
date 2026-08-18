@@ -177,7 +177,7 @@ export function PresetPickerSheet({
                               <SegmentedControl
                                 options={[
                                   SHIPPING_ONLY_LABEL,
-                                  withShippingMaterialLabel(formatUnitYen(preset.materialCost)),
+                                  withShippingMaterialLabel(formatUnitYen('ja', preset.materialCost)),
                                 ]}
                                 selectedIndex={
                                   choice == null ? null : choice === 'shipping-only' ? 0 : 1

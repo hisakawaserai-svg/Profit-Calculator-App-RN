@@ -188,7 +188,7 @@ export default function CalcScreen() {
 
   // 固定バー・結果カードに出す 1 行（UI-SPEC §1.1-2「逆算モードでは見出しと色が変わる」）
   const resultLabel = isTargetMode ? requiredSalesPriceLabel(locale) : profitLabel(locale, kind);
-  const resultAmount = formatYen(isTargetMode ? costs.salesPrice : profit);
+  const resultAmount = formatYen(locale, isTargetMode ? costs.salesPrice : profit);
   const resultColor = isTargetMode ? colors.blue : profit >= 0 ? colors.green : colors.red;
 
   // 逆算モードの販売価格欄は入力ではなく計算結果を映す（UI-SPEC §1.1「挙動」）。
@@ -567,7 +567,7 @@ function ProfitPanel({
         style={({ pressed }) => [styles.resultBlock, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${profitLabel(locale, kind)} ${formatYen(profit)}。押すと${breakdownLabel(locale)}を開く`}>
+        accessibilityLabel={`${profitLabel(locale, kind)} ${formatYen(locale, profit)}。押すと${breakdownLabel(locale)}を開く`}>
         <Text style={[styles.resultCaption, { color: colors.secondaryLabel }]}>
           {profitLabel(locale, kind)}
         </Text>
@@ -575,7 +575,7 @@ function ProfitPanel({
           style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}
           numberOfLines={1}
           adjustsFontSizeToFit>
-          {formatYen(profit)}
+          {formatYen(locale, profit)}
         </Text>
       </Pressable>
 
@@ -649,7 +649,7 @@ function TargetPanel({
           style={[styles.resultAmount, { color: colors.blue }]}
           numberOfLines={1}
           adjustsFontSizeToFit>
-          {formatYen(result.requiredPrice)}
+          {formatYen(locale, result.requiredPrice)}
         </Text>
       </View>
 
@@ -742,7 +742,7 @@ function BreakdownPartList({
             {totalSalesAmountLabel(locale)}
           </Text>
           <Text style={[styles.partValue, { color: colors.label }]}>
-            {formatYen(breakdown.salesPrice)}
+            {formatYen(locale, breakdown.salesPrice)}
           </Text>
         </View>
       )}
@@ -751,7 +751,7 @@ function BreakdownPartList({
           <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
           <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
           <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
-            {formatYen(part.amount)}
+            {formatYen(locale, part.amount)}
           </Text>
         </View>
       ))}

@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatApproxYenSymbol,
+  formatCalcTotal,
   formatCompactYen,
   formatSignedYenSymbol,
   formatYen,
   formatYenSymbol,
+  formatUnitYen,
   formatYenTight,
   groupDigits,
 } from './format';
@@ -48,36 +50,36 @@ describe('groupDigits — 整数部の 3 桁区切り', () => {
 
 describe('formatCompactYen — 軸の目盛り（単位をラベルごとに書き切る。案 37b）', () => {
   it('1000 未満はそのまま「円」', () => {
-    expect(formatCompactYen(300)).toBe('300円');
-    expect(formatCompactYen(600)).toBe('600円');
-    expect(formatCompactYen(999)).toBe('999円');
+    expect(formatCompactYen('ja', 300)).toBe('300円');
+    expect(formatCompactYen('ja', 600)).toBe('600円');
+    expect(formatCompactYen('ja', 999)).toBe('999円');
   });
 
   it('1000 から「千円」', () => {
-    expect(formatCompactYen(1000)).toBe('1千円');
-    expect(formatCompactYen(3000)).toBe('3千円');
-    expect(formatCompactYen(9000)).toBe('9千円');
+    expect(formatCompactYen('ja', 1000)).toBe('1千円');
+    expect(formatCompactYen('ja', 3000)).toBe('3千円');
+    expect(formatCompactYen('ja', 9000)).toBe('9千円');
   });
 
   it('10000 から「万円」', () => {
-    expect(formatCompactYen(10000)).toBe('1万円');
-    expect(formatCompactYen(100000)).toBe('10万円');
-    expect(formatCompactYen(300000)).toBe('30万円');
-    expect(formatCompactYen(1000000)).toBe('100万円');
+    expect(formatCompactYen('ja', 10000)).toBe('1万円');
+    expect(formatCompactYen('ja', 100000)).toBe('10万円');
+    expect(formatCompactYen('ja', 300000)).toBe('30万円');
+    expect(formatCompactYen('ja', 1000000)).toBe('100万円');
   });
 
   it('キリのいい目盛り（1 / 1.5 / 2 / 3 / 5 × 10^n の整数倍）は小数第 1 位までで収まる', () => {
     // 幅 1500 の段（1.5 × 10^3）
-    expect([1500, 3000, 4500, 6000].map(formatCompactYen)).toEqual([
+    expect([1500, 3000, 4500, 6000].map((value) => formatCompactYen('ja', value))).toEqual([
       '1.5千円',
       '3千円',
       '4.5千円',
       '6千円',
     ]);
     // 幅 15000 の段（1.5 × 10^4）
-    expect([15000, 30000, 45000].map(formatCompactYen)).toEqual(['1.5万円', '3万円', '4.5万円']);
+    expect([15000, 30000, 45000].map((value) => formatCompactYen('ja', value))).toEqual(['1.5万円', '3万円', '4.5万円']);
     // 幅 3000 の段は 4 段目で万に乗る（単位が混ざるが、ラベルごとに書いてあるので読み違えない）
-    expect([3000, 6000, 9000, 12000].map(formatCompactYen)).toEqual([
+    expect([3000, 6000, 9000, 12000].map((value) => formatCompactYen('ja', value))).toEqual([
       '3千円',
       '6千円',
       '9千円',
@@ -86,27 +88,27 @@ describe('formatCompactYen — 軸の目盛り（単位をラベルごとに書�
   });
 
   it('0 には単位を付けない', () => {
-    expect(formatCompactYen(0)).toBe('0');
-    expect(formatCompactYen(-0)).toBe('0');
+    expect(formatCompactYen('ja', 0)).toBe('0');
+    expect(formatCompactYen('ja', -0)).toBe('0');
   });
 
   it('負の値でも壊れない（符号を付けたまま同じ規則）', () => {
-    expect(formatCompactYen(-600)).toBe('-600円');
-    expect(formatCompactYen(-3000)).toBe('-3千円');
-    expect(formatCompactYen(-45000)).toBe('-4.5万円');
+    expect(formatCompactYen('ja', -600)).toBe('-600円');
+    expect(formatCompactYen('ja', -3000)).toBe('-3千円');
+    expect(formatCompactYen('ja', -45000)).toBe('-4.5万円');
   });
 
   it('境界（999 / 1000 / 9999 / 10000）', () => {
-    expect(formatCompactYen(999)).toBe('999円');
-    expect(formatCompactYen(1000)).toBe('1千円');
+    expect(formatCompactYen('ja', 999)).toBe('999円');
+    expect(formatCompactYen('ja', 1000)).toBe('1千円');
     // 9999 は「千円」側。小数第 1 位に丸めるので「10千円」になるが、
     // キリのいい目盛りにこの値は現れない（現れるのは 9000 → 10000 の跳び方）
-    expect(formatCompactYen(9999)).toBe('10千円');
-    expect(formatCompactYen(10000)).toBe('1万円');
+    expect(formatCompactYen('ja', 9999)).toBe('10千円');
+    expect(formatCompactYen('ja', 10000)).toBe('1万円');
   });
 
   it('非有限値でも壊れない', () => {
-    expect(formatCompactYen(Number.NaN)).toBe('NaN');
+    expect(formatCompactYen('ja', Number.NaN)).toBe('NaN');
   });
 });
 
@@ -166,14 +168,66 @@ describe('formatSignedYenSymbol — 符号つき「+¥4,500」', () => {
 
 describe('formatApproxYenSymbol — 「約¥12,685」', () => {
   it('「約」の内側の金額に区切りが入る', () => {
-    expect(formatApproxYenSymbol(12685)).toBe('約¥12,685');
-    expect(formatApproxYenSymbol(980)).toBe('約¥980');
+    expect(formatApproxYenSymbol('ja', 12685)).toBe('約¥12,685');
+    expect(formatApproxYenSymbol('ja', 980)).toBe('約¥980');
   });
 });
 
 describe('「円」表記は区切りなしのまま（Swift 版に合わせる）', () => {
   it('formatYen / formatYenTight は変えていない', () => {
-    expect(formatYen(12685)).toBe('12685 円');
-    expect(formatYenTight(12685)).toBe('12685円');
+    expect(formatYen('ja', 12685)).toBe('12685 円');
+    expect(formatYenTight('ja', 12685)).toBe('12685円');
+  });
+});
+
+// ---- 英語表示の金額（多言語化。通貨は円のまま、書式だけ言語に合わせる） ----
+//
+// **通貨は変えない。** 保存されている数値は円で、$ に付け替えると金額の意味が変わる
+// （3000 円 ≈ $20 なので、$3,000 と出すと 150 倍に見せることになる）。
+// 変えるのは記号の位置と桁区切りだけ ── 日本語の 3 通りの使い分け
+// （「1234 円」「1234円」「¥1,234」）は、英語では ¥ 前置きの 1 種類に集約される。
+
+describe('英語表示の金額', () => {
+  it('記号を前に置き、桁区切りを入れる', () => {
+    expect(formatYen('en', 1234)).toBe('¥1,234');
+    expect(formatYenTight('en', 1234)).toBe('¥1,234');
+    expect(formatCalcTotal('en', 175)).toBe('¥175');
+    expect(formatUnitYen('en', 9.8)).toBe('¥9.8');
+  });
+
+  it('日本語側の使い分けは変えていない', () => {
+    expect(formatYen('ja', 1234)).toBe('1234 円');
+    expect(formatYenTight('ja', 1234)).toBe('1234円');
+    expect(formatCalcTotal('ja', 175)).toBe('175 円');
+    expect(formatUnitYen('ja', 9.8)).toBe('9.8円');
+  });
+
+  it('負号は ¥ の前に出す（¥-1,234 にしない）', () => {
+    expect(formatYen('en', -1234)).toBe('-¥1,234');
+    expect(formatYenTight('en', -1234)).toBe('-¥1,234');
+  });
+
+  it('グラフの軸は万・千ではなく K / M（英語に万の数え方が無い）', () => {
+    expect(formatCompactYen('en', 600)).toBe('¥600');
+    expect(formatCompactYen('en', 9000)).toBe('¥9K');
+    expect(formatCompactYen('en', 300000)).toBe('¥300K');
+    expect(formatCompactYen('en', 1500000)).toBe('¥1.5M');
+    // 負号は ¥ の前（yenSymbol と同じ規則）
+    expect(formatCompactYen('en', -3000)).toBe('-¥3K');
+    // 0 だけは単位を付けない（日本語側と同じ規則）
+    expect(formatCompactYen('en', 0)).toBe('0');
+  });
+
+  it('見込み額の「約」は英語では about', () => {
+    expect(formatApproxYenSymbol('ja', 1234)).toBe('約¥1,234');
+    expect(formatApproxYenSymbol('en', 1234)).toBe('about ¥1,234');
+  });
+
+  it('金額そのものは言語で変わらない（訳すのは書式だけ）', () => {
+    for (const value of [0, 1, 999, 1000, -4567, 1234567]) {
+      const ja = formatYen('ja', value).replace(/[^\d-]/g, '');
+      const en = formatYen('en', value).replace(/[^\d-]/g, '');
+      expect(en).toBe(ja);
+    }
   });
 });

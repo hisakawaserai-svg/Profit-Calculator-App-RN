@@ -191,7 +191,7 @@ function listingMetaText(
     today,
   );
 
-  return `${expectedProfitText(locale, formatApproxYenSymbol(profit))}・${formatElapsedDays(days)}`;
+  return `${expectedProfitText(locale, formatApproxYenSymbol(locale, profit))}・${formatElapsedDays(days)}`;
 }
 
 const styles = StyleSheet.create({

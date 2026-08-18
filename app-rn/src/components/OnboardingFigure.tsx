@@ -310,7 +310,7 @@ export function OnboardingPresetFigure() {
           preset={ONBOARDING_SHIPPING_PRESET_EXAMPLE}
           belowName={
             <SegmentedControl
-              options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen(materialCost))]}
+              options={[SHIPPING_ONLY_LABEL, withShippingMaterialLabel(formatUnitYen('ja', materialCost))]}
               selectedIndex={1}
               onChange={noop}
             />
@@ -746,7 +746,7 @@ export function OnboardingPackagingPresetFigure() {
               {presetPickedCountLabel(1)}
             </Text>
             <Text style={[styles.pickerTotal, { color: colors.label }]}>
-              {formatCalcTotal(unitPrice)}
+              {formatCalcTotal('ja', unitPrice)}
             </Text>
           </View>
           <View style={[styles.pickerSubmit, { backgroundColor: colors.blue }]}>

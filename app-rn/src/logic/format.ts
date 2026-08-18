@@ -6,6 +6,8 @@
 // "12,685" は表計算ソフトが数値として読めず（区切り文字とも衝突する）、
 // 書き出した金額で合計や並べ替えができなくなる。CSV は素の数値を書く。
 
+import type { Locale } from '@/settings/language';
+
 import { formatCalculatorNumber } from './calculator';
 import { roundForDisplay } from './profit';
 
@@ -51,14 +53,32 @@ export function groupDigits(value: number): string {
  * 負の値は符号を付けたまま同じ規則（-3000 → 「-3千円」）。実額（累計のピルや吹き出し）は
  * この関数を通さず**常に全桁**で出す（§1.5）── 丸めた目盛りと実額の役割を分けるため。
  */
-export function formatCompactYen(value: number): string {
+export function formatCompactYen(locale: Locale, value: number): string {
   if (!Number.isFinite(value)) return String(value);
   if (value === 0) return '0';
 
   const abs = Math.abs(value);
+  // **英語は万・千を使わない。** 万は日本語の数え方で、英語には対応する単位がない
+  // （10,000 を 1 万と数えない）。3 桁区切りの K / M に置き換える
+  if (locale === 'en') {
+    // 負号は ¥ の前（yenSymbol と同じ規則）。`¥-3K` の形にしない
+    const sign = value < 0 ? '-' : '';
+    if (abs >= 1_000_000) return `${sign}¥${trimDecimal(abs / 1_000_000)}M`;
+    if (abs >= 1_000) return `${sign}¥${trimDecimal(abs / 1_000)}K`;
+    return yenSymbol(value);
+  }
   if (abs >= 10000) return `${trimDecimal(value / 10000)}万円`;
   if (abs >= 1000) return `${trimDecimal(value / 1000)}千円`;
   return `${groupDigits(value)}円`;
+}
+
+/**
+ * 「¥12,685」「-¥12,685」の形を作る。**負号は ¥ の前**（formatYenSymbol と同じ規則）──
+ * `¥${groupDigits(...)}` とそのまま組むと `¥-12,685` になってしまう。
+ */
+function yenSymbol(value: number): string {
+  const sign = value < 0 ? '-' : '';
+  return `${sign}¥${groupDigits(Math.abs(value))}`;
 }
 
 /** 小数第 1 位まで。末尾の「.0」は出さない（3 → 「3」/ 1.5 → 「1.5」） */
@@ -71,8 +91,9 @@ function trimDecimal(value: number): string {
  * 桁区切りは付けない（Swift 版に合わせる）── 区切りを入れたのは「¥」表記のほう
  * （formatYenSymbol）だけで、こちらは計算タブの内訳など桁の小さい値に使う。
  */
-export function formatYen(value: number): string {
-  return `${roundForDisplay(value)} 円`;
+export function formatYen(locale: Locale, value: number): string {
+  const rounded = roundForDisplay(value);
+  return locale === 'en' ? yenSymbol(rounded) : `${rounded} 円`;
 }
 
 /**
@@ -80,8 +101,9 @@ export function formatYen(value: number): string {
  * 行の結果は小数第 1 位まで出る（`10 ÷ 3` → `3.3`）ので、合計だけ整数に丸めると
  * 見えている行を足した数と合計が食い違う（§7.6 派生決定）。丸めは電卓の規則に合わせる。
  */
-export function formatCalcTotal(value: number): string {
-  return `${formatCalculatorNumber(value)} 円`;
+export function formatCalcTotal(locale: Locale, value: number): string {
+  const shown = formatCalculatorNumber(value);
+  return locale === 'en' ? `¥${shown}` : `${shown} 円`;
 }
 
 /**
@@ -92,8 +114,9 @@ export function formatCalcTotal(value: number): string {
  * **末尾の `.0` は出さない** ── 整数で割り切れる場合がふつうなので、
  * 常に小数を出すと落ち着かない。丸め方は電卓の行（formatCalcTotal）と同じ。
  */
-export function formatUnitYen(value: number): string {
-  return `${formatCalculatorNumber(value)}円`;
+export function formatUnitYen(locale: Locale, value: number): string {
+  const shown = formatCalculatorNumber(value);
+  return locale === 'en' ? `¥${shown}` : `${shown}円`;
 }
 
 /**
@@ -104,8 +127,10 @@ export function formatUnitYen(value: number): string {
  * 空白があるぶんだけ語の切れ目が読み取りにくくなるため詰める。
  * 単独のセル（内訳の行など）は従来どおり formatYen。
  */
-export function formatYenTight(value: number): string {
-  return `${roundForDisplay(value)}円`;
+export function formatYenTight(locale: Locale, value: number): string {
+  const rounded = roundForDisplay(value);
+  // 英語は「詰める / 空ける」の区別を持たない ── ¥ が前に付く 1 種類に集約される
+  return locale === 'en' ? yenSymbol(rounded) : `${rounded}円`;
 }
 
 /**
@@ -144,8 +169,9 @@ export function formatSignedYenSymbol(value: number): string {
  * 見込み額「約¥1234」。出品中の行の「売れたら 約¥…」で使う。
  * 「約」は常に付く（UI-SPEC §5-3: 送料未入力かどうかの判定はしない）。
  */
-export function formatApproxYenSymbol(value: number): string {
-  return `約${formatYenSymbol(value)}`;
+export function formatApproxYenSymbol(locale: Locale, value: number): string {
+  const amount = formatYenSymbol(value);
+  return locale === 'en' ? `about ${amount}` : `約${amount}`;
 }
 
 /** 経過日数「7日経過」（UI-SPEC §5-2。日数の算出は logic/listingDays.ts） */

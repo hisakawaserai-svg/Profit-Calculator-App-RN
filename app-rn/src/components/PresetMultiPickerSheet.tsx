@@ -166,7 +166,7 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
                   {presetPickedCountLabel(picked.length)}
                 </Text>
                 <Text style={[styles.total, { color: colors.label }]} numberOfLines={1}>
-                  {formatCalcTotal(total)}
+                  {formatCalcTotal('ja', total)}
                 </Text>
               </View>
               <Pressable

@@ -586,7 +586,7 @@ export function commissionFieldLabel(locale: Locale, rate: number): string {
 export function optionalCostsLabel(locale: Locale, total: number): string {
   return total === 0
     ? t('calc.optionalCosts', locale)
-    : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight(total) });
+    : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight('ja', total) });
 }
 
 /** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
@@ -617,15 +617,15 @@ export function requiredPriceSummary(
   const deductions: string[] = [];
   if (result.commissionAmount !== 0) {
     deductions.push(
-      t('calc.deductionCommission', locale, { amount: formatYenTight(result.commissionAmount) }),
+      t('calc.deductionCommission', locale, { amount: formatYenTight('ja', result.commissionAmount) }),
     );
   }
   if (result.expenses !== 0) {
-    deductions.push(t('calc.deductionExpenses', locale, { amount: formatYenTight(result.expenses) }));
+    deductions.push(t('calc.deductionExpenses', locale, { amount: formatYenTight('ja', result.expenses) }));
   }
 
-  const price = formatYenTight(result.requiredPrice);
-  const kept = formatYenTight(result.kept);
+  const price = formatYenTight('ja', result.requiredPrice);
+  const kept = formatYenTight('ja', result.kept);
   // 引かれるものが無いときは別の文にする（「〜と〜が引かれて」の形が成り立たないため）
   return deductions.length === 0
     ? t('calc.summaryNoDeductions', locale, { price, kept })
@@ -667,11 +667,11 @@ export function requiredPriceFormulaLines(
   // 行ごとに 1 つのキーをひく。部品を連結すると、語順の違う言語で組み立て直せない
   const lines = [
     formula.expenses === 0
-      ? t('calc.formulaTargetOnly', locale, { target: formatYenTight(formula.targetProfit) })
+      ? t('calc.formulaTargetOnly', locale, { target: formatYenTight('ja', formula.targetProfit) })
       : t('calc.formulaTargetAndExpenses', locale, {
-          target: formatYenTight(formula.targetProfit),
-          expenses: formatYenTight(formula.expenses),
-          subtotal: formatYenTight(formula.subtotal),
+          target: formatYenTight('ja', formula.targetProfit),
+          expenses: formatYenTight('ja', formula.expenses),
+          subtotal: formatYenTight('ja', formula.subtotal),
         }),
   ];
 
@@ -688,9 +688,9 @@ export function requiredPriceFormulaLines(
     formula.roundedUp
       ? t('calc.formulaResultRoundedUp', locale, {
           exact: formatExactPrice(formula.exact),
-          price: formatYenTight(formula.requiredPrice),
+          price: formatYenTight('ja', formula.requiredPrice),
         })
-      : t('calc.formulaResult', locale, { price: formatYenTight(formula.requiredPrice) }),
+      : t('calc.formulaResult', locale, { price: formatYenTight('ja', formula.requiredPrice) }),
   );
 
   return lines;
@@ -708,8 +708,8 @@ export function lowerPriceWarning(
   example: { price: number; profit: number },
 ): string {
   return t('calc.lowerPriceWarning', locale, {
-    price: formatYenTight(example.price),
-    profit: formatYenTight(example.profit),
+    price: formatYenTight('ja', example.price),
+    profit: formatYenTight('ja', example.profit),
   });
 }
 
@@ -827,7 +827,7 @@ export function targetProfitUnsetLabel(locale: Locale): string {
  * 決めていなければ語、決めていれば金額。**null と 0 がここで見分けられる。**
  */
 export function targetProfitSummary(locale: Locale, targetProfit: number | null): string {
-  return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen(targetProfit);
+  return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen('ja', targetProfit);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1980,7 +1980,7 @@ export function tagBlockedNote(locale: Locale, reason: TagInvalidReason): string
  * **同じプリセットの金額が画面によって違って見える**。末尾の `.0` は出さない。
  */
 export function presetValueText(type: PresetType, value: number): string {
-  return isRatePreset(type) ? `${value}%` : formatUnitYen(value);
+  return isRatePreset(type) ? `${value}%` : formatUnitYen('ja', value);
 }
 
 /**
@@ -1997,7 +1997,7 @@ export function shippingMaterialRowNote(
   value: number,
   materialCost: number,
 ): string {
-  return `${t('amount.postage', 'ja')} ${formatUnitYen(value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen(materialCost)}`;
+  return `${t('amount.postage', 'ja')} ${formatUnitYen('ja', value)} ＋ ${SHIPPING_MATERIAL_LABEL} ${formatUnitYen('ja', materialCost)}`;
 }
 
 // ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
@@ -2107,7 +2107,7 @@ export const PRESET_UNIT_PRICE_LABEL = '1個あたり';
  * 行ごと消すと高さが動く（§2.6.6）。
  */
 export function presetUnitPriceText(unitPrice: number | null): string {
-  return unitPrice == null ? '—' : formatUnitYen(unitPrice);
+  return unitPrice == null ? '—' : formatUnitYen('ja', unitPrice);
 }
 
 // ---- SPEC-V10 梱包材の単価計算方式（個数 / 面積 / 使用回数） ----
@@ -4612,7 +4612,7 @@ export function soldDateRangeNote(saleStartDate: Date, saleDate: Date): string {
 
 /** 1 日あたり利益「1日 約¥131」。仕入品かつ売却済みのみ出す */
 export function soldPerDayProfitLabel(perDay: number): string {
-  return `1日 ${formatApproxYenSymbol(perDay)}`;
+  return `1日 ${formatApproxYenSymbol('ja', perDay)}`;
 }
 
 /** 1 日あたり利益の注記。不用品には出ないことをここで断る */

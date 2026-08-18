@@ -80,11 +80,11 @@ export function CostProportionBar({ parts, kept, deducted }: Props) {
       {/* 帯だけでは割合しか読めないので、両側の実額を単位つきで置く */}
       <View style={styles.valueRow}>
         <Text style={[styles.value, { color: kept >= 0 ? colors.green : colors.red }]}>
-          {keptShortLabel(locale)} {formatYenTight(kept)}
+          {keptShortLabel(locale)} {formatYenTight(locale, kept)}
         </Text>
         <Text style={[styles.value, { color: colors.secondaryLabel }]}>／</Text>
         <Text style={[styles.value, { color: colors.label }]}>
-          {deductedLabel(locale)} {formatYenTight(deducted)}
+          {deductedLabel(locale)} {formatYenTight(locale, deducted)}
         </Text>
       </View>
     </View>

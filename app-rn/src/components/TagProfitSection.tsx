@@ -697,7 +697,7 @@ function TagTrendChartBody({
                     top: Math.max(0, y(level * step) - TICK_LABEL_LIFT),
                   },
                 ]}>
-                {formatCompactYen(level * step)}
+                {formatCompactYen('ja', level * step)}
               </Text>
             ))}
           </View>
