@@ -686,7 +686,7 @@ export const en: Translations = {
     photoLimitBarLabel: 'Your photos: {{photos}}',
     photoLimitBarMax: 'Limit {{size}}',
     photoLimitBarMin: '0',
-    photoLimitFooter: 'Even without photos, all {{records}} records, {{tags}} tags and {{presets}} presets move to the new device. Save the photos themselves to the Photos app or similar.',
+    photoLimitFooter: 'Even without photos, all {{records}} records, {{tags}} tags and {{presets}} saved values move to the new device. Save the photos themselves to the Photos app or similar.',
     limitCancel: 'Cancel',
     restoreSection: 'Restore',
     restoreNote: 'Pick the backup ZIP, or a folder you unzipped it into. You can still restore after unzipping to check the contents.',
@@ -704,7 +704,7 @@ export const en: Translations = {
     diffFileHeader: 'File',
     countRecords: 'Records',
     countTags: 'Tags',
-    countPresets: 'Presets',
+    countPresets: 'Saved values',
     countPhotos: 'Photos',
     countChip: '{{label}} {{count}}',
     replaceAll: 'Replace everything',
@@ -784,7 +784,7 @@ export const en: Translations = {
       formatVersion: 'Format version',
       createdAt: 'Created at',
       recordCount: 'Number of records',
-      presetCount: 'Number of presets',
+      presetCount: 'Number of saved values',
       tagCount: 'Number of tags',
       recordTagCount: 'Number of tag links',
       photoCount: 'Number of photos',
@@ -899,7 +899,7 @@ export const en: Translations = {
     shippingMaterial: 'Carrier packaging',
     shippingMaterialField: 'Cost of the carrier packaging',
     shippingTotal: 'Total',
-    shippingTotalNote: 'Pick this preset on a record and this total goes into the shipping cost.',
+    shippingTotalNote: 'Pick this on a record and this total goes into the shipping cost.',
     shippingMaterialRow: 'Shipping {{postage}} + carrier packaging {{material}}',
     errorNameRequired: 'Enter a name',
     errorNameTooLong: 'Names can be up to {{max}} characters',
@@ -1000,16 +1000,16 @@ export const en: Translations = {
       },
       'calc-calculator': {
         title: 'I want to add or multiply on the spot',
-        body: 'The blue calculator button to the right of each amount field (selling price, purchase price, shipping, packaging, other) opens a calculator. “Add a row” stacks as many rows as you like, so you can enter the box and the tape separately and get a total. “Insert” puts only the total into the field. The fee is a rate, so it has no calculator — use “−” and “+”.\n\nOnce you have tapped “Insert”, leaving the field as it is means the same rows are still there next time you open the calculator. Retyping the field by hand, or filling it from a preset, starts over from that single number.',
+        body: 'The blue calculator button to the right of each amount field (selling price, purchase price, shipping, packaging, other) opens a calculator. “Add a row” stacks as many rows as you like, so you can enter the box and the tape separately and get a total. “Insert” puts only the total into the field. The fee is a rate, so it has no calculator — use “−” and “+”.\n\nOnce you have tapped “Insert”, leaving the field as it is means the same rows are still there next time you open the calculator. Retyping the field by hand, or filling it from a saved value, starts over from that single number.',
       },
       'calc-preset': {
         title: 'I want to stop typing the same numbers',
-        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row picks a marketplace: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on the marketplace removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nPackaging has no mark beside its field — you pick it from inside the calculator. You save all of these under “Type less” in the Settings tab.',
+        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row picks a marketplace: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on the marketplace removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nPackaging has no mark beside its field — you pick it from inside the calculator. You save all of these under “Saved Values” in the Settings tab.',
         linkLabel: 'See how to save them ›',
       },
       'calc-shipping-material': {
         title: 'I want the box cost included in shipping',
-        body: 'Tap the tag mark beside the shipping field and your saved shipping costs are listed. If a shipping preset also has a “carrier packaging” cost saved, that row splits into “Shipping only” and “+ materials”. You can read what each one costs before you tap, and the side you tap goes straight into the field. Tapping the row itself picks “+ materials”.\n\nThis is the place for things used only with that shipping method, like a courier box. Envelopes and tape you use for every shipment belong under packaging instead. Shipping presets with no materials cost saved do not show these two.',
+        body: 'Tap the tag mark beside the shipping field and your saved shipping costs are listed. If a saved shipping cost also has a “carrier packaging” cost saved, that row splits into “Shipping only” and “+ materials”. You can read what each one costs before you tap, and the side you tap goes straight into the field. Tapping the row itself picks “+ materials”.\n\nThis is the place for things used only with that shipping method, like a courier box. Envelopes and tape you use for every shipment belong under packaging instead. Saved shipping costs with no materials cost do not show these two.',
         linkLabel: 'See how to save shipping costs ›',
       },
       'calc-clear': {
@@ -1072,7 +1072,7 @@ export const en: Translations = {
       },
       'record-copy': {
         title: 'I want to copy an item name or an amount',
-        body: 'On a record detail, long-press the item name, the selling price, the profit, any expense row or the notes to copy it. It gives a short vibration and “Copied ◯◯” appears at the top of the screen. Item names for a listing, or amounts to write into your books, can go straight into another app without retyping.\n\nEmpty places cannot be long-pressed — there is no point copying the words “Untitled” or “Not entered”.\n\nLong-press is reserved for this copying. To edit a preset badge or a tag, just tap it normally.',
+        body: 'On a record detail, long-press the item name, the selling price, the profit, any expense row or the notes to copy it. It gives a short vibration and “Copied ◯◯” appears at the top of the screen. Item names for a listing, or amounts to write into your books, can go straight into another app without retyping.\n\nEmpty places cannot be long-pressed — there is no point copying the words “Untitled” or “Not entered”.\n\nLong-press is reserved for this copying. To edit a saved value’s badge or a tag, just tap it normally.',
       },
       'record-find-period': {
         title: 'I want to look at another month',
@@ -1104,7 +1104,7 @@ export const en: Translations = {
       },
       'record-preset': {
         title: 'I want to save values I use often',
-        body: 'Under “Type less” in the Settings tab you can save marketplaces, shipping costs and packaging as presets. Once saved, filling a field is just a matter of picking one.\n\nMarketplaces and shipping are picked from the tag mark beside their field, and the value you tap goes straight in. Packaging is the one you call up from somewhere else.\n\nShipping amounts are the ones you saved yourself; check the actual rates with the delivery service.',
+        body: 'Under “Saved Values” in the Settings tab you can save marketplaces, shipping costs and packaging. Once saved, filling a field is just a matter of picking one.\n\nMarketplaces and shipping are picked from the tag mark beside their field, and the value you tap goes straight in. Packaging is the one you call up from somewhere else.\n\nShipping amounts are the ones you saved yourself; check the actual rates with the delivery service.',
       },
       'record-preset-material': {
         title: 'Where packaging is picked from',
@@ -1116,15 +1116,15 @@ export const en: Translations = {
       },
       'record-preset-edit': {
         title: 'Changing or deleting a saved value',
-        body: 'Tap a preset row to open its edit screen. To remove it, tap “Delete this shipping cost” at the very bottom (the wording changes with the type).\n\nChanging a saved value does not change the amounts on records you already saved. Changing a fee rate leaves earlier records’ fees as they were. What a record holds is the amount you entered at the time.',
+        body: 'Tap a saved value’s row to open its edit screen. To remove it, tap “Delete this shipping cost” at the very bottom (the wording changes with the type).\n\nChanging a saved value does not change the amounts on records you already saved. Changing a fee rate leaves earlier records’ fees as they were. What a record holds is the amount you entered at the time.',
       },
       'record-badge': {
         title: 'I want to change the badge text',
-        body: 'A large badge sits near the top of the screen where you add or edit a preset. Tap the badge itself to edit the text inside it. There is no separate field for it.\n\nLeave it blank and the start of the name is used. For “A4, up to 3 cm” something like “A4” — up to two characters you find easy to read — makes it easier to tell presets apart when picking.\n\nA normal tap is all it takes here. Long-press is used for copying records, so it does nothing here.',
+        body: 'A large badge sits near the top of the screen where you add or edit a saved value. Tap the badge itself to edit the text inside it. There is no separate field for it.\n\nLeave it blank and the start of the name is used. For “A4, up to 3 cm” something like “A4” — up to two characters you find easy to read — makes it easier to tell them apart when picking.\n\nA normal tap is all it takes here. Long-press is used for copying records, so it does nothing here.',
       },
       'record-color': {
         title: 'Choosing colours',
-        body: 'Tags and presets take one of 11 fixed colours. The dots come in two groups: unused colours on top, colours in use below. While editing, the headings change to “Colours you can pick” on top and “In use by another tag” below (presets name their own type). The colour you are using stays at the front of the top group.\n\nColours already in use can be picked too. Using one colour for two things is not necessarily a mistake, so nothing stops you — you just get one line saying something like “Same colour as “Clothes””.',
+        body: 'Tags and saved values take one of 11 fixed colours. The dots come in two groups: unused colours on top, colours in use below. While editing, the headings change to “Colours you can pick” on top and “In use by another tag” below (saved values name their own type). The colour you are using stays at the front of the top group.\n\nColours already in use can be picked too. Using one colour for two things is not necessarily a mistake, so nothing stops you — you just get one line saying something like “Same colour as “Clothes””.',
       },
       'record-color-custom': {
         title: 'I want a colour that is not one of the 11',
@@ -1210,11 +1210,11 @@ export const en: Translations = {
       },
       'backup-create': {
         title: 'Making a backup',
-        body: 'Open “Backup and restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, presets and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Exclude”. It starts on “Include”. “Exclude” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and presets all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
+        body: 'Open “Backup and restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, saved values and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Exclude”. It starts on “Include”. “Exclude” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and saved values all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
       },
       'backup-restore': {
         title: 'Restoring from a backup',
-        body: 'Restoring replaces every record, tag and preset on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Backup and restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “What will be loaded” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose another file”. If the file cannot be read, none of your current data changes.',
+        body: 'Restoring replaces every record, tag and saved value on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Backup and restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “What will be loaded” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose another file”. If the file cannot be read, none of your current data changes.',
       },
       'backup-preview': {
         title: 'Reading “What will be loaded”',
@@ -1222,7 +1222,7 @@ export const en: Translations = {
       },
       'backup-migrate': {
         title: 'Steps for changing phones',
-        body: 'Tapping “Create a backup” on the old device opens the share sheet. Get the file off the device from there — the Files app, a cloud service, or sending it to a computer all work equally well. Anywhere the new device can reach it is fine.\n\nInstall this app on the new device, then pick that file from “Restore” under “Backup and restore”. Records, tags and presets come back, and so do photos if the backup was made with them.\n\nThe apps never talk to each other directly, so this one round trip is the only route. Make sure the file is safely off the old device before you part with it.',
+        body: 'Tapping “Create a backup” on the old device opens the share sheet. Get the file off the device from there — the Files app, a cloud service, or sending it to a computer all work equally well. Anywhere the new device can reach it is fine.\n\nInstall this app on the new device, then pick that file from “Restore” under “Backup and restore”. Records, tags and saved values come back, and so do photos if the backup was made with them.\n\nThe apps never talk to each other directly, so this one round trip is the only route. Make sure the file is safely off the old device before you part with it.',
       },
       'export-kinds': {
         title: 'The two kinds of export',
@@ -1292,7 +1292,7 @@ export const en: Translations = {
     commissionFieldNote: 'This is the one field with no calculator. Use “−” and “+” to step by 1%',
     breakdownNote: 'Tap “Breakdown” to see this bar and the amount for each part',
     presetTagNote: 'Tap the tag mark to pick from the values you saved',
-    shippingMaterialNote: 'These two appear only for shipping presets that have a materials cost saved',
+    shippingMaterialNote: 'These two appear only for saved shipping costs that have a materials cost',
     addRecordNote: 'Bottom left of the Records tab, just above the tab bar',
     kindSelectorNote: 'You choose it here on the record screen',
     statusToggleNote: 'The left shows the current status; tap the right to switch to the other one',
@@ -1302,7 +1302,7 @@ export const en: Translations = {
     filterEntryNote: 'Open it from the “▽” at the right end. It turns blue while a filter is on',
     searchSortNote: 'Search by item name on the left, sort on the right',
     soldListingNote: 'The total above is worked out from whichever side you pick',
-    presetListNote: 'They appear in this form under “Type less” in the Settings tab',
+    presetListNote: 'They appear in this form under “Saved Values” in the Settings tab',
     targetFieldNote: 'When nothing is entered it says “Not set” — which is not the same as “¥0”',
     priceLineNote: 'On a record with no target, the middle mark does not appear',
     simulatorNote: 'Drag the knob and the outlook at that price appears above (this figure does not move)',
@@ -1392,8 +1392,8 @@ export const en: Translations = {
     recordAdded: 'Added to your records',
     saveTitle: 'Keep photos and tags with it',
     saveBody: 'An item name is enough to save. Photos, tags and the type can all go into the record too.',
-    presetTitle: 'Save the values you use often',
-    presetBody: 'Marketplaces and shipping come from the mark beside the field; packaging comes from inside the calculator. You can always type into the calculator instead.',
+    presetTitle: 'Saved values go in with a tap',
+    presetBody: 'Save them under “{{section}}” in the Settings tab: marketplaces and shipping then come from the mark beside the field, and packaging from inside the calculator. You can always type into the calculator instead.',
     simulatorTitle: 'Try a discount while it is still listed',
     simulatorBody: 'Move the current price and see the expected profit right away. Moving it does not change the record.',
     simulatorNotePrefix: 'The target line only appears when the record has a ',
@@ -1440,7 +1440,7 @@ export const en: Translations = {
       note: 'The type selected first when you add a new record. The type of records you have already saved does not change.',
     },
     preset: {
-      title: 'Type Less',
+      title: 'Saved Values',
       note: 'Save the values you use often, and you can fill them in by picking one while you record.',
     },
     tag: {

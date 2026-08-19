@@ -27,11 +27,11 @@ const CURRENT = { records: 8, tags: 4, presets: 2, photos: 1 };
 const FILE = { records: 53, tags: 12, presets: 18, photos: 20 };
 
 describe('案 53f 差の表', () => {
-  it('並びは記録・タグ・プリセット・写真で固定', () => {
+  it('並びは記録・タグ・よく使う値・写真で固定', () => {
     expect(backupDiffRows(CURRENT, FILE).map((row) => row.label)).toEqual([
       '記録',
       'タグ',
-      'プリセット',
+      'よく使う値',
       '写真',
     ]);
   });

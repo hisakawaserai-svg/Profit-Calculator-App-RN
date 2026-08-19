@@ -2219,7 +2219,7 @@ export function shippingMaterialRowNote(
   });
 }
 
-// ---- SPEC-V3 §3.1 設定タブ「入力を減らす」 ----
+// ---- SPEC-V3 §3.1 設定タブ「よく使う値」 ----
 
 /** 群の見出し（§3.1）。UI-SPEC §1.6-3 の「（今後）」を外した形 */
 export function presetSectionTitle(locale: Locale): string {
@@ -2801,7 +2801,7 @@ export function presetTagClearLabel(locale: Locale, name: string): string {
 // ---- SPEC-V4 §2 タグ（設定タブの管理画面） ----
 //
 // **プリセットの語を流用しない。** 群を分けたのと同じ理由（§2.1）で、
-// 「入力を減らす」の語（登録・選ぶと入る）はタグには当てはまらない。
+// 「よく使う値」の語（登録・選ぶと入る）はタグには当てはまらない。
 // 件数の「N件」だけは presetCountLabel をそのまま使う ── 数え方の表記まで分ける理由はない。
 
 /** タグそのものの表示名（§2.1 のカード・§2.2 の見出し）。設定タブ・一覧・シートで共通 */
@@ -2815,7 +2815,7 @@ export function tagLabel(locale: Locale): string {
  */
 export const TAG_LABEL = t('common.tag', 'ja');
 
-/** 群の見出し（§2.1）。「入力を減らす」とは別の群にする */
+/** 群の見出し（§2.1）。「よく使う値」とは別の群にする */
 export function tagSectionTitle(locale: Locale): string {
   return t('settings.tag.title', locale);
 }
@@ -5659,7 +5659,9 @@ export function onboardingText(locale: Locale) {
     saveTitle: t('onboarding.saveTitle', locale),
     saveBody: t('onboarding.saveBody', locale),
     presetTitle: t('onboarding.presetTitle', locale),
-    presetBody: t('onboarding.presetBody', locale),
+    // 6 ページ目は登録場所（設定タブの群の見出し）を文の中で名指しする。
+    // 見出しを直したときに文だけ古い語で残らないよう、7 ページ目と同じ {{section}} で差し込む
+    presetBody: t('onboarding.presetBody', locale, { section }),
     simulatorTitle: t('onboarding.simulatorTitle', locale),
     simulatorBody: t('onboarding.simulatorBody', locale),
     simulatorNotePrefix: t('onboarding.simulatorNotePrefix', locale),

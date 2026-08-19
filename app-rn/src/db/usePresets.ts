@@ -50,7 +50,7 @@ function queryCount(type: PresetType, refreshToken: object): number {
 }
 
 /**
- * 設定タブ「入力を減らす」の 1 行ぶんの件数（§3.1）。
+ * 設定タブ「よく使う値」の 1 行ぶんの件数（§3.1）。
  * 3 種まとめて返さないのは、行ごとに独立して呼べる方が画面の組み立てが素直なため。
  */
 export function usePresetCount(type: PresetType): number {
