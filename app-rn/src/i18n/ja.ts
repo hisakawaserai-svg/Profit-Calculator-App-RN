@@ -249,7 +249,7 @@ export const ja = {
     /** 空表示の 2 種。**絞り込みの結果ゼロと、そもそも記録が無いのを別の文にする** */
     filterEmptyTitle: '条件に合う記録がありません',
     noRecordsTitle: 'この期間の記録はありません',
-    noRecordsBody: '左下の ＋ を押すと記録できます',
+    noRecordsBody: '左下の「＋ 記録する」を押すと記録できます',
     totalListingPrice: '出品価格の合計',
     /**
      * 一覧の合計行。件数と点数で語を分ける（記録の数と商品の数）。

@@ -30,6 +30,7 @@ import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AdBanner } from '@/components/AdBanner';
 import { AddRecordFab } from '@/components/AddRecordFab';
 import { AddRecordMenuSheet } from '@/components/AddRecordMenuSheet';
+import { BirdMascot } from '@/components/BirdMascot';
 import { EmptyState } from '@/components/EmptyState';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
@@ -376,6 +377,9 @@ export function RecordListScreen() {
                 filtering={filterCount > 0 || searchText !== ''}
                 canClearFilter={filterCount > 0}
                 onClearFilter={clearRecordFilter}
+                // monthsWithRecords は絞り込みも期間も状態も一切見ずに引いている
+                // （useRecords.ts）ので、空＝**この端末に記録が 1 件も無い**
+                hasAnyRecords={monthsWithRecords.length > 0}
               />
             }
             ItemSeparatorComponent={() => (
@@ -464,17 +468,42 @@ function ListEmpty({
   filtering,
   canClearFilter,
   onClearFilter,
+  hasAnyRecords,
 }: {
   filtering: boolean;
   canClearFilter: boolean;
   onClearFilter: () => void;
+  hasAnyRecords: boolean;
 }) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
+  const colors = useThemeColors();
 
   if (!filtering) {
-    return <EmptyState title={noRecordsEmptyTitle(locale)} body={noRecordsEmptyBody(locale)} />;
+    return (
+      <EmptyState
+        title={noRecordsEmptyTitle(locale)}
+        body={noRecordsEmptyBody(locale)}
+        /*
+         * マスコットは**記録が 1 件も無いときだけ**出す。
+         *
+         * この分岐（filtering === false）には「期間を動かした結果 0 件」
+         * 「状態（売れた/出品中）を切り替えた結果 0 件」も入ってくる ── 期間と状態は
+         * activeFilterCount が数えない条件だから（logic/recordFilter.ts）。
+         * ほかの月には記録があるのに寝ていると「無い」の意味がずれるので、
+         * hasAnyRecords で本当に空のときだけに絞る。
+         *
+         * 背景の丸は出さない（地に直接置く）。そのぶん Z が白のままだと明色の地に
+         * 融けるので、明暗どちらでも同じ値になる gray を渡す。
+         */
+        figure={
+          hasAnyRecords ? undefined : (
+            <BirdMascot variant="sleep" size={96} showScene={false} zColor={colors.gray} />
+          )
+        }
+      />
+    );
   }
 
   return (

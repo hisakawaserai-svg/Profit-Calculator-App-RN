@@ -165,7 +165,7 @@ export const en: Translations = {
     filterClear: 'Clear the filter',
     filterEmptyTitle: 'No records match',
     noRecordsTitle: 'No records for this period',
-    noRecordsBody: 'Tap + at the bottom left to add one',
+    noRecordsBody: 'Tap "+ Record" at the bottom left to add one',
     totalListingPrice: 'Total listed price',
     recordCount: { one: '{{count}} record', other: '{{count}} records' },
     listedItemCount: { one: '{{count}} item', other: '{{count}} items' },
