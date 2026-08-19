@@ -219,9 +219,13 @@ export const ja = {
     typeShippingInline: '送料',
     typePackagingInline: '梱包材',
     pickerBack: '電卓',
-    pickerEmptyBodyWithoutLink: '{{body}}\n設定タブの「{{section}}」から追加できます。',
+    pickerEmptyBody: '上の欄に名前を入れると、その場で登録できます。',
     pickerEditLink: '設定で編集する ▸',
     pickerAddLink: '設定で追加する ▸',
+    /** シート上端のその場登録（§4.3 の拡張）。金額は欄の値が入った状態で開く */
+    quickNamePlaceholder: '名前を入れて登録',
+    quickSubmit: '登録',
+    quickSubmitAccessibility: '『{{name}}』を登録',
     pickedCount: { one: '選択中{{count}}点', other: '選択中{{count}}点' } as PluralForms,
     shippingOnly: '送料のみ',
     withShippingMaterial: '＋資材 {{amount}}',
@@ -1043,7 +1047,8 @@ export const ja = {
   /** プリセットの管理（設定タブ配下。SPEC-V3 §3.2 / §3.3 / SPEC-V10） */
   presetAdmin: {
     emptyTitle: '登録がありません',
-    emptyBody: 'よく使う{{type}}を登録すると、記録するときに選ぶだけで入ります。',
+    emptyBody:
+      'よく使う{{type}}を登録すると、記録するときに選ぶだけで入ります。\n記録するときにも登録できます。',
     addLabel: '＋ {{type}}を追加',
     editMode: '編集',
     editModeDone: '完了',

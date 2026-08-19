@@ -7,13 +7,7 @@
 // 色のパレットは preset.ts のものをそのまま使う（§1.1）。名前に "preset" が入るが、
 // 実体は「明暗どちらでも読める色の見本帳」なので改名しない。
 
-import {
-  presetColorKeyOf,
-  presetColorValue,
-  PRESET_COLOR_HEXES,
-  presetGraphemes,
-  PRESET_COLOR_KEYS,
-} from './preset';
+import { nextPresetColor, presetColorValue, presetGraphemes } from './preset';
 
 /**
  * 名前の上限（§1.3。書記素単位で数える）。
@@ -36,13 +30,13 @@ export const TAG_NAME_SEPARATOR = '・';
  *
  * 保存値が未知の色でも既定色（blue）として「使用済み」に数える ── 正規化した後の
  * 見た目が被らないようにするのが目的なので、生の文字列ではなく表示される色で判定する。
+ *
+ * **実体は preset.ts の nextPresetColor。** パレットがあちらにあるうえ、選択シートから
+ * 色を選ばせずに登録する口がタグとプリセットの 2 つになったので、一巡のさせ方を
+ * 2 か所に持たない。ここに名前を残すのは、タグ側の呼び出しが §1.2 を指すため。
  */
 export function nextTagColor(existing: readonly { colorKey: string }[]): string {
-  // 自由色（SPEC-V7 §3）は「使用済み」に数えない ── 固定色を一巡させるための関数で、
-  // 自由色は固定色のどれとも重ならないため
-  const used = new Set(existing.map((tag) => presetColorKeyOf(tag.colorKey)));
-  const key = PRESET_COLOR_KEYS.find((candidate) => !used.has(candidate)) ?? PRESET_COLOR_KEYS[0];
-  return PRESET_COLOR_HEXES[key];
+  return nextPresetColor(existing);
 }
 
 /**

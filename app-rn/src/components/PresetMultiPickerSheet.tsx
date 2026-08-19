@@ -9,9 +9,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
+import { PresetQuickAddRow } from '@/components/PresetQuickAddRow';
 import { PresetRow } from '@/components/PresetRow';
 import { SheetModal } from '@/components/SheetModal';
 import type { Preset } from '@/db/schema';
@@ -22,10 +31,9 @@ import {
   calcSubmitLabel,
   presetPickerAddLink,
   presetPickerEditLink,
+  presetPickerEmptyBody,
   presetPickerEmptyTitle,
-  presetEmptyBody,
   presetPickedCountLabel,
-  presetPickerEmptyBodyWithoutLink,
   presetPickerTitle,
 } from '@/logic/labels';
 import { useLocale } from '@/settings';
@@ -50,7 +58,8 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
 
   const colors = useThemeColors();
   const router = useRouter();
-  const { presets } = usePresetList(TYPE);
+  // refresh はシートの中で登録されたときに引き直すため（下の PresetQuickAddRow）
+  const { presets, refresh } = usePresetList(TYPE);
 
   // 選んだ順を保つ（積まれる行の並びがタップした順になる）。id の配列で持つのは、
   // 一覧が引き直されても選択が保てるようにするため
@@ -74,136 +83,169 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
   return (
     <SheetModal onClose={onClose}>
       {(close) => (
-        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          {/* ヘッダ。左「‹ 電卓」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」） */}
-          <View style={styles.header}>
-            <View style={styles.headerSide}>
-              <Pressable
-                onPress={close}
-                hitSlop={8}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.5 : 1 }]}>
-                <Ionicons name="chevron-back" size={20} color={colors.blue} />
-                <Text style={[styles.headerButton, { color: colors.blue }]}>
-                  {calcPickerBackLabel(locale)}
-                </Text>
-              </Pressable>
+        // 登録欄を触ると鍵盤がシートの下半分を覆う（TagPickerSheet と同じ理由で
+        // 画面いっぱいに広げて下端合わせにする）
+        <KeyboardAvoidingView
+          style={styles.avoider}
+          pointerEvents="box-none"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            {/* ヘッダ。左「‹ 電卓」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」） */}
+            <View style={styles.header}>
+              <View style={styles.headerSide}>
+                <Pressable
+                  onPress={close}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.5 : 1 }]}>
+                  <Ionicons name="chevron-back" size={20} color={colors.blue} />
+                  <Text style={[styles.headerButton, { color: colors.blue }]}>
+                    {calcPickerBackLabel(locale)}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
+                {presetPickerTitle(locale, TYPE)}
+              </Text>
+              {/* 左と同じ幅を取り、見出しを画面の中央から動かさない（PresetPickerSheet と同じ） */}
+              <View style={styles.headerSide} />
             </View>
-            <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-              {presetPickerTitle(locale, TYPE)}
-            </Text>
-            {/* 左と同じ幅を取り、見出しを画面の中央から動かさない（PresetPickerSheet と同じ） */}
-            <View style={styles.headerSide} />
-          </View>
 
-          <ScrollView bounces={false} contentContainerStyle={styles.listContent}>
-            {presets.length === 0 ? (
-              <EmptyState
-                title={presetPickerEmptyTitle(locale)}
-                body={
-                  canOpenSettings
-                    ? presetEmptyBody(locale, TYPE)
-                    : presetPickerEmptyBodyWithoutLink(locale, TYPE)
-                }
-                actionLabel={canOpenSettings ? presetPickerAddLink(locale) : undefined}
-                onPressAction={
-                  canOpenSettings
-                    ? () => {
-                        close();
-                        openSettings();
-                      }
-                    : undefined
-                }
+            {/* その場で登録（§4.3 の拡張）。**金額は空から始める** ── 単一選択のシートと違って
+                この入口には「今の欄の値」に当たるものが無い（電卓の積み上げの合計は、
+                これから登録する 1 つの梱包材の値段ではない）ので、prefill すると別の額が入る。
+
+                登録しても**シートは閉じない** ── ここは選び終えてから「入れる」でまとめて積む
+                場所（§4.5）で、単一選択のような「選んだ瞬間に確定」ではないため。
+                代わりに作った行をその場で選択に足す */}
+            <View style={styles.quickAdd}>
+              <PresetQuickAddRow
+                type={TYPE}
+                initialValue={null}
+                presets={presets}
+                onCreated={(preset) => {
+                  refresh();
+                  setPickedIds((current) => [...current, preset.id]);
+                }}
               />
-            ) : (
-              <View style={[styles.group, { backgroundColor: colors.secondaryBackground }]}>
-                {presets.map((preset, index) => {
-                  const checked = pickedIds.includes(preset.id);
-                  return (
-                    <View key={preset.id}>
-                      {index > 0 && (
-                        <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-                      )}
-                      <Pressable
-                        style={({ pressed }) => [styles.row, { opacity: pressed ? 0.5 : 1 }]}
-                        onPress={() => toggle(preset)}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked }}>
-                        <View style={styles.rowInner}>
-                          {/* チェックボックスは行の左端（単一選択のチェックは右端）。
-                              押すたびに入れ替わるものなので、目で追う先を 1 か所に固定する */}
-                          <Ionicons
-                            name={checked ? 'checkmark-circle' : 'ellipse-outline'}
-                            size={22}
-                            color={checked ? colors.blue : colors.separator}
-                          />
-                          <View style={styles.rowBody}>
-                            <PresetRow preset={preset} />
-                          </View>
-                        </View>
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {presets.length > 0 && canOpenSettings && (
-              <Pressable
-                style={({ pressed }) => [styles.editLink, { opacity: pressed ? 0.5 : 1 }]}
-                onPress={() => {
-                  close();
-                  openSettings();
-                }}
-                accessibilityRole="button">
-                <Text style={[styles.editLinkLabel, { color: colors.blue }]}>
-                  {presetPickerEditLink(locale)}
-                </Text>
-              </Pressable>
-            )}
-          </ScrollView>
-
-          {/* 下端の合計行 ＋「入れる」（§4.5-3）。電卓の合計行と同じ形にしてある ──
-              同じ「今いくらぶん選んでいるか」を、シートが変わるたびに違う形で出さない */}
-          {presets.length > 0 && (
-            <View style={[styles.footer, { borderTopColor: colors.separator }]}>
-              <View style={styles.footerText}>
-                <Text style={[styles.pickedCount, { color: colors.secondaryLabel }]}>
-                  {presetPickedCountLabel(locale, picked.length)}
-                </Text>
-                <Text style={[styles.total, { color: colors.label }]} numberOfLines={1}>
-                  {formatCalcTotal(locale, total)}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  if (blocked) return;
-                  onSubmit(picked);
-                  close();
-                }}
-                disabled={blocked}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: blocked }}
-                style={({ pressed }) => [
-                  styles.submit,
-                  {
-                    backgroundColor: blocked ? colors.disabledBackground : colors.blue,
-                    opacity: pressed && !blocked ? 0.7 : 1,
-                  },
-                ]}>
-                <Text style={[styles.submitLabel, { color: blocked ? colors.gray : '#FFFFFF' }]}>
-                  {calcSubmitLabel(locale)}
-                </Text>
-              </Pressable>
             </View>
-          )}
-        </View>
+
+            <ScrollView
+              bounces={false}
+              contentContainerStyle={styles.listContent}
+              keyboardShouldPersistTaps="handled">
+              {presets.length === 0 ? (
+                <EmptyState
+                  title={presetPickerEmptyTitle(locale)}
+                  body={presetPickerEmptyBody(locale)}
+                  actionLabel={canOpenSettings ? presetPickerAddLink(locale) : undefined}
+                  onPressAction={
+                    canOpenSettings
+                      ? () => {
+                          close();
+                          openSettings();
+                        }
+                      : undefined
+                  }
+                />
+              ) : (
+                <View style={[styles.group, { backgroundColor: colors.secondaryBackground }]}>
+                  {presets.map((preset, index) => {
+                    const checked = pickedIds.includes(preset.id);
+                    return (
+                      <View key={preset.id}>
+                        {index > 0 && (
+                          <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                        )}
+                        <Pressable
+                          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.5 : 1 }]}
+                          onPress={() => toggle(preset)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked }}>
+                          <View style={styles.rowInner}>
+                            {/* チェックボックスは行の左端（単一選択のチェックは右端）。
+                                押すたびに入れ替わるものなので、目で追う先を 1 か所に固定する */}
+                            <Ionicons
+                              name={checked ? 'checkmark-circle' : 'ellipse-outline'}
+                              size={22}
+                              color={checked ? colors.blue : colors.separator}
+                            />
+                            <View style={styles.rowBody}>
+                              <PresetRow preset={preset} />
+                            </View>
+                          </View>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {presets.length > 0 && canOpenSettings && (
+                <Pressable
+                  style={({ pressed }) => [styles.editLink, { opacity: pressed ? 0.5 : 1 }]}
+                  onPress={() => {
+                    close();
+                    openSettings();
+                  }}
+                  accessibilityRole="button">
+                  <Text style={[styles.editLinkLabel, { color: colors.blue }]}>
+                    {presetPickerEditLink(locale)}
+                  </Text>
+                </Pressable>
+              )}
+            </ScrollView>
+
+            {/* 下端の合計行 ＋「入れる」（§4.5-3）。電卓の合計行と同じ形にしてある ──
+                同じ「今いくらぶん選んでいるか」を、シートが変わるたびに違う形で出さない */}
+            {presets.length > 0 && (
+              <View style={[styles.footer, { borderTopColor: colors.separator }]}>
+                <View style={styles.footerText}>
+                  <Text style={[styles.pickedCount, { color: colors.secondaryLabel }]}>
+                    {presetPickedCountLabel(locale, picked.length)}
+                  </Text>
+                  <Text style={[styles.total, { color: colors.label }]} numberOfLines={1}>
+                    {formatCalcTotal(locale, total)}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    if (blocked) return;
+                    onSubmit(picked);
+                    close();
+                  }}
+                  disabled={blocked}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: blocked }}
+                  style={({ pressed }) => [
+                    styles.submit,
+                    {
+                      backgroundColor: blocked ? colors.disabledBackground : colors.blue,
+                      opacity: pressed && !blocked ? 0.7 : 1,
+                    },
+                  ]}>
+                  <Text style={[styles.submitLabel, { color: blocked ? colors.gray : '#FFFFFF' }]}>
+                    {calcSubmitLabel(locale)}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </KeyboardAvoidingView>
       )}
     </SheetModal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoider: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  // シートの左右の余白は行ごとに持つ（listContent と同じ 16pt）
+  quickAdd: {
+    paddingHorizontal: 16,
+  },
   sheet: {
     maxHeight: '80%',
     paddingTop: 12,

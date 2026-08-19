@@ -2770,17 +2770,35 @@ export function presetPickerAddLink(locale: Locale): string {
 }
 
 /**
- * リンクを出せない場所（記録フォーム。RN の Modal の裏に遷移してしまう）での空表示の本文。
+ * 1 件も登録がないときの選択シートの本文（§4.3 の拡張）。
  *
- * リンクを落とすだけだと、0 件の人にはどこへ行けば登録できるのかが画面から消える。
- * **押せないリンクの代わりに、行き先を文で名指しする** ── 押せる青字がないので、
- * 反応しないボタンを探させることにはならない。
+ * 以前は「設定タブの『よく使う値』から追加できます」と行き先を文で名指ししていた ──
+ * 記録フォームからは設定タブへ遷移できない（RN の Modal の裏に積まれる）ので、
+ * 押せるリンクを出せなかったため。**その案内が「記録を中断して自力でタブを移る」ことを
+ * 求めていたのが、実際の利用者の言う「めんどくせえ」の出どころだった。**
+ *
+ * いまはシートの上端に登録の口があるので、そこを指す。タグの選択シート
+ * （tagPickerEmptyBody）と同じ形 ── どちらも**ここで作れる**ことだけを言う。
  */
-export function presetPickerEmptyBodyWithoutLink(locale: Locale, type: PresetType): string {
-  return t('preset.pickerEmptyBodyWithoutLink', locale, {
-    body: presetEmptyBody(locale, type),
-    section: t('settings.preset.title', locale),
-  });
+export function presetPickerEmptyBody(locale: Locale): string {
+  return t('preset.pickerEmptyBody', locale);
+}
+
+/**
+ * シート上端のその場登録（§4.3 の拡張）。名前の欄と、その右の「登録」。
+ *
+ * 金額は欄の値が入った状態で開くので、置き字（placeholder）が要るのは名前だけ ──
+ * 「名前を入れて登録」は、空の欄が何のためにあるかと、入れたら何が起きるかを 1 行で言う。
+ */
+export function presetQuickAddNamePlaceholder(locale: Locale): string {
+  return t('preset.quickNamePlaceholder', locale);
+}
+export function presetQuickAddSubmitLabel(locale: Locale): string {
+  return t('preset.quickSubmit', locale);
+}
+/** 「登録」ボタンの読み上げ。ボタンの字だけでは何を登録するのか分からないので名前を主語にする */
+export function presetQuickAddSubmitAccessibilityLabel(locale: Locale, name: string): string {
+  return t('preset.quickSubmitAccessibility', locale, { name });
 }
 
 /**

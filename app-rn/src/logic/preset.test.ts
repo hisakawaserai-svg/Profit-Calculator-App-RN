@@ -32,6 +32,8 @@ import {
   presetDraftUsePrice,
   presetInitial,
   presetUnitPrice,
+  nextPresetColor,
+  quickPresetDraft,
   resolvePresetTag,
   toPresetType,
   validatePreset,
@@ -1287,5 +1289,109 @@ describe('SPEC-V10 §1.3 保存済みの行から単価を作り直す', () => {
 
   it('購入サイズの無い面積方式の行はまとめ買いではない（材料が無い）', () => {
     expect(isPackBuy({ ...area, packHeight: 0, packWidth: 0 })).toBe(false);
+  });
+});
+
+describe('§4.3 の拡張 選択シートからのその場登録（quickPresetDraft）', () => {
+  it('名前と金額だけを受け取り、残りは既定へ倒す', () => {
+    expect(quickPresetDraft('shipping', 'ゆうパケット', '800')).toEqual({
+      type: 'shipping',
+      name: 'ゆうパケット',
+      // 頭文字は空 ── 表示時に name の先頭 1 文字から導出される（§1.2）
+      initial: '',
+      value: '800',
+    });
+  });
+
+  it('まとめ買い・専用資材は下書きに入らない（送料でも資材費 0 円で保存される）', () => {
+    const validation = validatePreset(quickPresetDraft('shipping', 'ゆうパケット', '800'));
+
+    expect(validation).toEqual({
+      valid: true,
+      name: 'ゆうパケット',
+      initial: '',
+      value: 800,
+      packQuantity: 0,
+      packPrice: 0,
+      materialCost: 0,
+    });
+  });
+
+  // 検証は本フォームと同じ 1 本（validatePreset）を通す ── 簡易の登録だけ
+  // 別の規則を持つと、上限や小数の扱いが設定タブとずれる
+  it('名前が空なら登録できない', () => {
+    expect(validatePreset(quickPresetDraft('shipping', '', '800'))).toEqual({
+      valid: false,
+      reason: 'name-required',
+    });
+    expect(validatePreset(quickPresetDraft('shipping', '   ', '800'))).toEqual({
+      valid: false,
+      reason: 'name-required',
+    });
+  });
+
+  it('名前の上限（20 文字）も本フォームと同じ', () => {
+    expect(validatePreset(quickPresetDraft('shipping', 'あ'.repeat(20), '800')).valid).toBe(true);
+    expect(validatePreset(quickPresetDraft('shipping', 'あ'.repeat(21), '800'))).toEqual({
+      valid: false,
+      reason: 'name-too-long',
+    });
+  });
+
+  it('金額の上限・小数の扱いも本フォームと同じ（送料は整数のみ）', () => {
+    expect(validatePreset(quickPresetDraft('shipping', 'ゆうパケット', '999999')).valid).toBe(true);
+    expect(validatePreset(quickPresetDraft('shipping', 'ゆうパケット', '1000000'))).toEqual({
+      valid: false,
+      reason: 'value-out-of-range',
+    });
+    expect(validatePreset(quickPresetDraft('shipping', 'ゆうパケット', '800.5'))).toEqual({
+      valid: false,
+      reason: 'value-out-of-range',
+    });
+  });
+
+  it('販売サイトは率として検証される（0〜100・小数第 1 位まで）', () => {
+    expect(validatePreset(quickPresetDraft('site', 'メルカリ', '10')).valid).toBe(true);
+    expect(validatePreset(quickPresetDraft('site', 'メルカリ', '8.8')).valid).toBe(true);
+    expect(validatePreset(quickPresetDraft('site', 'メルカリ', '101'))).toEqual({
+      valid: false,
+      reason: 'value-out-of-range',
+    });
+  });
+
+  it('金額が空でも登録できる（0 円。あとから設定タブで直せる）', () => {
+    const validation = validatePreset(quickPresetDraft('packaging', '封筒', ''));
+
+    expect(validation.valid).toBe(true);
+    expect(validation.valid && validation.value).toBe(0);
+  });
+
+  // §1.4: プリセットは同名を弾かない（タグと違うところ）
+  it('同じ名前の登録があっても作れる（重複を弾かない）', () => {
+    expect(validatePreset(quickPresetDraft('shipping', 'ゆうパケット', '250')).valid).toBe(true);
+  });
+});
+
+describe('§1.2 nextPresetColor: 使用済みの色を避ける（タグと同じ一巡）', () => {
+  const [first, second, third] = PRESET_COLOR_KEYS.map((key) => PRESET_COLOR_HEXES[key]);
+
+  it('1 件も無ければパレットの先頭', () => {
+    expect(nextPresetColor([])).toBe(first);
+  });
+
+  it('使われている色を飛ばして次の 1 つを返す', () => {
+    expect(nextPresetColor([{ colorKey: first }])).toBe(second);
+    expect(nextPresetColor([{ colorKey: first }, { colorKey: second }])).toBe(third);
+    expect(nextPresetColor([{ colorKey: second }, { colorKey: third }])).toBe(first);
+  });
+
+  it('すべて使われていたら先頭から一巡する（重複を許す）', () => {
+    const all = PRESET_COLOR_KEYS.map((key) => ({ colorKey: PRESET_COLOR_HEXES[key] }));
+
+    expect(nextPresetColor(all)).toBe(first);
+  });
+
+  it('自由色は「使用済み」に数えない（固定色のどれとも重ならないため）', () => {
+    expect(nextPresetColor([{ colorKey: '#123456' }])).toBe(first);
   });
 });

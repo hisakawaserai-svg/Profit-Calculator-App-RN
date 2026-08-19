@@ -97,7 +97,10 @@ export function PresetTagButton({
 
   const colors = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
-  const { presets } = usePresetList(type);
+  // refresh はシートの中で登録されたときに引き直すため（下の onCreated）。
+  // このボタンがバッジを決めるのに使っているのも同じ配列なので、引き直さないと
+  // **いま登録したばかりのプリセットが見つからず、欄に値は入るのに札が出ない**
+  const { presets, refresh } = usePresetList(type);
 
   const tag = resolvePresetTag(presets, value, selectedName);
   const showClear = onClear != null && tag.kind !== 'unselected' && !disabled;
@@ -165,6 +168,18 @@ export function PresetTagButton({
           value={value}
           onSelect={onSelect}
           canOpenSettings={canOpenSettings}
+          /**
+           * シートの上端で登録されたとき（§4.3 の拡張）。**選んだときと同じ扱いにする** ──
+           * 登録の動機は「いま入れた額に名前を付けて、次からこれを選べるようにする」ことなので、
+           * 作った直後に選ばれていない状態にすると、続けて同じ行をもう一度押すことになる。
+           *
+           * 送料の 2 択（45b）は `'with-material'` を渡す ── その場で登録できるのは
+           * 名前と金額だけで資材費は 0 円なので、どちらの側でも欄に入る額は同じ。
+           */
+          onCreated={(preset) => {
+            refresh();
+            onSelect(preset, 'with-material');
+          }}
           onClose={() => setShowPicker(false)}
         />
       )}

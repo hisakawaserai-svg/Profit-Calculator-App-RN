@@ -119,6 +119,27 @@ export function resolvePresetTone(
  */
 export const DEFAULT_PRESET_COLOR_KEY: PresetColorKey = 'blue';
 
+/**
+ * 追加時の色（SPEC-V4 §1.2 / 決定 §9-8）。**使用済みの色を避けて、パレットの並び順で最初の 1 つ。**
+ * すべて使われていたら先頭から一巡する（重複を許す）── 名前が本体で色は補助なので、
+ * 色が被っても「◯メルカリ」「◯ラクマ」は読み分けられる。パレットを増やす方向は採らない。
+ *
+ * 保存値が未知の色でも既定色（blue）として「使用済み」に数える ── 正規化した後の
+ * 見た目が被らないようにするのが目的なので、生の文字列ではなく表示される色で判定する。
+ *
+ * **タグ（logic/tag.ts の nextTagColor）と同じ関数。** パレットがこのファイルにあるので
+ * 実体をこちらに置き、あちらは名前だけを持つ ── 色を選ばせない登録の口が
+ * タグ（選択シート）とプリセット（選択シート）の 2 つになったので、
+ * 一巡のさせ方が 2 か所に分かれていると片方だけ直る事故が起きる。
+ */
+export function nextPresetColor(existing: readonly { colorKey: string }[]): string {
+  // 自由色（SPEC-V7 §3）は「使用済み」に数えない ── 固定色を一巡させるための関数で、
+  // 自由色は固定色のどれとも重ならないため
+  const used = new Set(existing.map((entry) => presetColorKeyOf(entry.colorKey)));
+  const key = PRESET_COLOR_KEYS.find((candidate) => !used.has(candidate)) ?? PRESET_COLOR_KEYS[0];
+  return PRESET_COLOR_HEXES[key];
+}
+
 /** 名前の上限（§1.4）。書記素単位で数える */
 export const PRESET_NAME_MAX_LENGTH = 20;
 
@@ -670,6 +691,24 @@ export function presetDraftUsePrice(draft: PresetDraft): number | null {
  */
 export function presetDraftUnitPrice(draft: PresetDraft): number | null {
   return presetDraftUsePrice(draft) ?? presetDraftAreaUnitPrice(draft);
+}
+
+/**
+ * 選択シートの「その場で登録」（記録フォームからの登録。SPEC-V3 §4.3 の拡張）の下書き。
+ *
+ * **受け取るのは名前と金額だけで、残りは既定へ倒す** ── 頭文字は空（表示時に name の
+ * 先頭 1 文字から導出される。§1.2）、まとめ買いは「1 個ずつ」、専用資材は 0 円。
+ * 色は保存の直前に nextPresetColor が決めるので下書きには入らない。
+ *
+ * 落としている欄をここで捏造せず**素の PresetDraft を返す**のは、検証を
+ * validatePreset の 1 本に通したままにするため ── 簡易の登録だけ別の検証を持つと、
+ * 上限や小数の扱いが設定の本フォームとずれる。
+ *
+ * 足りない指定（送料の専用資材・まとめ買い・色・バッジの文字）は設定タブの本フォームに残す。
+ * その場で登録できるのは「いま欄に入っている額に名前を付ける」ところまで。
+ */
+export function quickPresetDraft(type: PresetType, name: string, value: string): PresetDraft {
+  return { type, name, initial: '', value };
 }
 
 /**

@@ -82,6 +82,7 @@ export const MIGRATED_FILES = [
   'src/components/PresetSummaryCard.tsx',
   'src/components/PresetPickerSheet.tsx',
   'src/components/PresetMultiPickerSheet.tsx',
+  'src/components/PresetQuickAddRow.tsx',
   // 区切り 10: 使いかたとチュートリアル
   'src/components/OnboardingOverlay.tsx',
   'src/components/OnboardingFigure.tsx',

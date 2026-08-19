@@ -140,9 +140,12 @@ export const en: Translations = {
     typeShippingInline: 'shipping options',
     typePackagingInline: 'packaging',
     pickerBack: 'Calculator',
-    pickerEmptyBodyWithoutLink: '{{body}}\nAdd one from “{{section}}” in the Settings tab.',
+    pickerEmptyBody: 'Type a name in the field above to save one right here.',
     pickerEditLink: 'Edit in Settings ▸',
     pickerAddLink: 'Add in Settings ▸',
+    quickNamePlaceholder: 'Name it to save it',
+    quickSubmit: 'Save',
+    quickSubmitAccessibility: 'Save “{{name}}”',
     pickedCount: { one: '{{count}} selected', other: '{{count}} selected' },
     shippingOnly: 'Shipping only',
     withShippingMaterial: '+ materials {{amount}}',
@@ -855,7 +858,8 @@ export const en: Translations = {
 
   presetAdmin: {
     emptyTitle: 'Nothing saved yet',
-    emptyBody: 'Save the {{type}} you use often and you can fill them in by picking one while you record.',
+    emptyBody:
+      'Save the {{type}} you use often and you can fill them in by picking one while you record.\nYou can also save them while adding a record.',
     addLabel: '+ Add {{type}}',
     editMode: 'Edit',
     editModeDone: 'Done',
