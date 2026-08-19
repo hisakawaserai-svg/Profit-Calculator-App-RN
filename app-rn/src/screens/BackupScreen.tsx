@@ -121,7 +121,7 @@ import {
   copiedMessage,
   copyFailedMessage,
 } from '@/logic/labels';
-import { useSettings , useLocale } from '@/settings';
+import { useSettings , useLocale, type Locale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
 import { BackupPhotoLimitSheet } from './BackupPhotoLimitSheet';
@@ -179,8 +179,8 @@ type Stage =
  * **写真の照合はここで済ませる。** 欠けていてもエラーにはせず、
  * `missingPhotos` として持ち回って完了時に件数で伝える。
  */
-function toPickedBackup(archive: BackupArchive, fileName: string): PickedBackup {
-  const contents = readBackupContents(archive.files, archivePhotoNames(archive));
+function toPickedBackup(locale: Locale, archive: BackupArchive, fileName: string): PickedBackup {
+  const contents = readBackupContents(locale, archive.files, archivePhotoNames(archive));
   // 指されていない写真（孤児）は書き戻さない ── 逆方向は検証しない（§4.3）ので、
   // ここで落としておけば復元は「入っているものを全部書く」で済む
   const referenced = new Set(
@@ -370,17 +370,17 @@ export function BackupScreen() {
    */
   const showArchive = useCallback((archive: BackupArchive, fileName: string) => {
     try {
-      setStage({ kind: 'preview', picked: toPickedBackup(archive, fileName) });
+      setStage({ kind: 'preview', picked: toPickedBackup(locale, archive, fileName) });
     } catch (error) {
       if (!(error instanceof BackupError)) throw error;
       setStage({
         kind: 'error',
         fileName,
         reason: error.message,
-        createdAt: tryReadBackupInfo(archive.files)?.createdAt ?? null,
+        createdAt: tryReadBackupInfo(locale, archive.files)?.createdAt ?? null,
       });
     }
-  }, []);
+  }, [locale]);
 
   const pickFile = useCallback(async () => {
     try {
@@ -407,7 +407,7 @@ export function BackupScreen() {
       const directory = await Directory.pickDirectoryAsync();
       if (directory == null) return;
 
-      showArchive(readBackupDirectory(directory), directory.name);
+      showArchive(readBackupDirectory(locale, directory), directory.name);
     } catch (error) {
       // 3 通りを分ける:
       //   - 中身が読めない        … 画面で理由を出す（案 53h）

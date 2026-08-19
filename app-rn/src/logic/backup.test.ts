@@ -194,13 +194,13 @@ describe('§3.1 parseCsv', () => {
 
 describe('§3 書いたものが読み戻せる', () => {
   it('buildBackupFile → parseBackupFile で値が一致する', () => {
-    const rows = parseBackupFile(BACKUP_RECORDS_FILE, buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]));
+    const rows = parseBackupFile('ja', BACKUP_RECORDS_FILE, buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]));
 
     expect(rows).toEqual([RECORD_ROW]);
   });
 
   it('5 ファイル揃っていれば件数と作成日が読める（§5.4 のプレビュー）', () => {
-    const { preview, tables } = readBackupContents(goodFiles());
+    const { preview, tables } = readBackupContents('ja', goodFiles());
 
     expect(preview.formatVersion).toBe(BACKUP_FORMAT_VERSION);
     expect(preview.createdAt).toBe('2026-08-13T14:30:00.000');
@@ -218,7 +218,7 @@ describe('§3 書いたものが読み戻せる', () => {
       ),
     });
 
-    expect(readBackupContents(files).preview.counts.records).toBe(1);
+    expect(readBackupContents('ja', files).preview.counts.records).toBe(1);
   });
 
   it('売れていない記録は sale_date が空欄で通る（§2.3）', () => {
@@ -226,7 +226,7 @@ describe('§3 書いたものが読み戻せる', () => {
       [BACKUP_RECORDS_FILE]: recordsWith({ is_sold: '0', sale_date: '' }),
     });
 
-    expect(readBackupContents(files).tables.records[0].sale_date).toBe('');
+    expect(readBackupContents('ja', files).tables.records[0].sale_date).toBe('');
   });
 });
 
@@ -234,7 +234,7 @@ describe('§3 書いたものが読み戻せる', () => {
 
 describe('§3.2 壊れたバックアップは必ず止まる', () => {
   it('ファイルが 1 つ欠けている', () => {
-    expect(() => readBackupContents(goodFiles({ [BACKUP_TAGS_FILE]: undefined }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_TAGS_FILE]: undefined }))).toThrow(
       /tags\.csv が見つかりません/,
     );
   });
@@ -242,7 +242,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
   it('列が足りない（数が違うことと、いくつ足りないかを出す）', () => {
     const broken = 'id,item_name\r\nr1,えんぴつ\r\n';
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
       'records.csv の列の数が違います。必要な列は 19 ですが、ファイルには 2 あります。',
     );
   });
@@ -250,7 +250,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
   it('列名が書き換えられている（何列目がどう違うかを出す）', () => {
     const csv = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]).replace('sales_price', 'price');
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
       'records.csv の列名が違います。3 列目は「sales_price」のはずですが「price」になっています。',
     );
   });
@@ -261,7 +261,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const csv = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]).replace('sales_price', 'price');
 
     try {
-      readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: csv }));
+      readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: csv }));
       expect.unreachable();
     } catch (error) {
       expect((error as Error).message).not.toContain('\n');
@@ -272,7 +272,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
   it('金額が数値でない（§3.3 の例文そのもの）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ purchase_price: 'abc' }) });
 
-    expect(() => readBackupContents(files)).toThrow(
+    expect(() => readBackupContents('ja', files)).toThrow(
       'records.csv 2行目：「仕入価格」が正しい数値ではありません。',
     );
   });
@@ -280,19 +280,19 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
   it('桁区切りの入った金額は弾く（表計算で書式が付いた場合。§2.2）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sales_price: '1,500' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「販売価格」が正しい数値ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「販売価格」が正しい数値ではありません/);
   });
 
   it('金額が空欄', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ postage: '' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「送料」が正しい数値ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「送料」が正しい数値ではありません/);
   });
 
   it('日付の形式が違う（Excel が付ける 2026/8/9 など）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026/8/9' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「出品日」が正しい日付ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「出品日」が正しい日付ではありません/);
   });
 
   it('日付の形は合っていても実在しない日は弾く（2026-02-31）', () => {
@@ -300,37 +300,37 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
       [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026-02-31T00:00:00.000' }),
     });
 
-    expect(() => readBackupContents(files)).toThrow(/「出品日」が正しい日付ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「出品日」が正しい日付ではありません/);
   });
 
   it('時刻の無い日付は弾く（§2.3 は時刻まで必須）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026-08-01' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「出品日」が正しい日付ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「出品日」が正しい日付ではありません/);
   });
 
   it('is_sold が 0 / 1 でない', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ is_sold: 'true' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「状態」が 0 か 1 ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「状態」が 0 か 1 ではありません/);
   });
 
   it('kind が決まった語でない', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ kind: 'unknown' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「種別」が used \/ sourced のどれでもありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「種別」が used \/ sourced のどれでもありません/);
   });
 
   it('必須の列が空（id）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ id: '' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「記録ID」が空です/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「記録ID」が空です/);
   });
 
   it('項目の数が行によって違う', () => {
     const csv = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]) + 'r2,足りない\r\n';
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
       /3行目：項目の数が 19 ではなく 2 です/,
     );
   });
@@ -340,7 +340,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: buildBackupFile(BACKUP_RECORDS_FILE, rows) });
 
     // 3 件目 = 4 行目
-    expect(() => readBackupContents(files)).toThrow(/records\.csv 4行目/);
+    expect(() => readBackupContents('ja', files)).toThrow(/records\.csv 4行目/);
   });
 
   it('record_tags が存在しない記録を指している（FK が効かないぶんの検査。§3.2）', () => {
@@ -350,7 +350,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
       ]),
     });
 
-    expect(() => readBackupContents(files)).toThrow(
+    expect(() => readBackupContents('ja', files)).toThrow(
       /記録ID「missing」が records\.csv にありません/,
     );
   });
@@ -362,7 +362,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
       ]),
     });
 
-    expect(() => readBackupContents(files)).toThrow(/タグID「missing」が tags\.csv にありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/タグID「missing」が tags\.csv にありません/);
   });
 
   it('未来のバージョンは読まない（§1.2）', () => {
@@ -378,7 +378,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
       },
     ]);
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_INFO_FILE]: info }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_INFO_FILE]: info }))).toThrow(
       new RegExp(`バージョン ${BACKUP_FORMAT_VERSION + 1}）には対応していません`),
     );
   });
@@ -395,13 +395,13 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     };
     const info = buildBackupFile(BACKUP_INFO_FILE, [row, row]);
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_INFO_FILE]: info }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_INFO_FILE]: info }))).toThrow(
       /1行だけのファイルです/,
     );
   });
 
   it('投げるのは BackupError（画面がそのまま文言を出せる）', () => {
-    expect(() => readBackupContents(goodFiles({ [BACKUP_TAGS_FILE]: undefined }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_TAGS_FILE]: undefined }))).toThrow(
       BackupError,
     );
   });
@@ -536,7 +536,7 @@ describe('§3.1 ZIP の往復（fflate の同期 API）', () => {
   }
 
   it('作った ZIP をそのまま読み戻せる', () => {
-    const contents = readBackupContents(filesOf(zipOf(goodFiles())));
+    const contents = readBackupContents('ja', filesOf(zipOf(goodFiles())));
 
     expect(contents.preview.counts.records).toBe(1);
     expect(contents.tables.records[0].item_name).toBe('えんぴつ');
@@ -547,7 +547,7 @@ describe('§3.1 ZIP の往復（fflate の同期 API）', () => {
       [BACKUP_RECORDS_FILE]: recordsWith({ item_name: '鉛筆・消しゴム 🖊', memo: '値引き 10%' }),
     });
 
-    const [record] = readBackupContents(filesOf(zipOf(files))).tables.records;
+    const [record] = readBackupContents('ja', filesOf(zipOf(files))).tables.records;
     expect(record.item_name).toBe('鉛筆・消しゴム 🖊');
     expect(record.memo).toBe('値引き 10%');
   });
@@ -564,7 +564,7 @@ describe('§3.1 ZIP の往復（fflate の同期 API）', () => {
     const entries: Record<string, Uint8Array> = {};
     for (const [name, text] of goodFiles()) entries[name] = strToU8(text);
 
-    expect(readBackupContents(filesOf(zipSync(entries))).preview.counts.records).toBe(1);
+    expect(readBackupContents('ja', filesOf(zipSync(entries))).preview.counts.records).toBe(1);
   });
 
   it('__MACOSX と .DS_Store が混ざった ZIP でも読める（Finder で再圧縮した形）', () => {
@@ -576,7 +576,7 @@ describe('§3.1 ZIP の往復（fflate の同期 API）', () => {
     entries['backup_2026-08-13/.DS_Store'] = strToU8('junk');
     entries['__MACOSX/._backup_2026-08-13'] = strToU8('rsrc');
 
-    expect(readBackupContents(filesOf(zipSync(entries))).preview.counts.records).toBe(1);
+    expect(readBackupContents('ja', filesOf(zipSync(entries))).preview.counts.records).toBe(1);
   });
 });
 
@@ -606,26 +606,26 @@ describe('§3.1 読み込みは名前に依存しない', () => {
 
   it('旧名（backup_2026-08-13/）のフォルダでも読める', () => {
     expect(
-      readBackupContents(selectBackupFiles(entriesFrom('backup_2026-08-13'))).preview.counts.records,
+      readBackupContents('ja', selectBackupFiles(entriesFrom('backup_2026-08-13'))).preview.counts.records,
     ).toBe(1);
   });
 
   it('新名（profit-calculator-backup_2026-08-14/）でも読める', () => {
     expect(
-      readBackupContents(selectBackupFiles(entriesFrom('profit-calculator-backup_2026-08-14')))
+      readBackupContents('ja', selectBackupFiles(entriesFrom('profit-calculator-backup_2026-08-14')))
         .preview.counts.records,
     ).toBe(1);
   });
 
   it('利用者が好きにリネームしたフォルダでも読める', () => {
     expect(
-      readBackupContents(selectBackupFiles(entriesFrom('きろく 2026年8月 (1)'))).preview.counts
+      readBackupContents('ja', selectBackupFiles(entriesFrom('きろく 2026年8月 (1)'))).preview.counts
         .records,
     ).toBe(1);
   });
 
   it('フォルダが無く直下に置かれていても読める', () => {
-    expect(readBackupContents(selectBackupFiles(entriesFrom(''))).preview.counts.records).toBe(1);
+    expect(readBackupContents('ja', selectBackupFiles(entriesFrom(''))).preview.counts.records).toBe(1);
   });
 });
 
@@ -706,21 +706,21 @@ describe('§4.1 写真込みの読み込み', () => {
     goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ photo_file_name: 'a.jpg' }) });
 
   it('写真の枚数は実物を数える（backup-info の photo_count は読まない）', () => {
-    const contents = readBackupContents(withPhoto(), new Set(['a.jpg', 'b.jpg']));
+    const contents = readBackupContents('ja', withPhoto(), new Set(['a.jpg', 'b.jpg']));
 
     expect(contents.preview.photoCount).toBe(2);
     expect(contents.missingPhotos.size).toBe(0);
   });
 
   it('写真が欠けていてもエラーにならず、名前が持ち帰られる', () => {
-    const contents = readBackupContents(withPhoto(), new Set());
+    const contents = readBackupContents('ja', withPhoto(), new Set());
 
     expect(contents.missingPhotos).toEqual(new Set(['a.jpg']));
     expect(contents.tables.records[0].id).toBe('r1');
   });
 
   it('写真を渡さなければ 0 枚（写真なしのバックアップ）', () => {
-    expect(readBackupContents(goodFiles()).preview.photoCount).toBe(0);
+    expect(readBackupContents('ja', goodFiles()).preview.photoCount).toBe(0);
   });
 });
 
@@ -734,14 +734,14 @@ describe('§1.2 版 1（photo_count が無い）も読める', () => {
     '1,2026-08-13T14:30:00.000,1,1,1,1\r\n';
 
   it('6 列の backup-info.csv を受け付ける', () => {
-    const contents = readBackupContents(goodFiles({ [BACKUP_INFO_FILE]: v1Info }));
+    const contents = readBackupContents('ja', goodFiles({ [BACKUP_INFO_FILE]: v1Info }));
 
     expect(contents.preview.formatVersion).toBe(1);
     expect(contents.preview.counts.records).toBe(1);
   });
 
   it('版 1 は写真を持たない（0 枚）', () => {
-    expect(readBackupContents(goodFiles({ [BACKUP_INFO_FILE]: v1Info })).preview.photoCount).toBe(0);
+    expect(readBackupContents('ja', goodFiles({ [BACKUP_INFO_FILE]: v1Info })).preview.photoCount).toBe(0);
   });
 
   it('いま書き出すのは版 3（目標利益の 2 列が付く。SPEC-V9 §3）', () => {
@@ -764,7 +764,7 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
     `${LEGACY_HEADER}\r\n${row || 'r1,えんぴつ,1500,300,210,15,0,10,1,2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0'}\r\n`;
 
   it('**エラーにならず**、足りない 2 列は空欄（= null）として読める', () => {
-    const rows = parseBackupFile(BACKUP_RECORDS_FILE, legacyRecords());
+    const rows = parseBackupFile('ja', BACKUP_RECORDS_FILE, legacyRecords());
 
     expect(rows).toHaveLength(1);
     expect(rows[0].target_profit).toBe('');
@@ -776,6 +776,7 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
 
   it('5 ファイル揃った古いバックアップがそのまま復元の手前まで通る', () => {
     const contents = readBackupContents(
+      'ja',
       goodFiles({ [BACKUP_RECORDS_FILE]: legacyRecords() }),
     );
 
@@ -788,7 +789,7 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
       'r1,えんぴつ,abc,300,210,15,0,10,1,2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0',
     );
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
       /「販売価格」が正しい数値ではありません/,
     );
   });
@@ -796,13 +797,14 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
   it('17 列でも 19 列でもない中途半端な列数は今までどおりエラー', () => {
     const broken = `${LEGACY_HEADER},target_profit\r\nr1,えんぴつ,1500,300,210,15,0,10,1,2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0,100\r\n`;
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
       /records\.csv の列の数が違います/,
     );
   });
 
   it('新しい版では空欄と 0 が書き分かれる（「決めていない」と「目標 0 円」）', () => {
     const rows = parseBackupFile(
+      'ja',
       BACKUP_RECORDS_FILE,
       buildBackupFile(BACKUP_RECORDS_FILE, [
         { ...RECORD_ROW, id: 'r1', target_profit: '' },
@@ -817,7 +819,7 @@ describe('SPEC-V9 §3 目標利益の 2 列が無い古い records.csv も読め
   it('目標利益に数値でない値が入っていれば弾く（空欄だけが特別）', () => {
     const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ target_profit: 'abc' }) });
 
-    expect(() => readBackupContents(files)).toThrow(/「目標利益」が正しい数値ではありません/);
+    expect(() => readBackupContents('ja', files)).toThrow(/「目標利益」が正しい数値ではありません/);
   });
 });
 
@@ -859,7 +861,7 @@ describe('SPEC-V10 §1.6 計算方式の 5 列が無い古い presets.csv も読
     `${LEGACY_HEADER}\r\n${row || 'p1,packaging,封筒（A4）,#FFCC00,封,8,100,800,0,1'}\r\n`;
 
   it('**エラーにならず**、足りない 5 列は空欄として読める', () => {
-    const rows = parseBackupFile(BACKUP_PRESETS_FILE, legacyPresets());
+    const rows = parseBackupFile('ja', BACKUP_PRESETS_FILE, legacyPresets());
 
     expect(rows).toHaveLength(1);
     expect(rows[0].calc_method).toBe('');
@@ -872,6 +874,7 @@ describe('SPEC-V10 §1.6 計算方式の 5 列が無い古い presets.csv も読
 
   it('5 ファイル揃った古いバックアップがそのまま復元の手前まで通る', () => {
     const contents = readBackupContents(
+      'ja',
       goodFiles({ [BACKUP_PRESETS_FILE]: legacyPresets() }),
     );
 
@@ -882,13 +885,14 @@ describe('SPEC-V10 §1.6 計算方式の 5 列が無い古い presets.csv も読
   it('10 列でも 15 列でもない中途半端な列数は今までどおりエラー', () => {
     const broken = `${LEGACY_HEADER},calc_method\r\np1,packaging,封筒（A4）,#FFCC00,封,8,100,800,0,1,area\r\n`;
 
-    expect(() => readBackupContents(goodFiles({ [BACKUP_PRESETS_FILE]: broken }))).toThrow(
+    expect(() => readBackupContents('ja', goodFiles({ [BACKUP_PRESETS_FILE]: broken }))).toThrow(
       /presets\.csv の列の数が違います/,
     );
   });
 
   it('新しい版は方式とサイズをそのまま往復させる', () => {
     const rows = parseBackupFile(
+      'ja',
       BACKUP_PRESETS_FILE,
       buildBackupFile(BACKUP_PRESETS_FILE, [
         {
@@ -908,5 +912,222 @@ describe('SPEC-V10 §1.6 計算方式の 5 列が無い古い presets.csv も読
       pack_height: '100',
       use_width: '20',
     });
+  });
+});
+
+// ---- §2.3 日付の検証は端末のタイムゾーンに依らない ----
+//
+// **実際に復元が丸ごと失敗した壊れ方の回帰テスト。** 以前は `new Date(value)` で
+// 組み直して一致を見ていたので、タイムゾーンを持たないこの文字列が**現地時刻**として
+// 解釈され、夏時間で**春に飛ぶ 1 時間**が「実在しない日時」になっていた。
+// バックアップは 1 件でもエラーがあれば一切読み込まない（§3）ため、
+// **その 1 件で復元が全部止まる** ── 機種変更という取り返しのつかない場面で。
+
+describe('§2.3 夏時間のある端末でも日付が通る', () => {
+  /** 実行中に TZ を差し替える（Node 16 以降は Date がその場で追随する） */
+  function withTimeZone(zone: string, run: () => void): void {
+    const original = process.env.TZ;
+    process.env.TZ = zone;
+    try {
+      run();
+    } finally {
+      process.env.TZ = original;
+    }
+  }
+
+  /** America/New_York で 2026-03-08 02:00〜02:59 は現地時刻として存在しない */
+  const SPRING_FORWARD_GAP = '2026-03-08T02:30:00.000';
+
+  it('この検査が機能していること（その時刻は現地時刻としては本当に存在しない）', () => {
+    withTimeZone('America/New_York', () => {
+      // 直したのはここに依存しない形にしたことなので、前提そのものを先に確かめる
+      expect(new Date(SPRING_FORWARD_GAP).getHours()).toBe(3);
+    });
+  });
+
+  it('夏時間で飛ぶ 1 時間に当たる記録でも復元できる（America/New_York）', () => {
+    withTimeZone('America/New_York', () => {
+      const files = goodFiles({
+        [BACKUP_RECORDS_FILE]: recordsWith({
+          sale_start_date: SPRING_FORWARD_GAP,
+          sale_date: SPRING_FORWARD_GAP,
+        }),
+      });
+
+      expect(readBackupContents('ja', files).tables.records[0].sale_start_date).toBe(
+        SPRING_FORWARD_GAP,
+      );
+    });
+  });
+
+  it('夏時間の終わりで重なる 1 時間も同じく通る（America/New_York）', () => {
+    withTimeZone('America/New_York', () => {
+      const files = goodFiles({
+        [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026-11-01T01:30:00.000' }),
+      });
+
+      expect(readBackupContents('ja', files).preview.counts.records).toBe(1);
+    });
+  });
+
+  it('日本のタイムゾーンでも同じ結果になる（どの端末でも同じファイルが読める）', () => {
+    const files = goodFiles({
+      [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: SPRING_FORWARD_GAP }),
+    });
+
+    withTimeZone('Asia/Tokyo', () => {
+      expect(readBackupContents('ja', files).preview.counts.records).toBe(1);
+    });
+  });
+
+  it('実在しない日を弾く働きは変わらない（タイムゾーンを変えても弾く）', () => {
+    for (const zone of ['Asia/Tokyo', 'America/New_York', 'UTC']) {
+      withTimeZone(zone, () => {
+        const files = goodFiles({
+          [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026-02-31T00:00:00.000' }),
+        });
+
+        expect(() => readBackupContents('ja', files)).toThrow(BackupError);
+      });
+    }
+  });
+});
+
+describe('§2.3 暦として実在するかの判定', () => {
+  /** その日付 1 つだけを差し替えた 5 ファイルが読めるか */
+  function accepts(date: string): boolean {
+    try {
+      readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: date }) }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  it('うるう年の 2 月 29 日は通り、平年の 2 月 29 日は弾く', () => {
+    expect(accepts('2028-02-29T00:00:00.000')).toBe(true);
+    expect(accepts('2026-02-29T00:00:00.000')).toBe(false);
+  });
+
+  it('100 年ごとの例外まで見る（2100 年は平年、2000 年はうるう年）', () => {
+    expect(accepts('2100-02-29T00:00:00.000')).toBe(false);
+    expect(accepts('2000-02-29T00:00:00.000')).toBe(true);
+  });
+
+  it('月ごとの日数を見る（4 月 31 日は無い）', () => {
+    expect(accepts('2026-04-30T00:00:00.000')).toBe(true);
+    expect(accepts('2026-04-31T00:00:00.000')).toBe(false);
+  });
+
+  it('月と日の 0 と 13 月を弾く', () => {
+    expect(accepts('2026-00-10T00:00:00.000')).toBe(false);
+    expect(accepts('2026-13-10T00:00:00.000')).toBe(false);
+    expect(accepts('2026-08-00T00:00:00.000')).toBe(false);
+  });
+
+  it('時刻の範囲を見る（24 時・60 分・60 秒は無い）', () => {
+    expect(accepts('2026-08-01T23:59:59.999')).toBe(true);
+    expect(accepts('2026-08-01T24:00:00.000')).toBe(false);
+    expect(accepts('2026-08-01T12:60:00.000')).toBe(false);
+    expect(accepts('2026-08-01T12:00:60.000')).toBe(false);
+  });
+});
+
+// ---- §3.3 エラーの文言は locale で切り替わる ----
+//
+// **これも取りこぼしの回帰テスト。** 検証の文言だけ `'ja'` で固定されていたので、
+// 英語で使っている人には**復元のエラーだけ日本語**で出ていた。
+// 直し方は他の画面と同じで、locale を引数で受け取る（i18n/frozenJapanese.test.ts）。
+
+describe('§3.3 復元のエラーは表示言語で出る', () => {
+  it('列の食い違い', () => {
+    const broken = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]).replace('item_name', 'name');
+    const files = goodFiles({ [BACKUP_RECORDS_FILE]: broken });
+
+    expect(() => readBackupContents('en', files)).toThrow(/has a wrong column name/);
+    expect(() => readBackupContents('ja', files)).toThrow(/列名が違います/);
+  });
+
+  it('値が読めない（数値・日付・真偽）', () => {
+    const number = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sales_price: '1,500' }) });
+    const date = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sale_start_date: '2026/8/9' }) });
+    const boolean = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ is_sold: 'true' }) });
+
+    expect(() => readBackupContents('en', number)).toThrow(/is not a valid number/);
+    expect(() => readBackupContents('en', date)).toThrow(/is not a valid date/);
+    expect(() => readBackupContents('en', boolean)).toThrow(/is neither 0 nor 1/);
+  });
+
+  it('**列の名前も英語で出る**（文の途中に日本語が混ざらない）', () => {
+    const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sales_price: 'abc' }) });
+
+    let message = '';
+    try {
+      readBackupContents('en', files);
+    } catch (error) {
+      message = (error as BackupError).message;
+    }
+
+    expect(message).toBe('records.csv line 2: “Selling price” is not a valid number.');
+    // 画面に出る 1 文まるごとを見る ── 「英語のキーワードを含む」だけの検査だと、
+    // 列名が日本語のまま残っていても通ってしまう（実際にそこが残っていた）
+    expect(message).not.toMatch(/[ぁ-んァ-ヶ一-龠]/);
+  });
+
+  it('日本語の文言はこれまでどおり（既存のバックアップの読み方は変えていない）', () => {
+    const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ sales_price: 'abc' }) });
+
+    expect(() => readBackupContents('ja', files)).toThrow(
+      'records.csv 2行目：「販売価格」が正しい数値ではありません。',
+    );
+  });
+
+  it('決まった語のどれでもない（enum）', () => {
+    const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ kind: 'unknown' }) });
+
+    expect(() => readBackupContents('en', files)).toThrow(/is none of used \/ sourced/);
+  });
+
+  it('必須の列が空', () => {
+    const files = goodFiles({ [BACKUP_RECORDS_FILE]: recordsWith({ id: '' }) });
+
+    expect(() => readBackupContents('en', files)).toThrow(/is empty/);
+  });
+
+  it('ファイルが欠けている・空', () => {
+    expect(() => readBackupContents('en', goodFiles({ [BACKUP_TAGS_FILE]: undefined }))).toThrow(
+      /tags\.csv is missing/,
+    );
+    expect(() => readBackupContents('en', goodFiles({ [BACKUP_TAGS_FILE]: '' }))).toThrow(
+      /tags\.csv is empty/,
+    );
+  });
+
+  it('backup-info.csv が 1 行でない', () => {
+    const info = buildBackupInfo({ records: 1, presets: 1, tags: 1, recordTags: 1 }, '2026-08-13T14:30:00.000', 0);
+    const twoRows = info + info.split('\r\n')[1] + '\r\n';
+
+    expect(() => readBackupContents('en', goodFiles({ [BACKUP_INFO_FILE]: twoRows }))).toThrow(
+      /must have exactly one row/,
+    );
+  });
+
+  it('知らないバージョン', () => {
+    const info = buildBackupInfo({ records: 1, presets: 1, tags: 1, recordTags: 1 }, '2026-08-13T14:30:00.000', 0)
+      .replace(`\r\n${BACKUP_FORMAT_VERSION},`, '\r\n99,');
+
+    expect(() => readBackupContents('en', goodFiles({ [BACKUP_INFO_FILE]: info }))).toThrow(
+      /is not supported/,
+    );
+  });
+
+  it('参照先の無いタグ付け', () => {
+    const files = goodFiles({
+      [BACKUP_RECORD_TAGS_FILE]: buildBackupFile(BACKUP_RECORD_TAGS_FILE, [
+        { record_id: 'r1', tag_id: 'missing' },
+      ]),
+    });
+
+    expect(() => readBackupContents('en', files)).toThrow(/is not in tags\.csv/);
   });
 });

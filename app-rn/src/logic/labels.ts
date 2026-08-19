@@ -33,6 +33,7 @@
 
 import type { PresetType, RecordKind } from '@/db/schema';
 import { t, type TranslationKey } from '@/i18n';
+import type { Translations } from '@/i18n/ja';
 import type { Locale } from '@/settings/language';
 
 import {
@@ -4764,6 +4765,19 @@ export function backupColumnErrorMessage(
   });
 }
 
+/** `backup.columns` のキー。列の定義（logic/backup.ts）がこれを持つ */
+export type BackupColumnLabelKey = keyof Translations['backup']['columns'];
+
+/**
+ * 検証のエラー文に出す列の名前（§3.3）。**キーは辞書側が持つ**ので、
+ * 列の定義（logic/backup.ts の ColumnSpec）は語ではなくキーだけを持てばよい ──
+ * 日本語を書き込んでおくと、英語で使っている人に
+ * `records.csv line 2: 「販売価格」…` のように混ざった文が出る。
+ */
+export function backupColumnLabel(locale: Locale, key: BackupColumnLabelKey): string {
+  return t(`backup.columns.${key}`, locale);
+}
+
 export function backupNumberError(locale: Locale): string {
   return t('backup.numberError', locale);
 }
@@ -4774,8 +4788,8 @@ export function backupBooleanError(locale: Locale): string {
   return t('backup.booleanError', locale);
 }
 
-export function BACKUP_ENUM_ERROR(values: readonly string[]): string {
-  return `が ${values.join(' / ')} のどれでもありません。`;
+export function backupEnumError(locale: Locale, values: readonly string[]): string {
+  return t('backup.enumError', locale, { values: values.join(' / ') });
 }
 
 export function backupEmptyColumnMessage(
@@ -4839,8 +4853,13 @@ export function backupMissingFileMessage(locale: Locale, fileName: string): stri
   return t('backup.missingFile', locale, { file: fileName });
 }
 
-export function BACKUP_EMPTY_FILE_MESSAGE(fileName: string): string {
-  return `${fileName} が空です。`;
+export function backupEmptyFileMessage(locale: Locale, fileName: string): string {
+  return t('backup.emptyFile', locale, { file: fileName });
+}
+
+/** backup-info.csv が 1 行でないとき（§1.2）。**版を名乗るファイルなので行数まで見る** */
+export function backupInfoRowCountMessage(locale: Locale, fileName: string): string {
+  return t('backup.infoRowCount', locale, { file: fileName });
 }
 
 export function backupUnsupportedVersionMessage(locale: Locale, version: number): string {

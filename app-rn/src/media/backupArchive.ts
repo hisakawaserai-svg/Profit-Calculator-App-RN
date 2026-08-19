@@ -120,7 +120,7 @@ export function readBackupZip(locale: Locale, file: File): BackupArchive {
   }
 
   const files = selectBackupFiles(textEntries);
-  if (files.size === 0) throw new BackupError(backupNoCsvMessage('ja'));
+  if (files.size === 0) throw new BackupError(backupNoCsvMessage(locale));
   return { files, photos };
 }
 
@@ -132,7 +132,7 @@ export function readBackupZip(locale: Locale, file: File): BackupArchive {
  * 中身が直に並ぶこともあるので、**1 段だけ潜って探す**。
  * 写真はさらにその下の `photos/` に入るので、探索は 2 段まで。
  */
-export function readBackupDirectory(directory: Directory): BackupArchive {
+export function readBackupDirectory(locale: Locale, directory: Directory): BackupArchive {
   const textEntries: [string, string][] = [];
   const photos = new Map<string, Uint8Array>();
 
@@ -156,7 +156,7 @@ export function readBackupDirectory(directory: Directory): BackupArchive {
   collect(directory, '', 2);
 
   const files = selectBackupFiles(textEntries);
-  if (files.size === 0) throw new BackupError(backupNoCsvMessage('ja'));
+  if (files.size === 0) throw new BackupError(backupNoCsvMessage(locale));
   return { files, photos };
 }
 

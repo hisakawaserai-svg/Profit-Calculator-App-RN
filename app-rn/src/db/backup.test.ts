@@ -110,7 +110,7 @@ describe('§3.4 バックアップと復元', () => {
       [BACKUP_TAGS_FILE, buildBackupFile(BACKUP_TAGS_FILE, dumped.tags)],
       [BACKUP_RECORD_TAGS_FILE, buildBackupFile(BACKUP_RECORD_TAGS_FILE, dumped.recordTags)],
     ]);
-    return readBackupContents(files).tables;
+    return readBackupContents('ja', files).tables;
   }
 
   it('書き出して読み戻すと同じ値になる（§2 の往復）', () => {
@@ -348,10 +348,10 @@ describe('§3.4 バックアップと復元', () => {
     const dumped = backup.dump();
 
     expect(() =>
-      parseBackupFile(BACKUP_RECORDS_FILE, buildBackupFile(BACKUP_RECORDS_FILE, dumped.records)),
+      parseBackupFile('ja', BACKUP_RECORDS_FILE, buildBackupFile(BACKUP_RECORDS_FILE, dumped.records)),
     ).not.toThrow();
     expect(() =>
-      parseBackupFile(BACKUP_PRESETS_FILE, buildBackupFile(BACKUP_PRESETS_FILE, dumped.presets)),
+      parseBackupFile('ja', BACKUP_PRESETS_FILE, buildBackupFile(BACKUP_PRESETS_FILE, dumped.presets)),
     ).not.toThrow();
   });
 
@@ -417,7 +417,7 @@ describe('§3.4 バックアップと復元', () => {
       '2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0\r\n';
 
     backup.restore({
-      records: parseBackupFile(BACKUP_RECORDS_FILE, legacyCsv),
+      records: parseBackupFile('ja', BACKUP_RECORDS_FILE, legacyCsv),
       presets: [],
       tags: [],
       recordTags: [],
@@ -476,7 +476,7 @@ describe('§3.4 バックアップと復元', () => {
 
     backup.restore({
       records: [],
-      presets: parseBackupFile(BACKUP_PRESETS_FILE, legacyCsv),
+      presets: parseBackupFile('ja', BACKUP_PRESETS_FILE, legacyCsv),
       tags: [],
       recordTags: [],
     });

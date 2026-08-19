@@ -23,6 +23,8 @@
 // ネイティブの ZIP 実装（react-native-zip-archive など）へ乗り換える判断になる。
 // **「写真を含めない」という決定が、fflate 1 つで足りている根拠そのもの。**
 
+import type { Locale } from '@/settings/language';
+
 import { escapeCsvField } from './csv';
 import {
   BACKUP_INFO_FILE,
@@ -31,15 +33,17 @@ import {
   backupEmptyColumnMessage,
   backupFieldCountMessage,
   backupMissingFileMessage,
-  BACKUP_EMPTY_FILE_MESSAGE,
-  backupNoCsvMessage,
+  backupEmptyFileMessage,
+  backupInfoRowCountMessage,
   backupUnsupportedVersionMessage,
   backupUnknownRecordRefMessage,
   backupUnknownTagRefMessage,
   backupDateError,
   backupNumberError,
   backupBooleanError,
-  BACKUP_ENUM_ERROR,
+  backupEnumError,
+  backupColumnLabel,
+  type BackupColumnLabelKey,
 } from './labels';
 
 // ---- 形式のバージョン（§1.2） ----
@@ -106,8 +110,13 @@ type ColumnSpec = {
    * `number` / `boolean` / `date` は型の側で空を弾くので、この印が要るのは `text` だけ。
    */
   required?: boolean;
-  /** エラー文に出す日本語の名前（§3.3）。無ければ列名をそのまま出す */
-  label?: string;
+  /**
+   * エラー文に出す名前の**キー**（§3.3）。無ければ列名をそのまま出す。
+   *
+   * **語そのものは持たない**（`backup.columns` の辞書が持つ）── ここに日本語を
+   * 書くと、英語で使っている人に混ざった文が出る（labels.backupColumnLabel）。
+   */
+  label?: BackupColumnLabelKey;
 };
 
 /**
@@ -121,33 +130,33 @@ type ColumnSpec = {
  * 途中に挿すと、古いファイルを「先頭 n 列が一致するか」で読む道が塞がる。
  */
 const RECORD_COLUMNS: readonly ColumnSpec[] = [
-  { name: 'id', type: 'text', required: true, label: '記録ID' },
-  { name: 'item_name', type: 'text', label: '商品名' },
-  { name: 'sales_price', type: 'number', label: '販売価格' },
-  { name: 'purchase_price', type: 'number', label: '仕入価格' },
-  { name: 'postage', type: 'number', label: '送料' },
-  { name: 'envelope_cost', type: 'number', label: '梱包材' },
-  { name: 'others_cost', type: 'number', label: 'その他' },
-  { name: 'commission', type: 'number', label: '手数料率' },
-  { name: 'is_sold', type: 'boolean', label: '状態' },
-  { name: 'sale_start_date', type: 'date', label: '出品日' },
+  { name: 'id', type: 'text', required: true, label: 'recordId' },
+  { name: 'item_name', type: 'text', label: 'itemName' },
+  { name: 'sales_price', type: 'number', label: 'salesPrice' },
+  { name: 'purchase_price', type: 'number', label: 'purchasePrice' },
+  { name: 'postage', type: 'number', label: 'postage' },
+  { name: 'envelope_cost', type: 'number', label: 'envelopeCost' },
+  { name: 'others_cost', type: 'number', label: 'othersCost' },
+  { name: 'commission', type: 'number', label: 'commission' },
+  { name: 'is_sold', type: 'boolean', label: 'isSold' },
+  { name: 'sale_start_date', type: 'date', label: 'saleStartDate' },
   // 出品中は空欄。読み込み時は is_sold で判定する（§2.3）
-  { name: 'sale_date', type: 'dateOrEmpty', label: '販売日' },
-  { name: 'memo', type: 'text', label: 'メモ' },
-  { name: 'kind', type: 'enum', values: ['used', 'sourced'], label: '種別' },
-  { name: 'site_name', type: 'text', label: '販売サイト' },
+  { name: 'sale_date', type: 'dateOrEmpty', label: 'saleDate' },
+  { name: 'memo', type: 'text', label: 'memo' },
+  { name: 'kind', type: 'enum', values: ['used', 'sourced'], label: 'kind' },
+  { name: 'site_name', type: 'text', label: 'siteName' },
   // 写真は復元しない（§4）ので、書き出しでは常に空欄になる。列そのものは残す ──
   // 列を落とすと「19 列 = DB の全カラム」という読みやすい対応が崩れる
-  { name: 'photo_file_name', type: 'text', label: '写真' },
-  { name: 'shipping_material_cost', type: 'number', label: '資材費' },
-  { name: 'excludes_shipping_material', type: 'boolean', label: '専用資材を使わない' },
+  { name: 'photo_file_name', type: 'text', label: 'photoFileName' },
+  { name: 'shipping_material_cost', type: 'number', label: 'shippingMaterialCost' },
+  { name: 'excludes_shipping_material', type: 'boolean', label: 'excludesShippingMaterial' },
   // 目標利益（SPEC-V9 §3）。**空欄 = 目標を決めていない**（0 とは別）。
   // 他の金額列と違って空を許すのはそのため ── ここを number にすると、
   // 目標を決めていない記録が 1 件でもあるバックアップを自分で書いて自分で弾く
-  { name: 'target_profit', type: 'numberOrEmpty', label: '目標利益' },
+  { name: 'target_profit', type: 'numberOrEmpty', label: 'targetProfit' },
   // 将来の出品日（SPEC-V9 §1）。アプリはまだ書き込まないので、当面は常に空欄。
   // それでも列を出すのは「records.csv = DB の全カラム」の対応を保つため
-  { name: 'listed_at', type: 'dateOrEmpty', label: '出品日（予備）' },
+  { name: 'listed_at', type: 'dateOrEmpty', label: 'listedAt' },
 ];
 
 /**
@@ -179,22 +188,22 @@ const RECORD_COLUMNS_LEGACY: readonly ColumnSpec[] = RECORD_COLUMNS.slice(
  * これは DB の color_key と同じ扱い。
  */
 const PRESET_COLUMNS: readonly ColumnSpec[] = [
-  { name: 'id', type: 'text', required: true, label: 'プリセットID' },
-  { name: 'type', type: 'enum', values: ['site', 'shipping', 'packaging'], label: '種類' },
-  { name: 'name', type: 'text', required: true, label: '名前' },
-  { name: 'color_key', type: 'text', required: true, label: '色' },
-  { name: 'initial', type: 'text', label: '頭文字' },
-  { name: 'value', type: 'number', label: '値' },
-  { name: 'pack_quantity', type: 'number', label: '入数' },
-  { name: 'pack_price', type: 'number', label: '購入価格' },
-  { name: 'material_cost', type: 'number', label: '専用資材の代金' },
-  { name: 'sort_order', type: 'number', label: '並び順' },
+  { name: 'id', type: 'text', required: true, label: 'presetId' },
+  { name: 'type', type: 'enum', values: ['site', 'shipping', 'packaging'], label: 'presetType' },
+  { name: 'name', type: 'text', required: true, label: 'name' },
+  { name: 'color_key', type: 'text', required: true, label: 'colorKey' },
+  { name: 'initial', type: 'text', label: 'initial' },
+  { name: 'value', type: 'number', label: 'value' },
+  { name: 'pack_quantity', type: 'number', label: 'packQuantity' },
+  { name: 'pack_price', type: 'number', label: 'packPrice' },
+  { name: 'material_cost', type: 'number', label: 'materialCost' },
+  { name: 'sort_order', type: 'number', label: 'sortOrder' },
   // SPEC-V10 §1.6: 梱包材の単価計算方式と、面積方式の 4 つのサイズ（cm）
-  { name: 'calc_method', type: 'text', label: '計算方式' },
-  { name: 'pack_height', type: 'numberOrEmpty', label: '購入サイズ（縦）' },
-  { name: 'pack_width', type: 'numberOrEmpty', label: '購入サイズ（横）' },
-  { name: 'use_height', type: 'numberOrEmpty', label: '平均使用サイズ（縦）' },
-  { name: 'use_width', type: 'numberOrEmpty', label: '平均使用サイズ（横）' },
+  { name: 'calc_method', type: 'text', label: 'calcMethod' },
+  { name: 'pack_height', type: 'numberOrEmpty', label: 'packHeight' },
+  { name: 'pack_width', type: 'numberOrEmpty', label: 'packWidth' },
+  { name: 'use_height', type: 'numberOrEmpty', label: 'useHeight' },
+  { name: 'use_width', type: 'numberOrEmpty', label: 'useWidth' },
 ];
 
 /**
@@ -212,16 +221,16 @@ const PRESET_COLUMNS_LEGACY: readonly ColumnSpec[] = PRESET_COLUMNS.slice(
 
 /** tags.csv の 4 列（§2.1） */
 const TAG_COLUMNS: readonly ColumnSpec[] = [
-  { name: 'id', type: 'text', required: true, label: 'タグID' },
-  { name: 'name', type: 'text', required: true, label: '名前' },
-  { name: 'color_key', type: 'text', required: true, label: '色' },
-  { name: 'sort_order', type: 'number', label: '並び順' },
+  { name: 'id', type: 'text', required: true, label: 'tagId' },
+  { name: 'name', type: 'text', required: true, label: 'name' },
+  { name: 'color_key', type: 'text', required: true, label: 'colorKey' },
+  { name: 'sort_order', type: 'number', label: 'sortOrder' },
 ];
 
 /** record_tags.csv の 2 列（§2.1）。複合 PK の 2 列そのもの */
 const RECORD_TAG_COLUMNS: readonly ColumnSpec[] = [
-  { name: 'record_id', type: 'text', required: true, label: '記録ID' },
-  { name: 'tag_id', type: 'text', required: true, label: 'タグID' },
+  { name: 'record_id', type: 'text', required: true, label: 'recordId' },
+  { name: 'tag_id', type: 'text', required: true, label: 'tagId' },
 ];
 
 /**
@@ -232,18 +241,18 @@ const RECORD_TAG_COLUMNS: readonly ColumnSpec[] = [
  * 途中に挿すと、同じ列名でも位置がずれて版ごとに別の表を持つことになる。
  */
 const INFO_COLUMNS_V1: readonly ColumnSpec[] = [
-  { name: 'format_version', type: 'number', label: '形式のバージョン' },
-  { name: 'created_at', type: 'date', label: '作成日時' },
-  { name: 'record_count', type: 'number', label: '記録の件数' },
-  { name: 'preset_count', type: 'number', label: 'プリセットの件数' },
-  { name: 'tag_count', type: 'number', label: 'タグの件数' },
-  { name: 'record_tag_count', type: 'number', label: 'タグ付けの件数' },
+  { name: 'format_version', type: 'number', label: 'formatVersion' },
+  { name: 'created_at', type: 'date', label: 'createdAt' },
+  { name: 'record_count', type: 'number', label: 'recordCount' },
+  { name: 'preset_count', type: 'number', label: 'presetCount' },
+  { name: 'tag_count', type: 'number', label: 'tagCount' },
+  { name: 'record_tag_count', type: 'number', label: 'recordTagCount' },
 ];
 
 const PHOTO_COUNT_COLUMN: ColumnSpec = {
   name: 'photo_count',
   type: 'number',
-  label: '写真の枚数',
+  label: 'photoCount',
 };
 
 /** 書き出しに使う列（＝現在の版）。読み込みは版 1 の 6 列も受ける（parseBackupInfo） */
@@ -451,21 +460,61 @@ function parseNumberField(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** DB の保存形式 "YYYY-MM-DDTHH:mm:ss.SSS"（§2.3）。**時刻まで必須** */
-const DB_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/;
+/**
+ * DB の保存形式 "YYYY-MM-DDTHH:mm:ss.SSS"（§2.3）。**時刻まで必須**。
+ * 要素ごとに暦として確かめるので、丸ごと一致ではなく捕獲群で読む。
+ */
+const DB_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/;
 
-/** 形が合っていて、かつ実在する日付か（2026-02-31 のような値を弾く） */
+/**
+ * 形が合っていて、かつ実在する日付か（2026-02-31 のような値を弾く）。
+ *
+ * **判定は暦の規則だけで行う。`Date` を作らないので、端末のタイムゾーンを見ない。**
+ *
+ * 以前は `new Date(value)` で組んで書き戻しの一致を見ていたが、タイムゾーンを持たない
+ * この文字列は**現地時刻として解釈される**（ES の仕様）。すると夏時間のある地域で、
+ * **春に飛ぶ 1 時間**が「実在しない日時」として弾かれた ── America/New_York で
+ * `new Date('2026-03-08T02:30:00.000')` は 03:30 へ繰り上がり、書き戻すと一致しない。
+ *
+ * バックアップは**1 件でもエラーがあれば一切読み込まない**（§3）ので、
+ * その 1 件のせいで**復元が丸ごと失敗する**。日本で作ったバックアップを、
+ * 海外在住・旅行中でタイムゾーンが夏時間のある地域になっている端末で戻す、
+ * つまり**機種変更という取り返しのつかない場面**でだけ出る壊れ方だった。
+ *
+ * 年月日時分秒をただの数として見るなら、飛ぶ時間も重なる時間も関係が無い ──
+ * **同じファイルはどの端末でも同じ結果になる。**
+ *
+ * うるう年の判定は下の `daysInMonth` が持つ。`Date.UTC` に任せる手もあるが、
+ * **0〜99 年を 1900 年代として読み替える癖**があり、そこだけ従来と挙動が変わる。
+ * 暦の規則そのものは短いので自分で持つ。
+ *
+ * **保存する文字列は何も変えていない**（現地時刻のまま。§2.3）── ここは
+ * 「暦として実在するか」だけを見る検査で、時差の解釈はしない。だから
+ * **読める範囲が狭まることはない**（飛ぶ 1 時間が通るぶんだけ広がる）。
+ */
 function isValidDbDate(value: string): boolean {
-  if (!DB_DATE_PATTERN.test(value)) return false;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return false;
-  // Date は 2 月 31 日を 3 月 3 日に繰り上げるので、書き戻して一致を見る
-  const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-  const rebuilt =
-    `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}` +
-    `T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}:${pad(parsed.getSeconds())}` +
-    `.${pad(parsed.getMilliseconds(), 3)}`;
-  return rebuilt === value;
+  const matched = DB_DATE_PATTERN.exec(value);
+  if (matched == null) return false;
+
+  // 桁数は正規表現が決めているので、ここで見るのは値の範囲だけ
+  const [year, month, day, hour, minute, second] = matched.slice(1).map(Number);
+
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > daysInMonth(year, month)) return false;
+  // 24:00 や 60 分を弾く。ミリ秒は 3 桁である時点で 0〜999 に収まっている
+  return hour <= 23 && minute <= 59 && second <= 59;
+}
+
+/** その月の日数。**2 月だけがうるう年で変わる** */
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return isLeapYear(year) ? 29 : 28;
+  // 4・6・9・11 月が 30 日、残りは 31 日
+  return month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31;
+}
+
+/** グレゴリオ暦のうるう年（100 の倍数は平年、ただし 400 の倍数はうるう年） */
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
 /** 検証済みの 1 行。値は**文字列のまま**返す（DB へ入れる直前に db/backup.ts が変換する） */
@@ -484,7 +533,7 @@ export type BackupRow = Record<string, string>;
  * テキストエディタで開いたときの行番号と一致させるため。ただし引用の中に改行が
  * 入っている行があると実ファイルの行番号とはずれる（そこまでは追わない）。
  */
-export function parseBackupFile(fileName: string, text: string): BackupRow[] {
+export function parseBackupFile(locale: Locale, fileName: string, text: string): BackupRow[] {
   const columns = COLUMNS_BY_FILE[fileName];
   const rows = parseCsv(text);
   const legacy = LEGACY_COLUMNS_BY_FILE[fileName];
@@ -493,10 +542,12 @@ export function parseBackupFile(fileName: string, text: string): BackupRow[] {
   // **見るのはヘッダの形であって backup-info.csv の版ではない** ── 版の数字は
   // 手で書き換えられるし、書き換えられていても中身が読めるならそれで足りる
   if (legacy != null && hasHeader(rows, legacy)) {
-    return parseTable(fileName, legacy, rows).map((row) => withMissingColumns(row, columns));
+    return parseTable(locale, fileName, legacy, rows).map((row) =>
+      withMissingColumns(row, columns),
+    );
   }
 
-  return parseTable(fileName, columns, rows);
+  return parseTable(locale, fileName, columns, rows);
 }
 
 /** 解析済みの行の 1 行目が、この列の表そのものか */
@@ -527,16 +578,17 @@ function withMissingColumns(row: BackupRow, columns: readonly ColumnSpec[]): Bac
  * ヘッダを先に読むので、同じファイルを 2 回 parseCsv しないため。
  */
 function parseTable(
+  locale: Locale,
   fileName: string,
   columns: readonly ColumnSpec[],
   rows: readonly string[][],
 ): BackupRow[] {
-  if (rows.length === 0) throw new BackupError(BACKUP_EMPTY_FILE_MESSAGE(fileName));
+  if (rows.length === 0) throw new BackupError(backupEmptyFileMessage(locale, fileName));
 
   const header = rows[0];
   const expected = columns.map((column) => column.name);
   if (header.length !== expected.length || header.some((name, i) => name !== expected[i])) {
-    throw new BackupError(backupColumnMismatchMessage('ja', fileName, expected, header));
+    throw new BackupError(backupColumnMismatchMessage(locale, fileName, expected, header));
   }
 
   return rows.slice(1).map((cells, index) => {
@@ -544,22 +596,35 @@ function parseTable(
     const lineNumber = index + 2;
     if (cells.length !== expected.length) {
       throw new BackupError(
-        backupFieldCountMessage('ja', fileName, lineNumber, expected.length, cells.length),
+        backupFieldCountMessage(locale, fileName, lineNumber, expected.length, cells.length),
       );
     }
 
     const row: BackupRow = {};
     columns.forEach((column, columnIndex) => {
       const value = cells[columnIndex];
-      validateField(fileName, lineNumber, column, value);
+      validateField(locale, fileName, lineNumber, column, value);
       row[column.name] = value;
     });
     return row;
   });
 }
 
+/**
+ * エラー文に出す列の名前（§3.3）。
+ *
+ * **キーを持たない列は列名（`sales_price` のような DB のカラム名）をそのまま出す。**
+ * いまは全ての列がキーを持つが、`label` を任意のままにしてあるのは、
+ * 列を足したときに**訳文を用意するまでの間もエラー文が出せる**ようにするため ──
+ * ここを必須にすると、列の追加が辞書の更新待ちになる。
+ */
+function columnLabel(locale: Locale, column: ColumnSpec): string {
+  return column.label == null ? column.name : backupColumnLabel(locale, column.label);
+}
+
 /** 1 つの値を列の型に照らす。合わなければその場で投げる（§3.2） */
 function validateField(
+  locale: Locale,
   fileName: string,
   lineNumber: number,
   column: ColumnSpec,
@@ -567,34 +632,34 @@ function validateField(
 ): void {
   const fail = (reason: string) => {
     throw new BackupError(
-      backupColumnErrorMessage('ja', fileName, lineNumber, column.label ?? column.name, reason),
+      backupColumnErrorMessage(locale, fileName, lineNumber, columnLabel(locale, column), reason),
     );
   };
 
   switch (column.type) {
     case 'number':
-      if (parseNumberField(value) == null) fail(backupNumberError('ja'));
+      if (parseNumberField(value) == null) fail(backupNumberError(locale));
       return;
     case 'numberOrEmpty':
       // 空欄は「値が無い」（SPEC-V9 §3）。0 と書いてあれば 0 として通る
-      if (value !== '' && parseNumberField(value) == null) fail(backupNumberError('ja'));
+      if (value !== '' && parseNumberField(value) == null) fail(backupNumberError(locale));
       return;
     case 'boolean':
-      if (value !== '0' && value !== '1') fail(backupBooleanError('ja'));
+      if (value !== '0' && value !== '1') fail(backupBooleanError(locale));
       return;
     case 'date':
-      if (!isValidDbDate(value)) fail(backupDateError('ja'));
+      if (!isValidDbDate(value)) fail(backupDateError(locale));
       return;
     case 'dateOrEmpty':
-      if (value !== '' && !isValidDbDate(value)) fail(backupDateError('ja'));
+      if (value !== '' && !isValidDbDate(value)) fail(backupDateError(locale));
       return;
     case 'enum':
-      if (!column.values?.includes(value)) fail(BACKUP_ENUM_ERROR(column.values ?? []));
+      if (!column.values?.includes(value)) fail(backupEnumError(locale, column.values ?? []));
       return;
     case 'text':
       if (column.required === true && value.trim() === '') {
         throw new BackupError(
-          backupEmptyColumnMessage('ja', fileName, lineNumber, column.label ?? column.name),
+          backupEmptyColumnMessage(locale, fileName, lineNumber, columnLabel(locale, column)),
         );
       }
       return;
@@ -725,24 +790,29 @@ export function selectPhotoNames(paths: Iterable<string>): Set<string> {
  *   4. record_tags の参照先が実在するか ← 全ファイルを読み終わってからでないと確かめられない
  */
 export function readBackupContents(
+  locale: Locale,
   files: ReadonlyMap<string, string>,
   /** ZIP / フォルダに入っていた写真のファイル名（§4.3）。省略 = 写真なしのバックアップ */
   photoNames: ReadonlySet<string> = new Set(),
 ): BackupContents {
   for (const name of BACKUP_FILES) {
-    if (!files.has(name)) throw new BackupError(backupMissingFileMessage('ja', name));
+    if (!files.has(name)) throw new BackupError(backupMissingFileMessage(locale, name));
   }
 
-  const preview = readBackupInfo(files.get(BACKUP_INFO_FILE)!);
+  const preview = readBackupInfo(locale, files.get(BACKUP_INFO_FILE)!);
 
   const tables: BackupTables = {
-    records: parseBackupFile(BACKUP_RECORDS_FILE, files.get(BACKUP_RECORDS_FILE)!),
-    presets: parseBackupFile(BACKUP_PRESETS_FILE, files.get(BACKUP_PRESETS_FILE)!),
-    tags: parseBackupFile(BACKUP_TAGS_FILE, files.get(BACKUP_TAGS_FILE)!),
-    recordTags: parseBackupFile(BACKUP_RECORD_TAGS_FILE, files.get(BACKUP_RECORD_TAGS_FILE)!),
+    records: parseBackupFile(locale, BACKUP_RECORDS_FILE, files.get(BACKUP_RECORDS_FILE)!),
+    presets: parseBackupFile(locale, BACKUP_PRESETS_FILE, files.get(BACKUP_PRESETS_FILE)!),
+    tags: parseBackupFile(locale, BACKUP_TAGS_FILE, files.get(BACKUP_TAGS_FILE)!),
+    recordTags: parseBackupFile(
+      locale,
+      BACKUP_RECORD_TAGS_FILE,
+      files.get(BACKUP_RECORD_TAGS_FILE)!,
+    ),
   };
 
-  validateReferences(tables);
+  validateReferences(locale, tables);
 
   // **写真の照合は投げない**（§4.3）。足りないぶんを持ち帰るだけ
   const missingPhotos = missingPhotoNames(tables.records, photoNames);
@@ -771,11 +841,14 @@ export function readBackupContents(
  * （record_count など）は決定 §8-4 のとおり信用しないので、ここでも返さない
  * （`counts` は 0 のまま）。読めなければ null で、画面はファイル名だけを出す。
  */
-export function tryReadBackupInfo(files: ReadonlyMap<string, string>): BackupPreview | null {
+export function tryReadBackupInfo(
+  locale: Locale,
+  files: ReadonlyMap<string, string>,
+): BackupPreview | null {
   const text = files.get(BACKUP_INFO_FILE);
   if (text == null) return null;
   try {
-    return readBackupInfo(text);
+    return readBackupInfo(locale, text);
   } catch {
     return null;
   }
@@ -787,19 +860,21 @@ export function tryReadBackupInfo(files: ReadonlyMap<string, string>): BackupPre
  * **版 1（6 列）と版 2（7 列）の両方を受ける。** 列の表を版ごとに切り替えるのは
  * ここだけで、他の 4 ファイルは版が変わっても同じ（§1.2.1）。
  */
-function readBackupInfo(text: string): BackupPreview {
+function readBackupInfo(locale: Locale, text: string): BackupPreview {
   const parsed = parseCsv(text);
   const header = parsed[0] ?? [];
   // 末尾に photo_count があるかで版を見分ける。無ければ版 1 の 6 列として読む
   const columns = header.length === INFO_COLUMNS.length ? INFO_COLUMNS : INFO_COLUMNS_V1;
 
-  const rows = parseTable(BACKUP_INFO_FILE, columns, parsed);
-  if (rows.length !== 1) throw new BackupError(BACKUP_INFO_ROW_COUNT_MESSAGE);
+  const rows = parseTable(locale, BACKUP_INFO_FILE, columns, parsed);
+  if (rows.length !== 1) {
+    throw new BackupError(backupInfoRowCountMessage(locale, BACKUP_INFO_FILE));
+  }
 
   const info = rows[0];
   const version = Number(info.format_version);
   if (version < BACKUP_MIN_SUPPORTED_VERSION || version > BACKUP_FORMAT_VERSION) {
-    throw new BackupError(backupUnsupportedVersionMessage('ja', version));
+    throw new BackupError(backupUnsupportedVersionMessage(locale, version));
   }
 
   return {
@@ -836,9 +911,6 @@ export function missingPhotoNames(
   return missing;
 }
 
-/** backup-info.csv が 1 行でないときの文言（§1.2） */
-const BACKUP_INFO_ROW_COUNT_MESSAGE = `${BACKUP_INFO_FILE}は1行だけのファイルです。行数が違います。`;
-
 /**
  * record_tags の参照先が実在するかを確かめる（§3.2）。
  *
@@ -847,23 +919,20 @@ const BACKUP_INFO_ROW_COUNT_MESSAGE = `${BACKUP_INFO_FILE}は1行だけのファ
  * 絞り込みの件数が静かに狂う。復元は既存データを全部消してから入れるので、
  * ここで見逃すと元に戻す先も無い。
  */
-function validateReferences(tables: BackupTables): void {
+function validateReferences(locale: Locale, tables: BackupTables): void {
   const recordIds = new Set(tables.records.map((row) => row.id));
   const tagIds = new Set(tables.tags.map((row) => row.id));
 
   tables.recordTags.forEach((row, index) => {
     const lineNumber = index + 2;
     if (!recordIds.has(row.record_id)) {
-      throw new BackupError(backupUnknownRecordRefMessage('ja', lineNumber, row.record_id));
+      throw new BackupError(backupUnknownRecordRefMessage(locale, lineNumber, row.record_id));
     }
     if (!tagIds.has(row.tag_id)) {
-      throw new BackupError(backupUnknownTagRefMessage('ja', lineNumber, row.tag_id));
+      throw new BackupError(backupUnknownTagRefMessage(locale, lineNumber, row.tag_id));
     }
   });
 }
-
-/** ZIP にも解凍フォルダにも CSV が 1 つも無かったとき（§3.1）。画面が使う */
-export const BACKUP_NO_CSV_ERROR = backupNoCsvMessage('ja');
 
 // ---- ファイル名（§1.1） ----
 

@@ -58,6 +58,11 @@ export const MIGRATED_FILES = [
   'src/components/AchievementsSection.tsx',
   'src/components/StrikeAchievementBadge.tsx',
   // 区切り 8: バックアップと書き出し
+  // 画面だけでなく**検証の文言を持つ logic / media も入れる** ── 復元のエラーは
+  // 画面ではなくここで組み立てるので、ここが 'ja' 固定だと英語で使っている人に
+  // 復元のエラーだけ日本語で出る（実際に残っていた）
+  'src/logic/backup.ts',
+  'src/media/backupArchive.ts',
   'src/screens/BackupScreen.tsx',
   'src/screens/BackupPhotoLimitSheet.tsx',
   'src/screens/BackupPreviewView.tsx',
