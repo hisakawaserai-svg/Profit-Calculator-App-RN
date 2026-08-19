@@ -41,6 +41,10 @@ function zPath(x: number, y: number, size: number): string {
  *
  * **並びだけを斜めにする。字は反転させない**（反転した Z は逆さ文字に見える）。
  *
+ * **左はここが限界。** 一番大きい Z の左端が x=2.5（線幅の半分を足すと 1.45）で、
+ * これ以上寄せると viewBox（0〜100）で切れる。さらに左へ出したいときは、
+ * 絵の箱そのものを広げる（viewBox を変える）か、体を右へ寄せる必要がある。
+ *
  * **showScene=true のときは、上の 2 つがシーンの丸（cx50 cy50 r48）から出る。**
  * 丸は上へ行くほど内側へ入ってくるので、「左へ寄せながら上る」線とは向きが逆で、
  * 左側で斜めにすると必ずどこかで外れる（丸の内側に収めたいなら、左下から右上へ
@@ -48,9 +52,9 @@ function zPath(x: number, y: number, size: number): string {
  * ので、そちらを優先している。シーン付きで使うことになったらここを見直すこと。
  */
 const SLEEP_ZS = [
-  { d: zPath(25, 28, 4.5), strokeWidth: 1.4 },
-  { d: zPath(16, 17, 6.5), strokeWidth: 1.7 },
-  { d: zPath(7, 5, 8.5), strokeWidth: 2.1 },
+  { d: zPath(24, 28, 4.5), strokeWidth: 1.4 },
+  { d: zPath(13, 17, 6.5), strokeWidth: 1.7 },
+  { d: zPath(2.5, 5, 8.5), strokeWidth: 2.1 },
 ] as const;
 
 const AnimatedG = Animated.createAnimatedComponent(G);
