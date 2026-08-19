@@ -61,6 +61,41 @@ export function deleteRecordTags(db: Database, recordId: string): void {
   db.delete(recordTags).where(eq(recordTags.recordId, recordId)).run();
 }
 
+/**
+ * 1 本の `IN` に入れる id の数（tagNamesByRecord / tagsByRecord）。
+ *
+ * **記録の全件をそのまま渡してはいけない。** `inArray` は id 1 つにつき変数を 1 つ使い、
+ * SQLite の変数上限（SQLITE_MAX_VARIABLE_NUMBER）を超えると
+ * `too many SQL variables` で**例外**になる ── 一覧・実績・CSV 書き出しはどれも
+ * 「並んでいる記録ぶんの id」を渡すので、記録が増えたある日を境に
+ * **画面が開かなくなる**（ErrorBoundary が無いので落ちたまま戻らない）。
+ *
+ * expo-sqlite 57 が同梱する SQLite 3.50 の既定値は 32,766（podspec で上書きしていない）で、
+ * 32,766 件は通り 32,767 件で落ちることを実測で確認してある。
+ *
+ * 900 にしてあるのは、SQLite 3.32 より前の既定値（999）でも収まる大きさだから ──
+ * 上限そのものを当てにしないでおけば、SQLite の版が変わっても壊れない。
+ * 分割で往復は増えるが、記録ごとに引く N+1 とは桁が違う（50,000 件で 45 回）。
+ */
+const ID_CHUNK_SIZE = 900;
+
+/**
+ * id を `IN` に収まる大きさへ分ける。
+ *
+ * **重複を先に落とす。** 1 本の `IN` は重複した id を勝手に畳むが、分割すると
+ * 同じ id が 2 つのチャンクに入り得る ── そのまま引くと同じ記録の行が 2 回返り、
+ * Map に同じタグが 2 つ積まれる。分ける前に Set を通して、1 本で引いていた頃と
+ * 同じ結果になるようにしておく（writeRecordTags の Set と同じ理由）。
+ */
+function chunkRecordIds(recordIds: readonly string[]): string[][] {
+  const unique = [...new Set(recordIds)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += ID_CHUNK_SIZE) {
+    chunks.push(unique.slice(i, i + ID_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
 export function createTagRepository(
   db: Database,
   deps: { generateId: () => string },
@@ -211,27 +246,32 @@ export function createTagRepository(
     },
 
     /**
-     * 複数の記録ぶんのタグ名を**1 本のクエリ**でまとめて引く（§5.4 の CSV 書き出し）。
+     * 複数の記録ぶんのタグ名を**まとめて**引く（§5.4 の CSV 書き出し）。
      * 記録ごとに引くと件数ぶんクエリが飛ぶ。値の並びは `tags.sortOrder` 昇順（§5.2）。
+     *
+     * id は `ID_CHUNK_SIZE` ごとに分けて引く（理由はその定義を参照）。**並びは崩れない** ──
+     * 1 つの記録の id はちょうど 1 つのチャンクにしか入らないので、
+     * その記録ぶんの行はまとめて 1 回の問い合わせで、sortOrder 昇順のまま返る。
      *
      * 1 件も付いていない記録はキーごと現れない（呼び出し側で空配列に倒すこと）。
      */
     tagNamesByRecord(recordIds: readonly string[]): Map<string, string[]> {
       const result = new Map<string, string[]>();
-      if (recordIds.length === 0) return result;
 
-      const rows = db
-        .select({ recordId: recordTags.recordId, name: tags.name })
-        .from(recordTags)
-        .innerJoin(tags, eq(tags.id, recordTags.tagId))
-        .where(inArray(recordTags.recordId, [...recordIds]))
-        .orderBy(asc(tags.sortOrder))
-        .all();
+      for (const chunk of chunkRecordIds(recordIds)) {
+        const rows = db
+          .select({ recordId: recordTags.recordId, name: tags.name })
+          .from(recordTags)
+          .innerJoin(tags, eq(tags.id, recordTags.tagId))
+          .where(inArray(recordTags.recordId, chunk))
+          .orderBy(asc(tags.sortOrder))
+          .all();
 
-      for (const row of rows) {
-        const names = result.get(row.recordId);
-        if (names) names.push(row.name);
-        else result.set(row.recordId, [row.name]);
+        for (const row of rows) {
+          const names = result.get(row.recordId);
+          if (names) names.push(row.name);
+          else result.set(row.recordId, [row.name]);
+        }
       }
       return result;
     },
@@ -241,26 +281,28 @@ export function createTagRepository(
      * **色キーまで要る**ので行そのものを返す ── 名前だけでは点が描けない。
      *
      * 名前と分けて 2 本持つのは、CSV（名前だけ）と画面（色つき）で必要な列が違うため。
-     * どちらも 1 本のクエリ・`tags.sortOrder` 昇順で、記録ごとに引かない（N+1 回避）。
+     * どちらも `tags.sortOrder` 昇順で、記録ごとに引かない（N+1 回避）。
+     * id の分割も同じ（`ID_CHUNK_SIZE` を参照）。
      *
      * 1 件も付いていない記録はキーごと現れない（呼び出し側で空配列に倒すこと）。
      */
     tagsByRecord(recordIds: readonly string[]): Map<string, Tag[]> {
       const result = new Map<string, Tag[]>();
-      if (recordIds.length === 0) return result;
 
-      const rows = db
-        .select({ recordId: recordTags.recordId, tag: tags })
-        .from(recordTags)
-        .innerJoin(tags, eq(tags.id, recordTags.tagId))
-        .where(inArray(recordTags.recordId, [...recordIds]))
-        .orderBy(asc(tags.sortOrder))
-        .all();
+      for (const chunk of chunkRecordIds(recordIds)) {
+        const rows = db
+          .select({ recordId: recordTags.recordId, tag: tags })
+          .from(recordTags)
+          .innerJoin(tags, eq(tags.id, recordTags.tagId))
+          .where(inArray(recordTags.recordId, chunk))
+          .orderBy(asc(tags.sortOrder))
+          .all();
 
-      for (const row of rows) {
-        const list = result.get(row.recordId);
-        if (list) list.push(row.tag);
-        else result.set(row.recordId, [row.tag]);
+        for (const row of rows) {
+          const list = result.get(row.recordId);
+          if (list) list.push(row.tag);
+          else result.set(row.recordId, [row.tag]);
+        }
       }
       return result;
     },

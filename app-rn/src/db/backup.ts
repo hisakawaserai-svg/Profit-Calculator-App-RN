@@ -32,16 +32,29 @@ import { presets, recordTags, saleRecords, tags } from './schema';
 /**
  * 1 回の INSERT にまとめる行数（§3.4）。
  *
- * SQLite の変数上限（SQLITE_MAX_VARIABLE_NUMBER）は既定 999 で、
- * drizzle は列ごとに変数を 1 つ使う。records は 19 列なので
- * 999 / 19 = 52 行までしか一度に入らない ── 全件を 1 文にすると
- * **数百件で "too many SQL variables" になる。**
+ * SQLite の変数上限（SQLITE_MAX_VARIABLE_NUMBER）を超えると
+ * `too many SQL variables` になる。drizzle は列ごとに変数を 1 つ使うので、
+ * いちばん列の多い records（19 列）で「上限 / 19」行が一度に入る上限になる。
  *
- * 50 にしてあるのは、いちばん列の多い records（19 列 = 950 変数）でも収まり、
- * かつ 1000 件で 20 文に収まる大きさだから。1 件ずつ INSERT すると
- * 1000 件で 1000 往復になり、目に見えて遅くなる（§6 の実測）。
+ * **上限は 999 ではなく 32,766。** SQLite 3.32 で既定値が上がっており、
+ * expo-sqlite 57 が同梱する 3.50.3 でも 32,766（podspec で上書きしていないことと、
+ * ソースの `# define SQLITE_MAX_VARIABLE_NUMBER 32766` を確認済み）。
+ * 19 列なら 1,724 行まで一度に入る。
+ *
+ * 1,000 にしてあるのは、その 1,724 に余裕を持たせつつ文の数を減らすため。
+ *
+ * **ただし復元の速さはこの値では決まらない。** 50,000 件で測ると、文の数を
+ * 1,000 → 30 まで減らしても 1.2 秒前後から動かなかった（50 行 = 1,233ms /
+ * 1,000 行 = 1,186ms / 1,700 行 = 1,256ms）。同じ行を素の better-sqlite3 で入れると
+ * 0.2 秒なので、差の約 1 秒は **drizzle が値を 1 行ずつ組み立てる分**
+ * ── 文ごとではなく行ごとに掛かるコストで、まとめても減らない。
+ * ここを縮めたいなら chunk ではなく drizzle を通さない経路が要る（未着手）。
+ *
+ * **この値は 32,766 に依存する**（tags.ts の `ID_CHUNK_SIZE` は 999 でも
+ * 収まる大きさを選んでいて、そこだけ方針が違う）。上限の小さい SQLite に
+ * 載せ替えるときは、ここも一緒に下げること。
  */
-const INSERT_CHUNK_SIZE = 50;
+const INSERT_CHUNK_SIZE = 1_000;
 
 function chunked<T>(rows: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];

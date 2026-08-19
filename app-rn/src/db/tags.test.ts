@@ -362,6 +362,80 @@ describe('§5.4 tagNamesByRecord: CSV 用にまとめて引く', () => {
   }
 });
 
+describe('id の分割: SQLite の変数上限を超えない（tags.ts の ID_CHUNK_SIZE）', () => {
+  // 1 本の IN に全件の id を入れていた頃は、記録が 32,767 件を超えると
+  // `too many SQL variables` で**一覧も実績も CSV も開かなくなった**。
+  //
+  // 存在しない id を渡しても結果に出ないだけなので、**実際に 900 件の記録を作る必要はない。**
+  // 本物の記録を境界の前後に置き、間を捨て id で埋めて「別々のチャンクで引いたものが
+  // 1 つの Map にまとまるか」を見る。
+
+  /** ID_CHUNK_SIZE と同じ値。ここを変えたらテストも一緒に動かす */
+  const CHUNK = 900;
+
+  /** first を 1 つ目のチャンク、second を 2 つ目のチャンクに落とす id の列 */
+  function spanningChunks(first: string, second: string): string[] {
+    const filler = Array.from({ length: CHUNK }, () => randomUUID());
+    return [first, ...filler, second];
+  }
+
+  it('変数上限（32,766）を超える件数でも例外にならない', () => {
+    // **分割の目的そのもの。** 1 本の IN に入れていた頃はここで
+    // `too many SQL variables` を投げ、記録タブ・データタブ・記録詳細・CSV 書き出しが
+    // まとめて開かなくなっていた（ErrorBoundary が無いので落ちたまま戻らない）。
+    // 記録の実体は要らない ── 落ちていたのは束ねる id の数だけが原因なので、
+    // 存在しない id を並べれば同じ条件を作れる。
+    const ids = Array.from({ length: 32_767 }, () => randomUUID());
+
+    expect(() => tagRepo.tagsByRecord(ids)).not.toThrow();
+    expect(() => tagRepo.tagNamesByRecord(ids)).not.toThrow();
+  });
+
+  it('チャンクをまたいでも全部返る（tagsByRecord）', () => {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const inFirst = repo.create({ ...base, tagIds: [clothes.id] });
+    const inSecond = repo.create({ ...base, tagIds: [clothes.id] });
+
+    const map = tagRepo.tagsByRecord(spanningChunks(inFirst.id, inSecond.id));
+
+    expect(map.get(inFirst.id)?.map((tag) => tag.name)).toEqual(['洋服']);
+    expect(map.get(inSecond.id)?.map((tag) => tag.name)).toEqual(['洋服']);
+  });
+
+  it('チャンクをまたいでも全部返る（tagNamesByRecord）', () => {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const inFirst = repo.create({ ...base, tagIds: [clothes.id] });
+    const inSecond = repo.create({ ...base, tagIds: [clothes.id] });
+
+    const map = tagRepo.tagNamesByRecord(spanningChunks(inFirst.id, inSecond.id));
+
+    expect(map.get(inFirst.id)).toEqual(['洋服']);
+    expect(map.get(inSecond.id)).toEqual(['洋服']);
+  });
+
+  it('同じ id を 2 回渡してもタグが二重に積まれない', () => {
+    // 1 本の IN は重複を勝手に畳んでいた。分割すると同じ id が 2 つのチャンクに
+    // 入り得るので、分ける前に落としている（chunkRecordIds の Set）。
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const record = repo.create({ ...base, tagIds: [clothes.id] });
+
+    expect(tagRepo.tagsByRecord([record.id, record.id]).get(record.id)).toHaveLength(1);
+    expect(tagRepo.tagNamesByRecord([record.id, record.id]).get(record.id)).toEqual(['洋服']);
+  });
+
+  it('並びは sortOrder 昇順のまま（1 記録は必ず同じチャンクに入る）', () => {
+    const clothes = tagRepo.create({ name: '洋服', colorKey: 'red' });
+    const summer = tagRepo.create({ name: '春夏物', colorKey: 'blue' });
+    const record = repo.create({ ...base, tagIds: [summer.id, clothes.id] });
+    const other = repo.create({ ...base, tagIds: [summer.id, clothes.id] });
+
+    const map = tagRepo.tagNamesByRecord(spanningChunks(record.id, other.id));
+
+    expect(map.get(record.id)).toEqual(['洋服', '春夏物']);
+    expect(map.get(other.id)).toEqual(['洋服', '春夏物']);
+  });
+});
+
 describe('§4.2.1 countsByTagForFilter: 選択中のタグ以外のすべての条件で絞って数える', () => {
   // 「押したら何件出るか」の予告なので、下部の件数（countRecords）と同じ集合の上で数える。
   // §2.2 の「状態を問わない全記録」はここだけ例外になる。
