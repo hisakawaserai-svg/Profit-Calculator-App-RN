@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>サポート | うりつみ</title>
+<meta name="description" content="うりつみのサポートページ / Support for Uritsumi">
+<style>
+  :root{
+    --ink:#1c2422;
+    --ink-soft:#5b6b68;
+    --line:#dbe4e2;
+    --paper:#fafbfa;
+    --panel:#ffffff;
+    --accent:#2e7d72;
+    --accent-soft:#e6f2f0;
+    --gold:#e8be4d;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+    font-size:16px;
+    line-height:1.9;
+    letter-spacing:.01em;
+  }
+
+  /* 積み重なったブロック — 記録が積み上がることの意匠 */
+  .band{
+    height:12px;
+    background-image:
+      repeating-linear-gradient(90deg,var(--accent) 0 13px,var(--gold) 13px 26px),
+      repeating-linear-gradient(90deg,var(--gold) 0 13px,var(--accent) 13px 26px);
+    background-size:26px 6px,26px 6px;
+    background-position:0 0,13px 6px;
+    background-repeat:repeat-x,repeat-x;
+    opacity:.85;
+  }
+
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px 96px}
+
+  header{padding:56px 0 32px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .eyebrow{
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);font-weight:600;margin:0 0 14px
+  }
+  h1{font-size:30px;line-height:1.35;margin:0 0 12px;font-weight:700;letter-spacing:.01em}
+  .lede{margin:0;color:var(--ink-soft);font-size:15px;line-height:1.85}
+
+  .langbar{display:flex;gap:8px;margin:26px 0 0}
+  .langbar button{
+    font:inherit;font-size:13px;font-weight:600;
+    padding:7px 16px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--line);background:transparent;color:var(--ink-soft);
+    transition:background .15s,color .15s,border-color .15s;
+  }
+  .langbar button[aria-pressed="true"]{
+    background:var(--accent);border-color:var(--accent);color:#fff;
+  }
+  .langbar button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  h2{
+    font-size:19px;font-weight:700;margin:44px 0 14px;
+    padding-top:26px;border-top:1px solid var(--line);letter-spacing:.01em;
+  }
+  h2:first-of-type{border-top:none;padding-top:0}
+  p{margin:0 0 16px}
+
+  /* FAQ アコーディオン */
+  .faq{
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--panel);
+    margin:0 0 10px;
+    overflow:hidden;
+  }
+  .faq > summary{
+    list-style:none;
+    cursor:pointer;
+    padding:16px 46px 16px 18px;
+    font-weight:700;
+    font-size:16px;
+    line-height:1.65;
+    position:relative;
+    transition:background .15s;
+  }
+  .faq > summary::-webkit-details-marker{display:none}
+  .faq > summary:hover{background:var(--accent-soft)}
+  .faq > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .faq > summary::after{
+    content:"";
+    position:absolute;
+    right:20px;top:50%;
+    width:9px;height:9px;
+    margin-top:-6px;
+    border-right:2px solid var(--accent);
+    border-bottom:2px solid var(--accent);
+    transform:rotate(45deg);
+    transition:transform .2s;
+  }
+  .faq[open] > summary::after{transform:rotate(-135deg);margin-top:-2px}
+  .faq[open] > summary{border-bottom:1px solid var(--line)}
+  .faq-body{padding:18px 18px 4px}
+  .faq-body p:last-child{margin-bottom:0;padding-bottom:14px}
+  ul{margin:0 0 16px;padding-left:1.25em}
+  li{margin-bottom:7px}
+  a{color:var(--accent);text-underline-offset:3px}
+
+  .keypoint{
+    background:var(--accent-soft);
+    border-left:3px solid var(--accent);
+    border-radius:0 6px 6px 0;
+    padding:20px 22px;
+    margin:0 0 34px;
+  }
+  .keypoint p{margin:0;font-weight:600;line-height:1.85}
+
+  .callout{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px 20px;
+    margin:0 0 20px;
+  }
+  .callout p:last-child{margin-bottom:0}
+
+  footer{
+    margin-top:56px;padding-top:24px;border-top:1px solid var(--line);
+    color:var(--ink-soft);font-size:13px;
+  }
+  footer a{margin-right:18px}
+
+  [hidden]{display:none !important}
+
+  @media (max-width:520px){
+    body{font-size:15px}
+    h1{font-size:24px}
+    header{padding:40px 0 26px}
+    .wrap{padding:0 20px 72px}
+  }
+</style>
+</head>
+<body>
+
+<div class="band" aria-hidden="true"></div>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow" id="eyebrow">Support</p>
+  <h1 id="pageTitle">サポート</h1>
+  <p class="lede" id="pageLede">フリマで売った記録をつけて、手元にいくら残ったかが分かるアプリです。手数料・送料・梱包材まで含めて計算できます。</p>
+  <div class="langbar" role="group" aria-label="Language">
+    <button type="button" id="btnJa" aria-pressed="true">日本語</button>
+    <button type="button" id="btnEn" aria-pressed="false">English</button>
+  </div>
+</header>
+
+<!-- ───────────────────────── 日本語 ───────────────────────── -->
+<main id="ja">
+
+  <div class="keypoint">
+    <p>使いかたはアプリの中に用意しています。設定タブの「使いかた」から、画面ごとの説明をご覧いただけます。</p>
+  </div>
+
+  <h2>よくあるご質問</h2>
+
+  <details class="faq">
+    <summary>iPhone から Android(またはその逆)にデータを移せますか</summary>
+    <div class="faq-body">
+    <p>移せます。バックアップファイルはどちらの端末でも同じように読み込めます。</p>
+    <p>元の端末の「バックアップと復元」からファイルを書き出し、新しい端末で読み込んでください。</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>機種変更のときはどうすればいいですか</summary>
+    <div class="faq-body">
+    <p>記録したデータは端末の中だけに保存されています。<strong>機種変更の前に必ずバックアップを書き出してください。</strong></p>
+    <p>アプリを削除したり端末を初期化したりすると、記録は元に戻せません。</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>復元すると、いま入っているデータはどうなりますか</summary>
+    <div class="faq-body">
+    <p>すべて置き換わります。追加ではありません。</p>
+    <p>いま端末に入っている記録は消えて、ファイルの中身に入れ替わります。復元する前に、必要であれば現在のデータもバックアップしておいてください。</p>
+    <p>なお、復元の途中で失敗した場合、端末のデータは変更されません。中途半端な状態になることはありません。</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>バックアップに含まれないものはありますか</summary>
+    <div class="faq-body">
+    <p>アプリの設定は含まれません。バックアップに入るのは、記録・プリセット・タグ・タグ付け・写真です。</p>
+    <p>表示言語や記録の既定値などは、新しい端末で設定し直してください。</p>
+    <p>写真を含めるかどうかは書き出すときに選べます。含めずに作ったバックアップから復元すると、記録はすべて戻りますが写真は戻りません。</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>古いバックアップから復元できますか</summary>
+    <div class="faq-body">
+    <p>できます。以前のバージョンで作ったファイルも、新しいアプリで読み込めます。</p>
+    <p>逆に、新しいアプリで作ったファイルを古いアプリで読み込むことはできません。復元する側のアプリを先に最新にしてください。</p>
+    </div>
+  </details>
+
+  <h2>お問い合わせ</h2>
+  <div class="callout">
+    <p>ご質問・不具合のご報告は、下記までご連絡ください。返信までお時間をいただく場合があります。</p>
+    <p><strong>メール:</strong> <a href="mailto:stampnuki.app@gmail.com">stampnuki.app@gmail.com</a></p>
+    <p>不具合のご報告の際は、お使いの端末(iPhone / Android)と、どの画面で起きたかを教えていただけると助かります。</p>
+  </div>
+
+</main>
+
+<!-- ───────────────────────── English ───────────────────────── -->
+<main id="en" hidden>
+
+  <div class="keypoint">
+    <p>A full guide is built into the app. Open Settings → How to use for a walkthrough of each screen.</p>
+  </div>
+
+  <h2>Frequently asked questions</h2>
+
+  <details class="faq">
+    <summary>Can I move my data between iPhone and Android?</summary>
+    <div class="faq-body">
+    <p>Yes, in either direction. Backup files can be read on both platforms.</p>
+    <p>Export a file from Backup &amp; restore on your old device, then load it on the new one.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>What should I do before switching devices?</summary>
+    <div class="faq-body">
+    <p>Your records are stored only on your device. <strong>Always export a backup before switching.</strong></p>
+    <p>Deleting the app or resetting your device will permanently remove your records.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>What happens to my current data when I restore?</summary>
+    <div class="faq-body">
+    <p>Everything is replaced. Restoring does not merge.</p>
+    <p>The records currently on your device are removed and replaced with the contents of the file. Back up your current data first if you need it.</p>
+    <p>If a restore fails partway through, your device's data is left untouched — you will never end up in a half-restored state.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Is anything left out of a backup?</summary>
+    <div class="faq-body">
+    <p>App settings are not included. A backup contains your records, presets, tags, tag assignments, and photos.</p>
+    <p>Settings such as display language and record defaults need to be set again on the new device.</p>
+    <p>You choose whether to include photos when exporting. Restoring from a backup made without photos brings back every record, but not the images.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Can I restore from an older backup?</summary>
+    <div class="faq-body">
+    <p>Yes. Files made by earlier versions of the app can be read by newer versions.</p>
+    <p>The reverse is not possible — a file made by a newer version cannot be read by an older one. Update the app first, then restore.</p>
+    </div>
+  </details>
+
+  <h2>Contact</h2>
+  <div class="callout">
+    <p>For questions or bug reports, please get in touch. Replies may take some time.</p>
+    <p><strong>Email:</strong> <a href="mailto:stampnuki.app@gmail.com">stampnuki.app@gmail.com</a></p>
+    <p>When reporting a bug, it helps to know your device (iPhone or Android) and which screen it happened on.</p>
+  </div>
+
+</main>
+
+<footer>
+  <p>
+    <a href="./privacy.html" id="footPrivacy">プライバシーポリシー</a>
+    <span id="footCopy">© 2026 SeraApps</span>
+  </p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var ja = document.getElementById('ja');
+  var en = document.getElementById('en');
+  var btnJa = document.getElementById('btnJa');
+  var btnEn = document.getElementById('btnEn');
+  var title = document.getElementById('pageTitle');
+  var lede = document.getElementById('pageLede');
+  var privacy = document.getElementById('footPrivacy');
+
+  var TEXT = {
+    ja: {
+      title: 'サポート',
+      lede: 'フリマで売った記録をつけて、手元にいくら残ったかが分かるアプリです。手数料・送料・梱包材まで含めて計算できます。',
+      privacy: 'プライバシーポリシー',
+      docTitle: 'サポート | うりつみ'
+    },
+    en: {
+      title: 'Support',
+      lede: 'Uritsumi records what you sell and shows what you actually keep — fees, shipping, and packaging included.',
+      privacy: 'Privacy Policy',
+      docTitle: 'Support | Uritsumi'
+    }
+  };
+
+  function show(lang) {
+    var isJa = lang === 'ja';
+    ja.hidden = !isJa;
+    en.hidden = isJa;
+    btnJa.setAttribute('aria-pressed', String(isJa));
+    btnEn.setAttribute('aria-pressed', String(!isJa));
+    document.documentElement.lang = lang;
+    title.textContent = TEXT[lang].title;
+    lede.textContent = TEXT[lang].lede;
+    privacy.textContent = TEXT[lang].privacy;
+    document.title = TEXT[lang].docTitle;
+  }
+
+  btnJa.addEventListener('click', function () { show('ja'); });
+  btnEn.addEventListener('click', function () { show('en'); });
+
+  var nav = (navigator.language || 'ja').toLowerCase();
+  show(nav.indexOf('ja') === 0 ? 'ja' : 'en');
+})();
+</script>
+
+</body>
+</html>
