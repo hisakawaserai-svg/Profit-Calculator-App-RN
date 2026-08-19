@@ -32,6 +32,7 @@ import { AddRecordFab } from '@/components/AddRecordFab';
 import { AddRecordMenuSheet } from '@/components/AddRecordMenuSheet';
 import { BirdMascot } from '@/components/BirdMascot';
 import { EmptyState } from '@/components/EmptyState';
+import { FAB_HEIGHT } from '@/components/Fab';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
@@ -86,6 +87,9 @@ import { useThemeColors } from '@/theme';
 const DEFAULT_SORT: RecordSortType = 'saleDateDesc';
 
 /** レコード詳細のルート。月別詳細を廃止して 1 系統に統一した（UI-SPEC §2 / §6-9） */
+/** FAB の上に乗せる寝顔の大きさ。まず控えめに（実機で詰める前提） */
+const MASCOT_SIZE = 80;
+
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 
 /** 「過去の記録から複製」の複製元を選ぶ画面（記録タブの Stack に積む） */
@@ -193,6 +197,17 @@ export function RecordListScreen() {
   // 効いている条件の数と解除バーの文言は、必ず同じ下書き（状態を織り込んだ後）から作る（§4.3）
   const appliedFilter = effectiveFilter(recordFilter, isSoldMode);
   const filterCount = activeFilterCount(appliedFilter);
+  /**
+   * 「＋ 記録する」の上で寝ているマスコットを出すか。**記録が 1 件も無いときだけ。**
+   *
+   * monthsWithRecords は絞り込みも期間も状態も見ずに引いている（useRecords.ts）ので、
+   * 空＝この端末に記録が 1 件も無い。絞り込み・検索の 0 件では出さない（寝顔と意味が合わない）。
+   *
+   * 一覧の空表示（ListEmptyComponent）ではなく FAB の隣に置くのは、乗る相手が
+   * FAB そのものだから ── 一覧の中に置くと、一覧のスクロール位置に付いていってしまう。
+   */
+  const showSleepingMascot =
+    filterCount === 0 && searchText === '' && monthsWithRecords.length === 0;
   // 青い行の件数は**いま一覧に出ている数**（＝検索も効いた後）。文のすぐ下に並ぶのが
   // その一覧だから。シート下部の「この条件に合う記録 N 件」は検索を含めない数で、別物（§4.6）
   const summaryText = filterSummaryText(locale, appliedFilter, tags, records.length);
@@ -402,6 +417,25 @@ export function RecordListScreen() {
           {/* 追加ボタンは画面左下・タブバーの上（UI-SPEC §1.2-7）。
               計算タブと同じ部品（AddRecordFab）。語も置き場所も同じ */}
           <AddRecordFab onPress={openAddMenu} style={styles.addButton} />
+
+          {/* FAB の上で寝ているマスコット。**FAB より後に描く**ので、足もとが
+              ボタンの上端に重なる。pointerEvents="none" が要る ── 絵がボタンの
+              当たり判定にかぶるので、無いと「＋ 記録する」が押せなくなる。
+              読み上げからは外す（図形なので読んでも意味を成さない） */}
+          {showSleepingMascot && (
+            <View
+              style={styles.sleepingMascot}
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants">
+              <BirdMascot
+                variant="sleep"
+                size={MASCOT_SIZE}
+                showScene={false}
+                zColor={colors.gray}
+              />
+            </View>
+          )}
         </View>
 
         {/* バナー広告（Phase 1 の唯一の表示箇所）。タブバーの直上に固定する。
@@ -479,7 +513,6 @@ function ListEmpty({
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
-  const colors = useThemeColors();
 
   if (!filtering) {
     return (
@@ -488,26 +521,10 @@ function ListEmpty({
          * 見出しは A（まだ 1 件も無い）と B・C（期間・状態で 0 件）で分ける。
          * A の人は月バーを触ったこともないので、「この期間の」と言われても
          * 何のことか分からない（i18n の list.firstRecordTitle 参照）。
+         * A のときのマスコットは FAB の上に乗せる（showSleepingMascot）。
          */
         title={hasAnyRecords ? noRecordsEmptyTitle(locale) : firstRecordEmptyTitle(locale)}
         body={noRecordsEmptyBody(locale)}
-        /*
-         * マスコットは**記録が 1 件も無いときだけ**出す。
-         *
-         * この分岐（filtering === false）には「期間を動かした結果 0 件」
-         * 「状態（売れた/出品中）を切り替えた結果 0 件」も入ってくる ── 期間と状態は
-         * activeFilterCount が数えない条件だから（logic/recordFilter.ts）。
-         * ほかの月には記録があるのに寝ていると「無い」の意味がずれるので、
-         * hasAnyRecords で本当に空のときだけに絞る。
-         *
-         * 背景の丸は出さない（地に直接置く）。そのぶん Z が白のままだと明色の地に
-         * 融けるので、明暗どちらでも同じ値になる gray を渡す。
-         */
-        figure={
-          hasAnyRecords ? undefined : (
-            <BirdMascot variant="sleep" size={96} showScene={false} zColor={colors.gray} />
-          )
-        }
       />
     );
   }
@@ -640,6 +657,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  // FAB の真上。足もとが FAB の上端（bottom 24 ＋ 高さ FAB_HEIGHT）に来るように、
+  // 絵の下端に残る余白（およそ全体の 9%。足の下から枠までの分）だけ下げる
+  sleepingMascot: {
+    position: 'absolute',
+    left: 20,
+    bottom: 24 + FAB_HEIGHT - Math.round(MASCOT_SIZE * 0.09),
   },
   addButton: {
     left: 20,
