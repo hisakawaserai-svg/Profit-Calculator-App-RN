@@ -339,7 +339,13 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
           hitSlop で上下にも広げる */}
       <Pressable
         onPress={onPress}
-        hitSlop={8}
+        /**
+         * **下には広げない。** 行の下は 8dp（`section` の gap）を挟んですぐ表で、
+         * 下向きの hitSlop は表の上端に重なる ── そこから始めた横滑りが
+         * 「短い滑りで開いてしまう」を呼び戻しかねない。行自体を 48dp 取ったので、
+         * 広げる必要があるのは上と左右だけ。
+         */
+        hitSlop={{ top: 8, bottom: 0, left: 8, right: 8 }}
         accessibilityRole="button"
         accessibilityLabel={`${exportPreviewCardTitle(locale)}・${exportPreviewOpenLabel(locale)}`}
         style={({ pressed }) => [styles.previewHead, { opacity: pressed ? 0.6 : 1 }]}>
@@ -455,6 +461,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginLeft: 4,
+    /**
+     * **押せる行なので、押せる大きさを持たせる**（Material の最小 48dp / HIG の 44pt）。
+     *
+     * 文字の高さだけだと 22.5dp しかなく、Android の最小の半分以下になる ──
+     * 実機で「見出しを押しても開かない」と報告された実体がこれ。指の接地は見た目の
+     * 中心より下にずれやすく、その下は表（押せない）なので、外すと何も起きない。
+     * カード全体が押せた頃は 200dp 近くあったので外しようがなかった。
+     *
+     * 高さは `minHeight` で取る ── `alignItems: 'center'` のままなので、
+     * 文字は中央に置かれたまま、当たり判定だけが上下に広がる。
+     */
+    minHeight: 48,
   },
   previewTitle: {
     flex: 1,
