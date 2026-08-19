@@ -54,6 +54,7 @@ import {
   filterEmptyActionLabel,
   filterEmptyTitle,
   filterLabel,
+  firstRecordEmptyTitle,
   listingCountLabel,
   noRecordsEmptyBody,
   noRecordsEmptyTitle,
@@ -483,7 +484,12 @@ function ListEmpty({
   if (!filtering) {
     return (
       <EmptyState
-        title={noRecordsEmptyTitle(locale)}
+        /*
+         * 見出しは A（まだ 1 件も無い）と B・C（期間・状態で 0 件）で分ける。
+         * A の人は月バーを触ったこともないので、「この期間の」と言われても
+         * 何のことか分からない（i18n の list.firstRecordTitle 参照）。
+         */
+        title={hasAnyRecords ? noRecordsEmptyTitle(locale) : firstRecordEmptyTitle(locale)}
         body={noRecordsEmptyBody(locale)}
         /*
          * マスコットは**記録が 1 件も無いときだけ**出す。

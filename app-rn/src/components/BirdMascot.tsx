@@ -27,6 +27,27 @@ import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 /** 翼の回転軸（肩の位置）。100×100 基準。 */
 const WING_ORIGIN = { x: 64, y: 46 };
 
+/** Z 1 つぶんの折れ線。左上 (x, y) から一辺 size の Z 字（高さは 1.2 倍） */
+function zPath(x: number, y: number, size: number): string {
+  const bottom = y + size * 1.2;
+  return `M${x} ${y} L${x + size} ${y} L${x} ${bottom} L${x + size} ${bottom}`;
+}
+
+/**
+ * 寝息の Z（頭の左上から立ちのぼる 3 つ）。100×100 基準。
+ *
+ * **1 つだけだと「7」に読めた**ので、大小を付けて 3 つにする。
+ * 頭に近いほど小さく細く、離れるほど大きく太い ── 息が昇るにつれて広がる形。
+ *
+ * 位置はシーンの丸（cx50 cy50 r48）の内側に収めてある。showScene=true のときに
+ * はみ出すと、円の外に Z だけが浮いて「絵の外の落書き」に見えるため。
+ */
+const SLEEP_ZS = [
+  { d: zPath(30, 30, 4.5), strokeWidth: 1.4 },
+  { d: zPath(27, 20, 6.5), strokeWidth: 1.7 },
+  { d: zPath(26, 9, 8.5), strokeWidth: 2.1 },
+] as const;
+
 const AnimatedG = Animated.createAnimatedComponent(G);
 
 interface Props {
@@ -119,16 +140,18 @@ export function BirdMascot({
 
       {/* 寝息の Z（線で描いた図形。文字ではないので翻訳の対象にならない）。
           描く順はシーンの直後・体の手前のまま ── 体に一部が隠れる重なりが元の見た目 */}
-      {drawZ && (
-        <Path
-          d="M25 25 L33 25 L25 35 L33 35"
-          fill="none"
-          stroke={zColor}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
+      {drawZ &&
+        SLEEP_ZS.map((z) => (
+          <Path
+            key={z.d}
+            d={z.d}
+            fill="none"
+            stroke={zColor}
+            strokeWidth={z.strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
 
       {/* ─ キャラ本体（共通） ─ */}
       {/* 尾: 体の右下から斜め後方へ長く伸びる（シマエナガの長い尾） */}

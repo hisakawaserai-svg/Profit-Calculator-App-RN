@@ -3190,6 +3190,11 @@ export function noRecordsEmptyBody(locale: Locale): string {
   return t('list.noRecordsBody', locale);
 }
 
+/** まだ 1 件も記録が無いとき（A）。期間の話をしない見出し（list.firstRecordTitle 参照） */
+export function firstRecordEmptyTitle(locale: Locale): string {
+  return t('list.firstRecordTitle', locale);
+}
+
 /**
  * 販売サイトの候補が 0 件のとき（§4.2）。候補は**記録に実在する名前**なので、
  * プリセットを登録しても増えない ── 行き先はプリセットではなく記録の側だと言う。
