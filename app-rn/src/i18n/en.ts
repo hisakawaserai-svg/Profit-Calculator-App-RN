@@ -170,7 +170,8 @@ export const en: Translations = {
     noRecordsTitle: 'No records for this period',
     firstSoldRecordTitle: 'No sold records yet',
     firstListedRecordTitle: 'No listed records yet',
-    noRecordsBody: 'Tap "+ Record" at the bottom left to add one',
+    /** ボタンの語は {{button}} で差し込む（help.items.calc-to-record のコメント参照） */
+    noRecordsBody: 'Tap “＋ {{button}}” at the bottom left to add one',
     totalListingPrice: 'Total listed price',
     recordCount: { one: '{{count}} record', other: '{{count}} records' },
     listedItemCount: { one: '{{count}} item', other: '{{count}} items' },
@@ -1022,12 +1023,14 @@ export const en: Translations = {
       },
       'calc-to-record': {
         title: 'I want to keep what I just calculated',
-        body: 'Tap “Save this as a record” at the bottom of the screen and the record screen opens with the numbers you entered already filled in. Nothing needs retyping. A profit you entered under “Work back from a target” carries over as the record’s target profit.',
+        /** ボタンの語は {{button}} で差し込む（ja.ts の同じ項目のコメント参照） */
+        body: 'Tap “＋ {{button}}” at the bottom left of the screen and the record screen opens with the numbers you entered already filled in. Nothing needs retyping. A profit you entered under “Work back from a target” carries over as the record’s target profit.',
         linkLabel: 'See about target profit ›',
       },
       'record-new': {
         title: 'I want to save something I sold or listed',
-        body: 'Tap “＋ Record” at the bottom left of the Records tab and you get two choices: “Create new” and “Copy a past record”. “Create new” opens an empty record screen. “Save this as a record” in the Calculate tab opens the same screen. The item name is the only thing you must enter.',
+        /** ボタンの語は {{button}} で差し込む（ja.ts の同じ項目のコメント参照）。2 か所とも同じ 1 つのボタン */
+        body: 'Tap “＋ {{button}}” at the bottom left of the Records tab and you get two choices: “Create new” and “Copy a past record”. “Create new” opens an empty record screen. “＋ {{button}}” in the Calculate tab opens the same screen. The item name is the only thing you must enter.',
       },
       'record-duplicate': {
         title: 'I want to list something similar again',
@@ -1397,7 +1400,8 @@ export const en: Translations = {
     saveTitle: 'Keep photos and tags with it',
     saveBody: 'An item name is enough to save. Photos, tags and the type can all go into the record too.',
     presetTitle: 'Saved values go in with a tap',
-    presetBody: 'Save them under “{{section}}” in the Settings tab: marketplaces and shipping then come from the mark beside the field, and packaging from inside the calculator. You can always type into the calculator instead.',
+    /** 日本語側と同じ並び（その場登録が先、設定タブはそのあと）。ja.ts の presetBody のコメント参照 */
+    presetBody: 'Marketplaces and shipping come from the mark beside the field, and packaging from inside the calculator. You can also save one on the spot, at the top of the picker. You can save them under “{{section}}” in the Settings tab too.',
     simulatorTitle: 'Try a discount while it is still listed',
     simulatorBody: 'Move the current price and see the expected profit right away. Moving it does not change the record.',
     simulatorNotePrefix: 'The target line only appears when the record has a ',

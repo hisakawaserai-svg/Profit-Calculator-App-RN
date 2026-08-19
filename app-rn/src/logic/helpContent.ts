@@ -47,6 +47,8 @@
 import { t } from '@/i18n';
 import type { Locale } from '@/settings/language';
 
+import { addRecordFabLabel } from './labels';
+
 /** ページ（チップ）の id。`terms` だけはチップに出さない（画面先頭の 1 行と `link` から入る） */
 export type HelpPageId = 'calc' | 'record' | 'sell' | 'data' | 'keep' | 'terms';
 
@@ -226,7 +228,8 @@ export function helpPages(locale: Locale): HelpPage[] {
           {
             id: 'calc-to-record',
             title: t('help.items.calc-to-record.title', locale),
-            body: t('help.items.calc-to-record.body', locale),
+            // ボタンの語は実物と同じ 1 つの参照から差し込む（ja.ts の同じ項目のコメント参照）
+            body: t('help.items.calc-to-record.body', locale, { button: addRecordFabLabel(locale) }),
             link: { label: t('help.items.calc-to-record.linkLabel', locale), to: 'record', itemId: 'record-target' },
           },
         ],
@@ -244,7 +247,7 @@ export function helpPages(locale: Locale): HelpPage[] {
           {
             id: 'record-new',
             title: t('help.items.record-new.title', locale),
-            body: t('help.items.record-new.body', locale),
+            body: t('help.items.record-new.body', locale, { button: addRecordFabLabel(locale) }),
             figure: 'addRecord',
           },
           {

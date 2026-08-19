@@ -18,18 +18,22 @@ import { Circle, Polyline, Svg } from 'react-native-svg';
 
 import { AchievementPageContent } from '@/components/AchievementDetailModal';
 import { CATEGORY_ICONS, categoryColor, type TagLookup } from '@/components/AchievementsSection';
+import { AddRecordFab } from '@/components/AddRecordFab';
 import { CostProportionBar } from '@/components/CostProportionBar';
 import { DataModeTabs } from '@/components/DataModeTabs';
 import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
+import { FAB_HEIGHT } from '@/components/Fab';
 import { MonthNavBar } from '@/components/MonthNavBar';
 import { PackBuyFields, packBuyCardStyle } from '@/components/PackBuyFields';
 import { PhotoThumbnail } from '@/components/PhotoThumbnail';
+import { PresetQuickAddRow } from '@/components/PresetQuickAddRow';
 import { PresetRow } from '@/components/PresetRow';
 import { PriceLine } from '@/components/PriceLine';
 import { PriceSlider } from '@/components/PriceSlider';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TagChip } from '@/components/TagChip';
+import type { Preset } from '@/db/schema';
 import type { Achievement } from '@/logic/achievements';
 import { costBreakdown, requiredPriceResult, type CalcFormValues } from '@/logic/calcForm';
 import { formatCalcTotal, formatUnitYen, formatYenSymbol } from '@/logic/format';
@@ -50,6 +54,8 @@ import {
   postageLabel,
   presetPickedCountLabel,
   presetPickerTitle,
+  presetQuickAddNamePlaceholder,
+  presetQuickAddSubmitLabel,
   onboardingText,
   pricingHeroAmount,
   profitTrendLabel,
@@ -57,7 +63,6 @@ import {
   profitTabLabel,
   requiredSalesPriceLabel,
   salesPriceLabel,
-  addRecordFabLabel,
   saveLabel,
   shippingOnlyLabel,
   simulatorProfitNote,
@@ -95,6 +100,13 @@ const noop = () => {};
 
 /** 図の中の実績・記録詳細へのリンク先はない。タップしても何も起きない（noop と同じ理由） */
 const NO_TAG_LOOKUP: TagLookup = () => undefined;
+
+/**
+ * その場登録の行（PresetQuickAddRow）に渡す「同じ種類の登録」。図なので**空**でよい ──
+ * この引数は色を自動で割り当てるとき（nextPresetColor）にしか読まれず、
+ * 登録は起きない（押せない図なので submit まで来ない）。
+ */
+const NO_PRESETS: readonly Preset[] = [];
 
 function FieldRow({
   label,
@@ -255,8 +267,17 @@ export function OnboardingTargetFigure() {
 
       <ArrowDown colors={colors} />
 
-      {/* カード 2: 結果 + 記録する操作 */}
-      <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+      {/* カード 2: 結果 + 記録する操作。**記録の入口は実物の AddRecordFab をそのまま置く** ──
+          ここを図だけの部品（全幅の青い帯）で描いていた頃は、実物が浮いた丸ボタンに変わっても
+          図が帯のまま残り、記号（＋）も落ちていた（Fab.tsx 冒頭が廃止の経緯を書いている帯）。
+          語・記号・形・色をすべて実物の部品に持たせておけば、次にボタンを直したときも図が付いてくる。
+
+          置き場所も実物に合わせて**カードの中に浮かせる**（実物と同じ左下。app/(tabs)/(calc) の
+          addButton）。カードの下側を FAB のぶんだけ空けてあるのは、帯のように行として積むと
+          「結果の一部」に見えてしまうため。触れないように pointerEvents を切る（図の約束） */}
+      <View
+        style={[styles.card, styles.targetResultCard, { backgroundColor: colors.secondaryBackground }]}
+        pointerEvents="none">
         <ResultBlock
           label={requiredSalesPriceLabel(locale)}
           amount={formatYenSymbol(result.requiredPrice)}
@@ -265,9 +286,7 @@ export function OnboardingTargetFigure() {
         />
         <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
 
-        <View style={[styles.saveButton, { backgroundColor: colors.blue }]}>
-          <Text style={styles.saveButtonLabel}>{addRecordFabLabel(locale)}</Text>
-        </View>
+        <AddRecordFab onPress={noop} style={styles.figureFab} />
       </View>
 
       <ArrowDown colors={colors} />
@@ -311,6 +330,17 @@ export function OnboardingPresetFigure() {
 
   return (
     <View style={styles.presetStack}>
+      {/* その場登録の行（実物の PresetQuickAddRow をそのまま置く）。**選択シートの上端に出るもの**
+          なので、並びも実物と同じく行の一覧より上に置く。本文が「その場で登録できる」と言う先が
+          これ ── 図に無いと、本文だけが新しくて絵が古い状態に戻る。
+          種類は 'shipping' にしてある（金額欄の見出しが額の型を代表する。販売サイトだけは
+          「手数料率（%）」になるが、3 枚のうち 2 枚は額の型）。触れない（図の約束） */}
+      <View
+        style={[styles.card, styles.quickAddCard, { backgroundColor: colors.secondaryBackground }]}
+        pointerEvents="none">
+        <PresetQuickAddRow type="shipping" initialValue={null} presets={NO_PRESETS} onCreated={noop} />
+      </View>
+
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
         <PresetRow preset={onboardingSitePresetExample(locale)} />
       </View>
@@ -755,6 +785,24 @@ export function OnboardingPackagingPresetFigure() {
           <View style={styles.pickerHeaderSide} />
         </View>
 
+        {/* シートの上端のその場登録。見出しの直下という並びは実物と同じ。
+            **ここだけは実物の PresetQuickAddRow を置かず、1 行に畳んである** ── このカードは
+            シートそのものではなく、行も合計も手で描き直した簡略再現で、実物の 2 段
+            （名前・金額）をそのまま入れると図の枠（360pt）から溢れて下端が切れる
+            （英語は語が長いぶん先に溢れる）。語は labels.ts から引くので、
+            文字だけが古くなることはない。6 ページ目は実物の部品をそのまま置いている */}
+        <View style={[styles.pickerQuickAdd, { borderBottomColor: colors.separator }]}>
+          <Text
+            style={[styles.pickerQuickAddName, { color: colors.secondaryLabel }]}
+            numberOfLines={1}>
+            {presetQuickAddNamePlaceholder(locale)}
+          </Text>
+          {/* 実物も名前が空のうちは押せない（薄い）。開いた直後の姿に合わせる */}
+          <Text style={[styles.pickerQuickAddSubmit, { color: colors.secondaryLabel }]}>
+            {presetQuickAddSubmitLabel(locale)}
+          </Text>
+        </View>
+
         <View style={styles.pickerRow}>
           <Ionicons name="checkmark-circle" size={22} color={colors.blue} />
           <View style={styles.grow}>
@@ -884,6 +932,28 @@ const styles = StyleSheet.create({
   pickerCard: {
     gap: 10,
   },
+  /** その場登録の行を単体のカードとして置く枠（6 ページ目）。行そのものが余白を持つので padding は要らない */
+  quickAddCard: {
+    padding: 0,
+  },
+  /** 畳んだシートの中に置くその場登録の行（7 ページ目）。上のコメント参照 */
+  pickerQuickAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 40,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pickerQuickAddName: {
+    flex: 1,
+    fontSize: 15,
+  },
+  pickerQuickAddSubmit: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -944,6 +1014,24 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
   },
+  /**
+   * 2 ページ目の結果カード。下側を FAB のぶんだけ空ける ── AddRecordFab は実物と同じく
+   * `position: 'absolute'` で浮くので、空けておかないと帯グラフの字に重なる。
+   * 内訳（16）＋ FAB の高さ ＋ 下の余白（16）。
+   */
+  targetResultCard: {
+    paddingBottom: 16 + FAB_HEIGHT + 16,
+  },
+  /**
+   * 図の中の FAB の置き場所。実物（app/(tabs)/(calc) の addButton）と同じ**左下**にする。
+   * 距離だけはカードの内寸に合わせてある ── 実物の 20 / 24 は広告枠とタブバーからの距離で、
+   * どちらも図には無いため。
+   */
+  figureFab: {
+    left: 16,
+    bottom: 16,
+  },
+  /** 3 ページ目の記録フォームの「保存」。こちらは実物も全幅の帯（RecordFormSheet の保存ボタン） */
   saveButton: {
     height: 44,
     borderRadius: 10,

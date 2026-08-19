@@ -41,6 +41,7 @@ import {
   PRICING_EXAMPLE_SIMULATED_PRICE,
 } from '@/logic/helpFigureExample';
 import {
+  addRecordFabLabel,
   backupPhotoExcludeDetail,
   backupPhotoExcludeLabel,
   backupPhotoIncludeLabel,
@@ -93,7 +94,6 @@ import {
   listingStatusLabel,
   postageLabel,
   presetInitialHint,
-  recordsTabLabel,
   shippingOnlyLabel,
   simulatorNote,
   soldRecordsLabel,
@@ -623,7 +623,9 @@ export function AddRecordFigure() {
     <PartFrame note={helpFigureAddRecordNote(locale)}>
       <View style={[styles.fab, { backgroundColor: colors.blue }]}>
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabLabel}>{recordsTabLabel(locale)}</Text>
+        {/* **タブの名前ではなくボタンの語**（addRecordFabLabel）。recordsTabLabel を引いていた頃は、
+            図だけが「＋ 記録」「＋ Records」で、実物の「＋ 記録する」「＋ Record」とずれていた */}
+        <Text style={styles.fabLabel}>{addRecordFabLabel(locale)}</Text>
       </View>
     </PartFrame>
   );

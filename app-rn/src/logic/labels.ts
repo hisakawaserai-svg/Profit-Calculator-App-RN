@@ -3205,7 +3205,8 @@ export function noRecordsEmptyTitle(locale: Locale): string {
   return t('list.noRecordsTitle', locale);
 }
 export function noRecordsEmptyBody(locale: Locale): string {
-  return t('list.noRecordsBody', locale);
+  // ボタンの語は addRecordFabLabel から差し込む ── 文に直に書くと、ボタンを直したときに残る
+  return t('list.noRecordsBody', locale, { button: addRecordFabLabel(locale) });
 }
 
 /**
