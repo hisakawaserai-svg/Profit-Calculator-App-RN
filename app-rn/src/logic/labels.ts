@@ -3295,6 +3295,32 @@ export function helpLinkNote(locale: Locale): string {
 }
 
 /**
+ * サポートとプライバシーポリシー（外部のページ）。**「使いかた」のすぐ下に置く** ──
+ * どちらも「困ったときに読むもの」で、アプリの中の説明で足りなかった人が
+ * 次に行く先だから。設定の他の群（記録の既定値・データ）とは用が違う。
+ *
+ * 注記は 2 行まとめて 1 つ ── 行ごとに「ブラウザで開きます」と書くと、
+ * 同じ断りが 2 回並んで、肝心の行の名前が読みにくくなる。
+ */
+export function supportLinkLabel(locale: Locale): string {
+  return t('settings.support.label', locale);
+}
+export function privacyLinkLabel(locale: Locale): string {
+  return t('settings.support.privacy', locale);
+}
+export function supportSectionNote(locale: Locale): string {
+  return t('settings.support.note', locale);
+}
+
+/**
+ * ブラウザを開けなかったとき。**理由までは言えない**（端末側の事情で、
+ * 既定のブラウザが無効化されている・URL を扱えるアプリが無い、など）。
+ */
+export function browserOpenFailedMessage(locale: Locale): string {
+  return t('settings.support.openFailed', locale);
+}
+
+/**
  * 記録まわりの設定の群（UI-SPEC §1.6-2）。見出しはタブ名と同じ語 ──
  * どのタブに効く設定なのかを、見出しとタブバーで別の語にしない。
  * 辞書でもタブ名と同じキー（tabs.records）をひくので、その関係は保たれている。

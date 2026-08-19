@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
@@ -34,6 +34,7 @@ import { useRecordCount } from '@/db/useRecords';
 import { useTagList } from '@/db/useTags';
 import {
   backupLabel,
+  browserOpenFailedMessage,
   csvExportLabel,
   dataSectionTitle,
   defaultRecordKindLabel,
@@ -45,10 +46,13 @@ import {
   presetCountLabel,
   presetSectionNote,
   presetSectionTitle,
+  privacyLinkLabel,
   recordCountLabel,
   recordSettingsSectionTitle,
   replayTutorialLabel,
   settingsTabLabel,
+  supportLinkLabel,
+  supportSectionNote,
   tagCardEmptyLabel,
   tagLabel,
   tagSectionNote,
@@ -77,6 +81,16 @@ const DevSeedCard: ComponentType<{ onChanged: () => void }> | null = __DEV__
   ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import では本番ビルドから落とせない（上記）
     (require('@/dev/DevSeedCard') as typeof import('@/dev/DevSeedCard')).DevSeedCard
   : null;
+
+/**
+ * サポートとプライバシーポリシーの公開先（GitHub Pages。`docs/` をそのまま配信している）。
+ *
+ * **アプリの中に埋め込まず、外のページに置く。** どちらも文面を直す頻度が
+ * アプリの更新より高く、審査を待たずに直せる場所に無いと意味がない ──
+ * 特にプライバシーポリシーは、ストアの掲載情報からも同じ URL を指す。
+ */
+const SUPPORT_URL = 'https://hisakawaserai-svg.github.io/Profit-Calculator-App-RN/support.html';
+const PRIVACY_URL = 'https://hisakawaserai-svg.github.io/Profit-Calculator-App-RN/privacy.html';
 
 /**
  * 設定タブのカードに並べる色の点（SPEC-V4 §2.1）。一覧のチップの点（6px）より大きくするのは、
@@ -113,6 +127,27 @@ export default function SettingsScreen() {
    * タグも書き換えない、という前提で組まれているため（useRecordCount のコメント）。
    * その前提を破るのは開発用のカードだけなので、そこからだけ明示的に呼ぶ。
    */
+  /**
+   * 外部のページを**端末の既定のブラウザ**で開く。
+   *
+   * アプリ内ブラウザ（expo-web-browser）にはしない ── サポートのページからは
+   * メールや他のサイトへ辿ることになるので、戻る先が「アプリの中の閲覧画面」だと
+   * 行き止まりになる。`Linking.openURL` は OS に渡すだけなので、
+   * 利用者がいつも使っているブラウザで開く。
+   *
+   * **失敗しても画面は変えない。** 開けない理由は端末側（既定のブラウザが無効、
+   * URL を扱えるアプリが無い）で、こちらから直せるものではないので、
+   * 言えるのは「開けなかった」までにする。
+   */
+  const openExternal = useCallback(
+    (url: string) => {
+      void Linking.openURL(url).catch(() => {
+        Alert.alert(browserOpenFailedMessage(locale));
+      });
+    },
+    [locale],
+  );
+
   const refreshData = useCallback(() => {
     sitePresets.refresh();
     shippingPresets.refresh();
@@ -160,6 +195,35 @@ export default function SettingsScreen() {
             <Text style={[styles.label, { color: colors.label }]}>{replayTutorialLabel(locale)}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </Pressable>
+        </View>
+
+        {/* 外部のページ 2 行。**「使いかた」のすぐ下に置く** ── どちらも
+            「アプリの中の説明で足りなかった人が次に行く先」で、下の群（記録の既定値・
+            データ）とは用が違う。行の作りは「データ」群と同じ 2 行のカードだが、
+            **右の印だけが違う**（`chevron-forward` ではなく `open-outline`）──
+            押した先が画面の遷移ではなくアプリの外だ、と押す前に分かるようにする。
+            アイコンは読み上げでは拾えないので、同じことを下の注記でも言う */}
+        <View style={styles.section}>
+          <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
+            <Pressable
+              onPress={() => openExternal(SUPPORT_URL)}
+              style={styles.row}
+              accessibilityRole="link">
+              <Text style={[styles.label, { color: colors.label }]}>{supportLinkLabel(locale)}</Text>
+              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
+            </Pressable>
+            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+            <Pressable
+              onPress={() => openExternal(PRIVACY_URL)}
+              style={styles.row}
+              accessibilityRole="link">
+              <Text style={[styles.label, { color: colors.label }]}>{privacyLinkLabel(locale)}</Text>
+              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
+            </Pressable>
+          </View>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {supportSectionNote(locale)}
+          </Text>
         </View>
 
         {/* 表示言語（3 択）。**「記録の既定値」より上に置く** ── 下の群の見出しごと

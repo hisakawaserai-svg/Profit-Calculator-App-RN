@@ -1422,6 +1422,12 @@ export const en: Translations = {
     replayTutorial: {
       label: 'Watch the Tutorial Again',
     },
+    support: {
+      label: 'Support',
+      privacy: 'Privacy Policy',
+      note: 'Both open in your device’s browser.',
+      openFailed: 'Could not open the browser.',
+    },
     language: {
       title: 'Language',
       system: 'System',
