@@ -1,10 +1,10 @@
-"""うりつみ アプリアイコン生成スクリプト(これが唯一の正)。
+"""うりつみ アプリアイコン + スプラッシュ生成スクリプト(これが唯一の正)。
 
-アイコンを調整するときはこのファイルだけを編集する。
+アイコンとスプラッシュを調整するときはこのファイルだけを編集する。
 過去の案出しスクリプトは archive/ に置いてあるが、参照専用。
 
-    python3 gen_uritsumi_icon.py            # プレビューを out/ に生成
-    python3 gen_uritsumi_icon.py --install  # app-rn/assets/images/ へ書き出し
+    python3 gen_uritsumi_assets.py            # プレビューを out/ に生成
+    python3 gen_uritsumi_assets.py --install  # app-rn/assets/images/ へ書き出し
 
 ── 確定仕様 ──────────────────────────────────────────
 前景 : 金貨を運ぶシマエナガ。造形と色は app-rn/src/components/onboarding/
@@ -21,6 +21,20 @@ Android は前景が円やスクワークルで切り抜かれる。108dp のう
 円だけが全マスクで確実に残るため、前景は透過 PNG にしたうえでその円に
 収まるまで縮小する。縮小率は絵の実際の広がりから毎回計算するので、
 デザインを変えても安全側に追従する(前作の ADAPTIVE_SCENE=0.66 相当の役割)。
+
+── スプラッシュ ──────────────────────────────────────
+expo-splash-screen は「単色の背景 + 中央に置いた imageWidth 幅の画像」しか
+作れない。そこで画像はアイコンの背景を焼き込まず、絵だけの透過 PNG にする。
+こうすると背景色は app.json の backgroundColor 一本で決まり、画像の背景色と
+ズレて絵の外周に帯が出る事故が原理的に起きない。
+
+背景はアイコンのグラデーションを単色に潰した SPLASH_BG_COLOR
+(= ANDROID_BG_COLOR)。アイコンと地続きに見せるための同じ色。
+
+Android 12 以降のスプラッシュはロゴを 288dp のキャンバスに置いたうえで
+直径 192dp の円で切り抜く。絵がこの円をはみ出さない imageWidth の上限を
+splash_max_image_width() が実際の絵の広がりから計算する。app.json に書いた値を
+SPLASH_IMAGE_WIDTH にも控えてあり、上限を超えていたら実行時に落ちる。
 """
 import argparse
 import math
@@ -57,6 +71,22 @@ ANDROID_BG_COLOR = '#47517A'
 ADAPTIVE_SAFE_R = (66.0 / 108.0) / 2.0
 # 円マスク(72dp)の半径。ここを超えると円形ランチャーで欠ける。
 ADAPTIVE_MASK_R = (72.0 / 108.0) / 2.0
+
+# ── スプラッシュ ──────────────────────────────────────
+# 背景はアイコンと同じ単色。ここを app.json の
+# plugins["expo-splash-screen"].backgroundColor と一致させる。
+SPLASH_BG_COLOR = ANDROID_BG_COLOR
+
+# app.json に書いてある imageWidth(dp / pt)。検査のためにこちらにも持つ。
+# 上限ぎりぎりにはしない。円マスクの大きさは Android の規定どおりでない端末が
+# ありうるので、少し余らせておく。
+SPLASH_IMAGE_WIDTH = 140
+
+# 絵が正方形キャンバスを占める割合。1.0 だと端が切り立って見えるので少し余らせる。
+SPLASH_FILL = 0.94
+
+# Android 12+ のスプラッシュ: 288dp のキャンバスに置いて直径 192dp の円で抜く。
+SPLASH_ANDROID_MASK_DP = 192.0
 
 # 鳥の 100 基準 → アイコン配置(その場で縮小して右下へ)
 _scale = 0.78
@@ -306,6 +336,37 @@ def render_adaptive_background(theme=DEFAULT_THEME, size=OUT):
     return img.resize((size, size), Image.LANCZOS).convert('RGB')
 
 
+def render_splash_logo(size=OUT, fill=SPLASH_FILL):
+    """スプラッシュ用の透過ロゴ。
+
+    アイコンは絵を右下に寄せて正方形いっぱいに使うが、スプラッシュでは画面の
+    中央に単体で置かれる。そのままだと重心がずれて見えるので、絵の外接矩形を
+    取り直して正方形の中央に置き、まわりは透過のままにする。
+    """
+    art = render(size=OUT * 2, background=False)
+    box = art.getbbox()
+    if box is not None:
+        art = art.crop(box)
+
+    inner = max(1, int(round(size * fill)))
+    k = inner / max(art.size)
+    art = art.resize((max(1, round(art.width * k)), max(1, round(art.height * k))),
+                     Image.LANCZOS)
+
+    out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    out.paste(art, ((size - art.width) // 2, (size - art.height) // 2))
+    return out
+
+
+def splash_max_image_width():
+    """Android の円マスクに収まる imageWidth の上限(dp)。
+
+    円の半径 96dp に対し、ロゴの絵は中心から imageWidth * content_radius だけ
+    広がる。等号が成り立つ imageWidth が上限。
+    """
+    return (SPLASH_ANDROID_MASK_DP / 2.0) / content_radius(render_splash_logo())
+
+
 # ── 検証 ──────────────────────────────────────────────
 
 def mask_preview(size=512):
@@ -339,6 +400,50 @@ def mask_preview(size=512):
     return sheet
 
 
+def splash_preview(image_width=SPLASH_IMAGE_WIDTH):
+    """縦長端末でスプラッシュが破綻しないかを目視するための並び画像。
+
+    左から iPhone・大きめの Android・小さめの Android、いちばん右は Android 12+
+    の円マスク(288dp キャンバスを直径 192dp で抜いたところ)。
+    """
+    logo = render_splash_logo(OUT)
+
+    def phone(w, h):
+        img = Image.new('RGB', (w, h), SPLASH_BG_COLOR)
+        n = min(image_width, w, h)
+        small = logo.resize((n, n), Image.LANCZOS)
+        img.paste(small, ((w - n) // 2, (h - n) // 2), small)
+        return img
+
+    def android_mask():
+        c = 288
+        img = Image.new('RGB', (c, c), SPLASH_BG_COLOR)
+        n = min(image_width, c)
+        small = logo.resize((n, n), Image.LANCZOS)
+        img.paste(small, ((c - n) // 2, (c - n) // 2), small)
+        m = Image.new('L', (c, c), 0)
+        r = SPLASH_ANDROID_MASK_DP / 2.0
+        ImageDraw.Draw(m).ellipse([c / 2 - r, c / 2 - r, c / 2 + r, c / 2 + r], fill=255)
+        out = Image.new('RGB', (c, c), '#FFFFFF')
+        out.paste(img, (0, 0), m)
+        return out
+
+    tiles = [phone(402, 874),      # iPhone 16 Pro
+             phone(412, 915),      # Pixel 8 相当
+             phone(360, 800),      # 小さめの Android
+             android_mask()]
+
+    pad = 16
+    w = sum(t.width for t in tiles) + pad * (len(tiles) + 1)
+    h = max(t.height for t in tiles) + pad * 2
+    sheet = Image.new('RGB', (w, h), '#FFFFFF')
+    x = pad
+    for t in tiles:
+        sheet.paste(t, (x, pad))
+        x += t.width + pad
+    return sheet
+
+
 # ── 書き出し ──────────────────────────────────────────
 
 def main():
@@ -353,12 +458,21 @@ def main():
           f'(絵の広がり {content_radius(render(size=OUT, background=False)):.3f} → '
           f'安全円 {ADAPTIVE_SAFE_R:.3f})')
 
+    limit = splash_max_image_width()
+    print(f'splash imageWidth = {SPLASH_IMAGE_WIDTH} '
+          f'(Android の円マスクに収まる上限 {limit:.0f}dp)')
+    if SPLASH_IMAGE_WIDTH > limit:
+        raise SystemExit(
+            f'SPLASH_IMAGE_WIDTH={SPLASH_IMAGE_WIDTH} は上限 {limit:.0f}dp を超えている。'
+            'Android のスプラッシュで絵が円に欠ける。')
+
     outdir = os.path.join(HERE, 'out')
     os.makedirs(outdir, exist_ok=True)
     render(args.theme, 1024).save(os.path.join(outdir, f'preview_{args.theme}_1024.png'))
     render(args.theme, 60).save(os.path.join(outdir, f'preview_{args.theme}_60.png'))
     render_adaptive_foreground(1024, k).save(os.path.join(outdir, 'preview_adaptive_fg.png'))
     mask_preview().save(os.path.join(outdir, 'preview_android_masks.png'))
+    splash_preview().save(os.path.join(outdir, 'preview_splash.png'))
     print('preview →', outdir)
 
     if args.install:
@@ -366,12 +480,16 @@ def main():
         icon = os.path.join(ASSETS, 'icon.png')
         fg = os.path.join(ASSETS, 'android-icon-foreground.png')
         bg = os.path.join(ASSETS, 'android-icon-background.png')
+        splash = os.path.join(ASSETS, 'splash-icon.png')
         render(args.theme, 1024).save(icon)
         render_adaptive_foreground(1024, k).save(fg)
         render_adaptive_background(args.theme, 1024).save(bg)
-        for p_ in (icon, fg, bg):
+        render_splash_logo(1024).save(splash)
+        for p_ in (icon, fg, bg, splash):
             print('install →', p_)
-        print(f'backgroundColor(背景画像が使えない場合の下地): {ANDROID_BG_COLOR}')
+        print(f'adaptiveIcon.backgroundColor(背景画像が使えない場合の下地): '
+              f'{ANDROID_BG_COLOR}')
+        print(f'splash backgroundColor: {SPLASH_BG_COLOR}')
 
 
 if __name__ == '__main__':
