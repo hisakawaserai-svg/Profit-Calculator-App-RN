@@ -198,16 +198,24 @@ export function RecordListScreen() {
   const appliedFilter = effectiveFilter(recordFilter, isSoldMode);
   const filterCount = activeFilterCount(appliedFilter);
   /**
-   * 「＋ 記録する」の上で寝ているマスコットを出すか。**記録が 1 件も無いときだけ。**
+   * いま見ている状態（売れた記録 / 出品中）に記録が 1 件でもあるか。
    *
-   * monthsWithRecords は絞り込みも期間も状態も見ずに引いている（useRecords.ts）ので、
-   * 空＝この端末に記録が 1 件も無い。絞り込み・検索の 0 件では出さない（寝顔と意味が合わない）。
+   * earliestMonthKey は**期間と検索を外し、状態は効かせた**まま引いた最古の月
+   * （useRecords.ts）なので、null＝その状態には 1 件も無い。**端末全体ではなく
+   * 状態ごとに見る**のが要点 ── 出品中に 1 件あるだけで「売れた記録」のタブまで
+   * 通常の空表示になると、まだ 1 件も売れていない人にマスコットが出ない。
+   */
+  const hasAnyInMode = earliestMonthKey != null;
+  /**
+   * 「＋ 記録する」の上で寝ているマスコットを出すか。**その状態に 1 件も無いときだけ。**
+   *
+   * 絞り込み・検索の 0 件では出さない（寝顔と意味が合わない）。期間で 0 件のときも
+   * 出さない ── ほかの月には記録があるので「無い」の意味がずれる。
    *
    * 一覧の空表示（ListEmptyComponent）ではなく FAB の隣に置くのは、乗る相手が
    * FAB そのものだから ── 一覧の中に置くと、一覧のスクロール位置に付いていってしまう。
    */
-  const showSleepingMascot =
-    filterCount === 0 && searchText === '' && monthsWithRecords.length === 0;
+  const showSleepingMascot = filterCount === 0 && searchText === '' && !hasAnyInMode;
   // 青い行の件数は**いま一覧に出ている数**（＝検索も効いた後）。文のすぐ下に並ぶのが
   // その一覧だから。シート下部の「この条件に合う記録 N 件」は検索を含めない数で、別物（§4.6）
   const summaryText = filterSummaryText(locale, appliedFilter, tags, records.length);
@@ -393,9 +401,8 @@ export function RecordListScreen() {
                 filtering={filterCount > 0 || searchText !== ''}
                 canClearFilter={filterCount > 0}
                 onClearFilter={clearRecordFilter}
-                // monthsWithRecords は絞り込みも期間も状態も一切見ずに引いている
-                // （useRecords.ts）ので、空＝**この端末に記録が 1 件も無い**
-                hasAnyRecords={monthsWithRecords.length > 0}
+                hasAnyRecords={hasAnyInMode}
+                isSoldMode={isSoldMode}
               />
             }
             ItemSeparatorComponent={() => (
@@ -504,11 +511,14 @@ function ListEmpty({
   canClearFilter,
   onClearFilter,
   hasAnyRecords,
+  isSoldMode,
 }: {
   filtering: boolean;
   canClearFilter: boolean;
   onClearFilter: () => void;
+  /** いま見ている状態（売れた記録 / 出品中）に 1 件でもあるか。端末全体ではない */
   hasAnyRecords: boolean;
+  isSoldMode: boolean;
 }) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -518,12 +528,17 @@ function ListEmpty({
     return (
       <EmptyState
         /*
-         * 見出しは A（まだ 1 件も無い）と B・C（期間・状態で 0 件）で分ける。
+         * 見出しは A（その状態にまだ 1 件も無い）と B（期間で 0 件）で分ける。
          * A の人は月バーを触ったこともないので、「この期間の」と言われても
-         * 何のことか分からない（i18n の list.firstRecordTitle 参照）。
-         * A のときのマスコットは FAB の上に乗せる（showSleepingMascot）。
+         * 何のことか分からない（i18n の list.firstSoldRecordTitle 参照）。
+         * A の語は状態ごとに変える ── 出品中に記録があるのに「記録がありません」と
+         * 出ると、片方にはある事実と食い違う。マスコットは FAB の上に乗せる。
          */
-        title={hasAnyRecords ? noRecordsEmptyTitle(locale) : firstRecordEmptyTitle(locale)}
+        title={
+          hasAnyRecords
+            ? noRecordsEmptyTitle(locale)
+            : firstRecordEmptyTitle(locale, isSoldMode)
+        }
         body={noRecordsEmptyBody(locale)}
       />
     );

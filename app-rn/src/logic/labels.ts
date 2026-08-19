@@ -3190,9 +3190,12 @@ export function noRecordsEmptyBody(locale: Locale): string {
   return t('list.noRecordsBody', locale);
 }
 
-/** まだ 1 件も記録が無いとき（A）。期間の話をしない見出し（list.firstRecordTitle 参照） */
-export function firstRecordEmptyTitle(locale: Locale): string {
-  return t('list.firstRecordTitle', locale);
+/**
+ * その状態にまだ 1 件も記録が無いとき（A）。期間の話をしない見出し。
+ * 売れた記録と出品中で語を分ける理由は i18n の list.firstSoldRecordTitle を参照。
+ */
+export function firstRecordEmptyTitle(locale: Locale, isSoldMode: boolean): string {
+  return t(isSoldMode ? 'list.firstSoldRecordTitle' : 'list.firstListedRecordTitle', locale);
 }
 
 /**
