@@ -70,6 +70,7 @@ import {
   exportSummaryLabel,
 } from '@/logic/labels';
 import type { Period } from '@/logic/period';
+import { usePushOnce } from '@/routes/pushOnce';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
@@ -83,6 +84,8 @@ export function ExportSheet() {
 
   const colors = useThemeColors();
   const router = useRouter();
+  // 全画面プレビューを開く口。`router.push` を直に呼ばない理由は routes/pushOnce.ts
+  const pushOnce = usePushOnce();
 
   const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
   const monthsWithRecords = useMonthsWithRecords();
@@ -230,12 +233,14 @@ export function ExportSheet() {
           </Section>
 
           {/* §5.9 / 案 40a: 実際に書き出される表の先頭 3 行。**0 件のときは出さない**
-              （出す表がない）。押すと全画面（案 40c）が開く */}
+              （出す表がない）。押すと全画面（案 40c）が開く。
+              **`pushOnce` で開く** ── 行き先も表なので、素の `push` だと開いたことに
+              気付かず押し直され、押した回数だけ重なる（routes/pushOnce.ts） */}
           {!empty && (
             <PreviewCard
               table={preview.table}
               onPress={() =>
-                router.push({
+                pushOnce({
                   pathname: '/settings/export-preview',
                   params: toExportParams(kind, effectiveGrouping, period, includeListing),
                 })
@@ -302,8 +307,24 @@ export function ExportSheet() {
  * **「合っているか」**だから ── 列名は 1 行の並びを想像に任せるが、値が 3 行見えれば
  * 日付の形も、空欄になる列も、合算された行も、そのまま目で確かめられる。
  *
- * カード全体が押せる（案 `40c` の全画面への入口）。表は横スクロールするが、
- * **横に動かす操作は始まりで責任を取らない**ので、タップはカードの Pressable に届く。
+ * **押せるのは見出しの行だけ。表そのものは滑らせるだけ**（案 `40c` の全画面への
+ * 入口は見出しの右の `›`）。
+ *
+ * 以前はカード全体が Pressable で、その中に横スクロールの表が入っていた ──
+ * これは**実際の利用者から「横に滑らせにくい」と報告された**。理由は 2 つある:
+ *
+ * - 指を置いた瞬間にカード全体が暗くなる。滑らせたいだけなのに
+ *   「開きます」の合図が出て、スクロールが引き取った時点で戻る
+ * - **短い滑りはスクロールにならず、遷移になる。** Android の
+ *   `ReactHorizontalScrollView` が親の押下を取り消すのは、指の移動が
+ *   タッチスロップ（約 8dp）を超えて native のスクロールが始まったときだけ。
+ *   それ未満の動きでは取り消されない ── `Pressability` の押下判定は
+ *   カードの外側 +20/30dp まで生きているので、カードの中で指を動かしている限り
+ *   離した時点で `onPress` が走る。4 列しか見えていない帯を小刻みに突くと、
+ *   スクロールの代わりに全画面が開き、それが**押した回数だけ画面が重なる**元になる
+ *
+ * アプリの他の横スクロール（実績のバッジ列・タグの凡例・複製元の絞り込み）は
+ * すべて逆向き ── スクローラの**中**に押せるものを置いている。ここだけが逆だった。
  */
 function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void }) {
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
@@ -313,7 +334,15 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
 
   return (
     <View style={styles.section}>
-      <View style={styles.previewHead}>
+      {/* 全画面への入口。**見出しの行が丸ごと押せる**（`previewTitle` が flex で
+          伸びるので、右端の `›` まで幅いっぱいが的になる）。行そのものは薄いので
+          hitSlop で上下にも広げる */}
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={`${exportPreviewCardTitle(locale)}・${exportPreviewOpenLabel(locale)}`}
+        style={({ pressed }) => [styles.previewHead, { opacity: pressed ? 0.6 : 1 }]}>
         <Text style={[styles.sectionLabel, styles.previewTitle, { color: colors.label }]}>
           {exportPreviewCardTitle(locale)}
         </Text>
@@ -321,20 +350,15 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
           {exportPreviewMetaLabel(locale, table.rows.length, table.header.length)}
         </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.secondaryLabel} />
-      </View>
+      </Pressable>
 
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`${exportPreviewCardTitle(locale)}・${exportPreviewOpenLabel(locale)}`}
-        style={({ pressed }) => [
-          styles.previewCard,
-          { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
-        ]}>
+      <View style={[styles.previewCard, { backgroundColor: colors.secondaryBackground }]}>
         <View>
+          {/* **スクロールバーは出す。** 右端のぼかしは触る前の合図（続きがある）だが、
+              触っている間に「どこまで来たか」を言えるのはバーのほう ──
+              端末幅には数列しか入らないので、位置が読めないと端まで見たのか分からない */}
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
             // 端の列が枠に貼り付かないよう、中身の側に余白を持たせる
             contentContainerStyle={styles.previewTable}>
             <View>
@@ -365,7 +389,7 @@ function PreviewCard({ table, onPress }: { table: CsvTable; onPress: () => void 
         <Text style={[styles.previewHint, { color: colors.secondaryLabel }]}>
           {exportPreviewScrollHint(locale)}
         </Text>
-      </Pressable>
+      </View>
     </View>
   );
 }

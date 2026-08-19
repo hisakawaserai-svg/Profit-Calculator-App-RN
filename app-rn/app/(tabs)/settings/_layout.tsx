@@ -41,7 +41,19 @@ export default function SettingsLayout() {
           `<Stack.Screen options>` より先に効いてルート名（`export-preview`）が出てしまう */}
       <Stack.Screen
         name="export-preview"
-        options={{ presentation: 'card', title: exportPreviewScreenTitle(locale) }}
+        options={{
+          presentation: 'card',
+          // **Android では遷移を名指しする。** ここは `modal`（書き出しシート）の上に
+          // `card` を積むが、react-native-screens はどちらも同じ全画面フラグメントとして
+          // 出すので（`ScreenViewManager.setStackPresentation`）、iOS のような
+          // 「下から迫り上がる／右から滑り込む」の差が付かない。そのうえ既定の遷移は
+          // 10% ぶんの横滑り ＋ 83ms のフェード（`rns_default_enter_in`）しかなく、
+          // **表の画面から表の画面へ進むこの経路では開いたことが読めない**
+          // （実際の利用者から「押しても開いたと分からない」と報告された）。
+          // iOS では既定のまま扱われる ── あちらは元から動きで差が付いている。
+          animation: 'slide_from_right',
+          title: exportPreviewScreenTitle(locale),
+        }}
       />
     </Stack>
   );

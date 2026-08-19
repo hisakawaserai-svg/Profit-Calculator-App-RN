@@ -11,7 +11,6 @@
 //   3. 獲得した実績（横スクロールのカード列 + 未解除の一覧）
 //   4. 自己ベスト（6 タイル）
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Pressable,
@@ -73,6 +72,7 @@ import {
   recordCountValue,
   remainingToUnlockText,
 } from '@/logic/labels';
+import { usePushOnce } from '@/routes/pushOnce';
 import { useLocale, type Locale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -323,7 +323,10 @@ export function AchievementsSection({
   const locale = useLocale();
 
   const colors = useThemeColors();
-  const router = useRouter();
+  // **`router.push` を直に呼ばない。** 飛び先の実績一覧も「カードの中の横スクロールの
+  // バッジ列」で、押す前とほとんど同じ見た目 ── 開いたことに気付かず押し直されると
+  // 押した回数だけ画面が重なる（routes/pushOnce.ts。書き出しのプレビューと同型）
+  const pushOnce = usePushOnce();
   // 「獲得した実績」の並びは達成日の新しい順（直近が先頭）に統一する。
   // 全画面詳細モーダルのスワイプ順もこの並びをそのまま渡す（下の detailIndex は
   // このソート後の配列内の位置）
@@ -483,7 +486,7 @@ export function AchievementsSection({
                 )}
               </Text>
               <Pressable
-                onPress={() => router.push(ACHIEVEMENT_LIST_PATHNAME)}
+                onPress={() => pushOnce(ACHIEVEMENT_LIST_PATHNAME)}
                 hitSlop={8}
                 accessibilityRole="button"
               >
