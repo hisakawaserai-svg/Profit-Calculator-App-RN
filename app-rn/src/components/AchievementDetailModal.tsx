@@ -48,7 +48,7 @@ import {
   TIER_COLORS,
   type TagLookup,
 } from '@/components/AchievementsSection';
-import { AchievementTierMotif } from '@/components/AchievementTierMotif';
+import { AchievementTierMotif, tierMotifHeight } from '@/components/AchievementTierMotif';
 import { TagChip } from '@/components/TagChip';
 import {
   achievementBadgeTier,
@@ -105,16 +105,6 @@ const TIER_BORDER_WIDTHS: Record<AchievementDifficulty, number> = {
 const TIER_STAR_SIZE = 15;
 
 /**
- * 星の枠の下端を、**円の内側の下端から内半径の何割ぶん上げるか**。
- *
- * 円の中に横長のものを置くので、下へ行くほど収まる幅が狭くなる（弦の長さは
- * 中心から y 離れた高さで 2√(r²-y²)）。下端を 0.81r の高さに置くと使える幅は
- * 約 1.17r で、いちばん厳しい ★4（内半径 83・枠 約 86px）でも 97px 取れて収まる。
- * これより下げると ★4・★5 が円からはみ出し、上げるとアイコンに近づきすぎる。
- */
-const TIER_STARS_BOTTOM_RATIO = 0.19;
-
-/**
  * ★5 レジェンドの全画面表示用リング寸法（AchievementsSection.LegendTierRing に渡す）。
  *
  * ★1〜★4 は TIER_COLORS の単色・一重の borderColor（TIER_BORDER_WIDTHS の太さ）のままだが、
@@ -127,6 +117,16 @@ const LEGEND_RING_GEOMETRY = {
   ringWidth: 4,
   goldWidth: 2,
 };
+
+/**
+ * ★5 レジェンドの「縁」の厚み。★1〜★4 の borderWidth にあたるもので、
+ * バッジの外側へ広がる片側ぶん（白い隙間 → リング → 金 → リング）。
+ * 星の枠を縁の帯の中心に合わせるのに使う（LEGEND_RING_GEOMETRY から導出）。
+ */
+const LEGEND_RIM_THICKNESS =
+  LEGEND_RING_GEOMETRY.insetGap +
+  LEGEND_RING_GEOMETRY.ringWidth * 2 +
+  LEGEND_RING_GEOMETRY.goldWidth;
 
 type Props = {
   /** 達成済み・未達成どちらも渡せる（未達成は進捗バー表示になる。上のコメント参照） */
@@ -757,14 +757,16 @@ function DecoratedBadge({
   decorated: boolean;
 }) {
   const size = BADGE_BASE_SIZE + difficulty * BADGE_SIZE_STEP;
+  const borderWidth = decorated ? TIER_BORDER_WIDTHS[difficulty] : 0;
+  // ★5 は縁取りを LegendTierRing（二重リング + 金のライン + 白い隙間）で表現するので、
+  // 円本体には borderWidth を持たせない
+  const isLegendRing = decorated && difficulty === 5;
+  // 段位の星を載せる「下の縁」の厚み。★5 だけはリングがその役目を持つ
+  const rimThickness = isLegendRing ? LEGEND_RIM_THICKNESS : borderWidth;
 
   return (
     <View style={styles.badgeOverlay}>
       {(() => {
-        const borderWidth = decorated ? TIER_BORDER_WIDTHS[difficulty] : 0;
-        // ★5 は縁取りを LegendTierRing（二重リング + 金のライン + 白い隙間）で表現するので、
-        // 円本体には borderWidth を持たせない
-        const isLegendRing = decorated && difficulty === 5;
         const circle = (
           <View
             style={[
@@ -795,22 +797,6 @@ function DecoratedBadge({
               size={26 + difficulty * 4}
               color="#FFFFFF"
             />
-
-            {decorated && (
-              // 段位は星の数（ブロンズ=1 … レジェンド=5）。**円の内側の下部に重ねて置く。**
-              // 円の地色の上に乗るので、枠の中は白（AchievementTierMotif）にして、
-              // 実績の種類（緑・青・橙…）に関わらず段位色が同じ地の上に来るようにする。
-              // 下端の位置は内半径から決める（TIER_STARS_BOTTOM_RATIO）── 段位ごとに
-              // 円の直径も縁の太さも違うので、固定値だと大きい段位ではみ出す
-              <AchievementTierMotif
-                difficulty={difficulty}
-                starSize={TIER_STAR_SIZE}
-                style={[
-                  styles.tierStars,
-                  { bottom: (size / 2 - borderWidth) * TIER_STARS_BOTTOM_RATIO },
-                ]}
-              />
-            )}
           </View>
         );
 
@@ -842,6 +828,23 @@ function DecoratedBadge({
           </View>
         );
       })()}
+
+      {decorated && (
+        // 段位は星の数（ブロンズ=1 … レジェンド=5）。**下の縁の一部として、縁に嵌める。**
+        // 縁の帯の中心と枠の中心を合わせるので、段位ごとに縁の太さ（★5 はリング）が
+        // 変わっても「縁に嵌まっている」見え方は変わらない。
+        //
+        // 円の**外**に置くのは badgeCircle が overflow: 'hidden' だから ── 中に入れると
+        // 縁からはみ出す下半分が切り落とされ、縁に載っているように見えない
+        <AchievementTierMotif
+          difficulty={difficulty}
+          starSize={TIER_STAR_SIZE}
+          style={[
+            styles.tierStars,
+            { bottom: rimThickness / 2 - tierMotifHeight(TIER_STAR_SIZE) / 2 },
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -937,8 +940,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 段位の星は円の内側の下部に重ねる。bottom は円の内半径から呼び出し側が計算して渡す
-  // （badgeCircle は overflow: 'hidden' なので、万一はみ出しても円の外へは出ない）
+  // 段位の星は下の縁に嵌める。bottom は縁の太さから呼び出し側が計算して渡す
+  // （縁より下へはみ出すぶんは badgeStage の余白が吸収する）
   tierStars: {
     position: 'absolute',
   },

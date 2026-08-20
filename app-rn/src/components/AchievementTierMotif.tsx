@@ -7,9 +7,9 @@
 // はずが、3 段目までと 4 段目からで別の記号体系に見える。星に統一して、
 // 数だけが増えていく形にする。
 //
-// **円の内側の下部に重ねて置く**（位置は呼び出し側＝ DecoratedBadge が決める）。
-// バッジの一部として円の中に収まるので、円の直径・縁の太さが段位ごとに変わっても
-// はみ出さないよう、呼び出し側が円の半径から下端の位置を決めている。
+// **円の下の縁の一部として、縁の上に載せて置く**（位置は呼び出し側＝ DecoratedBadge が
+// 縁の太さから決める）。縁の帯の中心に枠の中心を合わせるので、段位ごとに縁の太さ
+// （★5 はリング）が変わっても、常に「縁に嵌まっている」見え方になる。
 //
 // 星の色は段位色（PALETTE）。バッジ本体・リングの色分け（実績の種類。categoryColor）とは
 // 独立した軸で、「金属・宝石で作られた装飾品」に見せるため light/base/dark の 3 段で
@@ -18,10 +18,10 @@
 // **星の並びは段位色の枠で囲み、白い地の上に置く。** 枠があると、離れて並ぶ星が
 // 「1 つのまとまり ＝ この実績の段位」として読める。
 //
-// 地を白で固定するのは、**円の中では背景が実績の種類の色（categoryColor）になる**ため ──
-// 緑・青・橙…と地の色が実績ごとに変わるので、その上に段位色を直接置くと、
-// 実績によって星の読みやすさが変わってしまう。白を挟めば段位色は常に同じ地の上に乗る。
-// テーマで白のままにするのも同じ理由（明暗で円の地色は変わらない）。
+// 地を白で固定するのは、**枠が縁・円の地色（categoryColor）・カード地の 3 つに
+// またがって載る**ため ── 下敷きが 3 色に割れている上へ段位色を直接置くと、
+// 同じ星でも乗っている場所で読みやすさが変わる。白を挟めば段位色は常に同じ地の上に来る。
+// テーマで白のままにするのも同じ理由（明暗で縁と円の地色は変わらない）。
 // LegendTierRing がリングとバッジの間に白い隙間を固定で置いているのと同じ考え方。
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
@@ -76,6 +76,14 @@ const FRAME_PADDING_V = 5;
 /** 枠の地。**テーマに関わらず白で固定**（上のコメント参照） */
 const FRAME_BACKGROUND = '#FFFFFF';
 
+/**
+ * 枠こみの高さ。呼び出し側が「縁の帯の中心に枠の中心を合わせる」位置を出すのに使う ──
+ * 余白と線の厚みはこのファイルの持ち物なので、呼び出し側で足し直させない。
+ */
+export function tierMotifHeight(starSize: number): number {
+  return starSize + (FRAME_PADDING_V + FRAME_BORDER_WIDTH) * 2;
+}
+
 export function AchievementTierMotif({
   difficulty,
   starSize,
@@ -84,7 +92,7 @@ export function AchievementTierMotif({
   difficulty: AchievementDifficulty;
   /** 星 1 つの高さ（px）。幅は星の数に応じて自動で決まる */
   starSize: number;
-  /** 円の中での位置は呼び出し側が決める（DecoratedBadge が円の半径から算出する） */
+  /** 縁の上での位置は呼び出し側が決める（DecoratedBadge が縁の太さから算出する） */
   style?: StyleProp<ViewStyle>;
 }) {
   const palette = PALETTE[difficulty];
