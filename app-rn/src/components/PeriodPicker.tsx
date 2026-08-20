@@ -138,7 +138,13 @@ export function PeriodPicker({
           },
         ]}>
         {/* 見出し: ‹ 2026年 ›。年の文字が「その年 1 年分」のボタン、
-            左右の矢印が前年・翌年（§1.2・案 39b） */}
+            左右の矢印が前年・翌年（§1.2・案 39b）。
+
+            **年は枠で囲う。** 青い文字・押した瞬間の 0.6・カード下の注記だけでは
+            「押せる」が伝わらなかった（実機の指摘）── すぐ下に 44pt の矩形が 12 個
+            並んでいるので、枠のない年は月と較べて「ただの見出し」に読める。
+            枠は月のマスと同じ角丸 10 で、選択中は同じ薄い青地（highlightBackground）。
+            クイック選択（QuickButton）の選択中とも同じ見え方になる */}
         <View style={styles.cardHeader}>
           <YearArrow
             name="chevron-back"
@@ -147,7 +153,15 @@ export function PeriodPicker({
             accessibilityLabel={previousYearLabel(locale)}
           />
           <Pressable
-            style={({ pressed }) => [styles.yearButton, { opacity: pressed ? 0.6 : 1 }]}
+            style={({ pressed }) => [
+              styles.yearButton,
+              {
+                borderColor: colors.blue,
+                // 未選択のときはカードの地色を透かす（枠だけが見える）
+                backgroundColor: yearSelected ? colors.highlightBackground : 'transparent',
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}
             onPress={() => onSelect(yearPeriod(block.year))}
             accessibilityRole="button"
             accessibilityState={{ selected: yearSelected }}
@@ -368,10 +382,16 @@ const styles = StyleSheet.create({
   yearArrow: {
     padding: 6,
   },
+  // 月のマスと同じ語彙（角丸 10 の矩形）。**flex: 1 にしない** ── 伸ばすと枠が
+  // 左右の ‹ › に届くほどの帯になり、囲っているのが「年」ではなく行全体に見える。
+  // 文字幅に寄せて、余った幅は space-between が矢印との間隔として配る
   yearButton: {
-    flex: 1,
+    alignSelf: 'center',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 10,
   },
   yearTitle: {
     fontSize: 17,
