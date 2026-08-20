@@ -1,10 +1,19 @@
-// 空表示（UI-SPEC §1.2-6）。見出し＋本文＋（絞り込み中のみ）解除リンク。
+// 空表示（UI-SPEC §1.2-6）。（絵）＋見出し＋本文＋（絞り込み中のみ）解除リンク。
 // 文言は状況ごとに違うので呼び出し側から渡す（この部品は並べ方だけを持つ）。
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/theme';
 
 type Props = {
+  /**
+   * 見出しの上に置く絵（省略すると出ない）。
+   *
+   * **中身には触らない。** 読み上げから外すかどうかも含めて、呼び出し側が包んだものを
+   * そのまま置く ── この部品が持つのは並べ方だけという作りを崩さないため。
+   * 位置決めも container の gap 任せで、絵があるときだけ余白を変えることはしない。
+   */
+  illustration?: ReactNode;
   title: string;
   /**
    * 見出しの下の説明。**省略すると出ない** ── 絞り込みの空表示（SPEC-V4 §4.8 / 決定 §9-13）は
@@ -16,11 +25,12 @@ type Props = {
   onPressAction?: () => void;
 };
 
-export function EmptyState({ title, body, actionLabel, onPressAction }: Props) {
+export function EmptyState({ illustration, title, body, actionLabel, onPressAction }: Props) {
   const colors = useThemeColors();
 
   return (
     <View style={styles.container}>
+      {illustration}
       <Text style={[styles.title, { color: colors.label }]}>{title}</Text>
       {body != null && (
         <Text style={[styles.body, { color: colors.secondaryLabel }]}>{body}</Text>

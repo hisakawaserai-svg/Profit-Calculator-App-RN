@@ -15,8 +15,11 @@
  *
  *   variant='day'   : 背景に水色丸＋太陽
  *   variant='night' : 背景に紺色丸＋月＋星
- *   variant='sleep' : 背景に藤色丸＋淡い月＋Z
+ *   variant='sleep' : 背景に藤色丸＋淡い月
  *   キャラ本体（白い体・目・くちばし・翼/尾）は共通。
+ *
+ * **variant は配色、expression は表情**（MascotExpression）で、2 つは直交している。
+ * 表情を渡さなければ variant から取るので、既存の呼び出しは書き換えなくても同じ顔になる。
  */
 import Animated, {
   useAnimatedProps,
@@ -57,7 +60,69 @@ const SLEEP_ZS = [
   { d: zPath(2.5, 5, 8.5), strokeWidth: 2.1 },
 ] as const;
 
+/**
+ * 「?」1 つぶん。左上 (x, y) から幅 size の疑問符（点まで含めた高さは size の約 1.25 倍）。
+ *
+ * **Z と同じ作法で、線で描いた図形にする**（文字にしない）── 文字にすると翻訳の対象になり、
+ * フォントによって形が変わる。上の鉤は 3 つの二次ベジェ、軸は直線、点は
+ * **長さのごく短い別サブパス**（strokeLinecap="round" が丸い点にしてくれる）。
+ * 長さ 0 にしないのは、0 のサブパスを描かない実装があるため。
+ */
+function questionPath(x: number, y: number, size: number): string {
+  const cx = x + size / 2;
+  const right = x + size;
+  return [
+    // 鉤: 左中ほどから上へ → 右へ回り込み → 内側へ下りて軸の頭へ
+    `M${x} ${y + size * 0.3}`,
+    `Q${x} ${y} ${cx} ${y}`,
+    `Q${right} ${y} ${right} ${y + size * 0.35}`,
+    `Q${right} ${y + size * 0.63} ${cx} ${y + size * 0.8}`,
+    // 軸
+    `L${cx} ${y + size}`,
+    // 点（丸いキャップがそのまま点になる）
+    `M${cx} ${y + size * 1.23} L${cx} ${y + size * 1.25}`,
+  ].join(' ');
+}
+
+/**
+ * 探しているときの「?」。体の左上、Z と同じ側に 1 つだけ浮かべる。
+ *
+ * **1 つだけ。** Z は「息が続いている」ことを表すので数が要ったが、こちらは
+ * 「探したが見つからない」の 1 回ぶんなので、増やすと騒がしくなる。
+ *
+ * 体（cx50 cy54 rx29 ry31）は y=24 のあたりでは x=43〜57 しか占めないので、
+ * ここに置いた「?」は体に重ならない。viewBox（0〜100）にも線幅ごと収まっている。
+ */
+const SEARCH_QUESTION = { d: questionPath(11, 7, 14), strokeWidth: 2.4 } as const;
+
+/**
+ * 困り眉（左右）。目（cx42 / cx58, cy48, r3）の上に置く。色は目と同じ。
+ *
+ * **内側の端を上げ、外側の端を下げる**（左右で `╱ ╲`）── 逆にすると怒り眉になる。
+ *
+ * **ほぼ直線にする。** 弧を強く付けると、傾きより丸みの方が先に目に入って
+ * 「驚いた眉（⌒⌒）」に読める（最初に 3 点の弧で描いて実機で読み違えた）。
+ * 制御点は弦のほぼ上に置き、線を引いた手の揺れぶんだけ膨らませる。
+ */
+const WORRIED_BROWS = ['M36 44.6 Q41 42.4 46.5 39.8', 'M64 44.6 Q59 42.4 53.5 39.8'] as const;
+
 const AnimatedG = Animated.createAnimatedComponent(G);
+
+/**
+ * 表情（キャラの状態）。**variant（配色）とは直交させてある。**
+ *
+ * variant が持っているのは「昼/夜/眠りのシーンの色」だけで、顔そのものではない。
+ * 分けておかないと「夜の配色で探している顔」が作れず、配色を変えるたびに顔が
+ * 付いてくる ── 実際、記録タブの空表示は**背景の丸を出さない**ので、
+ * variant はもう色として何も描いていないのに顔だけがそれに縛られていた。
+ *
+ *   awake     … 開いた目（既定。variant が sleep 以外のときの姿）
+ *   sleep     … 閉じた目 ＋ 寝息の Z（variant='sleep' の既定）
+ *   searching … 開いた目 ＋ 困り眉 ＋「?」。**探したが見つからなかった**状態。
+ *               寝顔を絞り込みの 0 件に流用できないのはここ ── 眠っているのと
+ *               探して見つからないのとでは、利用者に言っていることが違う
+ */
+export type MascotExpression = 'awake' | 'sleep' | 'searching';
 
 interface Props {
   variant: 'day' | 'night' | 'sleep';
@@ -75,12 +140,18 @@ interface Props {
    */
   showScene?: boolean;
   /**
-   * 目を閉じるか。既定は variant==='sleep' のとき閉じる。
+   * 表情（MascotExpression）。**既定は variant から取る**（sleep なら 'sleep'、他は 'awake'）
+   * ので、渡さなければ従来どおりの顔になる。eyesClosed / showZ が variant から
+   * 既定値を取るのと同じ作法で、この 1 本がその 2 つの既定値の出どころになる。
+   */
+  expression?: MascotExpression;
+  /**
+   * 目を閉じるか。既定は表情が 'sleep' のとき閉じる。
    * 配色（variant）を変えずに「起きる」だけを表現したい時に明示指定する。
    */
   eyesClosed?: boolean;
   /**
-   * 寝息の Z を描くか。既定は variant==='sleep' のとき描く。
+   * 寝息の Z を描くか。既定は表情が 'sleep' のとき描く。
    *
    * **showScene とは独立させてある。** 背景の丸は「昼/夜/眠りのシーン」を表す飾りで、
    * Z は「寝ている」というキャラの状態そのもの ── 背景を消したいだけのときに
@@ -97,6 +168,22 @@ interface Props {
    * （この部品が theme 非依存である理由は冒頭コメント）。
    */
   zColor?: string;
+  /**
+   * 「?」を描くか。既定は表情が 'searching' のとき描く（showZ とまったく同じ作法）。
+   *
+   * **困り眉には同じ口を用意していない。** 眉は目・くちばしと同じ「顔の部品」で、
+   * 表情から切り離して単独で出したい場面が思いつかない ── eyesClosed に上書きが
+   * あるのは「配色は眠りのまま起こす」という実際の用途があったからで、
+   * 用途のない上書きを先に生やすと、あとで表情の意味がどこにあるのか分からなくなる。
+   */
+  showQuestion?: boolean;
+  /**
+   * 「?」の色。既定は白（zColor と同じ理由・同じ既定）。
+   *
+   * **背景の丸を出さないときは呼び出し側が指定すること。** 「?」は体の外に浮かぶので、
+   * 白のままだと明色の地に融ける。地の色を知っているのは呼び出し側。
+   */
+  questionColor?: string;
 }
 
 export function BirdMascot({
@@ -104,15 +191,22 @@ export function BirdMascot({
   size = 120,
   wingAngle,
   showScene = true,
+  expression,
   eyesClosed,
   showZ,
   zColor = '#FFFFFF',
+  showQuestion,
+  questionColor = '#FFFFFF',
 }: Props) {
   const isDay = variant === 'day';
   const isNight = variant === 'night';
   const isSleep = variant === 'sleep';
-  const closed = eyesClosed ?? isSleep;
-  const drawZ = showZ ?? isSleep;
+  // 表情を渡されなければ variant から取る（渡さない呼び出しは従来と同じ顔になる）
+  const face = expression ?? (isSleep ? 'sleep' : 'awake');
+  const closed = eyesClosed ?? face === 'sleep';
+  const drawZ = showZ ?? face === 'sleep';
+  const drawQuestion = showQuestion ?? face === 'searching';
+  const drawBrows = face === 'searching';
   // wingAngle 未指定なら常に 0＝無回転。Hook は条件分岐せず常に呼ぶ。
   // 受け取る角度は移植元に合わせてラジアン。react-native-svg の rotation は度なので変換する。
   const wingProps = useAnimatedProps(() => ({
@@ -161,6 +255,19 @@ export function BirdMascot({
             strokeLinejoin="round"
           />
         ))}
+
+      {/* 探しているときの「?」（Z と同じく線で描いた図形。翻訳の対象にならない）。
+          Z と同じ側・同じ描き順に置く ── 同時に出ることはないので場所は取り合わない */}
+      {drawQuestion && (
+        <Path
+          d={SEARCH_QUESTION.d}
+          fill="none"
+          stroke={questionColor}
+          strokeWidth={SEARCH_QUESTION.strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
 
       {/* ─ キャラ本体（共通） ─ */}
       {/* 尾: 体の右下から斜め後方へ長く伸びる（シマエナガの長い尾） */}
@@ -217,6 +324,20 @@ export function BirdMascot({
           <Circle cx={58} cy={48} r={3} fill="#1C1C1E" />
         </>
       )}
+      {/* 困り眉。**目の後に描く**（重なりはしないが、顔の部品は上から順に目 → 眉 → くちばし
+          の順で読めるようにしておく）。色は目と同じ ── 眉だけ別の色にすると描き足した
+          ように浮く。体は明色・暗色とも白なので、この色は theme に関係なく読める */}
+      {drawBrows &&
+        WORRIED_BROWS.map((d) => (
+          <Path
+            key={d}
+            d={d}
+            fill="none"
+            stroke="#1C1C1E"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+        ))}
       {/* 三角くちばし（オレンジ） */}
       <Path
         d={closed ? 'M47 55 L53 55 L50 58 Z' : 'M47 54 L53 54 L50 60 Z'}

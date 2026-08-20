@@ -209,7 +209,8 @@ export function RecordListScreen() {
   /**
    * 「＋ 記録する」の上で寝ているマスコットを出すか。**その状態に 1 件も無いときだけ。**
    *
-   * 絞り込み・検索の 0 件では出さない（寝顔と意味が合わない）。期間で 0 件のときも
+   * 絞り込み・検索の 0 件では出さない（寝顔と意味が合わない）── そちらは
+   * **探している顔**が空表示の見出しの上に出る（下の ListEmpty）。期間で 0 件のときも
    * 出さない ── ほかの月には記録があるので「無い」の意味がずれる。
    *
    * 一覧の空表示（ListEmptyComponent）ではなく FAB の隣に置くのは、乗る相手が
@@ -524,6 +525,8 @@ function ListEmpty({
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
+  const colors = useThemeColors();
+
   if (!filtering) {
     return (
       <EmptyState
@@ -546,6 +549,34 @@ function ListEmpty({
 
   return (
     <EmptyState
+      /*
+       * 探しているマスコット（BirdMascot の 'searching'）。**寝顔は使えない** ──
+       * 絞り込みの 0 件は「探したが見つからなかった」で、眠っているのとは言うことが違う。
+       *
+       * **FAB の上には乗せない。** 記録が 1 件も無いときの寝顔は「＋ 記録する」に
+       * 寄り添う意味があるが、こちらは乗る相手が FAB である必然性がなく、
+       * すぐ下の「絞り込みを解除」からも離れてしまう。見出しの上に置いて、
+       * 絵 → 見出し → 解除リンクが 1 つの塊として読めるようにする。
+       * （一覧の中に置くとスクロール位置に付いていく、という寝顔側の懸念は
+       *   ここではあたらない ── 0 件なので一覧は動かない）
+       *
+       * 「?」は体の外に浮かぶので地の色に融けないよう色を渡す（寝息の Z と同じ理由）。
+       * 読み上げからは外す ── 図形なので読んでも意味を成さない
+       */
+      illustration={
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants">
+          <BirdMascot
+            variant="day"
+            expression="searching"
+            size={MASCOT_SIZE}
+            showScene={false}
+            questionColor={colors.gray}
+          />
+        </View>
+      }
       title={filterEmptyTitle(locale)}
       actionLabel={canClearFilter ? filterEmptyActionLabel(locale) : undefined}
       onPressAction={canClearFilter ? onClearFilter : undefined}
