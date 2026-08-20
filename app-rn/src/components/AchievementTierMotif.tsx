@@ -69,7 +69,10 @@ const STAR_BOX_HEIGHT = 90.45 + STAR_MARGIN * 2;
  * ★5 でも 星 5 つ（約 134px）＋ 左右の余白と線で約 157px にしかならないので、
  * いちばん大きい円（210px）の幅に収まる。
  */
-const FRAME_BORDER_WIDTH = 1.5;
+// 縁の帯（★1 の 6px 〜 ★5 のリング 13px）に対して細すぎると、嵌まっているというより
+// 上に貼ったシールに見える。帯と同じ太さまで上げると ★1 では白い地より線が勝つので、
+// どの段位でも線として読める太さで止める
+const FRAME_BORDER_WIDTH = 3;
 const FRAME_RADIUS = 999;
 const FRAME_PADDING_H = 8;
 const FRAME_PADDING_V = 5;
