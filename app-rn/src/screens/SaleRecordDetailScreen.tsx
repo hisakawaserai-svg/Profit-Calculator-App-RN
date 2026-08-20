@@ -342,8 +342,12 @@ export function SaleRecordDetailScreen() {
         </View>
 
         {/* バナー広告。contentArea の兄弟なので、出ると内容が縮む。
-            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む） */}
-        <AdBanner unitId={BANNER_UNIT_ID} />
+            同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む）。
+            **この画面だけ throttled** ── 詳細はスタックの画面なので開くたびにマウント・
+            戻るたびにアンマウントし、一覧を上から順に見ると 1 件につき 1 回広告を
+            要求することになる。前回の要求から 60 秒経つまでは枠ごと出さない
+            （AdMob の推奨。AdBanner 冒頭と ads/requestInterval.ts） */}
+        <AdBanner unitId={BANNER_UNIT_ID} throttled />
       </View>
 
       <RecordFormSheet

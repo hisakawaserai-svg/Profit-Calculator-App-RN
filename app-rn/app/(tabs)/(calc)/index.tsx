@@ -384,10 +384,13 @@ export default function CalcScreen() {
 
         {/* バナー広告。contentArea の兄弟なので、出るとスクロール領域が縮む。
             同意前・初期化前・読み込み失敗のときは何も描画しない（AdBanner が畳む）。
-            **鍵盤が出ている間は出さない** ── iOS はウィンドウが縮まないので、広告は
+            **鍵盤が出ている間は見せない** ── iOS はウィンドウが縮まないので、広告は
             鍵盤の裏に隠れたまま表示だけが数えられる。この画面は金額を打ち込む画面で、
-            鍵盤の出ている時間が長い */}
-        {!keyboardVisible && <AdBanner unitId={BANNER_UNIT_ID} />}
+            鍵盤の出ている時間が長い。
+            見せないのは collapsed（高さ 0）で、**この枠を外しはしない** ── 外すと
+            BannerAd がアンマウントされ、鍵盤が下りるたびに新しい広告を要求してしまう
+            （AdMob は 60 秒より早い要求を避けるよう求めている。AdBanner 冒頭） */}
+        <AdBanner unitId={BANNER_UNIT_ID} collapsed={keyboardVisible} />
       </View>
 
       {/* 記録フォームには入力中の金額と種別を引き継ぐ（SPEC §3.2 / SPEC-V2 §1.4）。

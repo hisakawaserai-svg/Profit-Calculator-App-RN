@@ -9,8 +9,28 @@
 //   読み込み中       … 仮の高さで場所だけ確保する（読み込み後の跳ねを小さくする）
 //   読み込み成功     … 実際に返ってきた高さに合わせる
 //   読み込み失敗     … 何も描画しない（高さ 0。空白を残さない）
+//   畳んでいる間     … 高さ 0 のまま**マウントは保つ**（collapsed。下の「要求を増やさない」）
 //
-// サイズは**通常の**アンカー型アダプティブバナー（ANCHORED_ADAPTIVE_BANNER）。
+// ## 要求を増やさない（AdMob の 60 秒）
+//
+// BannerAd は**マウントした瞬間に必ず広告を要求する**。だから「消す＝アンマウント」は
+// そのまま「次に出すとき新しく要求する」を意味する。AdMob の実装ガイダンス
+// （support.google.com/admob/answer/2936217）は「アプリ内で広告のあるページ間を短時間で
+// 行き来する場合、新しい広告リクエストは推奨される 60 秒より早く行うべきではない」と
+// 明記しているので、この部品は要求が増える経路を 2 つの口で塞ぐ:
+//
+//   collapsed … 見せたくないだけのときに使う。**アンマウントせず高さ 0 に潰す**ので、
+//               戻したときに要求し直さない（計算タブの鍵盤）
+//   throttled … マウントし直される場所で使う。前回の要求から 60 秒経つまで
+//               BannerAd を作らない（記録詳細の push/pop。ads/requestInterval.ts）
+//
+// タブの切り替えでは何も起きない ── expo-router の BottomTabView は一度描いたタブを
+// 描画対象から外さない（`loaded` は増える一方）ので、AdBanner はマウントされたまま。
+// タブごとに広告が違って見えるのは、**タブごとに別のインスタンスが常駐している**ため。
+//
+// ## サイズ
+//
+// **通常の**アンカー型アダプティブバナー（ANCHORED_ADAPTIVE_BANNER）。
 //
 // この定数は BannerAdSize.ts で `@deprecated` が付いており、SDK は後継として
 // LARGE_ANCHORED_ADAPTIVE_BANNER を勧めてくる（2026-02 の Google Mobile Ads SDK の変更）。
@@ -21,12 +41,14 @@
 //   AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize）。
 // 将来 SDK から消えたら、その時点で LARGE か INLINE_ADAPTIVE_BANNER（maxAdHeight で
 // 高さを抑えられる）へ移す。
-import { useRef, useState } from 'react';
+import { useIsFocused } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { BannerAd, BannerAdSize, useForeground } from 'react-native-google-mobile-ads';
 
 import { anchoredBannerHeight } from '@/ads/bannerSize';
 import { useAdsInitialized, useNonPersonalizedAds } from '@/ads/consent';
+import { adRequestCooldown, markAdRequested } from '@/ads/requestInterval';
 import { useThemeColors } from '@/theme';
 
 /**
@@ -53,8 +75,22 @@ const AD_SPACING = 12;
 /**
  * @param unitId 広告ユニット ID（src/ads/adUnits.ts）。**null なら何も描画しない** ──
  *   本番 ID が未取得の Phase 1 では、本番ビルドで広告枠そのものを出さない
+ * @param collapsed 高さ 0 に潰して見せない。**アンマウントはしない**ので、戻したときに
+ *   広告を要求し直さない（冒頭「要求を増やさない」）。鍵盤の裏に隠れている間など、
+ *   「見えていないのに表示だけ数えられる」のを避けたいときに true にする
+ * @param throttled 画面の出入りでマウントし直される場所で true にする。前回の要求から
+ *   60 秒経つまで BannerAd を作らない（その間は枠も出さない）。出しっぱなしの枠では
+ *   要求は最初の 1 回きりなので、待たせる意味がない ── 既定は false
  */
-export function AdBanner({ unitId }: { unitId: string | null }) {
+export function AdBanner({
+  unitId,
+  collapsed = false,
+  throttled = false,
+}: {
+  unitId: string | null;
+  collapsed?: boolean;
+  throttled?: boolean;
+}) {
   const colors = useThemeColors();
   const initialized = useAdsInitialized();
   const nonPersonalized = useNonPersonalizedAds();
@@ -62,6 +98,34 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
   /** 実際に返ってきた広告の高さ。まだ読み込めていなければ null */
   const [loadedHeight, setLoadedHeight] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+
+  /**
+   * 要求してよくなる時刻（ms）。null なら今すぐ要求してよい。
+   *
+   * **残り時間ではなく「いつ」を持つ。** 残りを state にすると、待っている間ずっと
+   * 数え直す必要が出る。到達する時刻を 1 つ持てば、そこで 1 回だけ起こせばいい。
+   */
+  const [blockedUntil, setBlockedUntil] = useState<number | null>(() => {
+    if (!throttled) return null;
+    const remaining = adRequestCooldown();
+    return remaining === 0 ? null : Date.now() + remaining;
+  });
+
+  useEffect(() => {
+    if (blockedUntil == null) return;
+
+    const timer = setTimeout(
+      () => {
+        // タイマーは要求した時刻より少し早く起きることがある。残っていれば時刻を
+        // 引き直して待ち直す（新しい値を入れるので、この効果がもう一度走る）
+        const remaining = adRequestCooldown();
+        setBlockedUntil(remaining === 0 ? null : Date.now() + remaining);
+      },
+      Math.max(0, blockedUntil - Date.now()),
+    );
+
+    return () => clearTimeout(timer);
+  }, [blockedUntil]);
 
   /**
    * 読み込みが終わるまで確保しておく高さ。**幅から実寸を先に当てる**（bannerSize.ts）ので、
@@ -74,18 +138,48 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
   const { width } = useWindowDimensions();
   const slotHeight = (loadedHeight ?? anchoredBannerHeight(width)) + AD_SPACING * 2;
 
+  /** BannerAd を描く＝広告を要求する。この 4 つが揃ったときだけ */
+  const requesting = unitId != null && initialized && !failed && blockedUntil == null;
+
+  // 要求したことを時計に記録する（ads/requestInterval.ts）。**出しっぱなしの枠も記録する** ──
+  // 記録しないと、タブのバナーが要求した直後に開いた記録詳細が間隔を無視して続けて要求する
+  useEffect(() => {
+    if (requesting) markAdRequested();
+  }, [requesting]);
+
+  const isFocused = useIsFocused();
+  /**
+   * 復帰したときに読み直してよいか（＝いま画面に出ているか）。
+   *
+   * **ref で持つ。** useForeground の購読は最初の 1 回だけ張られ、そのとき渡した関数を
+   * そのまま保持する（ライブラリ側の useEffect が `[]`）ので、閉包に入れた値は
+   * 最初のレンダーのまま固まる。読むのは呼ばれた瞬間なので、ref なら現在値が取れる。
+   */
+  const reloadableRef = useRef(false);
+  useEffect(() => {
+    reloadableRef.current = isFocused && !collapsed;
+  }, [isFocused, collapsed]);
+
   // iOS の WKWebView はアプリがサスペンドされている間に落ちることがあり、復帰すると
   // 空のバナーになる。復帰のたびに読み直す（公式の推奨。Android では不要）。
-  // 失敗して畳んだ枠も、ここで一度やり直す ── 通信が切れていただけなら次は出る
+  // 失敗して畳んだ枠も、ここで一度やり直す ── 通信が切れていただけなら次は出る。
+  //
+  // **いま出ている 1 つだけが読み直す。** 訪問済みのタブぶん（最大 3〜4 個）が全部
+  // マウントされたままなので、素通しにすると復帰のたびにその数だけ要求が飛ぶ。
+  // 裏のタブが失敗したままなら、そのタブに戻って次に復帰したときにやり直される
   useForeground(() => {
+    if (!reloadableRef.current) return;
+
     setFailed(false);
     if (Platform.OS === 'ios') {
       bannerRef.current?.load();
+      markAdRequested();
     }
   });
 
-  // 同意前・初期化前は広告を要求してはいけない。失敗した回は空白を残さず畳む
-  if (unitId == null || !initialized || failed) {
+  // 同意前・初期化前は広告を要求してはいけない。失敗した回は空白を残さず畳む。
+  // 間隔待ちの間も枠を出さない（高さ 0）── 空の枠だけ残しても場所を取るだけ
+  if (!requesting) {
     return null;
   }
 
@@ -93,12 +187,19 @@ export function AdBanner({ unitId }: { unitId: string | null }) {
     <View
       style={[
         styles.slot,
-        {
-          height: slotHeight,
-          backgroundColor: colors.background,
-          borderTopColor: colors.separator,
-        },
-      ]}>
+        collapsed
+          ? styles.collapsed
+          : {
+              height: slotHeight,
+              backgroundColor: colors.background,
+              borderTopColor: colors.separator,
+              // 一覧の続きに見えないよう、上端に区切り線を引いて内容から切り離す。
+              // 下端には引かない ── タブバーが自前の上罫線を持っていて、二重線になる
+              borderTopWidth: StyleSheet.hairlineWidth,
+            },
+      ]}
+      // 潰している間は指も通さない（高さ 0 でも当たり判定を残さない）
+      pointerEvents={collapsed ? 'none' : 'auto'}>
       <BannerAd
         ref={bannerRef}
         unitId={unitId}
@@ -121,8 +222,19 @@ const styles = StyleSheet.create({
   slot: {
     justifyContent: 'center',
     alignItems: 'center',
-    // 一覧の続きに見えないよう、上端に区切り線を引いて内容から切り離す。
-    // 下端には引かない ── タブバーが自前の上罫線を持っていて、二重線になる
-    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  /**
+   * 潰した状態。**高さ 0・不透明度 0・はみ出しを切る**の 3 つを重ねてかける。
+   *
+   * 高さ 0 だけだと、中の BannerAd は自分の実寸（幅×高さ）を持ったまま枠から
+   * はみ出して見える ── View の overflow は既定 'visible'、flex の子は既定
+   * flexShrink: 0 なので、枠を 0 にしても子は縮まないし切られない。
+   * opacity を足しているのは、SDK 側の可視判定に対しても「見えていない」を
+   * はっきりさせるため（見えていない広告の表示は数えさせない）。
+   */
+  collapsed: {
+    height: 0,
+    opacity: 0,
+    overflow: 'hidden',
   },
 });
