@@ -128,6 +128,15 @@ import { useThemeColors, type ThemeColors } from '@/theme';
 /** 伝票カードの行高（UI-SPEC §1.1-5 の 60px より詰める。1 枚に全部の金額が載るようにするため） */
 const RECEIPT_ROW_HEIGHT = 48;
 
+/**
+ * 保存できなかったときに商品名の欄まで戻す際、**欄の上に残す余白**（pt）。
+ *
+ * 0 にすると欄が画面の上端に貼り付いて、上に何が載っているのか（状態の見出し行、
+ * ひいては伝票カードそのもの）が読めなくなる。伝票カードの見出し行がだいたい収まる高さ。
+ * いまは商品名が中身のほぼ先頭にあるので、実際には先頭まで戻る（Math.max で 0 に落ちる）。
+ */
+const ITEM_NAME_SCROLL_MARGIN = 64;
+
 type Props = {
   visible: boolean;
   /** 編集対象のレコード。省略 / null なら新規追加 */
@@ -232,6 +241,22 @@ function RecordForm({
   const [showHelp, setShowHelp] = useState(false);
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const itemNameInputRef = useRef<TextInput>(null);
+  /**
+   * 商品名の欄がスクロールの中身のどこから始まるか（pt）。**2 つに分けて控える。**
+   *
+   * onLayout が返す y は**親から見た位置**なので、伝票カードの中に置いた欄の y だけでは
+   * 中身の座標にならない。カードがスクロールの中身の中で始まる y と足して初めて
+   * 「スクロール先」になる。位置決めのために測るだけで描画には関係しないので、
+   * state ではなく ref（createdPhotos と同じ理由）。
+   *
+   * **決め打ちの 0 にしない。** いまは商品名が中身のいちばん上にあるので 0 でも当たるが、
+   * カードの並びが変わった時点で黙って外れる ── 外れても「スクロールはした」ように
+   * 見えるので、気付けない壊れ方をする。
+   */
+  const cardTopRef = useRef(0);
+  const itemNameTopRef = useRef(0);
   /** 「今日」はマウント時に 1 回だけ決める（日付欄の「今日（…）」の基準） */
   const [today] = useState(() => new Date());
 
@@ -361,11 +386,30 @@ function RecordForm({
     onClose();
   };
 
+  /**
+   * 商品名の欄を画面に入れて、そのまま打てるようにする。
+   *
+   * 保存ボタンは ScrollView の**外**（固定ヘッダ）にあり、赤枠と警告は**中**にある。
+   * 下まで送った状態で保存を押すと、変わったところが画面の外なので
+   * 「押しても反応しない」ように見える ── だから欄の方を連れてくる。
+   */
+  const focusItemName = () => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, cardTopRef.current + itemNameTopRef.current - ITEM_NAME_SCROLL_MARGIN),
+      animated: true,
+    });
+    // 鍵盤まで出して、戻ってきた指がそのまま打てるようにする
+    itemNameInputRef.current?.focus();
+  };
+
   const handleSave = () => {
     setIsPushedSave(true);
     // 商品名が空なら早期 return。シートは閉じず、DB にも書き込まない（SPEC §5.2）。
     // ここで片づけないのは、まだ編集の途中だから（選んだ写真は残す）
-    if (!canSave(values)) return;
+    if (!canSave(values)) {
+      focusItemName();
+      return;
+    }
 
     const newlyCompleted = saveRecord(record?.id ?? null, toSaveInput(values));
     showAchievementToast(newlyCompleted);
@@ -430,45 +474,58 @@ function RecordForm({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         {/* 4〜11. 伝票カード。見出し行 → 商品名 → 種別 → 金額の積み上げ → 結果行 */}
-        <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.secondaryBackground }]}
+          onLayout={(event) => {
+            cardTopRef.current = event.nativeEvent.layout.y;
+          }}>
           <StatusHeaderRow isSold={values.isSold} colors={colors} onToggle={toggleStatus} />
 
           {/* 4. 商品名（22px のインライン入力）。必須なのはこの欄だけ（SPEC §5.2）。
               **左に写真の正方形**（SPEC-V5 §3.1）── 写真は任意で付けない記録の方が多いので、
-              専用の 1 段を取らず商品名の横に畳む。並びは一覧の行・詳細と同じ「写真が左」 */}
-          <PhotoField fileName={values.photoFileName} onChange={changePhoto}>
-            <TextInput
-              style={[
-                styles.itemNameInput,
-                { color: colors.label },
-                // 通常は青の下線 1.5px。警告時だけ赤枠にする（SPEC §5.2「赤枠＋警告」）
-                hasError
-                  ? { borderWidth: 1, borderRadius: 8, borderColor: colors.red, paddingHorizontal: 8 }
-                  : { borderBottomWidth: 1.5, borderBottomColor: colors.blue },
-              ]}
-              value={values.itemName}
-              onChangeText={(value) => update('itemName', value)}
-              placeholder={itemNamePlaceholder(locale)}
-              placeholderTextColor={colors.mutedLabel}
-              accessibilityLabel={itemNameLabel(locale)}
-              // 左の正方形のぶん、この欄は 1 行あたり 10 字ほどしか入らない。1 行のままだと
-              // 長い商品名は**左へ流れて先頭が見えなくなる**ので、折り返して 2 行目に伸ばす
-              // （欄の幅ではなく「打った字が全部見えるか」の方を取る）。
-              // 改行そのものは入れさせない ── 商品名は一覧では 1 行で出るものなので、
-              // return はキーボードを閉じる側に割り当てる
-              multiline
-              submitBehavior="blurAndSubmit"
-            />
-            <Text
-              style={[styles.itemNameCaption, { color: hasError ? colors.red : colors.secondaryLabel }]}
-              accessibilityRole={hasError ? 'alert' : undefined}>
-              {hasError ? itemNameRequiredMessage(locale) : itemNameCaption(locale)}
-            </Text>
-          </PhotoField>
+              専用の 1 段を取らず商品名の横に畳む。並びは一覧の行・詳細と同じ「写真が左」。
+              包んでいる View は**位置を測るためだけ**（保存できなかったときの戻り先）。
+              カードの gap から見れば PhotoField 1 つと同じ 1 要素なので、見た目は変わらない */}
+          <View
+            onLayout={(event) => {
+              itemNameTopRef.current = event.nativeEvent.layout.y;
+            }}>
+            <PhotoField fileName={values.photoFileName} onChange={changePhoto}>
+              <TextInput
+                ref={itemNameInputRef}
+                style={[
+                  styles.itemNameInput,
+                  { color: colors.label },
+                  // 通常は青の下線 1.5px。警告時だけ赤枠にする（SPEC §5.2「赤枠＋警告」）
+                  hasError
+                    ? { borderWidth: 1, borderRadius: 8, borderColor: colors.red, paddingHorizontal: 8 }
+                    : { borderBottomWidth: 1.5, borderBottomColor: colors.blue },
+                ]}
+                value={values.itemName}
+                onChangeText={(value) => update('itemName', value)}
+                placeholder={itemNamePlaceholder(locale)}
+                placeholderTextColor={colors.mutedLabel}
+                accessibilityLabel={itemNameLabel(locale)}
+                // 左の正方形のぶん、この欄は 1 行あたり 10 字ほどしか入らない。1 行のままだと
+                // 長い商品名は**左へ流れて先頭が見えなくなる**ので、折り返して 2 行目に伸ばす
+                // （欄の幅ではなく「打った字が全部見えるか」の方を取る）。
+                // 改行そのものは入れさせない ── 商品名は一覧では 1 行で出るものなので、
+                // return はキーボードを閉じる側に割り当てる
+                multiline
+                submitBehavior="blurAndSubmit"
+              />
+              <Text
+                style={[styles.itemNameCaption, { color: hasError ? colors.red : colors.secondaryLabel }]}
+                accessibilityRole={hasError ? 'alert' : undefined}>
+                {hasError ? itemNameRequiredMessage(locale) : itemNameCaption(locale)}
+              </Text>
+            </PhotoField>
+          </View>
 
           {/* 5. 種別セレクタ。商品名の直下・金額の積み上げの直前（UI-SPEC §6-6 / 決定 §9-3） */}
           <RecordKindSelector kind={values.kind} onChange={updateKind} />
