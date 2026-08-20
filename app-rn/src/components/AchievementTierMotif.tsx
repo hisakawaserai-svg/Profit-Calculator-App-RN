@@ -13,7 +13,12 @@
 // 星の色は段位色（PALETTE）。バッジ本体・リングの色分け（実績の種類。categoryColor）とは
 // 独立した軸で、「金属・宝石で作られた装飾品」に見せるため light/base/dark の 3 段で
 // グラデーションにし、縁に濃い線を入れて地の色から浮かせる。
-import type { StyleProp, ViewStyle } from 'react-native';
+//
+// **星の並びは段位色の角丸の枠で囲む。** 枠があると、離れて並ぶ星が「1 つのまとまり
+// ＝ この実績の段位」として読める ── 囲まないと、下に続く段位チップ・達成日と
+// 同じ「カードの中の要素」に見えて、円の付属物であることが伝わりにくい。
+// 枠の色は星と同じ段位色（base）で、段位チップと同じ角丸にして系統をそろえる。
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import type { AchievementDifficulty } from '@/logic/achievements';
@@ -57,6 +62,16 @@ const STAR_MARGIN = 3;
 /** 星の下端（90.45）＋上下の余白。cell の 100 まで使うと星の下に見えない隙間が残る */
 const STAR_BOX_HEIGHT = 90.45 + STAR_MARGIN * 2;
 
+/**
+ * 星を囲む枠。角丸は段位チップ（AchievementDetailModal.tierChip）と同じ 12 にそろえる。
+ * ★5 でも 星 5 つ（約 134px）＋ 左右の余白と線で約 157px にしかならないので、
+ * いちばん大きい円（210px）の幅に収まる。
+ */
+const FRAME_BORDER_WIDTH = 1.5;
+const FRAME_RADIUS = 12;
+const FRAME_PADDING_H = 10;
+const FRAME_PADDING_V = 5;
+
 export function AchievementTierMotif({
   difficulty,
   starSize,
@@ -82,30 +97,44 @@ export function AchievementTierMotif({
   const gradientId = `tierStarGrad${difficulty}${isDark ? 'Dark' : 'Light'}`;
 
   return (
-    <Svg
-      width={width}
-      height={starSize}
-      viewBox={`${-STAR_MARGIN} ${-STAR_MARGIN} ${boxWidth} ${STAR_BOX_HEIGHT}`}
-      style={style}>
-      <Defs>
-        <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={palette.light} />
-          <Stop offset="0.55" stopColor={palette.base} />
-          <Stop offset="1" stopColor={palette.dark} />
-        </LinearGradient>
-      </Defs>
+    // 枠は星の並びにぴったり沿わせる（幅を段位で揃えない）── ★1 の枠だけ中身が
+    // すかすかになると、空きが「取り逃した段」に見えてしまう
+    <View style={[styles.frame, { borderColor: palette.base }, style]}>
+      <Svg
+        width={width}
+        height={starSize}
+        viewBox={`${-STAR_MARGIN} ${-STAR_MARGIN} ${boxWidth} ${STAR_BOX_HEIGHT}`}>
+        <Defs>
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={palette.light} />
+            <Stop offset="0.55" stopColor={palette.base} />
+            <Stop offset="1" stopColor={palette.dark} />
+          </LinearGradient>
+        </Defs>
 
-      {Array.from({ length: difficulty }, (_, index) => (
-        <G key={index} transform={`translate(${index * STAR_CELL} 0)`}>
-          <Path
-            d={STAR_PATH}
-            fill={`url(#${gradientId})`}
-            stroke={palette.dark}
-            strokeWidth={3}
-            strokeLinejoin="round"
-          />
-        </G>
-      ))}
-    </Svg>
+        {Array.from({ length: difficulty }, (_, index) => (
+          <G key={index} transform={`translate(${index * STAR_CELL} 0)`}>
+            <Path
+              d={STAR_PATH}
+              fill={`url(#${gradientId})`}
+              stroke={palette.dark}
+              strokeWidth={3}
+              strokeLinejoin="round"
+            />
+          </G>
+        ))}
+      </Svg>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  frame: {
+    borderWidth: FRAME_BORDER_WIDTH,
+    borderRadius: FRAME_RADIUS,
+    paddingHorizontal: FRAME_PADDING_H,
+    paddingVertical: FRAME_PADDING_V,
+    // 中身の幅ぴったりに縮める（親の alignItems: 'center' で中央に来る）
+    alignSelf: 'center',
+  },
+});
