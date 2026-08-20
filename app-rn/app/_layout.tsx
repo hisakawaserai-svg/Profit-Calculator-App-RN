@@ -13,7 +13,7 @@ import { OnboardingOverlay } from '@/components/OnboardingOverlay';
 import { registerOnboardingRequestListener } from '@/components/onboardingBus';
 import { initDatabase } from '@/db/client';
 import { dbInitFailedMessage } from '@/logic/labels';
-import { useLocale, useSettings } from '@/settings';
+import { useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -120,6 +120,9 @@ function navigationTheme(colors: ThemeColors, dark: boolean): Theme {
 }
 
 export default function RootLayout() {
+  // 端末の言語変更をストアへ流し込む。**アプリ全体でここだけ**（src/settings/index.ts）。
+  // useLocale() より先に呼ぶ必要はないが、表示語の出どころなので並べて置く
+  useDeviceLanguageSync();
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
   const locale = useLocale();
 
