@@ -98,16 +98,21 @@ const TIER_BORDER_WIDTHS: Record<AchievementDifficulty, number> = {
 };
 
 /**
- * 円の下に並べる星 1 つの高さ（px）と、円の下端との間隔。**どの段位でも同じ大きさ**にする ──
- * 段位を表すのは数であって、1 つあたりの大きさではない。大きさまで段位で変えると、
- * ★1 の 1 つと ★5 の 5 つで「星」という記号の意味がぶれる。
- *
- * 5 つ並べたときの幅は star 24px あたり約 134px（AchievementTierMotif の viewBox 比）で、
- * ★5 の円の直径 210px（BADGE_BASE_SIZE + 5 * BADGE_SIZE_STEP）に十分収まる。
- * いちばん狭い ★1 の円（138px）に並ぶのは 1 つだけなので、こちらも溢れない。
+ * 円の中に重ねる星 1 つの高さ（px）。**どの段位でも同じ大きさ**にする ── 段位を表すのは
+ * 数であって、1 つあたりの大きさではない。大きさまで段位で変えると、★1 の 1 つと
+ * ★5 の 5 つで「星」という記号の意味がぶれる。
  */
-const TIER_STAR_SIZE = 24;
-const TIER_STAR_GAP = 10;
+const TIER_STAR_SIZE = 15;
+
+/**
+ * 星の枠の下端を、**円の内側の下端から内半径の何割ぶん上げるか**。
+ *
+ * 円の中に横長のものを置くので、下へ行くほど収まる幅が狭くなる（弦の長さは
+ * 中心から y 離れた高さで 2√(r²-y²)）。下端を 0.81r の高さに置くと使える幅は
+ * 約 1.17r で、いちばん厳しい ★4（内半径 83・枠 約 86px）でも 97px 取れて収まる。
+ * これより下げると ★4・★5 が円からはみ出し、上げるとアイコンに近づきすぎる。
+ */
+const TIER_STARS_BOTTOM_RATIO = 0.19;
 
 /**
  * ★5 レジェンドの全画面表示用リング寸法（AchievementsSection.LegendTierRing に渡す）。
@@ -490,7 +495,6 @@ export function AchievementPageContent({
             difficulty={difficulty}
             tint={tint}
             tierColor={tierColor}
-            isDark={isDarkMode}
             decorated={achievement.completed}
           />
         </View>
@@ -742,7 +746,6 @@ function DecoratedBadge({
   difficulty,
   tint,
   tierColor,
-  isDark,
   decorated,
 }: {
   iconName: keyof typeof Ionicons.glyphMap;
@@ -750,13 +753,6 @@ function DecoratedBadge({
   tint: string;
   /** 段位の縁取り色（TIER_COLORS。未達成は colors.gray） */
   tierColor: string;
-  /**
-   * 暗色モードか。**星の色の差し替えにだけ使う** ── レジェンドの TIER_COLORS.legend は
-   * 暗色の地に対してコントラストが 1.3 しかなく、星として塗ると数が読めないので、
-   * AchievementTierMotif 側で段位チップ（TIER_CHIP_DARK_COLORS）と同じ明るい色に替える。
-   * バッジ本体の縁取り・リングは tierColor のまま（§実績詳細ダークモード可読性）
-   */
-  isDark: boolean;
   /** false = 未達成。星・縁取りを出さず、バッジも tint（呼び出し側で colors.gray）だけで見せる */
   decorated: boolean;
 }) {
@@ -799,6 +795,22 @@ function DecoratedBadge({
               size={26 + difficulty * 4}
               color="#FFFFFF"
             />
+
+            {decorated && (
+              // 段位は星の数（ブロンズ=1 … レジェンド=5）。**円の内側の下部に重ねて置く。**
+              // 円の地色の上に乗るので、枠の中は白（AchievementTierMotif）にして、
+              // 実績の種類（緑・青・橙…）に関わらず段位色が同じ地の上に来るようにする。
+              // 下端の位置は内半径から決める（TIER_STARS_BOTTOM_RATIO）── 段位ごとに
+              // 円の直径も縁の太さも違うので、固定値だと大きい段位ではみ出す
+              <AchievementTierMotif
+                difficulty={difficulty}
+                starSize={TIER_STAR_SIZE}
+                style={[
+                  styles.tierStars,
+                  { bottom: (size / 2 - borderWidth) * TIER_STARS_BOTTOM_RATIO },
+                ]}
+              />
+            )}
           </View>
         );
 
@@ -830,17 +842,6 @@ function DecoratedBadge({
           </View>
         );
       })()}
-
-      {decorated && (
-        // 段位は星の数（ブロンズ=1 … レジェンド=5）。**円の下端の外側**に、重ねずに置く ──
-        // 縦に並べているだけなので、円の直径・縁の太さが段位ごとに変わっても位置合わせが要らない
-        <AchievementTierMotif
-          difficulty={difficulty}
-          starSize={TIER_STAR_SIZE}
-          isDark={isDark}
-          style={styles.tierStars}
-        />
-      )}
     </View>
   );
 }
@@ -936,10 +937,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 段位の星は円の下端の外側に置く（重ねないので absolute ではなく普通の縦並び。
-  // badgeStage が flex: 1 で余白を吸収するので、星のぶん高くなっても textBlock は動かない）
+  // 段位の星は円の内側の下部に重ねる。bottom は円の内半径から呼び出し側が計算して渡す
+  // （badgeCircle は overflow: 'hidden' なので、万一はみ出しても円の外へは出ない）
   tierStars: {
-    marginTop: TIER_STAR_GAP,
+    position: 'absolute',
   },
   badgeCircle: {
     alignItems: 'center',

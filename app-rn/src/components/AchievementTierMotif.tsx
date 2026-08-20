@@ -7,17 +7,22 @@
 // はずが、3 段目までと 4 段目からで別の記号体系に見える。星に統一して、
 // 数だけが増えていく形にする。
 //
-// **円には重ねず、円の下端の外側に置く**（呼び出し側が縦に並べる。position: absolute で
-// 浮かせない）。重ねないので、円の直径・縁の太さが段位ごとに変わっても位置合わせが要らない。
+// **円の内側の下部に重ねて置く**（位置は呼び出し側＝ DecoratedBadge が決める）。
+// バッジの一部として円の中に収まるので、円の直径・縁の太さが段位ごとに変わっても
+// はみ出さないよう、呼び出し側が円の半径から下端の位置を決めている。
 //
 // 星の色は段位色（PALETTE）。バッジ本体・リングの色分け（実績の種類。categoryColor）とは
 // 独立した軸で、「金属・宝石で作られた装飾品」に見せるため light/base/dark の 3 段で
 // グラデーションにし、縁に濃い線を入れて地の色から浮かせる。
 //
-// **星の並びは段位色の角丸の枠で囲む。** 枠があると、離れて並ぶ星が「1 つのまとまり
-// ＝ この実績の段位」として読める ── 囲まないと、下に続く段位チップ・達成日と
-// 同じ「カードの中の要素」に見えて、円の付属物であることが伝わりにくい。
-// 枠の色は星と同じ段位色（base）で、段位チップと同じ「端が半円」の形にして系統をそろえる。
+// **星の並びは段位色の枠で囲み、白い地の上に置く。** 枠があると、離れて並ぶ星が
+// 「1 つのまとまり ＝ この実績の段位」として読める。
+//
+// 地を白で固定するのは、**円の中では背景が実績の種類の色（categoryColor）になる**ため ──
+// 緑・青・橙…と地の色が実績ごとに変わるので、その上に段位色を直接置くと、
+// 実績によって星の読みやすさが変わってしまう。白を挟めば段位色は常に同じ地の上に乗る。
+// テーマで白のままにするのも同じ理由（明暗で円の地色は変わらない）。
+// LegendTierRing がリングとバッジの間に白い隙間を固定で置いているのと同じ考え方。
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -34,16 +39,6 @@ const PALETTE: Record<AchievementDifficulty, { light: string; base: string; dark
   4: { light: '#D6EAF7', base: '#6FA3C7', dark: '#33607E' }, // プラチナ
   5: { light: '#A34765', base: '#5A1B33', dark: '#2C0A18' }, // レジェンド
 };
-
-/**
- * 暗色の地に置くレジェンドだけの差し替え色。
- *
- * TIER_COLORS.legend（#5A1B33。黒みがかった深いボルドー）はカード背景（#1C1C1E）に対して
- * コントラストが 1.3 しかなく、星として塗ると輪郭ごと沈んで数が読めない。段位チップが
- * TIER_CHIP_DARK_COLORS で同じ差し替えをしているので、そちらに色を合わせる
- * （§実績詳細ダークモード可読性）。★1〜★4 は暗色地でも読めるので差し替えない。
- */
-const LEGEND_DARK_PALETTE = { light: '#FBDCE7', base: '#F2A9C2', dark: '#B06682' };
 
 /**
  * 星 1 つの輪郭。外接円の半径 50・内接円の半径 20 で、cell（100×100）の中心 (50,50) に置く。
@@ -76,32 +71,32 @@ const STAR_BOX_HEIGHT = 90.45 + STAR_MARGIN * 2;
  */
 const FRAME_BORDER_WIDTH = 1.5;
 const FRAME_RADIUS = 999;
-const FRAME_PADDING_H = 12;
+const FRAME_PADDING_H = 8;
 const FRAME_PADDING_V = 5;
+/** 枠の地。**テーマに関わらず白で固定**（上のコメント参照） */
+const FRAME_BACKGROUND = '#FFFFFF';
 
 export function AchievementTierMotif({
   difficulty,
   starSize,
-  isDark,
   style,
 }: {
   difficulty: AchievementDifficulty;
   /** 星 1 つの高さ（px）。幅は星の数に応じて自動で決まる */
   starSize: number;
-  /** 暗色モードか。レジェンドの色の差し替えにだけ使う（LEGEND_DARK_PALETTE） */
-  isDark: boolean;
+  /** 円の中での位置は呼び出し側が決める（DecoratedBadge が円の半径から算出する） */
   style?: StyleProp<ViewStyle>;
 }) {
-  const palette = isDark && difficulty === 5 ? LEGEND_DARK_PALETTE : PALETTE[difficulty];
+  const palette = PALETTE[difficulty];
 
   // 星の数 = 段位。最後の星の右に隙間を残さないよう STAR_GAP を引く
   const boxWidth = difficulty * STAR_CELL - STAR_GAP + STAR_MARGIN * 2;
   // viewBox と同じ縦横比で px を決める（preserveAspectRatio の余白が出ないように）
   const width = (starSize * boxWidth) / STAR_BOX_HEIGHT;
 
-  // グラデーション id は段位と明暗で分ける。同じ段位のバッジが同時に出ることはある
+  // グラデーション id は段位ごとに分ける。同じ段位のバッジが同時に出ることはある
   // （詳細モーダルは前後のページも作る）が、その 2 つは同じ色なので衝突しても実害がない
-  const gradientId = `tierStarGrad${difficulty}${isDark ? 'Dark' : 'Light'}`;
+  const gradientId = `tierStarGrad${difficulty}`;
 
   return (
     // 枠は星の並びにぴったり沿わせる（幅を段位で揃えない）── ★1 の枠だけ中身が
@@ -141,6 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: FRAME_RADIUS,
     paddingHorizontal: FRAME_PADDING_H,
     paddingVertical: FRAME_PADDING_V,
+    backgroundColor: FRAME_BACKGROUND,
     // 中身の幅ぴったりに縮める（親の alignItems: 'center' で中央に来る）
     alignSelf: 'center',
   },
