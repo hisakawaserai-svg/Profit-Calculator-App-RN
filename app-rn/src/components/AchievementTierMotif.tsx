@@ -17,7 +17,7 @@
 // **星の並びは段位色の角丸の枠で囲む。** 枠があると、離れて並ぶ星が「1 つのまとまり
 // ＝ この実績の段位」として読める ── 囲まないと、下に続く段位チップ・達成日と
 // 同じ「カードの中の要素」に見えて、円の付属物であることが伝わりにくい。
-// 枠の色は星と同じ段位色（base）で、段位チップと同じ角丸にして系統をそろえる。
+// 枠の色は星と同じ段位色（base）で、段位チップと同じ「端が半円」の形にして系統をそろえる。
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -63,13 +63,20 @@ const STAR_MARGIN = 3;
 const STAR_BOX_HEIGHT = 90.45 + STAR_MARGIN * 2;
 
 /**
- * 星を囲む枠。角丸は段位チップ（AchievementDetailModal.tierChip）と同じ 12 にそろえる。
+ * 星を囲む枠。**左右の端が半円になる（＝高さの半分の角丸）まで丸める。**
+ *
+ * 段位チップ（AchievementDetailModal.tierChip）は高さ 24 に対して角丸 12 なので、
+ * もともと端が半円の形をしている。星の枠だけ固定値の 12 にすると、枠のほうが背が高い
+ * （星 24 ＋ 余白と線）ぶん角が残り、すぐ下のチップと形が揃わない。
+ * 実際の高さに関係なく半円になるよう、十分大きい値を入れて丸め切る
+ * （RN は borderRadius が高さの半分を超えると半分に丸める）。
+ *
  * ★5 でも 星 5 つ（約 134px）＋ 左右の余白と線で約 157px にしかならないので、
  * いちばん大きい円（210px）の幅に収まる。
  */
 const FRAME_BORDER_WIDTH = 1.5;
-const FRAME_RADIUS = 12;
-const FRAME_PADDING_H = 10;
+const FRAME_RADIUS = 999;
+const FRAME_PADDING_H = 12;
 const FRAME_PADDING_V = 5;
 
 export function AchievementTierMotif({
