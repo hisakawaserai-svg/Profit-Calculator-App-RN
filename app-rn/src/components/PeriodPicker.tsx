@@ -153,31 +153,23 @@ export function PeriodPicker({
             accessibilityLabel={previousYearLabel(locale)}
           />
           <Pressable
-            style={({ pressed }) => [
-              styles.yearButton,
-              {
-                borderColor: colors.blue,
-                // 未選択のときはカードの地色を透かす（枠だけが見える）
-                backgroundColor: yearSelected ? colors.highlightBackground : 'transparent',
-                opacity: pressed ? 0.6 : 1,
-              },
-            ]}
+            style={({ pressed }) => [styles.yearButton, { opacity: pressed ? 0.6 : 1 }]}
             onPress={() => onSelect(yearPeriod(block.year))}
             accessibilityRole="button"
             accessibilityState={{ selected: yearSelected }}
             accessibilityLabel={`${formatYearTitle(locale, block.year)}・${
               yearSelected ? yearSelectedHintLabel(locale) : yearTapHintLabel(locale)
             }`}>
-            <Text style={[styles.yearTitle, { color: colors.blue }]}>
+            <Text
+              style={[styles.yearTitle, { color: colors.blue, borderBottomColor: colors.blue }]}>
               {formatYearTitle(locale, block.year)}
             </Text>
-            {/* 選択中だけ出る。未選択のときに場所を空けておくことはしない
-                （カードの高さが変わるが、シートは中身ぴったりなので下端が動くだけ） */}
-            {yearSelected && (
-              <Text style={[styles.yearSelectedHint, { color: colors.blue }]}>
-                {yearSelectedHintLabel(locale)}
-              </Text>
-            )}
+            {/* **押すと何が起きるかを、押す物の中で言う。** 下線だけでは「いま出している年」
+                という状態表示にも読めるので、動作の語をここに置く。選ぶ前と後で語が
+                入れ替わるだけなので、行数は変わらない（カードの丈が動かない） */}
+            <Text style={[styles.yearHint, { color: colors.blue }]}>
+              {yearSelected ? yearSelectedHintLabel(locale) : yearTapHintLabel(locale)}
+            </Text>
           </Pressable>
           <YearArrow
             name="chevron-forward"
@@ -200,10 +192,14 @@ export function PeriodPicker({
           ))}
         </View>
 
-        {/* 注記は「いま押せるもう一方」を言う。年を選んだ後は年の押し方の説明が要らない */}
-        <Text style={[styles.cardHint, { color: colors.secondaryLabel }]}>
-          {yearSelected ? monthTapHintLabel(locale) : yearTapHintLabel(locale)}
-        </Text>
+        {/* 年の押し方は年の下へ移したので、ここに残るのは月の話だけ。
+            **年を選んでいる間しか出さない** ── 12 マスがまとめて青くなった直後だけ
+            「それでも 1 か月は選べる」が要る。ふだんは月が押せることを説明する必要がない */}
+        {yearSelected && (
+          <Text style={[styles.cardHint, { color: colors.secondaryLabel }]}>
+            {monthTapHintLabel(locale)}
+          </Text>
+        )}
       </View>
 
       <Legend />
@@ -382,22 +378,25 @@ const styles = StyleSheet.create({
   yearArrow: {
     padding: 6,
   },
-  // 月のマスと同じ語彙（角丸 10 の矩形）。**flex: 1 にしない** ── 伸ばすと枠が
-  // 左右の ‹ › に届くほどの帯になり、囲っているのが「年」ではなく行全体に見える。
-  // 文字幅に寄せて、余った幅は space-between が矢印との間隔として配る
+  // **flex: 1 にしない** ── 伸ばすと当たり判定が左右の ‹ › に届くほどの帯になり、
+  // 下線もその幅で引かれて「行の区切り線」に見える。文字幅に寄せて、
+  // 余った幅は space-between が矢印との間隔として配る
   yearButton: {
     alignSelf: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 3,
   },
+  // 下線は**年の文字だけ**に引く（ボタン全体に引くと下の語まで含んでしまう）
   yearTitle: {
     fontSize: 17,
     fontWeight: '700',
+    borderBottomWidth: 2,
+    paddingHorizontal: 6,
+    paddingBottom: 2,
   },
-  yearSelectedHint: {
+  yearHint: {
     fontSize: 12,
     fontWeight: '600',
   },
