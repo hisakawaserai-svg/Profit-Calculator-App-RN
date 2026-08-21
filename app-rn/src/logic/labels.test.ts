@@ -1008,27 +1008,27 @@ describe('記録詳細の結論行（O3 案）の文言', () => {
 
   it('A. 目標なし・黒字', () => {
     expect(headlineOf(5000, null)).toBe('あと ¥1,888 下げても赤字になりません');
-    expect(detailOf(5000, null)).toBe('値下げを試す・赤字にならない価格を見る');
+    expect(detailOf(5000, null)).toBe('「いくらで売る？」で値下げを試す');
   });
 
   it('B. 目標あり・黒字', () => {
     expect(headlineOf(5000, 1000)).toBe('¥4,223までなら、目標利益¥1,000を保てます');
-    expect(detailOf(5000, 1000)).toBe('値下げを試す・目標を保てる価格を見る');
+    expect(detailOf(5000, 1000)).toBe('「いくらで売る？」で目標を保てる価格を見る');
   });
 
   it('C. 目標なし・赤字', () => {
     expect(headlineOf(2500, null)).toBe('あと¥612の値上げで、赤字から抜けます');
-    expect(detailOf(2500, null)).toBe('値上げを試す・赤字から抜ける価格を見る');
+    expect(detailOf(2500, null)).toBe('「いくらで売る？」で値上げを試す');
   });
 
   it('D. 目標あり・赤字', () => {
     expect(headlineOf(2500, 1000)).toBe('目標利益¥1,000まで戻すなら¥4,223');
-    expect(detailOf(2500, 1000)).toBe('値上げを試す・目標を保てる価格を見る');
+    expect(detailOf(2500, 1000)).toBe('「いくらで売る？」で目標に戻る価格を見る');
   });
 
   it('E. 価格未設定 → 結論文は出せないので専用の誘導文言（G への入口）', () => {
     expect(headlineOf(0, null)).toBe('価格を入れると、どこまで下げられるか分かります');
-    expect(detailOf(0, null)).toBe('売る価格を入力する');
+    expect(detailOf(0, null)).toBe('「いくらで売る？」で価格を入力する');
   });
 });
 
@@ -1048,17 +1048,17 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
 
   it('目標なし', () => {
     expect(headlineOf(5000, null)).toBe('交渉されても、あと¥1,888は応じられた計算でした');
-    expect(detailOf(5000, null)).toBe('どこまで下げられたか見る');
+    expect(detailOf(5000, null)).toBe('「どうだった？」で下げられた幅を見る');
   });
 
   it('目標あり・達成', () => {
     expect(headlineOf(5000, 1000)).toBe('¥4,223まで、目標利益を保てました');
-    expect(detailOf(5000, 1000)).toBe('どこまで下げられたか見る');
+    expect(detailOf(5000, 1000)).toBe('「どうだった？」で下げられた幅を見る');
   });
 
   it('目標あり・未達成（黒字のまま）', () => {
     expect(headlineOf(3500, 1000)).toBe('目標まであと¥723でした');
-    expect(detailOf(3500, 1000)).toBe('目標にどれだけ届かなかったか見る');
+    expect(detailOf(3500, 1000)).toBe('「どうだった？」で目標との差を見る');
   });
 
   // 出品中側（'unpriced'）と同じく、売れた記録でも**行は出す**。
@@ -1066,7 +1066,7 @@ describe('記録詳細の結論行（O3 案）の文言・売却済み版', () =
   it('価格未設定でも行は出し、売れた記録用の語に差し替える', () => {
     expect(soldConclusion(analyze(0, null))).toBe('unpriced');
     expect(headlineOf(0, null)).toBe('売れた価格を入れると、残った利益が出ます');
-    expect(detailOf(0, null)).toBe('売れた価格を入力する');
+    expect(detailOf(0, null)).toBe('「どうだった？」で価格を入力する');
   });
 });
 

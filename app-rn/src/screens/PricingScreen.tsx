@@ -431,7 +431,7 @@ function PricingContent({
           ]}>
           <View style={styles.simulatorHead}>
             <Text style={[styles.simulatorTitle, { color: unpriced ? colors.mutedLabel : colors.label }]}>
-              {simulatorTitle(locale, analysis.state)}
+              {simulatorTitle(locale)}
             </Text>
             {!unpriced && (
               <Text style={[styles.simulatorNote, { color: colors.secondaryLabel }]}>
@@ -468,7 +468,7 @@ function PricingContent({
             // 分岐点・目標ラインは「ちょうど」を指で出したい点なので吸い付かせる
             snapPoints={[analysis.breakEven, ...(analysis.targetPrice == null ? [] : [analysis.targetPrice])]}
             disabled={unpriced}
-            accessibilityLabel={simulatorTitle(locale, analysis.state)}
+            accessibilityLabel={simulatorTitle(locale)}
             onDragStart={() => setSliderDragging(true)}
             onDragEnd={() => setSliderDragging(false)}
           />

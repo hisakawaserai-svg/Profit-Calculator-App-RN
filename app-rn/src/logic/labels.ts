@@ -68,7 +68,6 @@ import type {
   PriceTickKey,
   PricingAnalysis,
   PricingConclusion,
-  PricingState,
   RecordDetailConclusion,
   PricedSoldConclusion,
   SimulationVerdict,
@@ -5194,11 +5193,22 @@ export function previousPriceLabel(locale: Locale): string {
 }
 
 /**
- * シミュレーターの見出し（§9.9）。**赤字では「値下げ」と言わない** ──
- * 赤字の記録でしたいのは値上げなので、見出しが操作と逆を向く。
+ * シミュレーターの見出し（§9.9）。**状態で出し分けない固定の名前。**
+ *
+ * 以前は赤字だけ「価格を動かしてみる」に振っていた（赤字でしたいのは値上げなので、
+ * 「値下げ」だと見出しが操作と逆を向く、という理由）。それをやめて名前を 1 つに固定した ──
+ * 機能を指す名詞が UI のどこにも無く、「値下げしてみる」「値下げを試す」「値下げを試せる」と
+ * 呼ぶ場所ごとに活用形が変わっていて、同じ機能の話だと読み取れなかったため。
+ *
+ * **赤字への配慮は画面の他の場所が引き受ける。** このカードの上に、赤字のときだけ出る
+ * 価格ラインの注記（priceLineRaiseHint「上げるほど残る →」）と、結論の帯
+ * （conclusionLoss「あと ◯◯ の値上げで、赤字から抜けます。」）が既にあり、
+ * 書き戻しのボタンも赤字では「価格を ◯◯ 以上に直す」に変わる（applyPriceLoss）。
+ * 見出しの右の注記（simulatorNote）に足さなかったのは、見出しと同じ 1 行に並ぶ
+ * （PricingScreen の simulatorHead は space-between の row）ので、伸ばすと折り返すため。
  */
-export function simulatorTitle(locale: Locale, state: PricingState): string {
-  return t(state === 'loss' ? 'pricing.simulatorTitleLoss' : 'pricing.simulatorTitleSafe', locale);
+export function simulatorTitle(locale: Locale): string {
+  return t('pricing.simulatorTitle', locale);
 }
 
 /** シミュレーターの見出しの右（§9.9）。触っても記録は動かないことを先に言う */
