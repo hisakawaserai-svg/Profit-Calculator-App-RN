@@ -576,6 +576,11 @@ export const ja = {
     targetRowValue: '{{amount}}（この記録だけ）',
     targetPreviewPrice: '目標が出る価格',
     targetPreviewRoom: 'あと下げられる額',
+    /** 幕を押したときの確認（打った額があるときだけ出る） */
+    targetDiscardTitle: '入力を保存せずに閉じますか？',
+    targetDiscardMessage: '打った目標の額は残りません。',
+    targetDiscardConfirm: '保存せずに閉じる',
+    targetDiscardKeep: '入力に戻る',
     /** 売れたあとの節（§9.12） */
     /** 売れた × 価格未設定（G の売却済み版）。出品中の priceUnset* と対になる語 */
     soldPriceUnsetLead: '売れた価格',

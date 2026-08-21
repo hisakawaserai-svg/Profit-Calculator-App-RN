@@ -5460,6 +5460,30 @@ export function targetProfitClearLabel(locale: Locale): string {
 }
 
 /**
+ * 幕（シートの外）を押して閉じようとしたときの確認（§9.14 の追補）。
+ *
+ * **打った額があるときだけ出す。** 鍵盤が出ている間、幕はシートの上に残る唯一の広い面なので、
+ * 「鍵盤を下ろしたい」で押した指がそのまま「入力を捨てて閉じる」に当たる ──
+ * このシートは押した時点では何も書き込まないので、閉じた先に取り消す口も無い。
+ *
+ * **「キャンセル」を選択肢の語に使わない。** シートの下端に同じ語のボタンがあり、
+ * そちらは「閉じる」を意味する ── 確認の中の「キャンセル」は逆に「閉じない」なので、
+ * 同じ語が同じ画面で反対の結果になる。戻る側は行き先で言う（「入力に戻る」）。
+ */
+export function targetDiscardTitle(locale: Locale): string {
+  return t('pricing.targetDiscardTitle', locale);
+}
+export function targetDiscardMessage(locale: Locale): string {
+  return t('pricing.targetDiscardMessage', locale);
+}
+export function targetDiscardConfirmLabel(locale: Locale): string {
+  return t('pricing.targetDiscardConfirm', locale);
+}
+export function targetDiscardKeepLabel(locale: Locale): string {
+  return t('pricing.targetDiscardKeep', locale);
+}
+
+/**
  * 主役の数字そのもの（§9.4 / §9.5）。**赤字は「−¥550」**（マイナス記号は U+2212）。
  *
  * `formatSignedYenSymbol`（一覧の行）を使わないのは、あちらが黒字に「+」を付けるため ──

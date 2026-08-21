@@ -10,7 +10,7 @@
 // - 消す道は「目標を消す」ボタンだけ。**0 を入れて消す道は作らない**（§1.2）──
 //   0 は「利益ゼロを目標にする」という有効な目標で、消した状態とは別のもの
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { NumericField } from '@/components/NumericField';
@@ -20,6 +20,10 @@ import { formatYenSymbol } from '@/logic/format';
 import {
   cancelLabel,
   saveLabel,
+  targetDiscardConfirmLabel,
+  targetDiscardKeepLabel,
+  targetDiscardMessage,
+  targetDiscardTitle,
   targetPreviewPriceLabel,
   targetPreviewRoomLabel,
   targetProfitClearLabel,
@@ -61,14 +65,47 @@ export function TargetProfitSheet({
   const colors = useThemeColors();
   // 入力中は文字列で持つ（記録フォームと同じ作法。§2.3）。**空欄 = null** の変換も同じ 1 本を通す
   const [input, setInput] = useState(() => targetProfitToInput(targetProfit));
+  /**
+   * 開いたときの欄の中身。**幕を押されたときに「捨てるものがあるか」を見るための控え。**
+   *
+   * 「欄が空でないか」では足りない ── 既に目標を決めてある記録では開いた時点で額が入っており、
+   * 触っていなくても確認が出てしまう。**確認は失うものがあるときだけ**で、
+   * 空振りの確認を重ねると読まずに押す癖がつく。
+   *
+   * このシートは開いている間だけマウントされる（PricingScreen 側が `{showTarget && ...}`）ので、
+   * 初期化関数のまま次に開いたときの値と食い違うことはない。
+   */
+  const [inputWhenOpened] = useState(() => targetProfitToInput(targetProfit));
 
   const parsed = parseTargetProfitInput(input);
   // 決めた場合に出る 2 つの数字。**null のときは出さない**（0 で代用しない。§7-3）
   const previewPrice = targetSalesPrice(parsed, costs);
   const previewRoom = previewPrice == null ? null : Math.max(0, currentPrice - previewPrice);
 
+  /**
+   * 幕（シートの外）を押されたとき。**打った額が消えるのはここだけ。**
+   *
+   * 鍵盤が出ている間、幕はシートの上に残る唯一の広い面なので、「鍵盤を下ろしたい」で
+   * 押した指がそのまま「入力を捨てて閉じる」に当たる。このシートは押した時点では
+   * 何も書き込まないので、閉じたあとに取り消す口も無い。
+   *
+   * **下端の「キャンセル」は確認しない。** あちらは語のとおり「やめる」を選んだ結果で、
+   * 捨てることそのものが目的 ── 確認を挟むのは、**捨てるつもりが無かったかもしれない**
+   * 経路だけにする（記録フォームの「キャンセル」も確認を出さないのと同じ線引き）。
+   */
+  const requestCloseFromBackdrop = (close: () => void) => {
+    if (input === inputWhenOpened) {
+      close();
+      return;
+    }
+    Alert.alert(targetDiscardTitle(locale), targetDiscardMessage(locale), [
+      { text: targetDiscardKeepLabel(locale), style: 'cancel' },
+      { text: targetDiscardConfirmLabel(locale), style: 'destructive', onPress: close },
+    ]);
+  };
+
   return (
-    <SheetModal visible={visible} onClose={onClose}>
+    <SheetModal visible={visible} onClose={onClose} onBackdropPress={requestCloseFromBackdrop}>
       {(close) => (
         /* 鍵盤の逃がし（他の選択シートと同じ形）。**このシートには特に要る** ──
            下端合わせのシートなので、逃がしが無いと鍵盤が出た瞬間に入力欄も

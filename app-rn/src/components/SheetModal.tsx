@@ -38,11 +38,20 @@ type Props = {
   visible?: boolean;
   /** 閉じ切ってから呼ばれる。親はここでアンマウント（または visible を false に）する */
   onClose: () => void;
+  /**
+   * 幕（シートの外）を押されたとき。**渡さなければこれまでどおり、その場で閉じる。**
+   *
+   * 渡すと、閉じるかどうかを中身の側が決められる（受け取った `close` を呼べば閉じる）。
+   * 使うのは**目標利益シートだけ** ── あちらは打った額を持っているので、幕のタップで
+   * 黙って捨てないようにする。選ぶだけのシート（プリセット・タグ）は閉じても失うものが
+   * 無いので、渡さないまま = 今までどおり即座に閉じる。
+   */
+  onBackdropPress?: (close: () => void) => void;
   /** シートの中身。渡される `close` を「閉じる」等に繋ぐ（アニメーションしてから onClose） */
   children: (close: () => void) => ReactNode;
 };
 
-export function SheetModal({ visible = true, onClose, children }: Props) {
+export function SheetModal({ visible = true, onClose, onBackdropPress, children }: Props) {
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
   const locale = useLocale();
 
@@ -109,7 +118,7 @@ export function SheetModal({ visible = true, onClose, children }: Props) {
       />
       <Pressable
         style={StyleSheet.absoluteFill}
-        onPress={close}
+        onPress={() => (onBackdropPress ? onBackdropPress(close) : close())}
         accessibilityLabel={closeLabel(locale)}
       />
       {/* シートは下端合わせ。box-none で、シートを外したタップは下の幕へ抜ける */}
