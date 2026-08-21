@@ -171,7 +171,7 @@ export const en: Translations = {
     firstSoldRecordTitle: 'No sold records yet',
     firstListedRecordTitle: 'No listed records yet',
     /** ボタンの語は {{button}} で差し込む（help.items.calc-to-record のコメント参照） */
-    noRecordsBody: 'Tap “＋ {{button}}” at the bottom left to add one',
+    noRecordsBody: 'Tap “+ {{button}}” at the bottom left to add one',
     totalListingPrice: 'Total listed price',
     recordCount: { one: '{{count}} record', other: '{{count}} records' },
     listedItemCount: { one: '{{count}} item', other: '{{count}} items' },
@@ -822,7 +822,7 @@ export const en: Translations = {
     countLabelWithRows: '{{count}} ({{rows}} rows)',
     emptyNote: 'No matching records in this period.',
     emptyNoteWithListing: 'No matching records in this period. {{count}} are still listed.',
-    notRestorableNote: 'This CSV cannot be used to restore. To move data to a new device, use Back Up & Restore.',
+    notRestorableNote: 'This CSV cannot be used to restore. To move data to a new device, use “Back Up & Restore”.',
     taxNotice: 'Personal items can be taxable too. Sort them out after exporting.',
     taxNoticeOpen: 'Open the full explanation',
     failed: 'The export failed. Please try again.',
@@ -920,7 +920,7 @@ export const en: Translations = {
   color: {
     red: 'Red', orange: 'Orange', yellow: 'Yellow', green: 'Green', teal: 'Teal',
     blue: 'Blue', indigo: 'Indigo', purple: 'Purple', pink: 'Pink', brown: 'Brown', gray: 'Gray',
-    pickerTitle: 'Pick a colour',
+    pickerTitle: 'Pick a color',
     pickerDone: 'Done',
     custom: 'Custom',
     customCreate: 'Create a new color',
@@ -999,21 +999,21 @@ export const en: Translations = {
       },
       'calc-breakdown': {
         title: 'I want to see what costs what',
-        body: 'Tap “Breakdown” under the number and what gets deducted appears as a colour-coded bar. You can see at a glance which part weighs the most.',
+        body: 'Tap “Breakdown” under the number and what gets deducted appears as a color-coded bar. You can see at a glance which part weighs the most.',
         linkLabel: 'See how it differs from the marketplace figure ›',
       },
       'calc-calculator': {
         title: 'I want to add or multiply on the spot',
-        body: 'The blue calculator button to the right of each amount field (selling price, purchase price, shipping, packaging, other) opens a calculator. “Add a row” stacks as many rows as you like, so you can enter the box and the tape separately and get a total. “Insert” puts only the total into the field. The fee is a rate, so it has no calculator — use “−” and “+”.\n\nOnce you have tapped “Insert”, leaving the field as it is means the same rows are still there next time you open the calculator. Retyping the field by hand, or filling it from a saved value, starts over from that single number.',
+        body: 'The blue calculator button to the right of each amount field (selling price, purchase price, shipping, packaging, other) opens a calculator. “Add a row” stacks as many rows as you like, so you can enter the box and the tape separately and get a total. “Use this” puts only the total into the field. The fee is a rate, so it has no calculator — use “−” and “+”.\n\nOnce you have tapped “Use this”, leaving the field as it is means the same rows are still there next time you open the calculator. Retyping the field by hand, or filling it from a saved value, starts over from that single number.',
       },
       'calc-preset': {
         title: 'I want to stop typing the same numbers',
-        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row picks a marketplace: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on the marketplace removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nPackaging has no mark beside its field — you pick it from inside the calculator. You save all of these under “Saved Values” in the Settings tab.',
+        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row is for “Marketplace”: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on “Marketplace” removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nPackaging has no mark beside its field — you pick it from inside the calculator. You save all of these under “Saved Values” in the Settings tab.',
         linkLabel: 'See how to save them ›',
       },
       'calc-shipping-material': {
         title: 'I want the box cost included in shipping',
-        body: 'Tap the tag mark beside the shipping field and your saved shipping costs are listed. If a saved shipping cost also has a “carrier packaging” cost saved, that row splits into “Shipping only” and “+ materials”. You can read what each one costs before you tap, and the side you tap goes straight into the field. Tapping the row itself picks “+ materials”.\n\nThis is the place for things used only with that shipping method, like a courier box. Envelopes and tape you use for every shipment belong under packaging instead. Saved shipping costs with no materials cost do not show these two.',
+        body: 'Tap the tag mark beside the shipping field and your saved shipping costs are listed. If a saved shipping cost also has a “Carrier packaging” cost saved, that row splits into “Shipping only” and “+ materials”. You can read what each one costs before you tap, and the side you tap goes straight into the field. Tapping the row itself picks “+ materials”.\n\nThis is the place for things used only with that shipping method, like a courier box. Envelopes and tape you use for every shipment belong under packaging instead. Saved shipping costs with no materials cost do not show these two.',
         linkLabel: 'See how to save shipping costs ›',
       },
       'calc-clear': {
@@ -1023,17 +1023,17 @@ export const en: Translations = {
       'calc-to-record': {
         title: 'I want to keep what I just calculated',
         /** ボタンの語は {{button}} で差し込む（ja.ts の同じ項目のコメント参照） */
-        body: 'Tap “＋ {{button}}” at the bottom left of the screen and the record screen opens with the numbers you entered already filled in. Nothing needs retyping. A profit you entered under “Work back from a target” carries over as the record’s target profit.',
+        body: 'Tap “+ {{button}}” at the bottom left of the screen and the record screen opens with the numbers you entered already filled in. Nothing needs retyping. A profit you entered under “Work back from a target” carries over as the record’s target profit.',
         linkLabel: 'See about target profit ›',
       },
       'record-new': {
         title: 'I want to save something I sold or listed',
         /** ボタンの語は {{button}} で差し込む（ja.ts の同じ項目のコメント参照）。2 か所とも同じ 1 つのボタン */
-        body: 'Tap “＋ {{button}}” at the bottom left of the Records tab and you get two choices: “Create new” and “Copy a past record”. “Create new” opens an empty record screen. “＋ {{button}}” in the Calculate tab opens the same screen. The item name is the only thing you must enter.',
+        body: 'Tap “+ {{button}}” at the bottom left of the Records tab and you get two choices: “Start from scratch” and “Copy an earlier record”. “Start from scratch” opens an empty record screen. “+ {{button}}” in the Calculate tab opens the same screen. The item name is the only thing you must enter.',
       },
       'record-duplicate': {
         title: 'I want to list something similar again',
-        body: 'Choose “Copy a past record” from “＋ Record” in the Records tab and your existing records are listed. You can search by item name or narrow by tag.\n\nThe record you tap opens a new record screen with its item name, type, purchase price, shipping, fee, marketplace, packaging, other, tags and target already filled in. When you list something similar with the same shipping method, none of the expenses need retyping.\n\nThe selling price, photo and notes are not carried over. Dates start from today and the status starts as listed. The record you copy can be sold or still listed. What you get is a new record, so the original is untouched.',
+        body: 'Choose “Copy an earlier record” from “+ Record” in the Records tab and your existing records are listed. You can search by item name or narrow by tag.\n\nThe record you tap opens a new record screen with its item name, type, purchase price, shipping, fee, marketplace, packaging, other, tags and target already filled in. When you list something similar with the same shipping method, none of the expenses need retyping.\n\nThe selling price, photo and notes are not carried over. Dates start from today and the status starts as listed. The record you copy can be sold or still listed. What you get is a new record, so the original is untouched.',
       },
       'record-kind': {
         title: 'Type (used and sourced)',
@@ -1042,7 +1042,7 @@ export const en: Translations = {
       },
       'record-status': {
         title: 'I want to save something that has not sold yet',
-        body: 'Tap “Mark as listed” on the record screen to keep it as a record from before the sale. When it sells, tap “Sold” on the record detail, or “Turn into a sold record” on the record screen, and enter the sale date.',
+        body: 'Tap “Move back to listed” on the record screen to keep it as a record from before the sale. When it sells, tap “Sold” on the record detail, or “Mark as sold” on the record screen, and enter the sale date.',
       },
       'record-saledate': {
         title: 'When the sale date will not select',
@@ -1055,11 +1055,11 @@ export const en: Translations = {
       },
       'record-tag': {
         title: 'I want to sort by things like “Clothes” or “Tableware”',
-        body: 'On the record screen, tap “＋ Add” to the right of the “Tags” heading below the amounts. A tag that does not exist yet can be created on the spot: type it into the search box and tap “＋ Create “Clothes””. Tags are optional.',
+        body: 'On the record screen, tap “+ Add” to the right of the “Tags” heading below the amounts. A tag that does not exist yet can be created on the spot: type it into the search box and tap “+ Create “Clothes””. Tags are optional.',
       },
       'record-memo': {
         title: 'I want to leave a note',
-        body: 'Tap “Write a note” at the bottom of the record screen. Once you write something the heading changes to “Notes”, so you can tell there is something inside even while it is collapsed. Notes go into the data-keeping CSV but not the tax-filing one.',
+        body: 'Tap “Write a note” at the bottom of the record screen. Once you write something the heading changes to “Note”, so you can tell there is something inside even while it is collapsed. Notes go into the data-keeping CSV but not the tax-filing one.',
         linkLabel: 'See the two kinds of export ›',
       },
       'record-target': {
@@ -1073,7 +1073,7 @@ export const en: Translations = {
       },
       'record-bar': {
         title: 'I want to see the breakdown of one record',
-        body: 'Open a record’s detail and a colour-coded bar sits at the top of the amounts card. It treats the selling price as one bar and shows the split between what you keep and what comes off.\n\nGreen is what you keep, orange is the marketplace fee, and the reds are the other expenses. The colours match “Breakdown” in the Calculate tab — a different screen, the same meanings.\n\nThe bar itself carries no labels. The colours are named by the matching dots to the left of the rows below it. Read the rows from the top and you can tell which segment is which.\n\nUnder the bar is a single line about what you can do next. On a listed record it is how much further you can come down (or, if you are in the red, how much you would have to raise the price to get out). On a sold record it is a summary of how it went. Tapping it takes you to “What price?” while listed, or “How did it go?” once sold.',
+        body: 'Open a record’s detail and a color-coded bar sits at the top of the amounts card. It treats the selling price as one bar and shows the split between what you keep and what comes off.\n\nGreen is what you keep, orange is the marketplace fee, and the reds are the other expenses. The colors match “Breakdown” in the Calculate tab — a different screen, the same meanings.\n\nThe bar itself carries no labels. The colors are named by the matching dots to the left of the rows below it. Read the rows from the top and you can tell which segment is which.\n\nUnder the bar is a single line about what you can do next. On a listed record it is how much further you can come down (or, if you are in the red, how much you would have to raise the price to get out). On a sold record it is a summary of how it went. Tapping it takes you to “What price?” while listed, or “How did it go?” once sold.',
         linkLabel: 'See “What price?” ›',
       },
       'record-copy': {
@@ -1086,11 +1086,11 @@ export const en: Translations = {
       },
       'record-find-status': {
         title: 'I want to switch between sold and listed',
-        body: 'Use “Sold” and “Listed” at the right of the row with the amount. The total above switches too: under “Listed” it becomes the total listing price rather than the net total. The rows change as well — sold records show the net, listed ones show the listing price and an estimate of “about ◯ when it sells”. That estimate deducts the expenses entered so far. If you have not entered shipping yet, it has not been deducted.',
+        body: 'Use “Sold records” and “Listed” at the right of the row with the amount. The total above switches too: under “Listed” it becomes “Total listed price” rather than the net total. The rows change as well — sold records show the net, listed ones show the listing price and an estimate of “about ◯ when it sells”. That estimate deducts the expenses entered so far. If you have not entered shipping yet, it has not been deducted.',
       },
       'record-find-filter': {
         title: 'I want to narrow by type or tag',
-        body: 'Tap the “▽” at the right of the month row to open the filter screen. Under “Sold” you can narrow by type, marketplace and tag; under “Listed” the marketplace is not decided yet, so you get type and tag. While a filter is on, a blue row appears — tapping it takes you back to the same screen.',
+        body: 'Tap the “▽” at the right of the month row to open the filter screen. Under “Sold records” you can narrow by type, marketplace and tag; under “Listed” the marketplace is not decided yet, so you get type and tag. While a filter is on, a blue row appears — tapping it takes you back to the same screen.',
       },
       'record-tag-or': {
         title: 'What happens if I pick two tags',
@@ -1098,7 +1098,7 @@ export const en: Translations = {
       },
       'record-find-search': {
         title: 'I want to search by item name, or sort',
-        body: 'Tap the magnifier at the top right and the row above turns into a text field. Typing part of an item name narrows the list. Only item names are searched — notes and tag names are not.\n\nTap the up-down arrows at the top right and you get sale date, listing date, net and expenses, each with “Newest”, “Oldest”, “Highest” and “Lowest” beside it. Under “Listed” there is no sale date yet, so you get listing date, estimated net and expenses.',
+        body: 'Tap the magnifier at the top right and the row above turns into a text field. Typing part of an item name narrows the list. Only item names are searched — notes and tag names are not.\n\nTap the up-down arrows at the top right and you get sale date, listing date, net and expenses, each with “Newest first”, “Oldest first”, “Highest first” and “Lowest first” beside it. Under “Listed” there is no sale date yet, so you get listing date, estimated net and expenses.',
       },
       'record-edit': {
         title: 'I want to change or delete one later',
@@ -1106,7 +1106,7 @@ export const en: Translations = {
       },
       'record-tag-delete': {
         title: 'Deleting a tag, and what happens when you do',
-        body: 'Tags are deleted under “Organize Records” in the Settings tab: swipe the row left and tap “Delete”. Names and colours are changed from the same screen.\n\nDeleting a tag does not delete any record. The tag simply comes off them. If you tap “Undo” at the bottom of the screen right afterwards, both the tag and the records that carried it come back.',
+        body: 'Tags are deleted under “Organize Records” in the Settings tab: swipe the row left and tap “Delete”. Names and colors are changed from the same screen.\n\nDeleting a tag does not delete any record. The tag simply comes off them. If you tap “Undo” at the bottom of the screen right afterwards, both the tag and the records that carried it come back.',
       },
       'record-preset': {
         title: 'I want to save values I use often',
@@ -1114,11 +1114,11 @@ export const en: Translations = {
       },
       'record-preset-material': {
         title: 'Where packaging is picked from',
-        body: 'Packaging has no tag mark beside its field. Tap the blue calculator button to the right of the packaging field, then use “Pick packaging” (the blue text with the tag mark) inside the calculator.\n\nYou can pick as many as you like here. “Insert” stacks each one as its own row and puts the total into the field. Save the box and the tape separately and two taps give you the total.',
+        body: 'Packaging has no tag mark beside its field. Tap the blue calculator button to the right of the packaging field, then use “Pick from packaging” (the blue text with the tag mark) inside the calculator.\n\nYou can pick as many as you like here. “Use this” stacks each one as its own row and puts the total into the field. Save the box and the tape separately and two taps give you the total.',
       },
       'record-preset-pack': {
         title: 'Working out a per-item or per-use cost for a bulk buy',
-        body: 'Choose “Bulk buy” when saving packaging and you can pick a “Method”: “By quantity”, “By area” or “By number of uses”. All three exist to give you the cost of one use — only what you divide by is different.\n\n“By quantity” takes the number per pack and the pack price and gives the cost per item. 100 sheets for ¥800 is saved as ¥8 each.\n\n“By area” takes the height and width you bought plus the pack price and gives a cost per square metre. It suits things you cut to size, like bubble wrap on a roll. Add an “average used” height and width and you get a cost per use as well. Those two are optional — leave them empty and the per-square-metre amount goes into your expenses.\n\n“By number of uses” takes the expected number of uses and the pack price and gives a cost per use. It suits things counted by how many times they last, like tape.\n\nThe list shows whether each amount is “per item”, “per use” or “per m²”.',
+        body: 'Choose “Bought in bulk” when saving packaging and you can pick a “Method”: “By quantity”, “By area” or “By number of uses”. All three exist to give you the cost of one use — only what you divide by is different.\n\n“By quantity” takes the number per pack and the pack price and gives the cost per item. 100 sheets for ¥800 is saved as ¥8 each.\n\n“By area” takes the height and width you bought plus the pack price and gives a cost per square meter. It suits things you cut to size, like bubble wrap on a roll. Add an “Average used” height and width and you get a cost per use as well. Those two are optional — leave them empty and the per-square-meter amount goes into your expenses.\n\n“By number of uses” takes the expected number of uses and the pack price and gives a cost per use. It suits things counted by how many times they last, like tape.\n\nThe list shows whether each amount is “Each”, “Per use” or “Per m²”.',
       },
       'record-preset-edit': {
         title: 'Changing or deleting a saved value',
@@ -1129,28 +1129,28 @@ export const en: Translations = {
         body: 'A large badge sits near the top of the screen where you add or edit a saved value. Tap the badge itself to edit the text inside it. There is no separate field for it.\n\nLeave it blank and the start of the name is used. For “A4, up to 3 cm” something like “A4” — up to two characters you find easy to read — makes it easier to tell them apart when picking.\n\nA normal tap is all it takes here. Long-press is used for copying records, so it does nothing here.',
       },
       'record-color': {
-        title: 'Choosing colours',
-        body: 'Tags and saved values take one of 11 fixed colours. The dots come in two groups: unused colours on top, colours in use below. While editing, the headings change to “Colours you can pick” on top and “In use by another tag” below (saved values name their own type). The colour you are using stays at the front of the top group.\n\nColours already in use can be picked too. Using one colour for two things is not necessarily a mistake, so nothing stops you — you just get one line saying something like “Same colour as “Clothes””.',
+        title: 'Choosing colors',
+        body: 'Tags and saved values take one of 11 fixed colors. The dots come in two groups: “Not used yet” on top and “In use” below. While editing, the headings change to “Colors you can pick” on top and “In use by another tag” below (saved values name their own type). The color you are using stays at the front of the top group.\n\nColors already in use can be picked too. Using one color for two things is not necessarily a mistake, so nothing stops you — you just get one line saying something like “Same color as “Clothes””.',
       },
       'record-color-custom': {
-        title: 'I want a colour that is not one of the 11',
-        body: 'The last dot is “Custom colour”. Tap it to make your own, then confirm with “Done”.\n\nOnce all 11 are in use, the top turns into a single “Create a new colour” row and the 11 fixed colours line up below as “Pick from colours in use”.',
+        title: 'I want a color that is not one of the 11',
+        body: 'The last dot is “Custom”. Tap it to make your own, then confirm with “Done”.\n\nOnce all 11 are in use, the top turns into a single “Create a new color” row and the 11 fixed colors line up below as “Pick from colors in use”.',
       },
       'record-default-kind': {
         title: 'I want to change which type is picked first',
-        body: 'Choose it under “Type for new records” in the Settings tab. It only changes which type is selected first on a new record; records you already saved do not change.',
+        body: 'Choose it under “Type for New Records” in the Settings tab. It only changes which type is selected first on a new record; records you already saved do not change.',
       },
       'sell-open': {
         title: 'Opening “What price?”',
-        body: 'Tap the row under the bar on the amounts card of a record detail. On a listed record it opens “What price?”; on a sold one, “How did it go?”.\n\nThis is the place for a single item. Overall sales belong in the Data tab; what to charge for this one thing belongs here.\n\nIt opens even for records with no price yet. Then it shows what can be known without one, such as the price that keeps you out of the red.',
+        body: 'Tap the row under the bar on the amounts card of a record detail. On a listed record it opens “What price?”; on a sold one, “How did it go?”.\n\nThis is the place for a single item. Overall sales belong in the Data tab; what to charge for this one thing belongs here.\n\nIt opens even for records with no price yet. Then it shows “What you already know without a price”, such as the price that keeps you out of the red.',
       },
       'sell-price-line': {
         title: 'Reading the price guide',
-        body: 'Halfway down “What price?” is a single horizontal line of price guidance. It marks the break-even price and your current price. Records with a target also get the price that reaches it.\n\nWhere your current price falls tells you at a glance whether there is room to come down, or whether coming down puts you in the red.',
+        body: 'Halfway down “What price?” is a single horizontal line of price guidance. It marks “Price with no loss” and your current price. Records with a target also get “Price that meets your target”.\n\nWhere your current price falls tells you at a glance whether there is room to come down, or whether coming down puts you in the red.',
       },
       'sell-simulator': {
         title: 'Trying out a discount',
-        body: 'The “Discount simulator” sits near the bottom of “What price?”. Drag the knob left or right and it shows, there and then, what you would keep at that price. Dragging alone changes nothing.\n\nTo keep a price you tried, tap “Save this price to this app”. It does not overwrite straight away: “This will change the price” appears first, showing your record now next to what it becomes, and “Change it” confirms. If that price puts you in the red, the button changes to “Raise the price to at least ◯”.\n\nOnly this app’s record changes — the price on the site you listed on does not. Change that one yourself.\n\nAfter it changes, “Undo” appears at the bottom of the screen, so a mistake can be taken back on the spot. On a record with no price yet, the knob does not move.',
+        body: 'The “Discount simulator” sits near the bottom of “What price?”. Drag the knob left or right and it shows, there and then, what you would keep at that price. Dragging alone changes nothing.\n\nTo keep a price you tried, tap “Record this price in the app”. It does not overwrite straight away: “Change the price to this” appears first, showing your record now next to what it becomes, and “Change it” confirms. If that price puts you in the red, the button changes to “Raise the price to at least ◯”.\n\nOnly this app’s record changes — the price on the site you listed on does not. Change that one yourself.\n\nAfter it changes, “Undo” appears at the bottom of the screen, so a mistake can be taken back on the spot. On a record with no price yet, the knob does not move.',
       },
       'sell-room': {
         title: 'Seeing how far you can still come down',
@@ -1167,7 +1167,7 @@ export const en: Translations = {
       },
       'data-modes': {
         title: 'Switching between net, tags and achievements',
-        body: '“Net”, “Tags” and “Achievements” sit above the chart card. Tapping one swaps out the contents of the same screen.\n\n“Net” is how sales went over a period, “Tags” is what sells well, and “Achievements” is what you have built up so far. The month row and the filter apply to “Net” and “Tags” only.',
+        body: '“Net total”, “Tags” and “Achievements” sit above the chart card. Tapping one swaps out the contents of the same screen.\n\n“Net total” is how sales went over a period, “Tags” is what sells well, and “Achievements” is what you have built up so far. The month row and the filter apply to “Net total” and “Tags” only.',
       },
       'data-tag': {
         title: 'I want to see how each tag is doing',
@@ -1175,11 +1175,11 @@ export const en: Translations = {
       },
       'data-achievements': {
         title: 'I want to see my achievements',
-        body: 'Tap “Achievements” and what you have built up appears as four cards: “Next achievement” (how far off you are), “Your record” (lifetime sales and profit), “Achievements earned” and “Personal bests”.\n\nThe records behind an achievement get a small badge in the list and on the detail.',
+        body: 'Tap “Achievements” and what you have built up appears as four cards: “Next achievement” (how far off you are), “Your records” (lifetime sales and profit), “Earned” and “Personal bests”.\n\nThe records behind an achievement get a small badge in the list and on the detail.',
       },
       'data-achievement-kinds': {
         title: 'Kinds of achievement, and ranks',
-        body: 'There are two kinds. One climbs five tiers in each of five categories; the other, like “First step” or “Quick sale”, is earned once when you meet its condition.\n\nEvery achievement carries a difficulty rank — from easiest: Bronze, Silver, Gold, Platinum and Legend. Tap an achievement badge to see its ★ count, its rank name and what it takes to earn it. The rank is also the colour of the badge’s rim, so the heavy ones stand out just by looking down the list.',
+        body: 'There are two kinds. One climbs five tiers in each of five categories; the other, like “First Step” or “Gone in a Day”, is earned once when you meet its condition.\n\nEvery achievement carries a difficulty rank — from easiest: Bronze, Silver, Gold, Platinum and Legend. Tap an achievement badge to see its ★ count, its rank name and what it takes to earn it. The rank is also the color of the badge’s rim, so the heavy ones stand out just by looking down the list.',
       },
       'data-achievement-period': {
         title: 'Only achievements ignore the month and the filter',
@@ -1216,11 +1216,11 @@ export const en: Translations = {
       },
       'backup-create': {
         title: 'Making a backup',
-        body: 'Open “Back Up & Restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, saved values and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Exclude”. It starts on “Include”. “Exclude” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and saved values all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
+        body: 'Open “Back Up & Restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, saved values and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Leave out”. It starts on “Include”. “Leave out” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and saved values all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
       },
       'backup-restore': {
         title: 'Restoring from a backup',
-        body: 'Restoring replaces every record, tag and saved value on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Back Up & Restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “Preview” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose another file”. If the file cannot be read, none of your current data changes.',
+        body: 'Restoring replaces every record, tag and saved value on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Back Up & Restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “Preview” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose a different file”. If the file cannot be read, none of your current data changes.',
       },
       'backup-preview': {
         title: 'Reading the “Preview” screen',
@@ -1236,7 +1236,7 @@ export const en: Translations = {
       },
       'export-period': {
         title: 'Which period is included',
-        body: 'The period is decided by the sale date, not the day the money arrived. By default only sold records are included; “Include listed items” adds ones that have not sold yet. Filters you set in the Records or Data tab do not apply to an export.',
+        body: 'The period is decided by the “Sold on” date, not the day the money arrived. By default only sold records are included; “Include listed items” adds ones that have not sold yet. Filters you set in the Records or Data tab do not apply to an export.',
       },
       'export-preview': {
         title: 'I want to see what goes in first',
@@ -1244,7 +1244,7 @@ export const en: Translations = {
       },
       'export-grouping': {
         title: 'I want it grouped by day',
-        body: 'The tax-filing export lets you pick a “Grouping”. “Group by day” puts one day’s sales into a single row. Amounts are added up, item names become “Pencil and 2 others” and marketplaces “Market A and 1 other”. A day with mixed types is written as “Mixed”.',
+        body: 'The tax-filing export lets you pick a “Grouping”. “Combine by day” puts one day’s sales into a single row. Amounts are added up, item names become “Pencil and 2 others” and marketplaces “Market A and 1 other”. A day with mixed types is written as “Mixed”.',
       },
       'export-share': {
         title: 'How to receive the exported file',
@@ -1273,7 +1273,7 @@ export const en: Translations = {
       },
       'terms-expenses': {
         title: 'What counts as an expense',
-        body: 'Five things: purchase price, shipping, marketplace fee, packaging and other. Purchase price appears for sourced items only.\n\nThose five added together are what comes off, and what is left of the selling price is what you keep. Only the fields you fill in are used, so the ones you do not need can stay empty.',
+        body: 'Five things: purchase price, shipping, marketplace fee, packaging and other. Purchase price appears for sourced items only.\n\nThose five added together are “Taken out”, and what is left of the selling price is what you keep. Only the fields you fill in are used, so the ones you do not need can stay empty.',
       },
       'terms-tax': {
         title: 'How sales tax is handled',
@@ -1303,7 +1303,7 @@ export const en: Translations = {
     kindSelectorNote: 'You choose it here on the record screen',
     statusToggleNote: 'The left shows the current status; tap the right to switch to the other one',
     photoNote: 'Tap an empty frame to pick a photo. Remove one with the “✕” at its top right',
-    tagRowNote: 'Tap “＋” to choose. You can create a tag that does not exist yet right there',
+    tagRowNote: 'Tap “+” to choose. You can create a tag that does not exist yet right there',
     monthBarNote: 'Use “◀” and “▶” for the next or previous month. Tap the month name to pick a period',
     filterEntryNote: 'Open it from the “▽” at the right end. It turns blue while a filter is on',
     searchSortNote: 'Search by item name on the left, sort on the right',
@@ -1314,10 +1314,10 @@ export const en: Translations = {
     simulatorNote: 'Drag the knob and the outlook at that price appears above (this figure does not move)',
     dataModesNote: 'At the top edge of the chart card',
     tagViewNote: 'Switch it at the top right of the tag card',
-    photoIncludeNote: 'The default is “Include”. If you create one with “Exclude”, photos cannot be restored from that file',
+    photoIncludeNote: 'The default is “Include”. If you create one with “Leave out”, photos cannot be restored from that file',
     presetBadgeNote: 'Tap the badge itself to edit its text',
-    recordBarNote: 'Each colour in the bar is named by the matching dot on the rows below',
-    colorGroupsNote: 'Unused colours on top, colours in use below. You can tap either',
+    recordBarNote: 'Each color in the bar is named by the matching dot on the rows below',
+    colorGroupsNote: 'Unused colors on top, colors in use below. You can tap either',
     exportTargetNote: 'The default is “{{soldRecords}} only”',
     exportPreviewNote: 'Tap to see every row',
     filterOffCaption: 'No filter',
@@ -1414,7 +1414,7 @@ export const en: Translations = {
     dataBody: 'Net total, tags and achievements. See your sales from whichever angle you want.',
     achievementsTitle: 'Achievements build up as you go',
     achievementsBody: 'Every sale you add unlocks more of them.',
-    achievementsNote: 'If you get stuck, the “?” on each screen — or How to Use in Settings — is always there.',
+    achievementsNote: 'If you get stuck, the “?” on each screen — or “How to Use” in Settings — is always there.',
     examplePresetShipping: 'Parcel (size 60)',
     examplePresetSite: '10% fee',
     examplePresetPackaging: 'Bubble wrap (S)',
