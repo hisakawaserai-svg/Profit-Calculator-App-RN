@@ -185,6 +185,21 @@ export function recordDetailConclusion(analysis: PricingAnalysis): RecordDetailC
 export type PriceTickKey = 'current' | 'breakEven' | 'target';
 export type PriceTick = { key: PriceTickKey; value: number };
 
+/**
+ * シミュレーターのトラックに出す印（§9.9）。**いまは損益分岐点の 1 本だけ。**
+ *
+ * スライダーは前から分岐点に吸い付いていた（PricingScreen の `snapPoints`）が、
+ * **なぜそこで止まるのかが画面に出ていなかった** ── 既にある挙動を目に見せるための印で、
+ * 吸い付く点と同じ値をそのまま返す（2 つがずれると、線の隣で止まって見える）。
+ *
+ * **`current` は出さない。** そこにはつまみ自身が居る。
+ * 目標ラインの 2 本目は、分岐点と近い記録で線が重なって読めなくなる懸念があるので、
+ * 実機で確かめてから足すかを決める（まだ足していない）。
+ */
+export function simulatorMarks(analysis: PricingAnalysis): PriceTick[] {
+  return [{ key: 'breakEven', value: analysis.breakEven }];
+}
+
 export function priceLineTicks(analysis: PricingAnalysis): PriceTick[] {
   const ticks: PriceTick[] = [
     { key: 'breakEven', value: analysis.breakEven },

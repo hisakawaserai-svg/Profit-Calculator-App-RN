@@ -250,7 +250,11 @@ function labelLefts(ratios: readonly number[], width: number): number[] {
   return lefts;
 }
 
-function markerColor(key: PriceTickKey, colors: ThemeColors): string {
+/**
+ * 目盛りの色。**シミュレーターのトラックの印（PriceSlider の marks）とも共有する** ──
+ * 同じ「分岐点」が、価格ラインとスライダーで違う色に見えないようにする。
+ */
+export function markerColor(key: PriceTickKey, colors: ThemeColors): string {
   if (key === 'breakEven') return colors.red;
   if (key === 'target') return colors.orange;
   return colors.green;

@@ -10,10 +10,24 @@
 import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
+import { markLeft } from '@/logic/sliderGeometry';
 import { useThemeColors } from '@/theme';
 
 const TRACK_HEIGHT = 6;
 const THUMB_SIZE = 28;
+
+/** 印の太さ。線として読めて、つまみが乗ったときに完全には隠れない幅 */
+const MARK_WIDTH = 2;
+
+/**
+ * 印の高さ。**つまみより背を高くする。**
+ *
+ * つまみに隠れる高さにすると、赤字の記録を開いた瞬間に線が見えない ──
+ * その状態の初期値は分岐点そのもので（logic/pricing の simulatorInitialPrice）、
+ * つまみが線にちょうど乗って始まるため。上下にはみ出させておくと、
+ * 乗っているときは「線の上に居る」として読める。
+ */
+const MARK_HEIGHT = THUMB_SIZE + 6;
 
 /** 値の刻み（円）。1 円刻みにすると指の 1 ピクセルの揺れが値に出て読み取れない */
 const STEP = 10;
@@ -21,11 +35,22 @@ const STEP = 10;
 /** この距離まで近づいたら線に吸い付く（値域に対する割合）。分岐点・目標ちょうどを指で出せるように */
 const SNAP_RATIO = 0.02;
 
+/** トラックに引く縦線 1 本。色は画面が決める（価格ラインと同じ markerColor を共有する） */
+export type SliderMark = { key: string; value: number; color: string };
+
 type Props = {
   min: number;
   max: number;
   value: number;
   onChange: (value: number) => void;
+  /**
+   * トラックに引く縦線（§9.9）。**`snapPoints` と同じ値を渡す前提**で、
+   * 「なぜここで止まるのか」を目に見せるためのもの。ずれた値を渡すと、
+   * 線の隣で吸い付いて見える。
+   *
+   * **不活性のときは描かない**（下の marks の使い方を参照）
+   */
+  marks?: readonly SliderMark[];
   /**
    * 吸い付く価格（分岐点・目標達成価格）。**この画面の答えはたいていこの点そのもの**なので、
    * 指で「ちょうど」を出せるようにする。範囲外の値が混ざっていても無視される。
@@ -48,6 +73,7 @@ export function PriceSlider({
   max,
   value,
   onChange,
+  marks = [],
   snapPoints = [],
   disabled = false,
   accessibilityLabel,
@@ -112,6 +138,33 @@ export function PriceSlider({
           { backgroundColor: disabled ? colors.disabledBackground : colors.separator },
         ]}
       />
+      {/* 印はトラックの上・つまみの下に置く ── 掴んでいる間つまみが線の上を通る。
+          **触れない**（pointerEvents="none"）。子が指を受けると `locationX` が
+          その子の左端からの距離になり、値が飛ぶ（この器の冒頭のコメント）。
+          **不活性のときは出さない** ── 価格未設定ではカードごと 0.5 に沈んでいて
+          つまみも動かせない。動かない線を残すと、触れる何かがあるように見える */}
+      {!disabled &&
+        marks.map((mark) => (
+          <View
+            key={mark.key}
+            pointerEvents="none"
+            style={[
+              styles.mark,
+              {
+                left: markLeft({
+                  value: mark.value,
+                  min,
+                  max,
+                  travel,
+                  thumbSize: THUMB_SIZE,
+                  markWidth: MARK_WIDTH,
+                }),
+                backgroundColor: mark.color,
+              },
+            ]}
+          />
+        ))}
+
       <View
         pointerEvents="none"
         style={[
@@ -151,6 +204,12 @@ const styles = StyleSheet.create({
   track: {
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
+  },
+  mark: {
+    position: 'absolute',
+    width: MARK_WIDTH,
+    height: MARK_HEIGHT,
+    borderRadius: MARK_WIDTH / 2,
   },
   thumb: {
     position: 'absolute',

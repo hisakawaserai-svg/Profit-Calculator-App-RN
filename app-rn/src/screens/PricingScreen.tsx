@@ -35,7 +35,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
 import { MiniBreakdownBar } from '@/components/MiniBreakdownBar';
-import { PriceLine } from '@/components/PriceLine';
+import { PriceLine, markerColor } from '@/components/PriceLine';
 import { PriceSlider } from '@/components/PriceSlider';
 import { UndoBar } from '@/components/UndoBar';
 import { fromDbDate } from '@/db/dates';
@@ -104,6 +104,7 @@ import {
   canApplyPrice,
   initialSimulationPrice,
   pricingConclusion,
+  simulatorMarks,
   simulationVerdict,
   soldConclusion,
   soldElapsed,
@@ -469,6 +470,12 @@ function PricingContent({
             onChange={setSimPrice}
             // 分岐点・目標ラインは「ちょうど」を指で出したい点なので吸い付かせる
             snapPoints={[analysis.breakEven, ...(analysis.targetPrice == null ? [] : [analysis.targetPrice])]}
+            // 吸い付く点を目に見せる印（§9.9）。**snapPoints と同じ値**を渡す
+            marks={simulatorMarks(analysis).map((mark) => ({
+              key: mark.key,
+              value: mark.value,
+              color: markerColor(mark.key, colors),
+            }))}
             disabled={unpriced}
             accessibilityLabel={simulatorTitle(locale)}
             onDragStart={() => setSliderDragging(true)}
