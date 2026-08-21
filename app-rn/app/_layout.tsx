@@ -3,6 +3,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import Toast, { BaseToast, type ToastConfig, type ToastConfigParams } from 'react-native-toast-message';
 
@@ -185,25 +186,33 @@ export default function RootLayout() {
     // 月別詳細のスワイプ削除（SPEC §5.4）で react-native-gesture-handler を使うため、
     // アプリ全体を GestureHandlerRootView で包む
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={navigationTheme(colors, isDark)}>
-        <Stack>
-        {/* 設定はモーダルからタブへ昇格したので（UI-SPEC §6-8）、ルート直下は (tabs) だけ */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </ThemeProvider>
-      {/* コピーの合図は**下端**に出す。上端はヘッダの戻る・「？」があり、押す口を
-          数秒ふさいでしまうため。下端の一過性のメッセージは UndoBar（UI-SPEC §8.3）と
-          同じ場所・同じ役割になる。
-          100pt はこのアプリでいちばん高い下端の家具を越える値 ── 詳細画面の操作列が
-          88pt、タブバーがホームインジケータ込みで約 83pt。トーストは Stack の外
-          （全画面の上）に 1 つだけ置くので、画面ごとに変えず最大値で揃える */}
-      <Toast config={toastConfig} position="bottom" bottomOffset={100} />
-      {/* 実績獲得トーストのタップ受け（AchievementDetailModal をモーダルだけで完結させる）。
-          Toast 本体と同じ理由で Stack の外に常駐させる（achievementToastBus のコメント参照） */}
-      <AchievementToastHost />
-      {/* 初回起動チュートリアル。Toast・AchievementToastHost と同じ理由で Stack の外に置く ──
-          どのタブが前面でも（設定タブからの再表示も）全画面で覆えるようにするため */}
-      <OnboardingOverlay visible={onboardingVisible} onDone={closeOnboarding} />
+      {/* 鍵盤の高さ・フォーカス中の欄の位置を配るのはこの 1 つだけ（react-native-keyboard-controller）。
+          **アプリ全体を包む必要がある**が、RN の Modal（記録フォーム・各シート）の中にもう 1 つ置く
+          必要はない ── ライブラリの Android 側が Modal のウィンドウにも自分で listener を挿す
+          （ModalAttachedWatcher）ので、この 1 つでモーダルの中まで届く。
+          置き場所が GestureHandlerRootView の直下なのは、Stack の外に常駐している
+          Toast・OnboardingOverlay も鍵盤の値を読める側に入れておくため。 */}
+      <KeyboardProvider>
+        <ThemeProvider value={navigationTheme(colors, isDark)}>
+          <Stack>
+          {/* 設定はモーダルからタブへ昇格したので（UI-SPEC §6-8）、ルート直下は (tabs) だけ */}
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+        </ThemeProvider>
+        {/* コピーの合図は**下端**に出す。上端はヘッダの戻る・「？」があり、押す口を
+            数秒ふさいでしまうため。下端の一過性のメッセージは UndoBar（UI-SPEC §8.3）と
+            同じ場所・同じ役割になる。
+            100pt はこのアプリでいちばん高い下端の家具を越える値 ── 詳細画面の操作列が
+            88pt、タブバーがホームインジケータ込みで約 83pt。トーストは Stack の外
+            （全画面の上）に 1 つだけ置くので、画面ごとに変えず最大値で揃える */}
+        <Toast config={toastConfig} position="bottom" bottomOffset={100} />
+        {/* 実績獲得トーストのタップ受け（AchievementDetailModal をモーダルだけで完結させる）。
+            Toast 本体と同じ理由で Stack の外に常駐させる（achievementToastBus のコメント参照） */}
+        <AchievementToastHost />
+        {/* 初回起動チュートリアル。Toast・AchievementToastHost と同じ理由で Stack の外に置く ──
+            どのタブが前面でも（設定タブからの再表示も）全画面で覆えるようにするため */}
+        <OnboardingOverlay visible={onboardingVisible} onDone={closeOnboarding} />
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

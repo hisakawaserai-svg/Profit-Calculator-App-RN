@@ -18,14 +18,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { EmptyState } from '@/components/EmptyState';
 import { PresetQuickAddRow } from '@/components/PresetQuickAddRow';
@@ -115,10 +114,14 @@ export function PresetPickerSheet({
       {(close) => (
         // 上端の登録欄を触ると鍵盤がシートの下半分を覆う。画面いっぱいに広げて下端合わせに
         // するのは TagPickerSheet と同じ理由（maxHeight の % は親の高さに対して解決される）
+        // **KeyboardAvoidingView は react-native-keyboard-controller のもの**（RN 標準ではない）。
+        // 標準版は Android では何もできず（edgeToEdge でウィンドウが縮まないため behavior を
+        // 渡しても重なり量が 0 と出る）、iOS でも自分の位置を親からの相対で測るのでモーダルの
+        // 中では足りない。ライブラリ版は両 OS とも鍵盤の高さを直接受け取る
         <KeyboardAvoidingView
           style={styles.avoider}
           pointerEvents="box-none"
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          behavior="padding">
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             {/* ヘッダは中央に見出し・右に「閉じる」（設計案 26b）。左は空のまま同じ幅を取り、
                 見出しが画面の中央から動かないようにする */}

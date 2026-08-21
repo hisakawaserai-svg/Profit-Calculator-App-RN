@@ -10,14 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { EmptyState } from '@/components/EmptyState';
 import { PresetQuickAddRow } from '@/components/PresetQuickAddRow';
@@ -85,10 +84,14 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
       {(close) => (
         // 登録欄を触ると鍵盤がシートの下半分を覆う（TagPickerSheet と同じ理由で
         // 画面いっぱいに広げて下端合わせにする）
+        // **KeyboardAvoidingView は react-native-keyboard-controller のもの**（RN 標準ではない）。
+        // 標準版は Android では何もできず（edgeToEdge でウィンドウが縮まないため behavior を
+        // 渡しても重なり量が 0 と出る）、iOS でも自分の位置を親からの相対で測るのでモーダルの
+        // 中では足りない。ライブラリ版は両 OS とも鍵盤の高さを直接受け取る
         <KeyboardAvoidingView
           style={styles.avoider}
           pointerEvents="box-none"
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          behavior="padding">
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             {/* ヘッダ。左「‹ 電卓」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」） */}
             <View style={styles.header}>

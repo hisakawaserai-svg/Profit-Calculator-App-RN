@@ -11,6 +11,7 @@
 //   0 は「利益ゼロを目標にする」という有効な目標で、消した状態とは別のもの
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { NumericField } from '@/components/NumericField';
 import { SheetModal } from '@/components/SheetModal';
@@ -69,75 +70,89 @@ export function TargetProfitSheet({
   return (
     <SheetModal visible={visible} onClose={onClose}>
       {(close) => (
-        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          <Text style={[styles.title, { color: colors.label }]}>
-            {targetProfitSheetTitle(locale, kind)}
-          </Text>
+        /* 鍵盤の逃がし（他の選択シートと同じ形）。**このシートには特に要る** ──
+           下端合わせのシートなので、逃がしが無いと鍵盤が出た瞬間に入力欄も
+           プレビューの 2 行も保存もキャンセルも丸ごと裏に入り、打っている数字が
+           1 桁も見えないまま「決めた額」を保存させることになる。
+           `behavior="padding"` は器の下に鍵盤ぶんの余白を足す ── 器は
+           `justifyContent: 'flex-end'` なので、そのぶんシートが持ち上がる。
+           器を画面いっぱいに広げて下端合わせにするのは PresetPickerSheet と同じ理由
+           （高さの % は親の高さに対して解決される）。
+           `pointerEvents="box-none"` で、シートの外を触ったぶんは下の幕へ抜ける。 */
+        <KeyboardAvoidingView
+          style={styles.avoider}
+          pointerEvents="box-none"
+          behavior="padding">
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <Text style={[styles.title, { color: colors.label }]}>
+              {targetProfitSheetTitle(locale, kind)}
+            </Text>
 
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <NumericField
-              label={targetProfitLabel(locale, kind)}
-              value={input}
-              onChangeValue={setInput}
-              // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は 0 ではない
-              placeholder={targetProfitUnsetLabel(locale)}
-              valueStyle={[styles.inputValue, { color: colors.green }]}
-              canOpenSettings={false}
-            />
-          </View>
+            <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+              <NumericField
+                label={targetProfitLabel(locale, kind)}
+                value={input}
+                onChangeValue={setInput}
+                // 他の金額欄の placeholder は "0"（未入力＝0 円）だが、この欄の空欄は 0 ではない
+                placeholder={targetProfitUnsetLabel(locale)}
+                valueStyle={[styles.inputValue, { color: colors.green }]}
+                canOpenSettings={false}
+              />
+            </View>
 
-          {/* 決めると足される 2 つの数字（§9.14）。**決める前に見せる**のがこの節の役目 */}
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <PreviewRow
-              label={targetPreviewPriceLabel(locale)}
-              value={previewPrice == null ? null : formatYenSymbol(previewPrice)}
-            />
-            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-            <PreviewRow
-              label={targetPreviewRoomLabel(locale)}
-              value={previewRoom == null ? null : formatYenSymbol(previewRoom)}
-            />
-          </View>
+            {/* 決めると足される 2 つの数字（§9.14）。**決める前に見せる**のがこの節の役目 */}
+            <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+              <PreviewRow
+                label={targetPreviewPriceLabel(locale)}
+                value={previewPrice == null ? null : formatYenSymbol(previewPrice)}
+              />
+              <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+              <PreviewRow
+                label={targetPreviewRoomLabel(locale)}
+                value={previewRoom == null ? null : formatYenSymbol(previewRoom)}
+              />
+            </View>
 
-          <Pressable
-            onPress={() => {
-              onSave(parsed);
-              close();
-            }}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.button,
-              { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
-            ]}>
-            <Text style={styles.saveLabel}>{saveLabel(locale)}</Text>
-          </Pressable>
-
-          {/* 既に決めてある記録にだけ出す（§9.14）。空欄にして保存でも消せるが、
-              「消す」がしたい人に空欄化を発見させる形にはしない */}
-          {targetProfit != null && (
             <Pressable
               onPress={() => {
-                onSave(null);
+                onSave(parsed);
                 close();
               }}
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
+                { backgroundColor: colors.blue, opacity: pressed ? 0.7 : 1 },
               ]}>
-              <Text style={[styles.clearLabel, { color: colors.red }]}>
-                {targetProfitClearLabel(locale)}
-              </Text>
+              <Text style={styles.saveLabel}>{saveLabel(locale)}</Text>
             </Pressable>
-          )}
 
-          <Pressable
-            onPress={close}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.5 : 1 }]}>
-            <Text style={[styles.cancelLabel, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
-          </Pressable>
-        </View>
+            {/* 既に決めてある記録にだけ出す（§9.14）。空欄にして保存でも消せるが、
+                「消す」がしたい人に空欄化を発見させる形にはしない */}
+            {targetProfit != null && (
+              <Pressable
+                onPress={() => {
+                  onSave(null);
+                  close();
+                }}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.button,
+                  { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.7 : 1 },
+                ]}>
+                <Text style={[styles.clearLabel, { color: colors.red }]}>
+                  {targetProfitClearLabel(locale)}
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={close}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.5 : 1 }]}>
+              <Text style={[styles.cancelLabel, { color: colors.blue }]}>{cancelLabel(locale)}</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
       )}
     </SheetModal>
   );
@@ -166,6 +181,11 @@ function PreviewRow({ label, value }: { label: string; value: string | null }) {
 }
 
 const styles = StyleSheet.create({
+  // 鍵盤の逃がしの器。画面いっぱいに広げて下端合わせ（PresetPickerSheet と同じ）
+  avoider: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   sheet: {
     paddingHorizontal: 16,
     paddingTop: 20,

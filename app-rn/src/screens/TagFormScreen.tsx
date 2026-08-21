@@ -15,14 +15,12 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { ColorSwatchGrid } from '@/components/ColorSwatchGrid';
 import { HelpButton } from '@/components/HelpButton';
@@ -50,6 +48,10 @@ import { presetColorValue } from '@/logic/preset';
 import { nextTagColor, validateTag } from '@/logic/tag';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
+
+
+/** 鍵盤の上端とフォーカス中の欄の間に残す余白（pt）。他のフォームと同じ値 */
+const KEYBOARD_BOTTOM_OFFSET = 32;
 
 type Props = {
   /** 編集する行。追加のときは null */
@@ -172,96 +174,97 @@ export function TagFormScreen({ tag }: Props) {
           ),
         }}
       />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          style={{ backgroundColor: colors.background }}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled">
-          {/* §2.3-2: **一覧の行をそのまま先に見せる。** 入力に追従する ──
-              保存できない理由は名前の欄の下が言うので、プレビューまで止めない。
+      {/* 鍵盤の逃がし（KeyboardAwareScrollView）。器に padding を足す KeyboardAvoidingView から
+          移した ── あちらは中身を縮めるだけで、フォーカス中の欄を運んでこない。
+          この画面は欄が 1 つで上端にあるので隠れにくいが、逃がしの仕組みを画面ごとに
+          変えない（挙動の読めない場所を作らない）ためにここも揃える */}
+      <KeyboardAwareScrollView
+        style={[styles.flex, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+        bottomOffset={KEYBOARD_BOTTOM_OFFSET}
+        keyboardShouldPersistTaps="handled">
+        {/* §2.3-2: **一覧の行をそのまま先に見せる。** 入力に追従する ──
+            保存できない理由は名前の欄の下が言うので、プレビューまで止めない。
 
-              チップだけを置いていたのを、**使用件数とシェブロンまで入れた一覧の行の形**に変えた。
-              チップ 1 つでは打った名前が出ているだけの帯に見え、**どこに出るものなのか**が
-              読めなかった ── 行の形ごと見せて、左の語（「タグ一覧での見え方」）で名指しする。
+            チップだけを置いていたのを、**使用件数とシェブロンまで入れた一覧の行の形**に変えた。
+            チップ 1 つでは打った名前が出ているだけの帯に見え、**どこに出るものなのか**が
+            読めなかった ── 行の形ごと見せて、左の語（「タグ一覧での見え方」）で名指しする。
 
-              **押せない。** 見えているのは行き先ではなく、いま作っているものの姿そのもので、
-              押した先に開くものが無い（シェブロンは一覧の行の一部として写っているだけ）。
-              読み上げも 1 つの塊にして、点・名前・件数を別々の要素として読ませない */}
-          <View
-            style={[styles.card, styles.previewCard, { backgroundColor: colors.secondaryBackground }]}
-            accessible
-            accessibilityLabel={`${tagPreviewLabel(locale)}: ${name.trim() || tagNamePlaceholder(locale)} ${presetCountLabel(locale, usageCount)}`}>
-            <Text style={[styles.previewLabel, { color: colors.secondaryLabel }]}>
-              {tagPreviewLabel(locale)}
+            **押せない。** 見えているのは行き先ではなく、いま作っているものの姿そのもので、
+            押した先に開くものが無い（シェブロンは一覧の行の一部として写っているだけ）。
+            読み上げも 1 つの塊にして、点・名前・件数を別々の要素として読ませない */}
+        <View
+          style={[styles.card, styles.previewCard, { backgroundColor: colors.secondaryBackground }]}
+          accessible
+          accessibilityLabel={`${tagPreviewLabel(locale)}: ${name.trim() || tagNamePlaceholder(locale)} ${presetCountLabel(locale, usageCount)}`}>
+          <Text style={[styles.previewLabel, { color: colors.secondaryLabel }]}>
+            {tagPreviewLabel(locale)}
+          </Text>
+          {/* 並び・大きさは TagListScreen の TagRow と同じ（チップ → 件数 → シェブロン）。
+              **名前が長いときに縮むのはチップの側**（`shrink`）── 左の語は説明なので、
+              そちらが切れると何のプレビューなのかを言えなくなる。件数とシェブロンは
+              行の形そのものなので、縮めずに右端に残す */}
+          <View style={styles.previewRow}>
+            <TagChip
+              tag={{ name: name.trim(), colorKey }}
+              namePlaceholder={tagNamePlaceholder(locale)}
+              style={styles.previewChip}
+            />
+            <Text style={[styles.previewCount, { color: colors.secondaryLabel }]}>
+              {presetCountLabel(locale, usageCount)}
             </Text>
-            {/* 並び・大きさは TagListScreen の TagRow と同じ（チップ → 件数 → シェブロン）。
-                **名前が長いときに縮むのはチップの側**（`shrink`）── 左の語は説明なので、
-                そちらが切れると何のプレビューなのかを言えなくなる。件数とシェブロンは
-                行の形そのものなので、縮めずに右端に残す */}
-            <View style={styles.previewRow}>
-              <TagChip
-                tag={{ name: name.trim(), colorKey }}
-                namePlaceholder={tagNamePlaceholder(locale)}
-                style={styles.previewChip}
-              />
-              <Text style={[styles.previewCount, { color: colors.secondaryLabel }]}>
-                {presetCountLabel(locale, usageCount)}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
-            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </View>
+        </View>
 
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <TextField
-              label={tagNameFieldLabel(locale)}
-              value={name}
-              // **打っている最中に切らない**（§1.3 / SPEC-V3 §1.2）。maxLength も
-              // onChangeText での切り詰めも使わない ── 日本語入力は「ようふく」と打ってから
-              // 「洋服」に変換するので、変換前のひらがなまで数えて打ち止めると、
-              // 上限の近くで変換に辿り着けなくなる（React Native は変換中かどうかを JS に出さない）。
-              // 12 文字を超えたら保存を止めて下に理由を出すだけにする ──
-              // 変換して縮めば、そのまま有効に戻る
-              onChangeValue={setName}
-              errorMessage={blockedNote}
-            />
-          </View>
+        <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+          <TextField
+            label={tagNameFieldLabel(locale)}
+            value={name}
+            // **打っている最中に切らない**（§1.3 / SPEC-V3 §1.2）。maxLength も
+            // onChangeText での切り詰めも使わない ── 日本語入力は「ようふく」と打ってから
+            // 「洋服」に変換するので、変換前のひらがなまで数えて打ち止めると、
+            // 上限の近くで変換に辿り着けなくなる（React Native は変換中かどうかを JS に出さない）。
+            // 12 文字を超えたら保存を止めて下に理由を出すだけにする ──
+            // 変換して縮めば、そのまま有効に戻る
+            onChangeValue={setName}
+            errorMessage={blockedNote}
+          />
+        </View>
 
-          {/* §2.3-4 / SPEC-V7 §3 / 設計案 50c: 色を「まだ使っていない色」と「使用中」の
-              2 群に分ける。プリセットの編集画面と**同じ部品**（ColorSwatchGrid）──
-              同じパレットを共有しているので、片方だけ自由色が選べる状態を作らない。
-              見出しは部品の側が持つので、ここでカードのラベルを重ねない */}
-          <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-            <ColorSwatchGrid
-              value={colorKey}
-              onChange={setColorKey}
-              // **全タグの中で数える**（プリセットのように種類で分かれていない。§1.1）。
-              // others は自分を除いた一覧で、重複の判定にも使っているものをそのまま渡す
-              usedBy={usedBy}
-              // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
-              // その色が上の群へ移ってしまわないように
-              ownColor={tag?.colorKey}
-              entityLabel={tagLabel(locale)}
-            />
-          </View>
+        {/* §2.3-4 / SPEC-V7 §3 / 設計案 50c: 色を「まだ使っていない色」と「使用中」の
+            2 群に分ける。プリセットの編集画面と**同じ部品**（ColorSwatchGrid）──
+            同じパレットを共有しているので、片方だけ自由色が選べる状態を作らない。
+            見出しは部品の側が持つので、ここでカードのラベルを重ねない */}
+        <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
+          <ColorSwatchGrid
+            value={colorKey}
+            onChange={setColorKey}
+            // **全タグの中で数える**（プリセットのように種類で分かれていない。§1.1）。
+            // others は自分を除いた一覧で、重複の判定にも使っているものをそのまま渡す
+            usedBy={usedBy}
+            // 保存値を渡す（いま選んでいる色ではない）── 使用中の色を押した瞬間に
+            // その色が上の群へ移ってしまわないように
+            ownColor={tag?.colorKey}
+            entityLabel={tagLabel(locale)}
+          />
+        </View>
 
-          {!isNew && (
-            <Pressable
-              onPress={requestDelete}
-              accessibilityRole="button"
-              style={({ pressed }) =>
-                StyleSheet.flatten([
-                  styles.card,
-                  styles.deleteRow,
-                  { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.6 : 1 },
-                ])
-              }>
-              <Text style={[styles.deleteLabel, { color: colors.red }]}>{tagDeleteLabel(locale)}</Text>
-            </Pressable>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {!isNew && (
+          <Pressable
+            onPress={requestDelete}
+            accessibilityRole="button"
+            style={({ pressed }) =>
+              StyleSheet.flatten([
+                styles.card,
+                styles.deleteRow,
+                { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.6 : 1 },
+              ])
+            }>
+            <Text style={[styles.deleteLabel, { color: colors.red }]}>{tagDeleteLabel(locale)}</Text>
+          </Pressable>
+        )}
+      </KeyboardAwareScrollView>
 
       {/* この画面は設定タブの中なので、「最初から読む」で使いかた全体へ push できる */}
       {showHelp && (

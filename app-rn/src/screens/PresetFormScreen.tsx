@@ -13,16 +13,16 @@ import { useCallback, useState } from 'react';
 import {
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { ColorSwatchGrid } from '@/components/ColorSwatchGrid';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
-import { KeyboardSaveBar } from '@/components/KeyboardSaveBar';
+import { KeyboardSaveBar, KEYBOARD_SAVE_BAR_HEIGHT } from '@/components/KeyboardSaveBar';
 import { NumericField } from '@/components/NumericField';
 import { PackBuyFields, packBuyCardStyle } from '@/components/PackBuyFields';
 import { PresetBadgeInput } from '@/components/PresetBadge';
@@ -80,6 +80,23 @@ import {
 import { shippingPresetTotal } from '@/logic/shippingMaterial';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
+
+/**
+ * 鍵盤の上端とフォーカス中の欄の間に残す余白（pt）。記録フォーム・計算タブと同じ値。
+ *
+ * **`automaticallyAdjustKeyboardInsets` から KeyboardAwareScrollView へ移した。**
+ * あちらは iOS の `RCTScrollView` の実装で、Android では何も起きない ──
+ * edgeToEdge が有効なこのアプリでは Android でもウィンドウが縮まないので、
+ * 逃がしが片方の OS にしか無い状態だった。
+ * この画面が KeyboardAvoidingView を使えなかった理由（下端の保存ボタンが器ごと
+ * 押し上げられてしまう）はそのまま生きていて、KeyboardAwareScrollView も
+ * **スクロールの中だけ**を動かすので帯は浮かない（帯は KeyboardSaveBar が別に追従する）。
+ *
+ * **帯のぶんを足す。** スクロールの側は鍵盤の高さしか知らないので、余白を鍵盤ぶんだけに
+ * すると、運んできた欄がちょうど帯の裏に入る（実機で確認）。帯は鍵盤の上に浮くので、
+ * 「隠れているもの」は鍵盤 ＋ 帯の高さぶんある。
+ */
+const KEYBOARD_BOTTOM_OFFSET = 32 + KEYBOARD_SAVE_BAR_HEIGHT;
 
 type Props = {
   type: PresetType;
@@ -331,13 +348,11 @@ export function PresetFormScreen({ type, preset }: Props) {
         }}
       />
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
-        <ScrollView
+        <KeyboardAwareScrollView
           style={styles.flex}
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          // 鍵盤が出たぶんだけ中身を上へ逃がす（iOS）。KeyboardAvoidingView をやめたのは、
-          // 下端の保存ボタンが器の中にあると、器ごと押し上げられて帯が浮いてしまうため
-          automaticallyAdjustKeyboardInsets>
+          bottomOffset={KEYBOARD_BOTTOM_OFFSET}
+          keyboardShouldPersistTaps="handled">
           {/* §3.3-2 / 設計案 49c: プレビューの帯。**バッジそのものが入力欄**で、
               専用の「バッジの文字」カードは廃した ── 文字と色が同じ場所で決まる。
               下に続く 1 行（PresetRow）は選択シートに出るのと同じ形で、
@@ -564,7 +579,7 @@ export function PresetFormScreen({ type, preset }: Props) {
               </Text>
             </Pressable>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         {/* 設計案 49c: 保存は画面下端（タブバーの直上）。鍵盤が出ている間はその上に貼り付く */}
         <KeyboardSaveBar label={saveLabel(locale)} onPress={save} enabled={validation.valid} />

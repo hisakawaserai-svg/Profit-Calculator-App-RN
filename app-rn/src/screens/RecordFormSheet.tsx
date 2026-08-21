@@ -31,16 +31,18 @@
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
 import { useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  type KeyboardAwareScrollViewRef,
+} from 'react-native-keyboard-controller';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { BreakdownPartList } from '@/components/BreakdownPartList';
@@ -143,6 +145,13 @@ const RECEIPT_ROW_HEIGHT = 48;
  */
 const ITEM_NAME_SCROLL_MARGIN = 64;
 
+/**
+ * 鍵盤の上端とフォーカス中の欄の間に残す余白（pt。KeyboardAwareScrollView の bottomOffset）。
+ * 金額の行は高さ 60pt で下線を持つので、0 だと下線と鍵盤の境目が重なって欄の切れ目が読めない。
+ * 1 行ぶんの半分を残すと、打っている欄が「鍵盤のすぐ上の 1 行」として見える。
+ */
+const KEYBOARD_BOTTOM_OFFSET = 32;
+
 type Props = {
   visible: boolean;
   /** 編集対象のレコード。省略 / null なら新規追加 */
@@ -181,15 +190,24 @@ export function RecordFormSheet({
       // Swift 版の .sheet と同じ見た目（iOS のハーフシート風）。Android では無視される
       presentationStyle="pageSheet"
       onRequestClose={onClose}>
-      {/* 開いている間だけマウントして、入力欄を初期値で初期化する（Swift 版 onAppear の loadInitialData 相当） */}
+      {/* 開いている間だけマウントして、入力欄を初期値で初期化する（Swift 版 onAppear の loadInitialData 相当）。
+          **SafeAreaProvider をもう 1 つ置くのは、Modal が別のウィンドウだから**（安全域は
+          ウィンドウごとに違う）。ルートの Provider が知っているのは地の画面の安全域で、
+          この中で `useSafeAreaInsets()` を呼んでもその値が返る ── iOS の pageSheet は
+          ステータスバーより下に出るので上の安全域は 0 なのに 59pt が返り、Android は
+          全画面（pageSheet は無視される）で本当に 59pt 要るのに地の画面の値しか無い。
+          ここで包み直すと、それぞれのウィンドウを実測した値になる
+          （react-native-safe-area-context の「モーダルの中にも置くこと」）。 */}
       {visible && (
-        <RecordForm
-          record={record ?? null}
-          initialAmounts={initialAmounts}
-          initialValues={initialValues}
-          onClose={onClose}
-          onSaved={onSaved}
-        />
+        <SafeAreaProvider>
+          <RecordForm
+            record={record ?? null}
+            initialAmounts={initialAmounts}
+            initialValues={initialValues}
+            onClose={onClose}
+            onSaved={onSaved}
+          />
+        </SafeAreaProvider>
       )}
     </Modal>
   );
@@ -247,7 +265,8 @@ function RecordForm({
   const [showHelp, setShowHelp] = useState(false);
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const itemNameInputRef = useRef<TextInput>(null);
   /**
    * 商品名の欄がスクロールの中身のどこから始まるか（pt）。**2 つに分けて控える。**
@@ -484,9 +503,16 @@ function RecordForm({
   const soldDateNoteText = soldDateNotes(locale, values.saleStartDate, today);
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    /* 鍵盤の逃がしは**この器ではなく下の KeyboardAwareScrollView が持つ**（旧 KeyboardAvoidingView）。
+       器に padding を足す形は、伝票を縮めるだけでフォーカス中の欄を運んでこない ──
+       縮んだ先より下にあった欄（梱包材・その他・目標）はそのまま鍵盤の裏に残る。
+
+       上端の余白は**この面の安全域**（上の SafeAreaProvider が実測した値）。iOS の pageSheet では
+       0 に近い値、Android の全画面ではステータスバーぶんが入る。足していなかったので、
+       Android では「キャンセル / 保存」がステータスバーと重なり、当たり判定の上半分を
+       システム側に取られていた。 */
+    <View
+      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 1. シートハンドル（UI-SPEC §1.3-1）。Modal は掴んで下げられないので、
           「下から出た一時的な面」であることを示す飾りとして置く */}
       <View style={styles.grabberArea}>
@@ -518,9 +544,15 @@ function RecordForm({
         </Pressable>
       </View>
 
-      <ScrollView
+      {/* 3. 伝票の本体。**鍵盤の逃がしはここ 1 か所**（KeyboardAwareScrollView）──
+          鍵盤ぶんの余白を下に足したうえで、フォーカス中の欄が隠れていればその欄まで
+          スクロールする。iOS / Android で同じ 1 本を通る。
+          `bottomOffset` は欄の下に残す余白。0 だと欄が鍵盤の上端にぴったり張り付き、
+          NumericField の行（高さ 60pt）の下線と鍵盤の境目が重なって読みにくい */}
+      <KeyboardAwareScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
+        bottomOffset={KEYBOARD_BOTTOM_OFFSET}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         {/* 4〜11. 伝票カード。見出し行 → 商品名 → 種別 → 金額の積み上げ → 結果行 */}
@@ -893,7 +925,7 @@ function RecordForm({
             />
           </CollapsibleSection>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* タグ選択シート（§3.2）。**選んだ瞬間にフォームの state に入る**が、
           記録との紐付けが DB に入るのは「保存」を押したときだけ（UI-SPEC §8.6）。
@@ -912,7 +944,7 @@ function RecordForm({
       {/* ヘッダの「？」（案 `20c`）。このフォームはモーダルの上なので「最初から読む」は出さない
           ── 設定タブへ push しても、このモーダルの下に隠れて見えない */}
       {showHelp && <HelpSheet entry="recordForm" onClose={() => setShowHelp(false)} />}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

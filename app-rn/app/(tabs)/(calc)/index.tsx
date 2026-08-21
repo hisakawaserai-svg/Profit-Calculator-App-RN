@@ -15,7 +15,6 @@ import {
   Alert,
   Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +22,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AdBanner } from '@/components/AdBanner';
@@ -92,6 +92,13 @@ const MODE_TARGET = 1;
 
 /** 固定バーが出るスクロール量（UI-SPEC §1.1-2「スクロール量 40px 超」） */
 const STICKY_THRESHOLD = 40;
+
+/**
+ * 鍵盤の上端とフォーカス中の欄の間に残す余白（pt）。記録フォームと同じ値
+ * （RecordFormSheet の KEYBOARD_BOTTOM_OFFSET）── 同じ NumericField の行が並ぶ画面なので、
+ * 打っている欄の見え方が画面によって変わらないようにする。
+ */
+const KEYBOARD_BOTTOM_OFFSET = 32;
 
 /** 固定バーのスライドイン時間（ミリ秒） */
 const STICKY_DURATION = 180;
@@ -211,12 +218,17 @@ export default function CalcScreen() {
             末尾のカードが広告の裏に回り込むことがそもそも起きない。FAB は絶対配置なので、
             ここで包まないと画面いちばん下（＝広告の上）を基準にして広告に重なる */}
         <View style={styles.contentArea}>
-          <ScrollView
+          {/* 鍵盤の逃がし（KeyboardAwareScrollView）。この画面は**モーダルではない**が、
+              iOS はウィンドウが縮まず、Android も edgeToEdge でウィンドウが縮まないので、
+              素の ScrollView では下寄りの欄（梱包材・その他）が鍵盤の裏に残る。
+              onScroll（結果カードが流れたかの判定）はそのまま通る ── この部品は
+              自前の onScroll を持たず、渡したものをそのまま下の ScrollView へ流すだけ */}
+          <KeyboardAwareScrollView
             contentContainerStyle={styles.scrollContent}
+            bottomOffset={KEYBOARD_BOTTOM_OFFSET}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            onScroll={handleScroll}
-            scrollEventThrottle={16}>
+            onScroll={handleScroll}>
             {/* 3. 結果カード。先頭に 2 択セグメント（UI-SPEC §1.1-3） */}
             <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
               {/* 「クリア」はカード右上に常設。入力が空のときだけ無効（UI-SPEC §5-8）。
@@ -347,7 +359,7 @@ export default function CalcScreen() {
                 </CollapsibleSection>
               </View>
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           {/* 2. 固定バー。結果が画面外に流れている間だけ上端に出す（UI-SPEC §1.1-2） */}
           <StickyResultBar
