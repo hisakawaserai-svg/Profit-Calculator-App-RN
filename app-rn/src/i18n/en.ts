@@ -987,7 +987,7 @@ export const en: Translations = {
     items: {
       'calc-net': {
         title: 'I want to know what I keep',
-        body: 'Choose “Find net profit” (“Find profit” for sourced items), pick used or sourced below it, then enter the selling price and what it costs you (shipping, fees, packaging, other). Sourced items add a purchase price field. The large number at the top is what stays in your pocket. Only the fields you fill in are used, so you do not have to complete them all.',
+        body: 'Choose “Find the net profit” (“Find the profit” for sourced items), pick used or sourced below it, then enter the selling price and what it costs you (shipping, fees, packaging, other). Sourced items add a purchase price field. The large number at the top is what stays in your pocket. Only the fields you fill in are used, so you do not have to complete them all.',
       },
       'calc-target': {
         title: 'I want to know what to sell it for',
@@ -1018,7 +1018,7 @@ export const en: Translations = {
       },
       'calc-clear': {
         title: 'I want to wipe it and start over',
-        body: 'Tap “Clear” at the top right of the result and you get one confirmation: “Clear your entries?”. Tapping “Clear” again empties every number you entered and returns the type to its default. It cannot be tapped when nothing is entered.',
+        body: 'Tap “Clear” at the top right of the result and you get one confirmation: “Clear everything you entered?”. Tapping “Clear” again empties every number you entered and returns the type to its default. It cannot be tapped when nothing is entered.',
       },
       'calc-to-record': {
         title: 'I want to keep what I just calculated',
@@ -1064,17 +1064,17 @@ export const en: Translations = {
       },
       'record-target': {
         title: 'I want to decide what to keep on this one item',
-        body: 'Open “Target net profit” (“Target profit” for sourced items) near the bottom of the record screen to set a target for that one record. Once set, the “What should I sell it for?” screen shows the price that reaches your target and how far you can still come down.\n\nLeaving it empty is fine. A target is what you would like, so it never enters the arithmetic. It appears neither in record totals nor in the Data tab.',
+        body: 'Open “Target net profit” (“Target profit” for sourced items) near the bottom of the record screen to set a target for that one record. Once set, the “What price?” screen shows the price that reaches your target and how far you can still come down.\n\nLeaving it empty is fine. A target is what you would like, so it never enters the arithmetic. It appears neither in record totals nor in the Data tab.',
         linkLabel: 'See what a target is for ›',
       },
       'record-target-zero': {
         title: '“¥0” and “Not set” are different things',
-        body: 'A record with no target says “Not set”. That is not the same as a record with a target of ¥0.\n\nEntering 0 sets a target of “as long as I do not lose money”. On the “What should I sell it for?” screen, the gap down to the break-even price is shown as your room to discount.\n\nA record with no target shows no room to discount at all, because there is nothing to say where the discounting should stop. To go back to having no target, clear the field rather than entering 0.',
+        body: 'A record with no target says “Not set”. That is not the same as a record with a target of ¥0.\n\nEntering 0 sets a target of “as long as I do not lose money”. On the “What price?” screen, the gap down to the break-even price is shown as your room to discount.\n\nA record with no target shows no room to discount at all, because there is nothing to say where the discounting should stop. To go back to having no target, clear the field rather than entering 0.',
       },
       'record-bar': {
         title: 'I want to see the breakdown of one record',
-        body: 'Open a record’s detail and a colour-coded bar sits at the top of the amounts card. It treats the selling price as one bar and shows the split between what you keep and what comes off.\n\nGreen is what you keep, orange is the marketplace fee, and the reds are the other expenses. The colours match “Breakdown” in the Calculate tab — a different screen, the same meanings.\n\nThe bar itself carries no labels. The colours are named by the matching dots to the left of the rows below it. Read the rows from the top and you can tell which segment is which.\n\nUnder the bar is a single line about what you can do next. On a listed record it is how much further you can come down (or, if you are in the red, how much you would have to raise the price to get out). On a sold record it is a summary of how it went. Tapping it takes you to “What should I sell it for?” while listed, or “How did it go?” once sold.',
-        linkLabel: 'See “What should I sell it for?” ›',
+        body: 'Open a record’s detail and a colour-coded bar sits at the top of the amounts card. It treats the selling price as one bar and shows the split between what you keep and what comes off.\n\nGreen is what you keep, orange is the marketplace fee, and the reds are the other expenses. The colours match “Breakdown” in the Calculate tab — a different screen, the same meanings.\n\nThe bar itself carries no labels. The colours are named by the matching dots to the left of the rows below it. Read the rows from the top and you can tell which segment is which.\n\nUnder the bar is a single line about what you can do next. On a listed record it is how much further you can come down (or, if you are in the red, how much you would have to raise the price to get out). On a sold record it is a summary of how it went. Tapping it takes you to “What price?” while listed, or “How did it go?” once sold.',
+        linkLabel: 'See “What price?” ›',
       },
       'record-copy': {
         title: 'I want to copy an item name or an amount',
@@ -1106,7 +1106,7 @@ export const en: Translations = {
       },
       'record-tag-delete': {
         title: 'Deleting a tag, and what happens when you do',
-        body: 'Tags are deleted under “Sort your records” in the Settings tab: swipe the row left and tap “Delete”. Names and colours are changed from the same screen.\n\nDeleting a tag does not delete any record. The tag simply comes off them. If you tap “Undo” at the bottom of the screen right afterwards, both the tag and the records that carried it come back.',
+        body: 'Tags are deleted under “Organize Records” in the Settings tab: swipe the row left and tap “Delete”. Names and colours are changed from the same screen.\n\nDeleting a tag does not delete any record. The tag simply comes off them. If you tap “Undo” at the bottom of the screen right afterwards, both the tag and the records that carried it come back.',
       },
       'record-preset': {
         title: 'I want to save values I use often',
@@ -1141,25 +1141,25 @@ export const en: Translations = {
         body: 'Choose it under “Type for new records” in the Settings tab. It only changes which type is selected first on a new record; records you already saved do not change.',
       },
       'sell-open': {
-        title: 'Opening “What should I sell it for?”',
-        body: 'Tap the row under the bar on the amounts card of a record detail. On a listed record it opens “What should I sell it for?”; on a sold one, “How did it go?”.\n\nThis is the place for a single item. Overall sales belong in the Data tab; what to charge for this one thing belongs here.\n\nIt opens even for records with no price yet. Then it shows what can be known without one, such as the price that keeps you out of the red.',
+        title: 'Opening “What price?”',
+        body: 'Tap the row under the bar on the amounts card of a record detail. On a listed record it opens “What price?”; on a sold one, “How did it go?”.\n\nThis is the place for a single item. Overall sales belong in the Data tab; what to charge for this one thing belongs here.\n\nIt opens even for records with no price yet. Then it shows what can be known without one, such as the price that keeps you out of the red.',
       },
       'sell-price-line': {
         title: 'Reading the price guide',
-        body: 'Halfway down “What should I sell it for?” is a single horizontal line of price guidance. It marks the break-even price and your current price. Records with a target also get the price that reaches it.\n\nWhere your current price falls tells you at a glance whether there is room to come down, or whether coming down puts you in the red.',
+        body: 'Halfway down “What price?” is a single horizontal line of price guidance. It marks the break-even price and your current price. Records with a target also get the price that reaches it.\n\nWhere your current price falls tells you at a glance whether there is room to come down, or whether coming down puts you in the red.',
       },
       'sell-simulator': {
         title: 'Trying out a discount',
-        body: 'The “Discount simulator” sits near the bottom of “What should I sell it for?”. Drag the knob left or right and it shows, there and then, what you would keep at that price. Dragging alone changes nothing.\n\nTo keep a price you tried, tap “Save this price to this app”. It does not overwrite straight away: “This will change the price” appears first, showing your record now next to what it becomes, and “Change it” confirms. If that price puts you in the red, the button changes to “Raise the price to at least ◯”.\n\nOnly this app’s record changes — the price on the site you listed on does not. Change that one yourself.\n\nAfter it changes, “Undo” appears at the bottom of the screen, so a mistake can be taken back on the spot. On a record with no price yet, the knob does not move.',
+        body: 'The “Discount simulator” sits near the bottom of “What price?”. Drag the knob left or right and it shows, there and then, what you would keep at that price. Dragging alone changes nothing.\n\nTo keep a price you tried, tap “Save this price to this app”. It does not overwrite straight away: “This will change the price” appears first, showing your record now next to what it becomes, and “Change it” confirms. If that price puts you in the red, the button changes to “Raise the price to at least ◯”.\n\nOnly this app’s record changes — the price on the site you listed on does not. Change that one yourself.\n\nAfter it changes, “Undo” appears at the bottom of the screen, so a mistake can be taken back on the spot. On a record with no price yet, the knob does not move.',
       },
       'sell-room': {
         title: 'Seeing how far you can still come down',
-        body: 'It appears in the bar right under the headline number (what you expect to keep) on “What should I sell it for?”. It is the number to look at when someone asks for a discount. Records with a target show how much further you can come down and still reach it.\n\nRecords with no target show no room at all. There is nothing to say where the discounting should stop, and an amount with nothing behind it is worse than none.',
+        body: 'It appears in the bar right under the headline number (what you expect to keep) on “What price?”. It is the number to look at when someone asks for a discount. Records with a target show how much further you can come down and still reach it.\n\nRecords with no target show no room at all. There is nothing to say where the discounting should stop, and an amount with nothing behind it is worse than none.',
         linkLabel: 'See the difference between “¥0” and “Not set” ›',
       },
       'sell-target': {
         title: 'Setting or clearing a target later',
-        body: 'Tap the “Target net profit” (“Target profit” for sourced items) row at the very bottom of “What should I sell it for?” to set a target on the spot. Enter an amount and the price that reaches it, along with your remaining room to discount, appear just below — so you can read what changes before you commit.\n\nThe target stays on the record, so the same judgement is there next time you open it. To stop using it, tap “Clear the target” on the same screen. Entering 0 does not clear it: 0 is itself the target of “as long as I do not lose money”.',
+        body: 'Tap the “Target net profit” (“Target profit” for sourced items) row at the very bottom of “What price?” to set a target on the spot. Enter an amount and the price that reaches it, along with your remaining room to discount, appear just below — so you can read what changes before you commit.\n\nThe target stays on the record, so the same judgement is there next time you open it. To stop using it, tap “Clear the target” on the same screen. Entering 0 does not clear it: 0 is itself the target of “as long as I do not lose money”.',
       },
       'sell-sold': {
         title: 'Looking back at how it actually went',
@@ -1216,23 +1216,23 @@ export const en: Translations = {
       },
       'backup-create': {
         title: 'Making a backup',
-        body: 'Open “Backup and restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, saved values and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Exclude”. It starts on “Include”. “Exclude” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and saved values all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
+        body: 'Open “Back Up & Restore” in the Settings tab and tap “Create a backup” at the bottom. Records, tags, saved values and photos are gathered into one file. There is no period to choose — it always holds everything.\n\nPhotos can be set to “Include” or “Exclude”. It starts on “Include”. “Exclude” makes the file lighter, but photos will not come back from that file.\n\nIf the photos add up to too much (over 50 MB) you are told after you tap. Choose “Create without photos” then. Records, tags and saved values all still move to the new device; keep the photos separately in the Photos app or somewhere similar.\n\nThe date of your last backup appears under the button. There is no other reminder, so that one line is your only prompt. The end of the month, or another natural break, is a good time to make one.',
       },
       'backup-restore': {
         title: 'Restoring from a backup',
-        body: 'Restoring replaces every record, tag and saved value on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Backup and restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “What will be loaded” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose another file”. If the file cannot be read, none of your current data changes.',
+        body: 'Restoring replaces every record, tag and saved value on this device with the contents of the file. They are not added to what you already have.\n\nOpen “Back Up & Restore” in the Settings tab, then use “Restore” to pick the backup file (a ZIP) or the folder you unzipped it into. Unzipping it first to check the contents does not stop it from working.\n\nPicking one does not restore it straight away. The “Preview” screen comes first, and the swap happens when you tap “Replace everything”. To back out, pick again with “Choose another file”. If the file cannot be read, none of your current data changes.',
       },
       'backup-preview': {
-        title: 'Reading “What will be loaded”',
+        title: 'Reading the “Preview” screen',
         body: 'This screen appears before a file is restored. It is a table putting this device beside the file’s contents, with anything you would lose shown in red. It also names the newest record inside, so an unfamiliar name means the wrong file.\n\nThis single screen is the confirmation, so no dialog follows it. Tapping “Replace everything” is the moment it swaps.',
       },
       'backup-migrate': {
         title: 'Steps for changing phones',
-        body: 'Tapping “Create a backup” on the old device opens the share sheet. Get the file off the device from there — the Files app, a cloud service, or sending it to a computer all work equally well. Anywhere the new device can reach it is fine.\n\nInstall this app on the new device, then pick that file from “Restore” under “Backup and restore”. Records, tags and saved values come back, and so do photos if the backup was made with them.\n\nThe apps never talk to each other directly, so this one round trip is the only route. Make sure the file is safely off the old device before you part with it.',
+        body: 'Tapping “Create a backup” on the old device opens the share sheet. Get the file off the device from there — the Files app, a cloud service, or sending it to a computer all work equally well. Anywhere the new device can reach it is fine.\n\nInstall this app on the new device, then pick that file from “Restore” under “Back Up & Restore”. Records, tags and saved values come back, and so do photos if the backup was made with them.\n\nThe apps never talk to each other directly, so this one round trip is the only route. Make sure the file is safely off the old device before you part with it.',
       },
       'export-kinds': {
         title: 'The two kinds of export',
-        body: 'Export from “Export (CSV)” in the Settings tab. Both kinds are files for reading in a spreadsheet; neither can be loaded back into the app to restore anything. “Backup and restore” is the one for that.\n\n“For keeping data” exports everything you recorded, notes and tags included. “For tax filing” exports only the columns your books need. Even the tax one keeps every amount column — it just keeps writing that has nothing to do with your books out of your filing paperwork.',
+        body: 'Export from “Export (CSV)” in the Settings tab. Both kinds are files for reading in a spreadsheet; neither can be loaded back into the app to restore anything. “Back Up & Restore” is the one for that.\n\n“For keeping data” exports everything you recorded, notes and tags included. “For tax filing” exports only the columns your books need. Even the tax one keeps every amount column — it just keeps writing that has nothing to do with your books out of your filing paperwork.',
       },
       'export-period': {
         title: 'Which period is included',
