@@ -27,15 +27,14 @@ import {
 import { BANNER_UNIT_ID } from '@/ads/adUnits';
 import { AdBanner } from '@/components/AdBanner';
 import { AddRecordFab } from '@/components/AddRecordFab';
+import { BreakdownPartList } from '@/components/BreakdownPartList';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
-import {
-  CostProportionBar,
-  partColor,
-  partValueColor,
-} from '@/components/CostProportionBar';
+import { CostProportionBar } from '@/components/CostProportionBar';
 import { NumericField } from '@/components/NumericField';
+import { RequiredPriceBlock } from '@/components/RequiredPriceBlock';
+import { ResultAmountBlock } from '@/components/ResultAmountBlock';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -53,13 +52,10 @@ import {
   toInitialAmounts,
   toRequiredCostInput,
   type CalcFormValues,
-  type CostBreakdown,
-  type RequiredPriceResult,
 } from '@/logic/calcForm';
 import { formatYen, formatYenSymbol } from '@/logic/format';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
-  breakdownAndMethodLabel,
   breakdownLabel,
   calcScreenTitle,
   cancelLabel,
@@ -73,20 +69,15 @@ import {
   othersCostLabel,
   postageLabel,
   purchasePriceLabel,
-  requiredPriceHeadline,
   requiredSalesLabel,
   requiredSalesPriceLabel,
   salesPriceLabel,
   targetTabLabel,
-  totalSalesAmountLabel,
   totalSalesLabel,
   commissionFieldLabel,
-  lowerPriceWarning,
   optionalCostsLabel,
   profitLabel,
   profitTabLabel,
-  requiredPriceFormulaLines,
-  requiredPriceSummary,
   targetProfitLabel,
 } from '@/logic/labels';
 import { netProfit, roundForDisplay, totalExpenses, type CostInput } from '@/logic/profit';
@@ -523,7 +514,7 @@ function StickyResultBar({
         <View style={styles.stickyBreakdown}>
           {/* 売上は 2 段目に出ているので、内訳では繰り返さない（UI-SPEC §1.1-2 の 3 行）。
               色と並びは結果カード・逆算パネルと同じ 1 つの部品が持つ */}
-          <BreakdownPartList breakdown={costBreakdown(locale, costs, kind)} colors={colors} />
+          <BreakdownPartList breakdown={costBreakdown(locale, costs, kind)} />
         </View>
       )}
     </Animated.View>
@@ -567,19 +558,17 @@ function ProfitPanel({
     <View>
       <Pressable
         onPress={onToggleBreakdown}
-        style={({ pressed }) => [styles.resultBlock, { opacity: pressed ? 0.6 : 1 }]}
+        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={`${profitLabel(locale, kind)} ${formatYen(locale, profit)}。押すと${breakdownLabel(locale)}を開く`}>
-        <Text style={[styles.resultCaption, { color: colors.secondaryLabel }]}>
-          {profitLabel(locale, kind)}
-        </Text>
-        <Text
-          style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit>
-          {formatYen(locale, profit)}
-        </Text>
+        {/* 見出しと額の形は逆算側と同じ 1 つの部品（ResultAmountBlock）。
+            同じカードの中でセグメントで切り替わるので、片方だけ字が変わると飛び跳ねて見える */}
+        <ResultAmountBlock
+          caption={profitLabel(locale, kind)}
+          amount={formatYen(locale, profit)}
+          amountColor={profit >= 0 ? colors.green : colors.red}
+        />
       </Pressable>
 
       <CostProportionBar
@@ -593,7 +582,7 @@ function ProfitPanel({
         expanded={expanded}
         onToggle={onToggleBreakdown}
         align="center">
-        <BreakdownPartList breakdown={breakdown} colors={colors} showSalesRow />
+        <BreakdownPartList breakdown={breakdown} showSalesRow />
       </CollapsibleSection>
     </View>
   );
@@ -627,7 +616,6 @@ function TargetPanel({
   const locale = useLocale();
 
   const label = targetProfitLabel(locale, values.kind);
-  const result = requiredPriceResult(locale, values);
 
   return (
     <View style={styles.targetPanel}>
@@ -644,120 +632,14 @@ function TargetPanel({
         />
       </View>
 
-      <View style={styles.resultBlock}>
-        <Text style={[styles.resultCaption, { color: colors.secondaryLabel }]}>
-          {requiredPriceHeadline(locale)}
-        </Text>
-        <Text
-          style={[styles.resultAmount, { color: colors.blue }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit>
-          {formatYen(locale, result.requiredPrice)}
-        </Text>
-      </View>
-
-      <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
-
-      <Text style={[styles.summary, { color: colors.label }]}>
-        {requiredPriceSummary(locale, result)}
-      </Text>
-
-      <CollapsibleSection
-        label={breakdownAndMethodLabel(locale)}
-        tone="link"
-        align="center"
+      {/* 目標が決まったあとに出るものは記録フォームの目標の節と同じ部品
+          （components/RequiredPriceBlock）。結果・帯・説明文・内訳と計算のしかたが
+          2 画面で別々に育たないよう、組み立てはあちらの 1 か所に置いてある */}
+      <RequiredPriceBlock
+        result={requiredPriceResult(locale, values)}
         expanded={expanded}
-        onToggle={onToggleBreakdown}>
-        <BreakdownPartList breakdown={result} colors={colors} />
-
-        <View style={[styles.methodDivider, { backgroundColor: colors.separator }]} />
-
-        <FormulaBlock result={result} colors={colors} />
-      </CollapsibleSection>
-    </View>
-  );
-}
-
-/** 「計算のしかた」の式と、その直下の注意文（採用案 12c） */
-function FormulaBlock({
-  result,
-  colors,
-}: {
-  result: RequiredPriceResult;
-  colors: ThemeColors;
-}) {
-  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
-  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
-  const locale = useLocale();
-
-  return (
-    <View style={styles.formula}>
-      {requiredPriceFormulaLines(locale, result.formula).map((line) => (
-        <Text key={line} style={[styles.formulaLine, { color: colors.label }]}>
-          {line}
-        </Text>
-      ))}
-
-      {/* 1 つ下の値段では届かないことを添える。数字が成り立たないとき（0 円以下になる、
-          丸めのせいで届いてしまう）だけ落ちる。回数を数えて引っ込める仕掛けは持たない */}
-      {result.lowerPrice != null && (
-        <Text style={[styles.lowerPriceWarning, { color: colors.red }]}>
-          {lowerPriceWarning(locale, result.lowerPrice)}
-        </Text>
-      )}
-    </View>
-  );
-}
-
-/**
- * 内訳の一覧（UI-SPEC §1.1-3a / §1.1-3b）。**結果側・逆算側・固定バーで同じ 1 つの部品**。
- *
- * 帯グラフと同じ順・同じ色（左の色見本 = 区画の色）にして、どの区画がどの行かを色で追える
- * ようにする。以前は結果側だけが色のない行の並びで、同じ画面の 2 つのモードで内訳の読み方が
- * 変わっていた ── 帯は共通（CostProportionBar）なのに、その凡例にあたる一覧が
- * 片方だけ灰色では、色の対応を確かめる手段が逆算側にしかないことになる。
- *
- * 行の材料は logic/calcForm の costBreakdown が作る（画面では計算も並べ替えもしない）。
- * 0 円の項目と、不用品の仕入価格が落ちるのもその中の決定（§1.1-3a）。
- */
-function BreakdownPartList({
-  breakdown,
-  colors,
-  showSalesRow = false,
-}: {
-  breakdown: CostBreakdown;
-  colors: ThemeColors;
-  /** 固定バーは 2 段目に売上を出しているので、内訳では繰り返さない（UI-SPEC §1.1-2） */
-  showSalesRow?: boolean;
-}) {
-  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
-  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
-  const locale = useLocale();
-
-  return (
-    <View style={styles.partList}>
-      {showSalesRow && (
-        <View style={styles.partRow}>
-          {/* 売上総額は帯の全体（区画の合計）で、対応する区画がないので色見本を持たない。
-              下の行と語頭を揃えるために幅だけ空ける */}
-          <View style={styles.swatch} />
-          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>
-            {totalSalesAmountLabel(locale)}
-          </Text>
-          <Text style={[styles.partValue, { color: colors.label }]}>
-            {formatYen(locale, breakdown.salesPrice)}
-          </Text>
-        </View>
-      )}
-      {breakdown.parts.map((part) => (
-        <View key={part.key} style={styles.partRow}>
-          <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
-          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
-          <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
-            {formatYen(locale, part.amount)}
-          </Text>
-        </View>
-      ))}
+        onToggleBreakdown={onToggleBreakdown}
+      />
     </View>
   );
 }
@@ -788,62 +670,6 @@ const styles = StyleSheet.create({
   },
   clearLabel: {
     fontSize: 14,
-  },
-  resultBlock: {
-    alignItems: 'center',
-    gap: 2,
-    paddingTop: 8,
-  },
-  resultCaption: {
-    fontSize: 15,
-  },
-  resultAmount: {
-    fontSize: 46,
-    fontWeight: '800',
-  },
-  summary: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-  },
-  partList: {
-    gap: 8,
-    paddingBottom: 4,
-  },
-  partRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  swatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  partLabel: {
-    fontSize: 14,
-    // 行名が長くても（「販売手数料10%」）金額を右端に押し出す
-    flex: 1,
-  },
-  partValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  methodDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: 4,
-  },
-  formula: {
-    gap: 3,
-  },
-  formulaLine: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  lowerPriceWarning: {
-    fontSize: 12,
-    lineHeight: 18,
-    paddingTop: 4,
   },
   targetPanel: {
     gap: 8,

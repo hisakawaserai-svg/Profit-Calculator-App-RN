@@ -88,6 +88,8 @@ import {
   TOTAL_PROFIT_LABEL,
   TOTAL_SALES_LABEL,
   additionLabel,
+  applyRequiredPriceLabel,
+  requiredPriceHeadline,
   chartBarLegendLabel,
   chartUnitLabel,
   commissionFieldLabel,
@@ -457,6 +459,16 @@ describe('UI-SPEC §1.3-3 記録フォームの状態切替リンク', () => {
   it('リンクは切り替えた先の状態を名乗る', () => {
     expect(switchStatusLabel('ja', false)).toBe('出品中にする');
     expect(switchStatusLabel('ja', true)).toBe('売れた記録にする');
+  });
+});
+
+describe('記録フォームの目標の節から引く逆算（案 A）', () => {
+  it('結果の見出しは計算タブの逆算モードと同じ語（同じ部品が出すので分岐を持たない）', () => {
+    expect(requiredPriceHeadline('ja')).toBe('この値段で出せばよい');
+  });
+
+  it('ボタンは押した先で何が変わるかまで言い切る', () => {
+    expect(applyRequiredPriceLabel('ja')).toBe('この価格を販売価格に入れる');
   });
 });
 

@@ -211,6 +211,7 @@ export const en: Translations = {
     memoWrite: 'Write a note',
     unsetInput: 'Not entered',
     targetProfitUnset: 'Not set',
+    applyRequiredPrice: 'Use this as the selling price',
     listedDate: 'Listed on',
     soldDate: 'Sold on',
     dateSection: '{{label}} {{date}}',

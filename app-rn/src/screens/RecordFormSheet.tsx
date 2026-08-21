@@ -43,6 +43,9 @@ import {
 } from 'react-native';
 
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { BreakdownPartList } from '@/components/BreakdownPartList';
+import { CostProportionBar } from '@/components/CostProportionBar';
+import { RequiredPriceBlock } from '@/components/RequiredPriceBlock';
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
 import { HelpButton } from '@/components/HelpButton';
@@ -91,6 +94,8 @@ import {
   targetProfitUnsetLabel,
   unsetInputLabel,
   additionLabel,
+  applyRequiredPriceLabel,
+  breakdownLabel,
   targetProfitLabel,
   targetProfitSummary,
   commissionFieldLabel,
@@ -104,6 +109,7 @@ import {
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
 import { orphanPhotoFiles } from '@/logic/photo';
+import { costBreakdown, requiredPriceResult } from '@/logic/calcForm';
 import { commissionCost, netProfit } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
@@ -261,6 +267,12 @@ function RecordForm({
   const [today] = useState(() => new Date());
 
   const [costsOpen, setCostsOpen] = useState(false);
+  /**
+   * 伝票の帯の下の「内訳」（計算タブの利益側と同じ初期状態で畳んでおく）。
+   * 目標の節の「内訳と計算のしかた」とは別に持つ ── 中身が別ものなので、
+   * 片方を開いたらもう片方も開く、という繋がりに意味がない
+   */
+  const [receiptBreakdownOpen, setReceiptBreakdownOpen] = useState(false);
   const [datesOpen, setDatesOpen] = useState(false);
   const [memoOpen, setMemoOpen] = useState(false);
   /**
@@ -268,6 +280,12 @@ function RecordForm({
    * 決めない記録の方が多い。畳んであっても見出しの右に「決めていません」か金額が出る
    */
   const [targetOpen, setTargetOpen] = useState(false);
+  /**
+   * 逆算の「内訳と計算のしかた」（案 A）。**節が開いても、この中はまだ畳んでおく** ──
+   * 知りたいのは必要な販売価格そのもので、根拠まで読みたい人だけが開く
+   * （計算タブの逆算モードと同じ初期状態）。
+   */
+  const [targetBreakdownOpen, setTargetBreakdownOpen] = useState(false);
   /** 状態を切り替えた直後だけ売れた日の行に薄い青の下地を敷く（UI-SPEC §8.3 / §8.7） */
   const [highlightSoldDate, setHighlightSoldDate] = useState(false);
 
@@ -425,6 +443,33 @@ function RecordForm({
   // 目標は保存する値そのもので見出しを出す（SPEC-V9 §2）。**null と 0 を見分ける必要がある**ので
   // parseNumericInput ではなく専用の変換を通す
   const targetProfit = parseTargetProfitInput(values.targetProfit);
+  /**
+   * 逆算の結果ぜんぶ（必要販売価格・帯・説明文・式）。**目標を決めていないときは null。**
+   *
+   * 逆算は「目標をいくらにするか」を起点にする計算なので、決めていない状態では
+   * 出す額がない ── 0 で代用すると「目標 0 円（＝赤字にならなければよい）」を
+   * 決めた人と同じ額が、決めていない人の画面にも出てしまう（§1.2 の区別）。
+   *
+   * **作るのは計算タブと同じ `requiredPriceResult` 1 本**（UI-SPEC §1.1-3b）で、
+   * 経費はいま伝票に載っている値をそのまま使う。`RecordFormValues` は
+   * `CalcFormValues` の項目を全部持つので、この画面の値をそのまま渡せる。
+   */
+  const required = targetProfit == null ? null : requiredPriceResult(locale, values);
+  /**
+   * 「入れる」を押す意味があるか。**既に同じ額が入っているときは無効にする** ──
+   * 押しても何も変わらないボタンは、押し方を間違えたのかと読ませてしまう。
+   */
+  const canApplyRequiredPrice = required != null && required.requiredPrice !== costs.salesPrice;
+  /**
+   * 伝票の帯グラフと内訳の材料（計算タブの利益側と同じ `costBreakdown`）。
+   *
+   * **レコード詳細のレシートは行の左に色ドットを付けて凡例を省いている**
+   * （components/RecordBreakdownBar の冒頭）が、この伝票では採れなかった ──
+   * 手数料の行にはタグボタンと ± が並んでいて、ドットのぶん（22pt）行名を字下げすると
+   * 額の幅が足りず「300 円」が 2 行に折り返す。詳細のレシートは読むだけの行なので収まる。
+   * ここは計算タブと同じく、帯の下に畳んだ内訳を置く形にする。
+   */
+  const breakdown = costBreakdown(locale, costs, values.kind);
   const hasError = isPushedSave && !canSave(values);
 
   // 日付欄は「今日」だけ青くして、既定値のまま出していることが分かるようにする（UI-SPEC §1.3-12）
@@ -658,6 +703,29 @@ function RecordForm({
               {formatYen(locale, profit)}
             </Text>
           </View>
+
+          {/* 11b. 同じ 1 件を横の割合で見せる帯（計算タブの利益側と同じ CostProportionBar）。
+              **結果行の下**に置く ── 伝票は上から下へ引いていって結果に着く流れなので、
+              その要約を流れの手前に挟まない。計算タブも「結果 → 帯」の順で並べている。
+              各区画の色は、上の行のドットと同じ（partColor が両方の色を決める） */}
+          <CostProportionBar
+            parts={breakdown.parts}
+            kept={breakdown.kept}
+            deducted={breakdown.deducted}
+          />
+
+          {/* 11c. 内訳（計算タブの利益側と同じ BreakdownPartList）。**畳んだ状態から始める** ──
+              伝票の行を読めば金額は分かるので、開くのは帯のどの色がどの項目かを
+              確かめたいときだけ。売上総額の行は出す（伝票の販売価格は入力中の文字列で、
+              こちらは帯の全長にあたる丸めた額）*/}
+          <CollapsibleSection
+            label={breakdownLabel(locale)}
+            tone="link"
+            align="center"
+            expanded={receiptBreakdownOpen}
+            onToggle={() => setReceiptBreakdownOpen((open) => !open)}>
+            <BreakdownPartList breakdown={breakdown} showSalesRow />
+          </CollapsibleSection>
         </View>
 
         {/* 11a. タグカード（SPEC-V4 §3.1 の改訂）。伝票カードの中の 1 行から、
@@ -681,7 +749,7 @@ function RecordForm({
           />
         </View>
 
-        {/* 11c. 目標利益（SPEC-V9 §2）。**伝票カードの外**に置く ──
+        {/* 11d. 目標利益（SPEC-V9 §2）。**伝票カードの外**に置く ──
             目標は売買で実際に動いた金額ではなく「こうしたい」という値なので、
             引き算の積み上げ（販売価格 → 経費 → 利益）の中に混ぜると、
             伝票の縦の足し算に入る額に見えてしまう。
@@ -715,6 +783,54 @@ function RecordForm({
               valueStyle={[styles.deductionValue, { color: colors.green }]}
               canOpenSettings={false}
             />
+
+            {/* 11e. 逆算（「その目標なら、いくらで売ればよいか」）。
+                **目標を決めたときだけ、この節の中に生える。**
+
+                計算タブへ値を持っていく形は採らなかった ── あちらが「新規の計算」と
+                「特定の記録の編集」の 2 つの状態を持つことになり、抜け忘れると
+                次に開いたときも前の記録が紐付いたままになる。逆算に要る材料
+                （目標・経費・手数料）はこのフォームが全部持っているので、
+                **編集の途中で開いた面から出ずに完結する**ほうが道が 1 本で済む。
+
+                **押すまで販売価格は変わらない。** 目標を打っている最中に欄が
+                動きはじめると、自分で入れた販売価格が消えたように見える */}
+            {required != null && (
+              <>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                {/* 計算タブの逆算モードと**同じ部品**（components/RequiredPriceBlock）。
+                    結果 → 帯グラフ → 説明文 → 内訳と計算のしかた の 4 段が丸ごと入る ──
+                    同じ式の同じ答えなのに、画面によって根拠の読み方が変わっては困る。
+                    「この値段で出せばよい」まで来て初めて、下のボタンが何を入れるのか読める */}
+                <RequiredPriceBlock
+                  result={required}
+                  expanded={targetBreakdownOpen}
+                  onToggleBreakdown={() => setTargetBreakdownOpen((open) => !open)}
+                />
+                <Pressable
+                  onPress={() => update('salesPrice', String(required.requiredPrice))}
+                  disabled={!canApplyRequiredPrice}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !canApplyRequiredPrice }}
+                  style={({ pressed }) => [
+                    styles.applyRequiredPriceButton,
+                    {
+                      backgroundColor: canApplyRequiredPrice
+                        ? colors.blue
+                        : colors.disabledBackground,
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.applyRequiredPriceLabel,
+                      { color: canApplyRequiredPrice ? '#FFFFFF' : colors.disabledContent },
+                    ]}>
+                    {applyRequiredPriceLabel(locale)}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </CollapsibleSection>
         </View>
 
@@ -1042,6 +1158,20 @@ const styles = StyleSheet.create({
   },
   packingSummary: {
     fontSize: 15,
+  },
+  applyRequiredPriceButton: {
+    // 「いくらで売る？」の書き換えボタン（52px）より低い ── あちらは画面の主役の操作、
+    // こちらは折りたたみの中の 1 手なので、カードの行の高さに寄せる
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  applyRequiredPriceLabel: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   separator: {
     height: StyleSheet.hairlineWidth,

@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SaleRecord } from '@/db/schema';
-import { netProfit } from '@/logic/profit';
+import { requiredPriceResult } from '@/logic/calcForm';
+import { netProfit, requiredSalesPrice } from '@/logic/profit';
 
 import {
   DEFAULT_COMMISSION,
@@ -518,5 +519,60 @@ describe('SPEC-V9 §2 目標利益（空欄 = 決めていない）', () => {
     const values = { ...newFormValues('used', undefined, NOW), itemName: 'えんぴつ', targetProfit: '' };
 
     expect(canSave(values)).toBe(true);
+  });
+});
+
+// 記録フォームの目標の節から引く逆算（案 A）。**式は計算タブと同じ 1 本**（SPEC §2.5）で、
+// フォームは経費をいま伝票に載っている値で渡すだけ。2 画面が別々に育たないよう、
+// 「同じ入力なら同じ額になる」ことをここで固定する。
+describe('記録フォームの目標から逆算する（必要な販売価格）', () => {
+  const values = () => ({
+    ...newFormValues('sourced', undefined, NOW),
+    salesPrice: '1000',
+    purchasePrice: '300',
+    postage: '185',
+    envelopeCost: '50',
+    othersCost: '30',
+    commission: 10,
+    targetProfit: '1000',
+  });
+
+  it('目標 ＋ 経費を手数料で割って切り上げる（SPEC §2.5 / 決定 §7-3）', () => {
+    // (1000 + 300 + 185 + 50 + 30) / 0.9 = 1738.88... → 1739
+    expect(requiredSalesPrice(1000, toCostInput(values()))).toBe(1739);
+  });
+
+  it('計算タブの逆算モードと同じ額になる（画面ごとに式を持たない）', () => {
+    const form = values();
+
+    // 計算タブ側は CalcFormValues を取るが、RecordFormValues はその項目を全部持つので
+    // そのまま渡せる ── 同じ入力から同じ答えが出ることの確認
+    expect(requiredSalesPrice(1000, toCostInput(form))).toBe(
+      requiredPriceResult('ja', form).requiredPrice,
+    );
+  });
+
+  it('その価格を販売価格に入れると、純利益が目標を下回らない（切り上げのぶんだけ超える）', () => {
+    const applied = { ...values(), salesPrice: String(requiredSalesPrice(1000, toCostInput(values()))) };
+
+    expect(netProfit(toCostInput(applied))).toBeGreaterThanOrEqual(1000);
+  });
+
+  it('不用品では仕入価格を式に入れない（欄を出していないため。SPEC-V2 §1.3）', () => {
+    const used = { ...values(), kind: 'used' as const, purchasePrice: '300' };
+
+    // (1000 + 185 + 50 + 30) / 0.9 = 1405.55... → 1406
+    expect(requiredSalesPrice(1000, toCostInput(used))).toBe(1406);
+  });
+
+  it('目標 0 円は「決めていない」とは別（損益分岐の価格が出る）', () => {
+    // 目標 0 は「赤字にならなければよい」という目標そのもの（§1.2）
+    expect(parseTargetProfitInput('0')).toBe(0);
+    // (0 + 565) / 0.9 = 627.7... → 628
+    expect(requiredSalesPrice(0, toCostInput(values()))).toBe(628);
+  });
+
+  it('目標を決めていなければ逆算の起点がない（行を出さない条件）', () => {
+    expect(parseTargetProfitInput('')).toBeNull();
   });
 });

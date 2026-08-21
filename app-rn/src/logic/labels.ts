@@ -882,6 +882,16 @@ export function targetProfitSummary(locale: Locale, targetProfit: number | null)
   return targetProfit == null ? t('form.targetProfitUnset', locale) : formatYen(locale, targetProfit);
 }
 
+/**
+ * 目標の節の逆算行の下のボタン（記録フォーム）。押すと必要販売価格が販売価格の欄に入る。
+ *
+ * 行の見出しには**計算タブと同じ `requiredSalesPriceLabel`（「必要な販売価格」）を使う** ──
+ * 同じ式（SPEC §2.5）が出した同じ額なので、画面ごとに呼び名を変えない。
+ */
+export function applyRequiredPriceLabel(locale: Locale): string {
+  return t('form.applyRequiredPrice', locale);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // データタブ（UI-SPEC §1.5 / 採用案 7b）の表示語。
 //

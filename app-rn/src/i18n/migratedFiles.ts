@@ -100,4 +100,8 @@ export const MIGRATED_FILES = [
   'src/components/AddRecordButton.tsx',
   'src/components/SheetModal.tsx',
   'src/components/PresetSummaryCard.tsx',
+  // 計算タブから切り出した逆算の表示部品（記録フォームの目標の節と共有する）
+  'src/components/RequiredPriceBlock.tsx',
+  'src/components/BreakdownPartList.tsx',
+  'src/components/ResultAmountBlock.tsx',
 ] as const;
