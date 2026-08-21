@@ -434,7 +434,9 @@ function PricingContent({
               {simulatorTitle(locale)}
             </Text>
             {!unpriced && (
-              <Text style={[styles.simulatorNote, { color: colors.secondaryLabel }]}>
+              <Text
+                style={[styles.simulatorNote, styles.simulatorHeadNote, { color: colors.secondaryLabel }]}
+                numberOfLines={2}>
                 {simulatorNote(locale)}
               </Text>
             )}
@@ -1289,6 +1291,16 @@ const styles = StyleSheet.create({
   },
   simulatorNote: {
     fontSize: 12,
+  },
+  /**
+   * 見出しの右の注記（§9.9）。**見出しと同じ 1 行に並ぶので、縮んで折り返せるようにする。**
+   * 見出しは語の長さが言語で変わり（「値下げシミュレータ」/ 'Discount simulator'）、
+   * 注記も同じだけ変わる ── 両方が伸びた英語で、注記がカードの右端を突き抜けて切れていた。
+   * `flexShrink` が無いと Text は自分の幅を主張したまま行からはみ出す。
+   * 2 行までに留めるのは、3 行以上に伸びると見出しより注記のほうが目立つため。
+   */
+  simulatorHeadNote: {
+    flexShrink: 1,
   },
   simulatorValueRow: {
     flexDirection: 'row',
