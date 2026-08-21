@@ -64,6 +64,7 @@
         }
       ],
       "./plugins/withKotlinGradlePlugin",
+      "./plugins/withAndroidSigning",
       [
         "expo-localization",
         {
