@@ -320,9 +320,17 @@ export function HelpScreen({
             key={group.title ?? index}
             style={styles.group}
             onLayout={(event) => {
-              groupTops.set(index, event.nativeEvent.layout.y);
-              // 前の群の段が閉じて、この群ごとせり上がったとき
-              if (itemTops.get(pendingScrollId.current ?? '')?.group === index) scrollToOpened();
+              const prevTop = groupTops.get(index);
+              const nextTop = event.nativeEvent.layout.y;
+              groupTops.set(index, nextTop);
+              // 前の群の段が閉じて、この群ごとせり上がったとき ── 群の y 自体が動いた時だけ。
+              // 同じ群の中の段が閉じたときも高さが変わって onLayout は来るが、その段の y はまだ
+              // 測り直されていない（Item 側の onMeasure が別に来る）ので、ここでは動かさない
+              if (
+                prevTop !== nextTop &&
+                itemTops.get(pendingScrollId.current ?? '')?.group === index
+              )
+                scrollToOpened();
             }}>
             {group.title != null && (
               <Text style={[styles.groupTitle, { color: colors.secondaryLabel }]}>

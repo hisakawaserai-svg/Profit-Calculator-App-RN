@@ -1509,6 +1509,7 @@ const styles = StyleSheet.create({
   },
   termBoxLabel: {
     fontSize: 15,
+    flexShrink: 1,
   },
   termBoxValue: {
     fontSize: 15,
