@@ -59,6 +59,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
+    "patch-package": "^8.0.1",
     "tsx": "^4.23.11",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
@@ -71,7 +72,8 @@
     "lint": "expo lint",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:smoke": "tsx scripts/db-smoke-test.ts"
+    "db:smoke": "tsx scripts/db-smoke-test.ts",
+    "postinstall": "patch-package"
   },
   "private": true
 }

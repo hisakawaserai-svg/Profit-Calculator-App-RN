@@ -206,6 +206,7 @@ export const en: Translations = {
     itemNameRequired: '⚠️ Enter an item name',
     itemNameCaption: 'Item name (required)',
     itemNamePlaceholder: 'e.g. Pencil',
+    keyboardToolbarDone: 'Done',
     envelopeAndOthers: 'Packaging and other',
     memo: 'Note',
     memoWrite: 'Write a note',

@@ -1,0 +1,81 @@
+diff --git a/node_modules/react-native-keyboard-controller/src/components/KeyboardAwareScrollView/index.tsx b/node_modules/react-native-keyboard-controller/src/components/KeyboardAwareScrollView/index.tsx
+index 90586e8..6f4888f 100644
+--- a/node_modules/react-native-keyboard-controller/src/components/KeyboardAwareScrollView/index.tsx
++++ b/node_modules/react-native-keyboard-controller/src/components/KeyboardAwareScrollView/index.tsx
+@@ -121,6 +121,7 @@ const KeyboardAwareScrollView = forwardRef<
+       offset: position,
+       layout: scrollViewLayout,
+       size: scrollViewContentSize,
++      isDragging,
+     } = useScrollState(scrollViewAnimatedRef);
+     const currentKeyboardFrameHeight = useSharedValue(0);
+     const keyboardHeight = useSharedValue(0);
+@@ -231,6 +232,16 @@ const KeyboardAwareScrollView = forwardRef<
+           return false;
+         }
+ 
++        // if the user is actively dragging the ScrollView, don't fight their
++        // gesture with our own corrective `scrollTo` — it'll be re-applied
++        // (from a fresh, non-stale base) once the drag ends and `onMove`/`onEnd`
++        // fire again. Without this, a scroll mid keyboard-hide-animation causes
++        // a visible jump/bounce because this runs every frame from a scroll
++        // position snapshotted before the drag started.
++        if (isDragging.value) {
++          return false;
++        }
++
+         // insets mode: `ScrollViewWithBottomPadding` extends scrollable area without
+         // changing layout, so when the keyboard hides and we're at the end of the
+         // ScrollView we must manually scroll back.
+diff --git a/node_modules/react-native-keyboard-controller/src/components/hooks/useScrollState.ts b/node_modules/react-native-keyboard-controller/src/components/hooks/useScrollState.ts
+index 74486ac..317b34e 100644
+--- a/node_modules/react-native-keyboard-controller/src/components/hooks/useScrollState.ts
++++ b/node_modules/react-native-keyboard-controller/src/components/hooks/useScrollState.ts
+@@ -34,6 +34,10 @@ const useScrollState = (ref: AnimatedRef<Reanimated.ScrollView>) => {
+   const offset = useSharedValue(0);
+   const layout = useSharedValue({ width: 0, height: 0 });
+   const size = useSharedValue({ width: 0, height: 0 });
++  // true while the user's finger is actively dragging the ScrollView. Used to
++  // suppress the library's own corrective `scrollTo` calls (e.g. ghost-padding
++  // retraction while the keyboard is hiding) so they don't fight a live touch.
++  const isDragging = useSharedValue(false);
+ 
+   const register = useEventHandlerRegistration(ref);
+ 
+@@ -46,11 +50,27 @@ const useScrollState = (ref: AnimatedRef<Reanimated.ScrollView>) => {
+     size.value = event.contentSize;
+   }, NATIVE_SCROLL_EVENT_NAMES);
+ 
++  const dragBeginHandler = useEvent((_event: ScrollEvent) => {
++    "worklet";
++
++    isDragging.value = true;
++  }, ["onScrollBeginDrag"]);
++
++  const dragEndHandler = useEvent((_event: ScrollEvent) => {
++    "worklet";
++
++    isDragging.value = false;
++  }, ["onScrollEndDrag", "onMomentumScrollEnd"]);
++
+   useEffect(() => {
+     const cleanup = register(eventHandler);
++    const cleanupDragBegin = register(dragBeginHandler);
++    const cleanupDragEnd = register(dragEndHandler);
+ 
+     return () => {
+       cleanup();
++      cleanupDragBegin();
++      cleanupDragEnd();
+     };
+   }, []);
+ 
+@@ -75,7 +95,7 @@ const useScrollState = (ref: AnimatedRef<Reanimated.ScrollView>) => {
+     [size],
+   );
+ 
+-  return { offset, layout, size, onLayout, onContentSizeChange };
++  return { offset, layout, size, isDragging, onLayout, onContentSizeChange };
+ };
+ 
+ export default useScrollState;

@@ -1739,6 +1739,10 @@ export function itemNameCaption(locale: Locale): string {
 export function itemNamePlaceholder(locale: Locale): string {
   return t('form.itemNamePlaceholder', locale);
 }
+/** 鍵盤の上の決定ツールバーの「決定」ボタン */
+export function keyboardToolbarDoneLabel(locale: Locale): string {
+  return t('form.keyboardToolbarDone', locale);
+}
 
 /** 商品名が空のレコードの表示（一覧・レコード詳細） */
 export function untitledLabel(locale: Locale): string {

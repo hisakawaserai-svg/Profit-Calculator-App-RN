@@ -37,14 +37,18 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
   View,
+  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
 import {
   KeyboardAwareScrollView,
+  KeyboardToolbar,
   useKeyboardState,
   type KeyboardAwareScrollViewRef,
+  type KeyboardToolbarProps,
 } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -82,6 +86,7 @@ import {
   itemNameCaption,
   itemNameLabel,
   itemNamePlaceholder,
+  keyboardToolbarDoneLabel,
   listedDateFieldLabel,
   listedDatePickerNote,
   listingStatusLabel,
@@ -142,7 +147,7 @@ import {
 } from '@/logic/recordForm';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { getDefaultRecordKind , useLocale } from '@/settings';
-import { useThemeColors, type ThemeColors } from '@/theme';
+import { themes, useThemeColors, type ThemeColors } from '@/theme';
 
 /** 伝票カードの行高（UI-SPEC §1.1-5 の 60px より詰める。1 枚に全部の金額が載るようにするため） */
 const RECEIPT_ROW_HEIGHT = 48;
@@ -183,6 +188,34 @@ const MEMO_MIN_HEIGHT = 80;
  * 箱を丸ごと出すことに意味が無く、カーソルを追う既定の動きが正しい。
  */
 const MEMO_KEYBOARD_EXTRA = MEMO_MIN_HEIGHT;
+
+/**
+ * 鍵盤の上に出す決定ツールバーの配色。アプリの ThemeColors（src/theme.ts）に揃える ──
+ * ライブラリの既定色だとアプリの青とわずかに違い、鍵盤のすぐ上という目立つ場所で浮く。
+ */
+const KEYBOARD_TOOLBAR_THEME: NonNullable<KeyboardToolbarProps['theme']> = {
+  light: {
+    primary: themes.light.blue,
+    disabled: themes.light.disabledContent,
+    background: themes.light.secondaryBackground,
+    ripple: themes.light.highlightBackground,
+  },
+  dark: {
+    primary: themes.dark.blue,
+    disabled: themes.dark.disabledContent,
+    background: themes.dark.secondaryBackground,
+    ripple: themes.dark.highlightBackground,
+  },
+};
+
+/**
+ * 決定ボタンのガラス調の地色。colors.highlightBackground（選択中の行用、かなり薄い）だと
+ * 鍵盤の上で存在感が弱すぎたので、同じ青に濃さだけ足した専用の色を持つ。
+ */
+const KEYBOARD_TOOLBAR_DONE_TINT = {
+  light: 'rgba(0, 122, 255, 0.30)',
+  dark: 'rgba(10, 132, 255, 0.46)',
+};
 
 // ---- 帯（CostProportionBar）のスティッキーバー ----
 //
@@ -354,6 +387,9 @@ function RecordForm({
   const [targetStickyVisible, setTargetStickyVisible] = useState(false);
   /** 目標の純利益欄にカーソルがあるか（スティッキーバーをどちらの内容にするかの分岐） */
   const [targetInputFocused, setTargetInputFocused] = useState(false);
+  /** 商品名欄にカーソルがあるか。ここを打っている間は伝票のスティッキーバーを出さない
+   * （名前を考えている最中に上から帯が降りてくるのが邪魔なため） */
+  const [itemNameFocused, setItemNameFocused] = useState(false);
   // 鍵盤の高さ（可視でなければ 0）。KeyboardSaveBar と違い符号は素の正の値
   // （useReanimatedKeyboardAnimation ではなく useKeyboardState を使っているため）
   const keyboardHeight = useKeyboardState((state) => state.height);
@@ -619,7 +655,7 @@ function RecordForm({
    * 表示するかどうかだけをここで絞る）。
    */
   const showTargetSticky = targetInputFocused && targetStickyVisible && required != null;
-  const showProfitSticky = breakdownStickyVisible && !showTargetSticky;
+  const showProfitSticky = breakdownStickyVisible && !showTargetSticky && !itemNameFocused;
   /**
    * 伝票の帯グラフと内訳の材料（計算タブの利益側と同じ `costBreakdown`）。
    *
@@ -737,6 +773,8 @@ function RecordForm({
                 ]}
                 value={values.itemName}
                 onChangeText={(value) => update('itemName', value)}
+                onFocus={() => setItemNameFocused(true)}
+                onBlur={() => setItemNameFocused(false)}
                 placeholder={itemNamePlaceholder(locale)}
                 placeholderTextColor={colors.mutedLabel}
                 accessibilityLabel={itemNameLabel(locale)}
@@ -1131,6 +1169,21 @@ function RecordForm({
       )}
       </View>
 
+      {/* 鍵盤の上に固定する決定ボタン（鍵盤を閉じるだけ）。
+          「鍵盤を消そうとして違う場所を押し、触りたくない部分に触れてしまう」事故を防ぐため、
+          鍵盤の真上に安全な閉じどころを常に置く。前後の欄への移動は出さない ──
+          需要が薄いわりに、欄の順序次第で変な移動をする不具合の芽になりやすい */}
+      {/* opacity="00" ─ ツールバー本体の地色（鍵盤の幅いっぱいの帯）を消す。
+          「決定」ボタン 1 個だけのために横いっぱいの帯を敷く理由が無い ──
+          ボタンだけが鍵盤の上に浮くように見せる */}
+      <KeyboardToolbar theme={KEYBOARD_TOOLBAR_THEME} opacity="00">
+        <KeyboardToolbar.Done button={KeyboardToolbarDoneButton}>
+          <Text style={styles.keyboardToolbarDoneButtonText}>
+            {keyboardToolbarDoneLabel(locale)}
+          </Text>
+        </KeyboardToolbar.Done>
+      </KeyboardToolbar>
+
       {/* タグ選択シート（§3.2）。**選んだ瞬間にフォームの state に入る**が、
           記録との紐付けが DB に入るのは「保存」を押したときだけ（UI-SPEC §8.6）。
           設定タブへのリンクは出さない ── このフォームは RN の Modal なので、
@@ -1149,6 +1202,57 @@ function RecordForm({
           ── 設定タブへ push しても、このモーダルの下に隠れて見えない */}
       {showHelp && <HelpSheet entry="recordForm" onClose={() => setShowHelp(false)} />}
     </View>
+  );
+}
+
+/**
+ * 決定ツールバーの「決定」ボタンの見た目（KeyboardToolbar.Done の `button` 差し替え）。
+ *
+ * 既定は下線もふちも無いただの青文字なので、鍵盤の上という目立つ場所にあっても
+ * 「押せるボタン」だと気づきにくい。iOS の角丸ボタンのように、ふちと丸みを付けて
+ * 押せることを見た目で示す。
+ */
+function KeyboardToolbarDoneButton({
+  children,
+  onPress,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
+  style,
+}: {
+  children?: React.ReactNode;
+  onPress?: (event: GestureResponderEvent) => void;
+  disabled?: boolean;
+  accessibilityLabel: string;
+  accessibilityHint: string;
+  testID: string;
+  style?: object;
+}) {
+  const colors = useThemeColors();
+  const tint =
+    useColorScheme() === 'dark' ? KEYBOARD_TOOLBAR_DONE_TINT.dark : KEYBOARD_TOOLBAR_DONE_TINT.light;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      testID={testID}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        style,
+        styles.keyboardToolbarDoneButton,
+        {
+          borderColor: colors.blue,
+          backgroundColor: tint,
+          opacity: pressed ? 0.5 : 1,
+        },
+      ]}>
+      {children}
+    </Pressable>
   );
 }
 
@@ -1383,6 +1487,15 @@ function StatusHeaderRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  keyboardToolbarDoneButton: {
+    borderWidth: 1.5,
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+  },
+  keyboardToolbarDoneButtonText: {
+    fontSize: 17,
   },
   // KeyboardAwareScrollView と StickyBreakdownBar を重ねて置くための器。
   // absolute の子は親の position 指定に関わらずこの View 基準で置かれる（RN の仕様）ので

@@ -308,6 +308,8 @@ export const ja = {
     itemNameRequired: '⚠️ 商品名を入力してください',
     itemNameCaption: '商品名（必須）',
     itemNamePlaceholder: '例：えんぴつ',
+    /** 鍵盤の上に固定する決定ツールバーの「決定」ボタン（押すと鍵盤を閉じる） */
+    keyboardToolbarDone: '決定',
     /** 折りたたみの見出し。梱包材とその他をまとめた 1 行 */
     envelopeAndOthers: '梱包材・その他',
     memo: 'メモ',
