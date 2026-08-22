@@ -1443,6 +1443,9 @@ export const en: Translations = {
       note: 'Both open in your device’s browser.',
       openFailed: 'Could not open the browser.',
     },
+    license: {
+      label: 'Open Source Licenses',
+    },
     language: {
       title: 'Language',
       system: 'System',

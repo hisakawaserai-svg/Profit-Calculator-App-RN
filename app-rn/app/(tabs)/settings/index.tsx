@@ -23,6 +23,7 @@ import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ReactNativeLegal } from 'react-native-legal';
 
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
@@ -43,6 +44,7 @@ import {
   helpLinkNote,
   languageSectionNote,
   languageSectionTitle,
+  licenseLinkLabel,
   presetCountLabel,
   presetSectionNote,
   presetSectionTitle,
@@ -224,6 +226,22 @@ export default function SettingsScreen() {
           <Text style={[styles.note, { color: colors.secondaryLabel }]}>
             {supportSectionNote(locale)}
           </Text>
+        </View>
+
+        {/* OSS ライセンス一覧。サポート・PP のすぐ下に置く（同じ「困ったとき／確認したいときに
+            開く」群）。react-native-legal のネイティブ画面をそのまま開くだけで、独自の UI は
+            持たない ── ライセンス全文を出す法的要件のための画面で、読ませる場所ではないため */}
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => ReactNativeLegal.launchLicenseListScreen(licenseLinkLabel(locale))}
+            style={StyleSheet.flatten([
+              styles.linkRow,
+              { backgroundColor: colors.secondaryBackground },
+            ])}
+            accessibilityRole="button">
+            <Text style={[styles.label, { color: colors.label }]}>{licenseLinkLabel(locale)}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+          </Pressable>
         </View>
 
         {/* 表示言語（3 択）。**「記録の既定値」より上に置く** ── 下の群の見出しごと

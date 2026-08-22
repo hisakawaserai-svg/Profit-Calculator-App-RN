@@ -3360,6 +3360,11 @@ export function browserOpenFailedMessage(locale: Locale): string {
   return t('settings.support.openFailed', locale);
 }
 
+/** OSS ライセンス一覧を開く行（react-native-legal のネイティブ画面）。サポート群のすぐ下に置く */
+export function licenseLinkLabel(locale: Locale): string {
+  return t('settings.license.label', locale);
+}
+
 /**
  * 記録まわりの設定の群（UI-SPEC §1.6-2）。見出しはタブ名と同じ語 ──
  * どのタブに効く設定なのかを、見出しとタブバーで別の語にしない。
