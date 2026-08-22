@@ -199,51 +199,6 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
-        {/* 外部のページ 2 行。**「使いかた」のすぐ下に置く** ── どちらも
-            「アプリの中の説明で足りなかった人が次に行く先」で、下の群（記録の既定値・
-            データ）とは用が違う。行の作りは「データ」群と同じ 2 行のカードだが、
-            **右の印だけが違う**（`chevron-forward` ではなく `open-outline`）──
-            押した先が画面の遷移ではなくアプリの外だ、と押す前に分かるようにする。
-            アイコンは読み上げでは拾えないので、同じことを下の注記でも言う */}
-        <View style={styles.section}>
-          <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
-            <Pressable
-              onPress={() => openExternal(SUPPORT_URL)}
-              style={styles.row}
-              accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{supportLinkLabel(locale)}</Text>
-              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
-            </Pressable>
-            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-            <Pressable
-              onPress={() => openExternal(PRIVACY_URL)}
-              style={styles.row}
-              accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{privacyLinkLabel(locale)}</Text>
-              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
-            </Pressable>
-          </View>
-          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
-            {supportSectionNote(locale)}
-          </Text>
-        </View>
-
-        {/* OSS ライセンス一覧。サポート・PP のすぐ下に置く（同じ「困ったとき／確認したいときに
-            開く」群）。react-native-legal のネイティブ画面をそのまま開くだけで、独自の UI は
-            持たない ── ライセンス全文を出す法的要件のための画面で、読ませる場所ではないため */}
-        <View style={styles.section}>
-          <Pressable
-            onPress={() => ReactNativeLegal.launchLicenseListScreen(licenseLinkLabel(locale))}
-            style={StyleSheet.flatten([
-              styles.linkRow,
-              { backgroundColor: colors.secondaryBackground },
-            ])}
-            accessibilityRole="button">
-            <Text style={[styles.label, { color: colors.label }]}>{licenseLinkLabel(locale)}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
-          </Pressable>
-        </View>
-
         {/* 表示言語（3 択）。**「記録の既定値」より上に置く** ── 下の群の見出しごと
             切り替わるものなので、切り替えた結果が下に見える並びにする。
             カードの作りは「記録の既定値」と同じ（見出し・セグメント・注記）*/}
@@ -370,6 +325,51 @@ export default function SettingsScreen() {
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* 外部のページ 2 行。**設定の一番下（データ群の下）に置く** ── どちらも
+            「困ったときに読むもの」で、上の各群（表示言語・記録の既定値・データなど）を
+            ひととおり終えたあとに見る導線でよいため。行の作りは「データ」群と同じ 2 行の
+            カードだが、**右の印だけが違う**（`chevron-forward` ではなく `open-outline`）──
+            押した先が画面の遷移ではなくアプリの外だ、と押す前に分かるようにする。
+            アイコンは読み上げでは拾えないので、同じことを下の注記でも言う */}
+        <View style={styles.section}>
+          <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
+            <Pressable
+              onPress={() => openExternal(SUPPORT_URL)}
+              style={styles.row}
+              accessibilityRole="link">
+              <Text style={[styles.label, { color: colors.label }]}>{supportLinkLabel(locale)}</Text>
+              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
+            </Pressable>
+            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+            <Pressable
+              onPress={() => openExternal(PRIVACY_URL)}
+              style={styles.row}
+              accessibilityRole="link">
+              <Text style={[styles.label, { color: colors.label }]}>{privacyLinkLabel(locale)}</Text>
+              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
+            </Pressable>
+          </View>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {supportSectionNote(locale)}
+          </Text>
+        </View>
+
+        {/* OSS ライセンス一覧。サポート・PP のすぐ下に置く（同じ「困ったとき／確認したいときに
+            開く」群）。react-native-legal のネイティブ画面をそのまま開くだけで、独自の UI は
+            持たない ── ライセンス全文を出す法的要件のための画面で、読ませる場所ではないため */}
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => ReactNativeLegal.launchLicenseListScreen(licenseLinkLabel(locale))}
+            style={StyleSheet.flatten([
+              styles.linkRow,
+              { backgroundColor: colors.secondaryBackground },
+            ])}
+            accessibilityRole="button">
+            <Text style={[styles.label, { color: colors.label }]}>{licenseLinkLabel(locale)}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
+          </Pressable>
         </View>
 
         {/* 開発ビルドだけに出る。production では DevSeedCard が null になり、
