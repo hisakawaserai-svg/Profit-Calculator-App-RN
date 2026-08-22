@@ -107,6 +107,13 @@ type Props = {
    * **梱包材の欄だけ true**（既定は false。MiniCalculator 参照）。
    */
   canPickPackaging?: boolean;
+  /**
+   * 欄にカーソルが入った／離れたときの通知（任意）。**値の読み書きには使わない**
+   * （それは onChangeValue の役目）── 呼び出し側が「この欄をいま打っているか」だけを
+   * 知りたい場面向け（記録フォームの目標欄。鍵盤で隠れる結果をスティッキーバーに出すかどうかの分岐）。
+   */
+  onFocus?: () => void;
+  onBlur?: () => void;
 };
 
 export function NumericField({
@@ -124,6 +131,8 @@ export function NumericField({
   onClearPreset,
   canOpenSettings = true,
   canPickPackaging = false,
+  onFocus,
+  onBlur,
 }: Props) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -182,6 +191,8 @@ export function NumericField({
           style={[styles.input, { color: colors.label }, valueStyle, disabled && { color: valueColor }]}
           value={value}
           onChangeText={(text) => onChangeValue(sanitizeNumericInput(text))}
+          onFocus={onFocus}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={colors.secondaryLabel}
           keyboardType="decimal-pad"

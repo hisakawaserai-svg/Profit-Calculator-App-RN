@@ -318,6 +318,40 @@ describe('§4.2 種別フィルタ: 一覧・累計・分析の絞り込み', ()
         recordCount: 0,
       });
     });
+
+    // SPEC-V4 §4.5 の改訂（2026-08-22）。かつては記録タブが検索を除いた条件で
+    // 合計行を引いていたため、検索に 1 件も合わなくても数字が残っていた。
+    // repository 側は元から searchText を見るので、ここは「見ていること」を釘打ちする検査。
+    it('検索語も累計に効く（一覧と同じ集合を数える）', () => {
+      const summary = repo.careerSummary({ isSoldMode: true, searchText: 'カメラ' });
+
+      expect(summary.recordCount).toBe(1);
+      expect(summary.totalNetProfit).toBeCloseTo(sumProfit(['sourcedJuly']), 9);
+    });
+
+    it('検索に 1 件も合わなければ累計は 0（一覧が空なのに数字が残らない）', () => {
+      expect(repo.careerSummary({ isSoldMode: true, searchText: '該当しない語' })).toEqual({
+        totalNetProfit: 0,
+        totalExpenses: 0,
+        totalSales: 0,
+        recordCount: 0,
+      });
+    });
+
+    it('検索は他の条件と AND で効く', () => {
+      // 「カメラ」に一致するのは仕入品だけなので、不用品で絞ると 0 件
+      expect(
+        repo.careerSummary({ isSoldMode: true, searchText: 'カメラ', kind: 'used' }).recordCount,
+      ).toBe(0);
+      expect(
+        repo.careerSummary({ isSoldMode: true, searchText: 'カメラ', period: '2026-07' })
+          .recordCount,
+      ).toBe(1);
+      expect(
+        repo.careerSummary({ isSoldMode: true, searchText: 'カメラ', period: '2026-08' })
+          .recordCount,
+      ).toBe(0);
+    });
   });
 
   describe('分析（AnalyticsFilter）', () => {

@@ -29,17 +29,21 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import {
   KeyboardAwareScrollView,
+  useKeyboardState,
   type KeyboardAwareScrollViewRef,
 } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,6 +52,7 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { BreakdownPartList } from '@/components/BreakdownPartList';
 import { CostProportionBar } from '@/components/CostProportionBar';
 import { RequiredPriceBlock } from '@/components/RequiredPriceBlock';
+import { ResultAmountBlock } from '@/components/ResultAmountBlock';
 import { DateField } from '@/components/DateField';
 import { NumericField } from '@/components/NumericField';
 import { HelpButton } from '@/components/HelpButton';
@@ -105,13 +110,19 @@ import {
   deductionLabel,
   memoSectionLabel,
   profitLabel,
+  requiredPriceHeadline,
   soldDateNotes,
   switchStatusLabel,
   todayDateLabel,
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
 import { orphanPhotoFiles } from '@/logic/photo';
-import { costBreakdown, requiredPriceResult } from '@/logic/calcForm';
+import {
+  costBreakdown,
+  requiredPriceResult,
+  type CostBreakdown,
+  type RequiredPriceResult,
+} from '@/logic/calcForm';
 import { commissionCost, netProfit } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
@@ -151,6 +162,43 @@ const ITEM_NAME_SCROLL_MARGIN = 64;
  * 1 行ぶんの半分を残すと、打っている欄が「鍵盤のすぐ上の 1 行」として見える。
  */
 const KEYBOARD_BOTTOM_OFFSET = 32;
+
+/** メモ欄（複数行）の最低の高さ（pt）。下の styles.memoInput と揃える */
+const MEMO_MIN_HEIGHT = 80;
+
+/**
+ * メモ欄を触っている間だけ足す余白（pt）。
+ *
+ * **複数行の欄だけ、逃がしの基準が「欄の下端」ではなく「カーソルのある行」になる。**
+ * KeyboardAwareScrollView は普段 `絶対Y + 欄の高さ` を鍵盤の上へ運ぶが、複数行では
+ * その高さをカーソル行の y に差し替える（ライブラリの `updateLayoutFromSelection`）──
+ * 何百 pt にもなり得る欄を丸ごと出すのは無理なので、カーソルを追うほうが正しい。
+ *
+ * その結果、**空のメモ欄では 1 行目のぶんしか運ばれず、箱の下 2/3 が鍵盤の裏に残っていた。**
+ * 箱の高さぶんを足して、カーソルが 1 行目にあるときでも下端まで出るようにする。
+ * 実際に要るのは「カーソル行から箱の下端まで」なので `MEMO_MIN_HEIGHT` は上限側の見積もりで、
+ * 数十 pt 余分に上がることがある（隙間が空くだけで、隠れるよりは読める）。
+ *
+ * **メモが伸びて箱が高くなったら、足りなくなるのは意図どおり** ── そこから先は
+ * 箱を丸ごと出すことに意味が無く、カーソルを追う既定の動きが正しい。
+ */
+const MEMO_KEYBOARD_EXTRA = MEMO_MIN_HEIGHT;
+
+// ---- 帯（CostProportionBar）のスティッキーバー ----
+//
+// **鍵盤で下寄りの欄（目標・メモ）まで運ばれると、上の帯グラフが画面の外に出る。**
+// 逃がしそのもの（KeyboardAwareScrollView）は直したが、それとは別の問題 ──
+// 打っている間、結果の帯が見えなくなる。計算タブの「結果カードが流れたら上端に固定バーを出す」
+// （StickyResultBar）と同じ考え方をこの画面にも足す。**鍵盤が押し上げる自動スクロールも
+// 中身は scrollTo（実スクロール）なので、同じ onScroll だけで両方（手でスクロール／
+// 鍵盤で運ばれる）を区別せず拾える。**
+//
+// 計算タブと違うのは、しきい値が固定でないこと ── あちらは結果カードが常に先頭なので
+// 40pt 決め打ちで足りるが、この画面は商品名・写真・種別など帯より上に可変長の要素が並ぶ。
+// 帯の下端を実測して（cardTopRef と同じ「カードからの相対位置」を足す）、
+// その位置を通り過ぎたかどうかで出し分ける。
+const STICKY_BREAKDOWN_DURATION = 180;
+const FALLBACK_STICKY_BREAKDOWN_HEIGHT = 72;
 
 type Props = {
   visible: boolean;
@@ -266,6 +314,8 @@ function RecordForm({
   /** 保存ボタンを押したか。押すまでは警告を出さない（SPEC §5.2 の isPushedSave） */
   const [isPushedSave, setIsPushedSave] = useState(false);
   const insets = useSafeAreaInsets();
+  /** メモ欄にカーソルがあるか（鍵盤の逃がし方が複数行だけ違う。MEMO_KEYBOARD_EXTRA 参照） */
+  const [memoFocused, setMemoFocused] = useState(false);
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const itemNameInputRef = useRef<TextInput>(null);
   /**
@@ -282,6 +332,89 @@ function RecordForm({
    */
   const cardTopRef = useRef(0);
   const itemNameTopRef = useRef(0);
+  /**
+   * 帯（CostProportionBar）の下端が、伝票カードの中のどこにあるか（pt）。
+   * itemNameTopRef と同じ理由で ref。0 のままなら「まだ測っていない」──
+   * スティッキーバーの判定はこの値が入るまで動かさない（handleScroll 参照）。
+   */
+  const breakdownBottomRef = useRef(0);
+  /**
+   * 目標の節（NumericField ＋ 決めてあれば RequiredPriceBlock）の下端。**カードそのものが
+   * スクロール中身の直接の子**（伝票カードの外。JSX のコメント参照）なので、breakdownBottomRef
+   * と違って cardTopRef を足さない ── measure した y がそのまま中身の絶対位置になる。
+   */
+  const targetSectionBottomRef = useRef(0);
+  /** 直近の scroll イベントが持っていた値（鍵盤の高さだけが変わったときの再判定に使う） */
+  const scrollOffsetYRef = useRef(0);
+  const scrollLayoutHeightRef = useRef(0);
+  /** 帯が画面の外（鍵盤の裏を含む）に出ている間だけ true（スティッキーバー用） */
+  const [breakdownStickyVisible, setBreakdownStickyVisible] = useState(false);
+  /** 目標の節が画面の外に出ている間だけ true。**目標欄にカーソルがあるときしか使わない**
+   * （下の targetInputFocused && targetStickyVisible。他の欄を打っている間は伝票の帯を優先する） */
+  const [targetStickyVisible, setTargetStickyVisible] = useState(false);
+  /** 目標の純利益欄にカーソルがあるか（スティッキーバーをどちらの内容にするかの分岐） */
+  const [targetInputFocused, setTargetInputFocused] = useState(false);
+  // 鍵盤の高さ（可視でなければ 0）。KeyboardSaveBar と違い符号は素の正の値
+  // （useReanimatedKeyboardAnimation ではなく useKeyboardState を使っているため）
+  const keyboardHeight = useKeyboardState((state) => state.height);
+
+  /**
+   * ある領域（絶対位置の下端 `bottomY`）が画面に実際に見えているかを判定して、渡された setter
+   * を呼ぶ。**帯（伝票）にも目標の節にも同じ 1 本を使う** ── どちらも「欄のすぐ上か下にある
+   * 結果を、鍵盤で隠れていないか」という同じ問いだから。
+   *
+   * 「スクロール量」だけでは足りない理由: 鍵盤に押されて欄まで運ばれても、その欄が結果の
+   * すぐ上にあれば、運ぶ量そのものは小さく（スクロールがほぼ動かず）結果は画面上の
+   * スクロール範囲内にまだ「乗っている」。それでも鍵盤の高さぶんは下から隠れているので、
+   * 画面に実際に見えているかは「結果の下端の画面上の位置」と「鍵盤の上端（＝見える範囲の
+   * 下端）」を比べないと分からない。
+   */
+  const evaluateVisibility = useCallback(
+    (bottomY: number, keyboardH: number, setVisible: (hidden: boolean) => void) => {
+      // まだ測っていない（0）間は判定しない。測る前の 1 描画で誤って出さないため
+      if (bottomY <= 0 || scrollLayoutHeightRef.current <= 0) return;
+      const visibleBottomEdge = scrollLayoutHeightRef.current - keyboardH;
+      const screenBottom = bottomY - scrollOffsetYRef.current;
+      // 見える範囲の下（鍵盤の上端）より下 ＝ 鍵盤の裏。0 未満 ＝ 上へスクロールして通り過ぎた
+      const hidden = screenBottom > visibleBottomEdge || screenBottom < 0;
+      setVisible(hidden);
+    },
+    [],
+  );
+
+  const evaluateAllVisibility = useCallback(
+    (keyboardH: number) => {
+      evaluateVisibility(cardTopRef.current + breakdownBottomRef.current, keyboardH, (hidden) =>
+        setBreakdownStickyVisible((current) => (current === hidden ? current : hidden)),
+      );
+      evaluateVisibility(targetSectionBottomRef.current, keyboardH, (hidden) =>
+        setTargetStickyVisible((current) => (current === hidden ? current : hidden)),
+      );
+    },
+    [evaluateVisibility],
+  );
+
+  /**
+   * 手でスクロールしても、鍵盤に押されて自動で運ばれても同じ判定を通る ──
+   * KeyboardAwareScrollView の自動スクロールも中身は実際の scrollTo で、
+   * native の onScroll がそのまま発火する。
+   */
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
+      scrollLayoutHeightRef.current = event.nativeEvent.layoutMeasurement.height;
+      evaluateAllVisibility(keyboardHeight);
+    },
+    [evaluateAllVisibility, keyboardHeight],
+  );
+
+  /**
+   * **鍵盤の高さが変わっただけ**（スクロール量そのものは動かない）でも判定をやり直す ──
+   * 上のコメントのとおり、結果のすぐ上の欄を打っているときはこれが起きる唯一の道になる。
+   */
+  useEffect(() => {
+    evaluateAllVisibility(keyboardHeight);
+  }, [keyboardHeight, evaluateAllVisibility]);
   /** 「今日」はマウント時に 1 回だけ決める（日付欄の「今日（…）」の基準） */
   const [today] = useState(() => new Date());
 
@@ -480,6 +613,14 @@ function RecordForm({
    */
   const canApplyRequiredPrice = required != null && required.requiredPrice !== costs.salesPrice;
   /**
+   * どちらのスティッキーバーを出すか（同時に 2 段重ねない）。
+   * 目標欄にカーソルがあり、かつ目標の節が画面の外に出ていれば目標側を優先し、
+   * 伝票の帯はそのときだけ黙らせる（breakdownStickyVisible 自体は動いたままでよい ──
+   * 表示するかどうかだけをここで絞る）。
+   */
+  const showTargetSticky = targetInputFocused && targetStickyVisible && required != null;
+  const showProfitSticky = breakdownStickyVisible && !showTargetSticky;
+  /**
    * 伝票の帯グラフと内訳の材料（計算タブの利益側と同じ `costBreakdown`）。
    *
    * **レコード詳細のレシートは行の左に色ドットを付けて凡例を省いている**
@@ -549,12 +690,23 @@ function RecordForm({
           スクロールする。iOS / Android で同じ 1 本を通る。
           `bottomOffset` は欄の下に残す余白。0 だと欄が鍵盤の上端にぴったり張り付き、
           NumericField の行（高さ 60pt）の下線と鍵盤の境目が重なって読みにくい */}
+      {/* 帯のスティッキーバー（下）を絶対配置で重ねる器。ヘッダの下・鍵盤の上に固定される。
+          onLayout は見える範囲の高さを測るためだけ（scrollLayoutHeightRef）── 一度も
+          スクロールしていない間（onScroll がまだ 1 回も来ていない間）でも、鍵盤の高さの
+          変化だけで判定できるようにする（evaluateBreakdownVisibility 参照） */}
+      <View
+        style={styles.scrollWrapper}
+        onLayout={(event) => {
+          scrollLayoutHeightRef.current = event.nativeEvent.layout.height;
+        }}>
       <KeyboardAwareScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
-        bottomOffset={KEYBOARD_BOTTOM_OFFSET}
+        bottomOffset={KEYBOARD_BOTTOM_OFFSET + (memoFocused ? MEMO_KEYBOARD_EXTRA : 0)}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag">
+        keyboardDismissMode="on-drag"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}>
         {/* 4〜11. 伝票カード。見出し行 → 商品名 → 種別 → 金額の積み上げ → 結果行 */}
         <View
           style={[styles.card, { backgroundColor: colors.secondaryBackground }]}
@@ -724,27 +876,41 @@ function RecordForm({
             />
           </CollapsibleSection>
 
-          {/* 11. 結果行。太い線から下が「引き終わったあと」（UI-SPEC §1.3-11） */}
-          <View style={[styles.totalSeparator, { backgroundColor: colors.separator }]} />
-          <View style={styles.resultRow}>
-            {/* 1 件を指すので種別語（SPEC-V2 §5.3） */}
-            <Text style={[styles.resultLabel, { color: colors.label }]}>
-              {profitLabel(locale, values.kind)}
-            </Text>
-            <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
-              {formatYen(locale, profit)}
-            </Text>
-          </View>
+          {/* 11. 結果行 ＋ 帯。太い線から下が「引き終わったあと」（UI-SPEC §1.3-11）。
+              **この 3 つを 1 つの View で包む**のは、下端の y を測るため（onLayout）──
+              帯が鍵盤や画面の外に出たら、上端にスティッキーバーで同じ結果を出す
+              （breakdownBottomRef。handleScroll 参照）。カードの gap（10）を失うぶんは
+              wrap 側の gap で埋め直す */}
+          <View
+            style={styles.breakdownGroup}
+            onLayout={(event) => {
+              breakdownBottomRef.current =
+                event.nativeEvent.layout.y + event.nativeEvent.layout.height;
+              // 梱包材・その他の折りたたみでこの領域の高さ自体が変わることがあり、
+              // スクロールも鍵盤の高さも動かないまま古い下端で判定され続けることがある
+              evaluateAllVisibility(keyboardHeight);
+            }}>
+            <View style={[styles.totalSeparator, { backgroundColor: colors.separator }]} />
+            <View style={styles.resultRow}>
+              {/* 1 件を指すので種別語（SPEC-V2 §5.3） */}
+              <Text style={[styles.resultLabel, { color: colors.label }]}>
+                {profitLabel(locale, values.kind)}
+              </Text>
+              <Text style={[styles.resultAmount, { color: profit >= 0 ? colors.green : colors.red }]}>
+                {formatYen(locale, profit)}
+              </Text>
+            </View>
 
-          {/* 11b. 同じ 1 件を横の割合で見せる帯（計算タブの利益側と同じ CostProportionBar）。
-              **結果行の下**に置く ── 伝票は上から下へ引いていって結果に着く流れなので、
-              その要約を流れの手前に挟まない。計算タブも「結果 → 帯」の順で並べている。
-              各区画の色は、上の行のドットと同じ（partColor が両方の色を決める） */}
-          <CostProportionBar
-            parts={breakdown.parts}
-            kept={breakdown.kept}
-            deducted={breakdown.deducted}
-          />
+            {/* 11b. 同じ 1 件を横の割合で見せる帯（計算タブの利益側と同じ CostProportionBar）。
+                **結果行の下**に置く ── 伝票は上から下へ引いていって結果に着く流れなので、
+                その要約を流れの手前に挟まない。計算タブも「結果 → 帯」の順で並べている。
+                各区画の色は、上の行のドットと同じ（partColor が両方の色を決める） */}
+            <CostProportionBar
+              parts={breakdown.parts}
+              kept={breakdown.kept}
+              deducted={breakdown.deducted}
+            />
+          </View>
 
           {/* 11c. 内訳（計算タブの利益側と同じ BreakdownPartList）。**畳んだ状態から始める** ──
               伝票の行を読めば金額は分かるので、開くのは帯のどの色がどの項目かを
@@ -789,7 +955,18 @@ function RecordForm({
             **空欄は「¥0」ではなく「決めていません」と出す**（§2）── 0 は
             「赤字にならなければよい」という目標そのもので、決めていない状態とは別のもの。
             金額として書くと、決めた覚えのない目標が記録に出ることになる */}
-        <View style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}>
+        <View
+          style={[styles.card, styles.foldedCard, { backgroundColor: colors.secondaryBackground }]}
+          // 目標の節の下端（絶対位置）。伝票カードの外の直接の子なので、そのまま使える
+          // （targetSectionBottomRef のコメント参照）
+          onLayout={(event) => {
+            targetSectionBottomRef.current =
+              event.nativeEvent.layout.y + event.nativeEvent.layout.height;
+            // **ここが要る**: 目標を打つと RequiredPriceBlock が生えてこの節の高さが伸びる。
+            // スクロールも鍵盤の高さも動かないので、他の 2 つの再判定（handleScroll・
+            // keyboardHeight の effect）だけでは古い下端のまま判定され続けてしまう
+            evaluateAllVisibility(keyboardHeight);
+          }}>
           <CollapsibleSection
             label={targetProfitLabel(locale, values.kind)}
             tone="link"
@@ -814,6 +991,8 @@ function RecordForm({
               rowHeight={RECEIPT_ROW_HEIGHT}
               valueStyle={[styles.deductionValue, { color: colors.green }]}
               canOpenSettings={false}
+              onFocus={() => setTargetInputFocused(true)}
+              onBlur={() => setTargetInputFocused(false)}
             />
 
             {/* 11e. 逆算（「その目標なら、いくらで売ればよいか」）。
@@ -921,11 +1100,36 @@ function RecordForm({
               value={values.memo}
               onChangeText={(value) => update('memo', value)}
               multiline
+              // 複数行だけ逃がし方が違う（MEMO_KEYBOARD_EXTRA）。離れたら元の余白に戻す
+              onFocus={() => setMemoFocused(true)}
+              onBlur={() => setMemoFocused(false)}
               accessibilityLabel={memoLabel(locale)}
             />
           </CollapsibleSection>
         </View>
       </KeyboardAwareScrollView>
+
+      {/* スティッキーバーは 2 種類のうちどちらか 1 つだけ（同時に 2 段重ねない）。
+          **目標欄を打っている間は目標側を優先する** ── 目標は伝票よりさらに下にあるので、
+          目標を打っているときは伝票の帯もほぼ必ず画面の外に出ているが、
+          いま読みたいのは「その目標なら何円で出せばよいか」の方 */}
+      <StickyBreakdownBar
+        visible={showProfitSticky}
+        label={profitLabel(locale, values.kind)}
+        amount={formatYen(locale, profit)}
+        amountColor={profit >= 0 ? colors.green : colors.red}
+        breakdown={breakdown}
+        colors={colors}
+      />
+      {/* 目標のスティッキーバー（今回の追加）。**目標欄にカーソルがある間だけ**出す ──
+          スクロールだけで出すと、伝票の帯と同じ場面（目標より下の欄を打っているだけ）でも
+          出てしまい、「いま何を打っているか」と表示が噛み合わなくなる。
+          中身は RequiredPriceBlock の上 2 段（結果 → 帯）と同じ部品をそのまま使う ──
+          同じ式の同じ答えなのに、畳んだ形で根拠の読み方が変わっては困る */}
+      {required != null && (
+        <StickyTargetBar visible={showTargetSticky} result={required} colors={colors} />
+      )}
+      </View>
 
       {/* タグ選択シート（§3.2）。**選んだ瞬間にフォームの state に入る**が、
           記録との紐付けが DB に入るのは「保存」を押したときだけ（UI-SPEC §8.6）。
@@ -945,6 +1149,132 @@ function RecordForm({
           ── 設定タブへ push しても、このモーダルの下に隠れて見えない */}
       {showHelp && <HelpSheet entry="recordForm" onClose={() => setShowHelp(false)} />}
     </View>
+  );
+}
+
+/**
+ * 帯（CostProportionBar）のスティッキーバー。結果の帯が画面の外（鍵盤の裏を含む）に
+ * 出ている間だけ、上端に同じ結果を出す。計算タブの StickyResultBar と同じ考え方だが、
+ * こちらは押しても何も開閉しない（読むだけの帯。CollapsibleSection の状態は伝票側にしか無い）。
+ */
+function StickyBreakdownBar({
+  visible,
+  label,
+  amount,
+  amountColor,
+  breakdown,
+  colors,
+}: {
+  visible: boolean;
+  label: string;
+  amount: string;
+  amountColor: string;
+  breakdown: CostBreakdown;
+  colors: ThemeColors;
+}) {
+  // Animated.Value はマウント中ずっと同じインスタンスを使う（計算タブの StickyResultBar と同じ理由）
+  const [progress] = useState(() => new Animated.Value(0));
+  // スライドの距離は実測値を使う（帯の高さは端末幅で変わる）
+  const [barHeight, setBarHeight] = useState(FALLBACK_STICKY_BREAKDOWN_HEIGHT);
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: visible ? 1 : 0,
+      duration: STICKY_BREAKDOWN_DURATION,
+      useNativeDriver: true,
+    }).start();
+  }, [visible, progress]);
+
+  return (
+    <Animated.View
+      // 読むだけの帯で押せる要素を持たない。常に 'none' にして、下のスクロールへの
+      // タッチをふさがない（フェードで opacity: 0 の間だけ透明の当たり判定が残るのを避ける）
+      pointerEvents="none"
+      onLayout={(event) => setBarHeight(event.nativeEvent.layout.height)}
+      style={[
+        styles.stickyBreakdownBar,
+        {
+          backgroundColor: colors.barBackground,
+          borderBottomColor: colors.separator,
+          opacity: progress,
+          transform: [
+            {
+              translateY: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-barHeight, 0],
+              }),
+            },
+          ],
+        },
+      ]}>
+      <View style={styles.stickyBreakdownTopRow}>
+        <Text style={[styles.stickyBreakdownLabel, { color: colors.secondaryLabel }]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={[styles.stickyBreakdownAmount, { color: amountColor }]} numberOfLines={1}>
+          {amount}
+        </Text>
+      </View>
+      <CostProportionBar parts={breakdown.parts} kept={breakdown.kept} deducted={breakdown.deducted} />
+    </Animated.View>
+  );
+}
+
+/**
+ * 目標のスティッキーバー（今回の追加）。**RequiredPriceBlock の上 2 段（結果 → 帯）と
+ * 同じ部品をそのまま並べる**（式・見た目を 2 か所で別々に持たない）。
+ * 内訳の折りたたみ・「入れる」ボタンはここに複製しない ── スティッキーは読むだけの帯で、
+ * 操作は元の節（下にある本体）まで戻ってからしてもらう。
+ */
+function StickyTargetBar({
+  visible,
+  result,
+  colors,
+}: {
+  visible: boolean;
+  result: RequiredPriceResult;
+  colors: ThemeColors;
+}) {
+  const locale = useLocale();
+  // Animated.Value はマウント中ずっと同じインスタンスを使う（StickyBreakdownBar と同じ理由）
+  const [progress] = useState(() => new Animated.Value(0));
+  const [barHeight, setBarHeight] = useState(FALLBACK_STICKY_BREAKDOWN_HEIGHT);
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: visible ? 1 : 0,
+      duration: STICKY_BREAKDOWN_DURATION,
+      useNativeDriver: true,
+    }).start();
+  }, [visible, progress]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      onLayout={(event) => setBarHeight(event.nativeEvent.layout.height)}
+      style={[
+        styles.stickyBreakdownBar,
+        {
+          backgroundColor: colors.barBackground,
+          borderBottomColor: colors.separator,
+          opacity: progress,
+          transform: [
+            {
+              translateY: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-barHeight, 0],
+              }),
+            },
+          ],
+        },
+      ]}>
+      <ResultAmountBlock
+        caption={requiredPriceHeadline(locale)}
+        amount={formatYen(locale, result.requiredPrice)}
+        amountColor={colors.blue}
+      />
+      <CostProportionBar parts={result.parts} kept={result.kept} deducted={result.deducted} />
+    </Animated.View>
   );
 }
 
@@ -1052,6 +1382,12 @@ function StatusHeaderRow({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // KeyboardAwareScrollView と StickyBreakdownBar を重ねて置くための器。
+  // absolute の子は親の position 指定に関わらずこの View 基準で置かれる（RN の仕様）ので
+  // 特別なスタイルは要らないが、他の絶対配置と紛れないよう名前を分けている
+  scrollWrapper: {
     flex: 1,
   },
   grabberArea: {
@@ -1208,6 +1544,11 @@ const styles = StyleSheet.create({
   separator: {
     height: StyleSheet.hairlineWidth,
   },
+  // 結果行・帯をまとめる器。カードの gap（10）が効かなくなる分をここで肩代わりする
+  // （breakdownBottomRef で y を測るために 3 つを 1 つの View に包んだ。JSX 側のコメント参照）
+  breakdownGroup: {
+    gap: 10,
+  },
   totalSeparator: {
     // 結果行の手前だけ太い線（UI-SPEC §1.3-11）
     height: 1.5,
@@ -1227,11 +1568,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   memoInput: {
-    minHeight: 80,
+    // 高さを変えたら MEMO_MIN_HEIGHT も直すこと（鍵盤の逃がしの計算に入る）
+    minHeight: MEMO_MIN_HEIGHT,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 8,
     padding: 10,
     fontSize: 15,
     textAlignVertical: 'top',
+  },
+  // 帯のスティッキーバー（計算タブの stickyBar と同じ形。§8.6 の外の追加）
+  stickyBreakdownBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  stickyBreakdownTopRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  stickyBreakdownLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  stickyBreakdownAmount: {
+    fontSize: 22,
+    fontWeight: '700',
   },
 });

@@ -149,17 +149,19 @@ export function RecordListScreen() {
     () => ({ isSoldMode, period, kind, siteName, tagIds, searchText }),
     [isSoldMode, period, kind, siteName, tagIds, searchText],
   );
-  // 合計行は検索を含めない。検索は「探す操作」で、見る対象そのものの限定ではないため
-  // （旧月別詳細の summaryFilter と同じ考え方。SPEC-V2 §4.2）。
-  // 販売サイトとタグは種別と同じ「限定」なので、こちらには入る（§4.5 の表）
-  const summaryFilter = useMemo(
-    () => ({ isSoldMode, period, kind, siteName, tagIds }),
-    [isSoldMode, period, kind, siteName, tagIds],
-  );
+  /**
+   * **合計行も一覧と同じ `filter` で数える**（検索を含む）。
+   *
+   * かつては検索だけ合計行から外していた（「検索は探す操作で、見る対象そのものの限定ではない」。
+   * SPEC-V4 §4.5 の表）。**実機で破綻したのでやめた** ── 検索に 1 件も合わないとき、
+   * 一覧は空なのに合計行だけ「出品中 1 点・¥1,500」と出る。
+   * 見えている行が 0 なのに数字が残っていると、どちらが本当か画面の中で決められない。
+   *
+   * 上の数字は下のリストの合計、という 1 本の関係にする。
+   */
   const { records, summary, earliestMonthKey, monthsWithRecords, refresh } = useRecordList(
     filter,
     sortType,
-    summaryFilter,
   );
 
   // 行に出すタグ（§2.3）。並んでいる記録ぶんを 1 本のクエリでまとめて引く（記録ごとに引かない）

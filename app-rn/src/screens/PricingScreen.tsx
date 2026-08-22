@@ -17,8 +17,11 @@
 // **計算式はこの画面に無い。** 状態の判定も金額も logic/pricing.ts（→ logic/profit.ts）が返し、
 // 文字列は logic/labels.ts が組み立てる。ここがするのは並べることと、押されたときの保存だけ。
 //
-// **帯グラフは複製しない**（§9.13）。費用の内訳は記録詳細のレシートが既に持っているので、
-// 最下段の行はそこへ戻す。同じ 1 件の内訳が 2 か所で別々に育つのを避ける。
+// **レシート（行ごとの内訳）は複製しない**（§9.13）。同じ 1 件の内訳が 2 か所で別々に育つのを避ける。
+// **ただし最下段の行から記録詳細へ戻す形はやめた**（2026-08-22）── この画面に入る道は
+// 記録詳細の帯の直下にある結論行 1 つだけなので、押すと出てきた場所へ戻るだけの往復だった。
+// いまは額を読むだけの行で、押せない（FooterRow の onPress を渡さない）。
+// 帯そのものはシミュレーターのカードの中にミニ版がある（区画の並びは記録詳細と別）。
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -45,7 +48,7 @@ import { formatYenSymbol } from '@/logic/format';
 import {
   amountPlaceholder,
   applyPriceNote,
-  costBreakdownRowLabel,
+  expensesLabel,
   fixDateLabel,
   knownWithoutPriceTitle,
   lossBadgeLabel,
@@ -120,9 +123,6 @@ import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { TargetProfitSheet } from '@/screens/TargetProfitSheet';
 import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
-
-/** 記録詳細へ戻る先（§9.13）。**push ではなく dismissTo** ── 積み増さずに元の 1 枚へ返す */
-const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 
 /**
  * 書き換えたあとのバーが出ている時間（§9.12）。**5 秒で消え、そのとき取り消しもできなくなる。**
@@ -219,9 +219,6 @@ export function PricingScreen() {
     );
   }
 
-  const onOpenBreakdown = () =>
-    router.dismissTo({ pathname: RECORD_DETAIL_PATHNAME, params: { id } });
-
   return (
     <>
       <Stack.Screen options={screenOptions} />
@@ -235,7 +232,6 @@ export function PricingScreen() {
           setShowTarget={setShowTarget}
           showForm={showForm}
           setShowForm={setShowForm}
-          onOpenBreakdown={onOpenBreakdown}
         />
       ) : (
         <PricingContent
@@ -253,7 +249,6 @@ export function PricingScreen() {
           setShowTarget={setShowTarget}
           showForm={showForm}
           setShowForm={setShowForm}
-          onOpenBreakdown={onOpenBreakdown}
         />
       )}
 
@@ -280,7 +275,6 @@ type ContentProps = {
   setShowTarget: (visible: boolean) => void;
   showForm: boolean;
   setShowForm: (visible: boolean) => void;
-  onOpenBreakdown: () => void;
 };
 
 /**
@@ -303,7 +297,6 @@ function PricingContent({
   setShowTarget,
   showForm,
   setShowForm,
-  onOpenBreakdown,
 }: ContentProps) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -545,10 +538,18 @@ function PricingContent({
           styles.footerRows,
           { backgroundColor: colors.secondaryBackground, borderTopColor: colors.separator },
         ]}>
+        {/* 経費の行は**押せない**（2026-08-22 の改訂）。
+            かつては記録詳細のレシートへ `dismissTo` していた（§9.13「帯グラフを複製しない」）が、
+            この画面に入る道は記録詳細の帯の直下にある結論行 1 つだけなので、
+            押すと**出てきた場所のすぐ隣に戻るだけ**の往復になっていた。
+            そのうえこの画面にはミニ帯グラフが付いた（シミュレーターのカードの中）ので、
+            内訳を見に行く用も薄い。額だけ読む行にして、シェブロンも外す。
+            レシートそのものは戻れば（ヘッダの「‹ 記録」）そこにある。
+            語を「費用の内訳」から「経費」に変えたのは、内訳を出さない行になったため ──
+            記録一覧の合計行と同じ語で、同じもの（手数料込みの経費合計）を指す。 */}
         <FooterRow
-          label={costBreakdownRowLabel(locale)}
+          label={expensesLabel(locale)}
           value={formatYenSymbol(totalCost(record))}
-          onPress={onOpenBreakdown}
           colors={colors}
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -617,7 +618,6 @@ type SoldContentProps = {
   setShowTarget: (visible: boolean) => void;
   showForm: boolean;
   setShowForm: (visible: boolean) => void;
-  onOpenBreakdown: () => void;
 };
 
 /**
@@ -635,7 +635,6 @@ function SoldContent({
   setShowTarget,
   showForm,
   setShowForm,
-  onOpenBreakdown,
 }: SoldContentProps) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -773,10 +772,18 @@ function SoldContent({
           styles.footerRows,
           { backgroundColor: colors.secondaryBackground, borderTopColor: colors.separator },
         ]}>
+        {/* 経費の行は**押せない**（2026-08-22 の改訂）。
+            かつては記録詳細のレシートへ `dismissTo` していた（§9.13「帯グラフを複製しない」）が、
+            この画面に入る道は記録詳細の帯の直下にある結論行 1 つだけなので、
+            押すと**出てきた場所のすぐ隣に戻るだけ**の往復になっていた。
+            そのうえこの画面にはミニ帯グラフが付いた（シミュレーターのカードの中）ので、
+            内訳を見に行く用も薄い。額だけ読む行にして、シェブロンも外す。
+            レシートそのものは戻れば（ヘッダの「‹ 記録」）そこにある。
+            語を「費用の内訳」から「経費」に変えたのは、内訳を出さない行になったため ──
+            記録一覧の合計行と同じ語で、同じもの（手数料込みの経費合計）を指す。 */}
         <FooterRow
-          label={costBreakdownRowLabel(locale)}
+          label={expensesLabel(locale)}
           value={formatYenSymbol(totalCost(record))}
-          onPress={onOpenBreakdown}
           colors={colors}
         />
         <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -1183,6 +1190,12 @@ function SoldUnpricedBlock({
 }
 
 /** 最下段の 1 行（§9.13）。右端の「›」で押せることを示す */
+/**
+ * 最下段の行。**`onPress` を渡さない行は押せない**（シェブロンも出さない）。
+ *
+ * 押せる見た目（›）を出しておいて押した先が無い／戻るだけ、という行を作らないため。
+ * 経費の行がまさにそれだった（§9.13 の改訂。下の footerRows のコメント）。
+ */
 function FooterRow({
   label,
   value,
@@ -1193,21 +1206,33 @@ function FooterRow({
   label: string;
   value: string;
   muted?: boolean;
-  onPress: () => void;
+  onPress?: () => void;
   colors: ThemeColors;
 }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.footerRow, { opacity: pressed ? 0.5 : 1 }]}>
+  const body = (
+    <>
       <Text style={[styles.rowLabel, { color: colors.label }]}>{label}</Text>
       <View style={styles.footerValue}>
         <Text style={[styles.rowValue, { color: muted ? colors.mutedLabel : colors.label }]}>
           {value}
         </Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.mutedLabel} />
+        {onPress != null && (
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedLabel} />
+        )}
       </View>
+    </>
+  );
+
+  if (onPress == null) {
+    return <View style={styles.footerRow}>{body}</View>;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.footerRow, { opacity: pressed ? 0.5 : 1 }]}>
+      {body}
     </Pressable>
   );
 }
