@@ -99,8 +99,6 @@ export const ja = {
     keptLong: '手元に残る',
     /** 販売手数料の正式な語。amount.commissionShort（手数料）と使い分ける */
     commissionFull: '販売手数料',
-    /** 内訳の一覧に出す手数料の行「販売手数料10%」 */
-    commissionItem: '販売手数料{{rate}}%',
     breakdown: '内訳',
     breakdownAndMethod: '内訳と計算のしかた',
     /** 文中に埋め込むとき。英語だけ小文字にする */
@@ -388,7 +386,7 @@ export const ja = {
     memoEmpty: 'なし',
     /** 金額が無い欄の代わりに置く記号。訳す対象ではないが 1 か所に集める */
     amountPlaceholder: 'ーー',
-    /** 販売手数料の行。率を括弧で添える（内訳の「販売手数料10%」とは別の場所） */
+    /** 販売手数料の行。率を括弧で添える（内訳の行とは別の場所。内訳は率をラベルに含めない） */
     commissionRow: '販売手数料 ({{rate}}%)',
     expectedTotalProfit: '見込みの{{total}}',
     /** 出品中 → 売れた記録 への切り替えと、その取り消し */

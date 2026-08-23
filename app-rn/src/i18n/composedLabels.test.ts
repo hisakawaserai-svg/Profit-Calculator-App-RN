@@ -2,7 +2,7 @@
 //
 // **これも一度実際に取りこぼした箇所の回帰テスト。** 画面の表示語を移しても、
 // `logic/` の中でモジュールスコープの配列に畳んでいる語は import 時の言語で固まる。
-// 計算タブの帯グラフの項目名（「手元に残る」「販売手数料10%」）がそれで、
+// 計算タブの帯グラフの項目名（「手元に残る」「販売手数料」＋率）がそれで、
 // 画面だけ英語になり帯の中だけ日本語のまま残っていた。
 //
 // 関数の戻り値そのものを日英で比べるので、どこで畳まれていても必ず捕まる。
@@ -26,27 +26,34 @@ function partLabels(locale: 'ja' | 'en'): string[] {
   return profitBreakdown(locale, FILLED).parts.map((part) => part.label);
 }
 
+/** 販売手数料の行の率表示（label とは別枠。BreakdownPart.rateLabel） */
+function commissionRateLabels(locale: 'ja' | 'en'): (string | undefined)[] {
+  return profitBreakdown(locale, FILLED).parts.map((part) => part.rateLabel);
+}
+
 describe('計算タブの帯グラフの項目名', () => {
   it('日本語の項目名が出る', () => {
     expect(partLabels('ja')).toEqual([
       '仕入価格',
       '送料',
-      '販売手数料10%',
+      '販売手数料',
       '梱包材',
       'その他',
       '手元に残る',
     ]);
+    expect(commissionRateLabels('ja')).toEqual([undefined, undefined, '10%', undefined, undefined, undefined]);
   });
 
   it('英語では全部の項目名が入れ替わる（1 つでも残っていたら落ちる）', () => {
     expect(partLabels('en')).toEqual([
       'Purchase price',
       'Shipping',
-      'Selling fee 10%',
+      'Selling fee',
       'Packaging',
       'Other',
       'What you keep',
     ]);
+    expect(commissionRateLabels('en')).toEqual([undefined, undefined, '10%', undefined, undefined, undefined]);
   });
 
   it('金額は言語で変わらない（訳すのは語だけ）', () => {

@@ -887,10 +887,13 @@ function RecordForm({
             />
             {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う。
                 率を ± の中央に持たせた分だけ行の必要幅が伸びたので、狭い端末・高額な記録
-                （率50%・数万円）が重なったときの保険として 1 行に固定する（折り返さず省略記号）*/}
+                （率50%・数万円）が重なったときの保険として 1 行に固定する。
+                ただし省略記号で額そのものが読めなくなるのは避けたいので、ResultAmountBlock
+                と同じく adjustsFontSizeToFit で縮めて 1 行に収める（折り返さない・切らない）*/}
             <Text
               style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}
-              numberOfLines={1}>
+              numberOfLines={1}
+              adjustsFontSizeToFit>
               {formatYen(locale, commissionCost(costs))}
             </Text>
           </View>

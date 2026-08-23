@@ -9,7 +9,8 @@ import type { Locale } from '@/settings/language';
 
 import { parseNumericInput } from './input';
 import {
-  commissionItemLabel,
+  commissionLabel,
+  commissionRateLabel,
   envelopeCostLabel,
   keptLabel,
   othersCostLabel,
@@ -128,6 +129,14 @@ export type BreakdownPartKey =
 export type BreakdownPart = {
   key: BreakdownPartKey;
   label: string;
+  /**
+   * label とは別枠で持つ率の表示（「10%」。手数料のみ）。
+   *
+   * ラベルに率を混ぜて桁数が変わると（100% 等）flexShrink で折り返す不具合が
+   * あった（Stepper.tsx の centerLabel と同じ理由）。率は折り返さない別要素として
+   * 持ち、呼び出し側（BreakdownPartList）が縮まない位置に置く。
+   */
+  rateLabel?: string;
   /** 表示用に丸め済み。合計は必ず salesPrice に一致する */
   amount: number;
 };
@@ -285,7 +294,8 @@ export function costBreakdown(
         ? [
             {
               key: 'commission' as const,
-              label: commissionItemLabel(locale, costs.commission),
+              label: commissionLabel(locale),
+              rateLabel: commissionRateLabel(locale, costs.commission),
               amount: commissionAmount,
             },
           ]

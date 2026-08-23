@@ -51,7 +51,6 @@ export const en: Translations = {
     kept: 'You keep',
     keptLong: 'What you keep',
     commissionFull: 'Selling fee',
-    commissionItem: 'Selling fee {{rate}}%',
     breakdown: 'Breakdown',
     breakdownAndMethod: 'Breakdown and how it adds up',
     salesPriceInline: 'selling price',

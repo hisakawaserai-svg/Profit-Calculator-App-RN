@@ -253,6 +253,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
+    // 他の行コンポーネント（RecordRow.itemName 等）と同じく、長いラベルは
+    // numberOfLines={1} の前にまず縮んでから省略記号になるようにする。
+    // これが無いと Text は既定で縮まず、狭幅端末で行からはみ出しうる
+    flexShrink: 1,
   },
   input: {
     // ラベルの右から電卓ボタンの手前まで。数値は右寄せ（伝票と同じ読み方にする）

@@ -48,7 +48,16 @@ export function BreakdownPartList({ breakdown, showSalesRow = false }: Props) {
       {breakdown.parts.map((part) => (
         <View key={part.key} style={styles.partRow}>
           <View style={[styles.swatch, { backgroundColor: partColor(part.key, colors) }]} />
-          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>{part.label}</Text>
+          <Text
+            style={[styles.partLabel, { color: colors.secondaryLabel }]}
+            numberOfLines={1}>
+            {part.label}
+          </Text>
+          {/* 率は label とは別の Text に分ける（桁数が変わっても折り返さない。
+              logic/calcForm.ts の BreakdownPart.rateLabel コメント参照） */}
+          {part.rateLabel != null && (
+            <Text style={[styles.partRate, { color: colors.secondaryLabel }]}>{part.rateLabel}</Text>
+          )}
           <Text style={[styles.partValue, { color: partValueColor(part.key, colors) }]}>
             {formatYen(locale, part.amount)}
           </Text>
@@ -75,8 +84,11 @@ const styles = StyleSheet.create({
   },
   partLabel: {
     fontSize: 14,
-    // 行名が長くても（「販売手数料10%」）金額を右端に押し出す
+    // 行名が長くても金額を右端に押し出す
     flex: 1,
+  },
+  partRate: {
+    fontSize: 14,
   },
   partValue: {
     fontSize: 14,

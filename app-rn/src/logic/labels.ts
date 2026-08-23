@@ -654,11 +654,6 @@ export function optionalCostsLabel(locale: Locale, total: number): string {
     : t('calc.optionalCostsWithTotal', locale, { total: formatYenTight(locale, total) });
 }
 
-/** 逆算結果の一覧に出す手数料の行名（採用案 12c）:「販売手数料10%」 */
-export function commissionItemLabel(locale: Locale, rate: number): string {
-  return t('amount.commissionItem', locale, { rate });
-}
-
 /**
  * 逆算結果の説明文（採用案 12c）:
  * 「962円で売ると、手数料96円と経費765円が引かれて101円が残ります。」
