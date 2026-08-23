@@ -111,6 +111,8 @@ import {
   targetProfitLabel,
   targetProfitSummary,
   commissionFieldLabel,
+  commissionRateLabel,
+  commissionShortLabel,
   dateSectionLabel,
   deductionLabel,
   memoSectionLabel,
@@ -846,10 +848,12 @@ function RecordForm({
           />
 
           {/* 9. 手数料。他の行と違って入れるのは「率」で、伝票に載るのはそこから出た「額」。
-              率の ± は行名と額の間に置き、行の形（左が名前・右が金額）を崩さない */}
+              率の ± は行名と額の間に置き、行の形（左が名前・右が金額）を崩さない。
+              ラベルは「手数料」の固定長にし、率は ± の中央（決定 §7-13）── 計算タブと同じ理由で、
+              率をラベルに混ぜると桁数が変わったとき（100% 等）に折り返す */}
           <View style={[styles.commissionRow, { height: RECEIPT_ROW_HEIGHT }]}>
             <Text style={[styles.rowLabel, { color: colors.label }]} numberOfLines={1}>
-              {deductionLabel(locale, commissionFieldLabel(locale, values.commission))}
+              {deductionLabel(locale, commissionShortLabel(locale))}
             </Text>
             {/* タグボタンはラベルの直後（SPEC-V3 §4.4 / 設計案 29b）。± はそのまま残す */}
             <PresetTagButton
@@ -867,10 +871,16 @@ function RecordForm({
               minimumValue={MIN_COMMISSION}
               maximumValue={MAX_COMMISSION}
               onChangeValue={(value) => update('commission', value)}
+              // 読み上げは率込みの語のまま（ラベルを縮めても情報量は落とさない。Stepper.tsx と同じ理由）
               accessibilityLabel={commissionFieldLabel(locale, values.commission)}
+              centerLabel={commissionRateLabel(locale, values.commission)}
             />
-            {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う */}
-            <Text style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}>
+            {/* 額は右寄せ。ラベルとタグボタンの幅が変わっても、他の行と右端が揃う。
+                率を ± の中央に持たせた分だけ行の必要幅が伸びたので、狭い端末・高額な記録
+                （率50%・数万円）が重なったときの保険として 1 行に固定する（折り返さず省略記号）*/}
+            <Text
+              style={[styles.commissionValue, styles.deductionValue, { color: colors.orange }]}
+              numberOfLines={1}>
               {formatYen(locale, commissionCost(costs))}
             </Text>
           </View>

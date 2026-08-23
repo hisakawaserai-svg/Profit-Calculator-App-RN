@@ -59,6 +59,7 @@ export const en: Translations = {
     envelopeCostInline: 'packaging',
     commissionShort: 'Fee',
     commissionField: 'Fee {{rate}}%',
+    commissionRate: '{{rate}}%',
     formulaTarget: 'Target',
   },
 

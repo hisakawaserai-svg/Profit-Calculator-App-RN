@@ -75,6 +75,8 @@ import {
   targetTabLabel,
   totalSalesLabel,
   commissionFieldLabel,
+  commissionRateLabel,
+  commissionShortLabel,
   optionalCostsLabel,
   profitLabel,
   profitTabLabel,
@@ -306,11 +308,16 @@ export default function CalcScreen() {
                   presetType="shipping"
                 />
                 <Divider colors={colors} />
-                {/* 手数料はタグボタンをラベル（率を含む）の直後に置く（SPEC-V3 §4.4 / 設計案 29b）。
-                    ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用 */}
+                {/* 手数料はタグボタンをラベルの直後に置く（SPEC-V3 §4.4 / 設計案 29b）。
+                    ± は残す ── プリセットにない率（8.8% 等）を作りたくないときに 1 回だけ動かす用。
+                    率はラベルではなく ± の中央（決定 §7-13）── ラベルに率を混ぜると、桁数が
+                    変わったとき（100% 等）に flexShrink で折り返して 2 段になっていた。
+                    ラベルは常に「手数料」の固定長にし、桁数が変わる率は折り返さない ± 側で持つ */}
                 <View style={styles.stepperRow}>
                   <Stepper
-                    label={commissionFieldLabel(locale, values.commission)}
+                    label={commissionShortLabel(locale)}
+                    accessibilityLabel={commissionFieldLabel(locale, values.commission)}
+                    centerLabel={commissionRateLabel(locale, values.commission)}
                     value={values.commission}
                     minimumValue={MIN_COMMISSION}
                     maximumValue={MAX_COMMISSION}

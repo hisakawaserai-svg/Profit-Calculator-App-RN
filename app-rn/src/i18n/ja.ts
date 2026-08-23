@@ -109,6 +109,8 @@ export const ja = {
     envelopeCostInline: '梱包材',
     commissionShort: '手数料',
     commissionField: '手数料 {{rate}}%',
+    /** 計算タブの手数料の ± の中に置く率だけの表記（決定 §7-13）。ラベル本体（手数料）とは別語 */
+    commissionRate: '{{rate}}%',
     /** 式の中の「目標」。targetProfit（種別で変わる語）とは別で、こちらは式の項の名前 */
     formulaTarget: '目標',
   },

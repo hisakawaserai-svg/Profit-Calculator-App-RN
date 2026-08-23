@@ -295,10 +295,11 @@ export function duplicateScreenTitle(locale: Locale): string {
 }
 
 /**
- * 画面の先頭に置く 1 行。**写らないものを先に言う。**
+ * 画面の先頭に置く 1 行。押した記録の何が写るかを先に言う（決定 §7-12）。
  *
- * 「複製」の語からは全部が写ると読めるので、そのまま保存すると前の販売価格が
- * 入った記録ができると思われかねない ── 実際は空で始まる（logic/duplicateRecord.ts）。
+ * 販売価格・写真・メモも含めてほとんどが写るので、写らない 2 つ（日付・状態）を
+ * 個別に言うより「これらは複製時点の値になる」と添えるほうが短く、誤解も生まない
+ * （logic/duplicateRecord.ts）。
  */
 export function duplicateScreenNote(locale: Locale): string {
   return t('duplicate.note', locale);
@@ -623,6 +624,18 @@ export function targetTabLabel(locale: Locale): string {
 /** 入力カードの手数料行（UI-SPEC §1.1-5）: 「手数料 10%」 */
 export function commissionFieldLabel(locale: Locale, rate: number): string {
   return t('amount.commissionField', locale, { rate });
+}
+
+/**
+ * 計算タブの手数料行の ± の中に置く率だけの表記（決定 §7-13）: 「10%」。
+ *
+ * ラベル本体は `commissionShortLabel`(「手数料」)が持つ ── 率を桁数が変わる値として
+ * ラベルの中に混ぜると、桁数が増えたときにラベルの `flexShrink` が縮んで折り返す
+ * （Stepper.tsx の label のコメント参照）。率を ± のボタンの間（折り返さない領域）に
+ * 移すことで、桁数が増えても行が2段にならない。
+ */
+export function commissionRateLabel(locale: Locale, rate: number): string {
+  return t('amount.commissionRate', locale, { rate });
 }
 
 /**
