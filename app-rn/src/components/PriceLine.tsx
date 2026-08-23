@@ -25,6 +25,7 @@ import {
   priceGapLabel,
   priceTickLabel,
 } from '@/logic/labels';
+import { labelColumnWidth, labelLefts } from '@/logic/priceLineLayout';
 import { priceLineTicks, type PricingAnalysis, type PriceTickKey } from '@/logic/pricing';
 import { useLocale } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
@@ -43,9 +44,6 @@ const GHOST_SIZE = 8;
  * 「その先が無い」ようにも「切れている」ようにも見えるため、必ず外側を残す。
  */
 const DOMAIN_PADDING_RATIO = 0.18;
-
-/** 説明の列 1 つの幅。点の真下へ中央合わせで置く（隣と重ならない範囲で最大） */
-const LABEL_WIDTH = 108;
 
 type Props = {
   analysis: PricingAnalysis;
@@ -81,10 +79,17 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
   const domainMax = hi + padding;
   const position = (value: number) => (value - domainMin) / (domainMax - domainMin);
 
+  // 説明の列の幅。器（width）が 3 列ぶんより狭い図（チュートリアル・使いかたなど、
+  // ページの余白の内側にさらにカードの padding を重ねる場所）では理想の 108pt より縮める
+  // ── 縮めずに使うと、狭い器では列どうしが重なって文字が読めなくなる
+  // （logic/priceLineLayout.ts 冒頭のコメント）。
+  const columnWidth = labelColumnWidth(width, ticks.length);
+
   // 説明の列の位置。点の真下が基本で、近すぎる隣とは押し合って離す（labelLefts）
   const lefts = labelLefts(
     ticks.map((tick) => position(tick.value)),
     width,
+    columnWidth,
   );
 
   // 赤字のときだけ、2 点の間に「あと ¥612」を渡す（§9.8）。
@@ -166,8 +171,12 @@ export function PriceLine({ analysis, previousPrices = [] }: Props) {
           はみ出す側は端で止める（clamp）ので、いちばん外の点の下でも文字が切れない。 */}
       <View style={styles.labelRow} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
         {ticks.map((tick, index) => (
-          <View key={tick.key} style={[styles.labelColumn, { left: lefts[index] }]}>
-            <Text style={[styles.labelAmount, { color: markerColor(tick.key, colors) }]}>
+          <View
+            key={tick.key}
+            style={[styles.labelColumn, { left: lefts[index], width: columnWidth }]}>
+            <Text
+              style={[styles.labelAmount, { color: markerColor(tick.key, colors) }]}
+              numberOfLines={1}>
               {formatYenSymbol(tick.value)}
             </Text>
             <Text style={[styles.labelCaption, { color: colors.secondaryLabel }]} numberOfLines={1}>
@@ -219,35 +228,6 @@ function Marker({
       ]}
     />
   );
-}
-
-/**
- * 説明の列の左端（左の点から順に）。点の真下（中央合わせ）に置き、
- * **近すぎる隣とは押し合って離す**。
- *
- * 押し合いが要るのは、点が寄る組み合わせが普通にあるため ── 赤字の記録では
- * 今の価格と分岐点が数百円しか離れないことがあり、そのまま真下に置くと
- * 「今の価格」と「ここで利益ゼロ」の文字が重なって 1 つの語に読める。
- *
- * 手順は 3 つ: 真下に置く → 左から順に最小間隔を空ける → 右端からはみ出したぶんを左へ戻す。
- * 幅がまだ測れていない（0）ときは全部 0（1 フレームだけ左端に重なる）。
- */
-function labelLefts(ratios: readonly number[], width: number): number[] {
-  if (width <= 0) return ratios.map(() => 0);
-
-  const max = Math.max(0, width - LABEL_WIDTH);
-  const lefts = ratios.map((ratio) =>
-    Math.min(Math.max(0, ratio * width - LABEL_WIDTH / 2), max),
-  );
-
-  for (let i = 1; i < lefts.length; i += 1) {
-    lefts[i] = Math.max(lefts[i], lefts[i - 1] + LABEL_WIDTH);
-  }
-  for (let i = lefts.length - 1; i >= 0; i -= 1) {
-    const limit = i === lefts.length - 1 ? max : lefts[i + 1] - LABEL_WIDTH;
-    lefts[i] = Math.max(0, Math.min(lefts[i], limit));
-  }
-  return lefts;
 }
 
 /**
@@ -316,9 +296,10 @@ const styles = StyleSheet.create({
     height: 36,
   },
   labelColumn: {
+    // width は columnWidth（器の幅に応じて縮む。上の labelColumnWidth 呼び出し）を
+    // インラインスタイルで渡す
     position: 'absolute',
     top: 0,
-    width: LABEL_WIDTH,
     alignItems: 'center',
     gap: 1,
   },
