@@ -83,9 +83,15 @@ export function PriceSlider({
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
 
-  // 幅が 0（初回描画）や範囲が潰れている記録では割れないので、つまみは左端に置く
+  // 幅が 0（初回描画）や範囲が潰れている記録では割れないので、つまみは左端に置く。
+  // value/min/max が Infinity・NaN（手数料 100% など、率が壊れた記録の逆算）になっていても
+  // 同様に左端へ ── clamp は NaN を素通りさせるので、下の left に NaN を渡さないための保険
+  // （logic/sliderGeometry.ts の markLeft と同じ理由）
   const span = max - min;
-  const ratio = span <= 0 ? 0 : clamp((value - min) / span, 0, 1);
+  const ratio =
+    span <= 0 || !Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(span)
+      ? 0
+      : clamp((value - min) / span, 0, 1);
 
   /**
    * つまみが動ける幅。**器の幅ではなく「器の幅 − つまみの直径」。**

@@ -25,8 +25,14 @@ export function markLeft(params: {
   const { value, min, max, travel, thumbSize, markWidth } = params;
   const span = max - min;
 
-  // 範囲が潰れている記録（分岐点 = 今の価格 = 0）では割れない。左端に寄せる
-  const ratio = span <= 0 ? 0 : clamp((value - min) / span, 0, 1);
+  // 範囲が潰れている記録（分岐点 = 今の価格 = 0）では割れない。左端に寄せる。
+  // value/min/max が Infinity・NaN（手数料 100% など、率が壊れた記録の逆算）に
+  // なっていても、割合はここで 0 に丸めて弾く ── clamp は NaN を素通りさせるので、
+  // 呼び出し側の View に NaN の left が渡ってネイティブ側で落ちるのを防ぐ
+  const ratio =
+    span <= 0 || !Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(span)
+      ? 0
+      : clamp((value - min) / span, 0, 1);
 
   // `ratio * travel` は**つまみの左端**の位置。印は線として読ませたいので、
   // つまみの中心（＋半径）に合わせ、自分の太さの半分だけ戻す

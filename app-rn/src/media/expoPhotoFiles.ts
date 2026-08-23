@@ -32,11 +32,17 @@ const fileSystem: PhotoFileSystem = {
   },
 
   copy(from: string, to: string) {
+    const source = new File(from);
+    // remove() と同じ作法 ── DB の photoFileName が指すファイルが既に無い（何らかの理由で
+    // 実体だけ消えた）場合、copySync は同期的に投げる。呼び出し元（複製）は
+    // try/catch を持たない onPress ハンドラなので、ここで静かに諦めて呼び出し元の
+    // duplicate() に何もしていないことを悟らせる（新しい名前のファイルは作られない）
+    if (!source.exists) return;
     const destination = new File(to);
     // 名前は毎回新しい UUID なので通常は起こらないが、既にあれば置き換える
     // （copySync は既存の宛先があると overwrite なしでは失敗する）
     if (destination.exists) destination.delete();
-    new File(from).copySync(destination);
+    source.copySync(destination);
   },
 
   remove(uri: string) {

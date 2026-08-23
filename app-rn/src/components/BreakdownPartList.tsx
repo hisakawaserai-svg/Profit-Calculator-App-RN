@@ -37,10 +37,10 @@ export function BreakdownPartList({ breakdown, showSalesRow = false }: Props) {
           {/* 売上総額は帯の全体（区画の合計）で、対応する区画がないので色見本を持たない。
               下の行と語頭を揃えるために幅だけ空ける */}
           <View style={styles.swatch} />
-          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]}>
+          <Text style={[styles.partLabel, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {totalSalesAmountLabel(locale)}
           </Text>
-          <Text style={[styles.partValue, { color: colors.label }]}>
+          <Text style={[styles.partValue, { color: colors.label }]} numberOfLines={1}>
             {formatYen(locale, breakdown.salesPrice)}
           </Text>
         </View>

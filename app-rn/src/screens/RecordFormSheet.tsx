@@ -29,7 +29,7 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Animated,
   Modal,
@@ -266,13 +266,25 @@ export function RecordFormSheet({
   onClose,
   onSaved,
 }: Props) {
+  /**
+   * Android の戻るボタン・iOS のスワイプ払い（`onRequestClose`）が呼ぶのは、
+   * 「キャンセル」ボタンと同じ `handleCancel`（写真の後片付けを含む）。
+   *
+   * `onRequestClose` はこの外側（Modal 本体）にあり、`handleCancel` は
+   * `visible` の間だけマウントされる `RecordForm` の中の関数なので、直接は呼べない ──
+   * `RecordForm` 側が毎描画でここへ最新の `handleCancel` を書き込む（下の useEffect）。
+   * まだ書き込まれていない・アンマウント後は `onClose` にそのまま落ちる
+   * （その場合の写真の後片付けはアンマウント時の useEffect が最後の関所として拾う）。
+   */
+  const handleCancelRef = useRef<(() => void) | null>(null);
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       // Swift 版の .sheet と同じ見た目（iOS のハーフシート風）。Android では無視される
       presentationStyle="pageSheet"
-      onRequestClose={onClose}>
+      onRequestClose={() => (handleCancelRef.current ?? onClose)()}>
       {/* 開いている間だけマウントして、入力欄を初期値で初期化する（Swift 版 onAppear の loadInitialData 相当）。
           **SafeAreaProvider をもう 1 つ置くのは、Modal が別のウィンドウだから**（安全域は
           ウィンドウごとに違う）。ルートの Provider が知っているのは地の画面の安全域で、
@@ -289,6 +301,7 @@ export function RecordFormSheet({
             initialValues={initialValues}
             onClose={onClose}
             onSaved={onSaved}
+            handleCancelRef={handleCancelRef}
           />
         </SafeAreaProvider>
       )}
@@ -302,12 +315,15 @@ function RecordForm({
   initialValues,
   onClose,
   onSaved,
+  handleCancelRef,
 }: {
   record: SaleRecord | null;
   initialAmounts?: InitialAmounts;
   initialValues?: RecordFormValues;
   onClose: () => void;
   onSaved?: () => void;
+  /** 親（RecordFormSheet）の Modal.onRequestClose から `handleCancel` を呼べるようにする */
+  handleCancelRef: RefObject<(() => void) | null>;
 }) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -529,9 +545,16 @@ function RecordForm({
    * 販売サイトのプリセットを選んだとき（SPEC-V3 §4.3 / §1.5.1）。
    * **率と名前を同時に入れる**。名前は「そのとき何と書いてあったか」の写しで、
    * このあと手で率を変えても消えない（消せるのは下の行の「✕」だけ）。
+   *
+   * プリセットの率は PRESET_RATE_MAX（100%）まで登録できるが、この欄の Stepper は
+   * MAX_COMMISSION（50%）までしか動かせない。上限が食い違ったまま代入すると、
+   * 手数料 100% の記録で `1 - commission/100` が 0 になり、逆算価格が Infinity/NaN に
+   * 化けてスライダーのレイアウト値まで壊れる（sliderGeometry.markLeft）。
+   * ここで Stepper の範囲に収める。
    */
   const selectSite = (preset: Preset) => {
-    setValues((current) => ({ ...current, commission: preset.value, siteName: preset.name }));
+    const commission = Math.min(Math.max(preset.value, MIN_COMMISSION), MAX_COMMISSION);
+    setValues((current) => ({ ...current, commission, siteName: preset.name }));
   };
 
   /**
@@ -603,6 +626,18 @@ function RecordForm({
     cleanUpPhotos(null);
     onClose();
   };
+
+  /**
+   * 親（RecordFormSheet）の Modal.onRequestClose（Android の戻るボタン・iOS のスワイプ払い）から
+   * `handleCancel` を呼べるよう、毎描画で最新の関数を書き込む。キャンセルボタンを押したのと
+   * 同じ経路を通す ── 確認ダイアログを増やすものではない（SPEC §5.3 のまま）。
+   */
+  useEffect(() => {
+    handleCancelRef.current = handleCancel;
+    return () => {
+      handleCancelRef.current = null;
+    };
+  });
 
   /**
    * 商品名の欄を画面に入れて、そのまま打てるようにする。
