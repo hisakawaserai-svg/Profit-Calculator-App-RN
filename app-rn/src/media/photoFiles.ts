@@ -55,6 +55,18 @@ export type PhotoStore = {
    * 保存したファイル名を返す。**DB に入るのはこの戻り値**（SPEC-V5 §1.3）。
    */
   save: (sourceUri: string) => string;
+  /**
+   * 保存済みの写真を、新しい名前で写真置き場にもう 1 部複製する
+   * （「過去の記録から複製」§7-12）。
+   *
+   * **2 つの記録が同じファイル名を指す状態を作らないためのもの。** 名前をそのまま
+   * 使い回すと、片方の記録を消したときに `remove` がもう片方の写真も一緒に消してしまう
+   * （db/repository.ts が削除のたびに photoFileName の実ファイルを直接消す作り）。
+   * 見た目は同じ 1 枚でも、置き場では別々のファイルとして持つ。
+   *
+   * `fileName` が null・空文字（写真の無い記録）なら null を返す。
+   */
+  duplicate: (fileName: string | null) => string | null;
   /** ファイル名を指定して消す（記録の削除・写真の差し替え。SPEC-V5 §1.5） */
   remove: (fileName: string) => void;
   /** ファイル名 → 表示に使う URI。null / 空文字はそのまま null（列が NULL 許容なので） */
@@ -104,6 +116,15 @@ export function createPhotoStore(
       // 空文字で消しに行くとディレクトリごと消しかねないので手前で弾く
       if (fileName === '') return;
       fs.remove(uriFor(fileName));
+    },
+
+    duplicate(fileName: string | null): string | null {
+      if (fileName == null || fileName === '') return null;
+      // 初回の保存までディレクトリは作らない（save と同じ理由）
+      fs.ensureDirectory();
+      const newFileName = photoFileName(deps.generateId());
+      fs.copy(uriFor(fileName), uriFor(newFileName));
+      return newFileName;
     },
 
     uri(fileName: string | null | undefined): string | null {

@@ -44,6 +44,7 @@ import {
   duplicateTagFilterLabel,
   recordDetailAccessibilityLabel,
 } from '@/logic/labels';
+import { photoStore } from '@/media/expoPhotoFiles';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
@@ -69,6 +70,22 @@ export function DuplicateSourceScreen() {
   const [showAll, setShowAll] = useState(false);
   /** 押された複製元。フォームを開くための一時状態で、DB には何も書かない */
   const [picked, setPicked] = useState<SaleRecord | null>(null);
+  /**
+   * 押した瞬間に写真置き場で複製した、複製元の写真の新しいファイル名（決定 §7-12）。
+   *
+   * **`picked` を選んだのと同じイベントハンドラで作る**（`handlePick` 参照）。ここは
+   * 実ファイルをコピーする副作用なので、描画中（useMemo・useState の遅延初期化）では
+   * 行わない ── React の作法どおり、副作用はイベントハンドラか effect の中に置く。
+   *
+   * 2 つの記録が同じファイル名を指すと、片方を削除したときにもう片方の写真も一緒に
+   * 消えてしまうため（db/repository.ts が削除のたびに実ファイルを直接消す作り）、
+   * 複製元のファイル名をそのまま使い回さずここで新しい 1 枚を作る。
+   *
+   * 保存されずに閉じた・写真を選び直した場合の後片付けは RecordFormSheet が持つ
+   * （渡した `initialValues.photoFileName` を「開いている間に作った写真」と同じ扱いで
+   * 追跡する。RecordFormSheet.tsx の createdPhotos 冒頭のコメント）。
+   */
+  const [pickedPhotoFileName, setPickedPhotoFileName] = useState<string | null>(null);
   /** フォームで保存されたか（閉じたあとに一覧へ戻すかの判断。下の RecordFormSheet 参照） */
   const savedRef = useRef(false);
 
@@ -90,11 +107,24 @@ export function DuplicateSourceScreen() {
   /**
    * フォームに渡す初期値。**押した瞬間ではなく描画中に組み立てる** ──
    * タグは押した直後の描画で引けるので、押す側で作ると 1 コマ古い（空の）タグで開く。
+   *
+   * 写真だけは例外で `pickedPhotoFileName`（押した瞬間に複製済み）をそのまま乗せる ──
+   * `duplicateFormValues` 自身は写真を複製しない（実ファイルの複製はここでしかできない
+   * 副作用のため。logic/duplicateRecord.ts 冒頭のコメント）。
    */
   const initialValues = useMemo(
-    () => (picked == null ? undefined : duplicateFormValues(picked, pickedTagIds)),
-    [picked, pickedTagIds],
+    () =>
+      picked == null
+        ? undefined
+        : { ...duplicateFormValues(picked, pickedTagIds), photoFileName: pickedPhotoFileName },
+    [picked, pickedTagIds, pickedPhotoFileName],
   );
+
+  /** 一覧の行を押したとき。写真の複製はここで行う（このファイル冒頭の pickedPhotoFileName） */
+  const handlePick = (item: SaleRecord) => {
+    setPicked(item);
+    setPickedPhotoFileName(photoStore.duplicate(item.photoFileName));
+  };
 
   const toggleTag = (tagId: string) => {
     setSelectedTagIds((current) =>
@@ -177,7 +207,7 @@ export function DuplicateSourceScreen() {
           )}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => setPicked(item)}
+              onPress={() => handlePick(item)}
               accessibilityRole="button"
               accessibilityLabel={recordDetailAccessibilityLabel(locale, item.itemName)}
               style={({ pressed }) => [
@@ -213,6 +243,7 @@ export function DuplicateSourceScreen() {
         }}
         onClose={() => {
           setPicked(null);
+          setPickedPhotoFileName(null);
           if (!savedRef.current) return;
           savedRef.current = false;
           router.back();

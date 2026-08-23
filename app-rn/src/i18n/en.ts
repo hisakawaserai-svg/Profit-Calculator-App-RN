@@ -319,7 +319,7 @@ export const en: Translations = {
 
   duplicate: {
     title: 'Pick a record to copy',
-    note: 'Item name, type, costs, tags and target carry over. Selling price, photo, note and dates do not.',
+    note: 'Item name, type, costs, selling price, photo, note, tags and target carry over. Dates start from today and status starts as listed.',
     recentSection: 'Recent records',
     allSection: 'All records',
     showAll: 'See all records',
@@ -1040,7 +1040,7 @@ export const en: Translations = {
       },
       'record-duplicate': {
         title: 'I want to list something similar again',
-        body: 'Choose “Copy an earlier record” from “+ Record” in the Records tab and your existing records are listed. You can search by item name or narrow by tag.\n\nThe record you tap opens a new record screen with its item name, type, purchase price, shipping, fee, marketplace, packaging, other, tags and target already filled in. When you list something similar with the same shipping method, none of the expenses need retyping.\n\nThe selling price, photo and notes are not carried over. Dates start from today and the status starts as listed. The record you copy can be sold or still listed. What you get is a new record, so the original is untouched.',
+        body: 'Choose “Copy an earlier record” from “+ Record” in the Records tab and your existing records are listed. You can search by item name or narrow by tag.\n\nThe record you tap opens a new record screen with its item name, type, purchase price, selling price, shipping, fee, marketplace, packaging, other, photo, note, tags and target already filled in. When you list another one of the same thing, nothing needs retyping, price and photo included (the photo is duplicated as its own file, not shared with the original).\n\nDates start from today and the status starts as listed. The record you copy can be sold or still listed. What you get is a new record, so the original is untouched.',
       },
       'record-kind': {
         title: 'Type (used and sourced)',

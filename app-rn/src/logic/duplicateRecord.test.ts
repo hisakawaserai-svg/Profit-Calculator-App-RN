@@ -107,19 +107,24 @@ describe('写す欄', () => {
   it('目標を決めていない記録からは、決めていないまま始まる', () => {
     expect(duplicateFormValues({ ...source, targetProfit: null }, [], NOW).targetProfit).toBe('');
   });
+
+  // 同じ商品を 2 つ仕入れて両方記録するとき、値段も同じになるのが普通（決定 §7-12）
+  it('販売価格も入る（同じ物なら値段も同じはずなので、打ち直しにしない）', () => {
+    expect(duplicateFormValues(source, [], NOW).salesPrice).toBe('4800');
+  });
+
+  it('メモも入る', () => {
+    expect(duplicateFormValues(source, [], NOW).memo).toBe('第 2 ボタンに小傷');
+  });
 });
 
-describe('写さない欄', () => {
-  it('販売価格は空で始まる', () => {
-    expect(duplicateFormValues(source, [], NOW).salesPrice).toBe('');
-  });
-
-  it('写真は付かない', () => {
+describe('写さない欄（この関数の中では、の意味）', () => {
+  // 写真は「写さない」のではなく「ここでは複製しない」。2 つの記録が同じファイル名を
+  // 指すと、片方を削除したときにもう片方の写真も消えるため（media/photoFiles.ts の
+  // PhotoStore.duplicate）。実ファイルの複製は screens/RecordFormSheet.tsx が担う ──
+  // この関数の戻り値としては null のままが正しい
+  it('写真のファイル名はここでは付かない（実ファイルの複製は呼び出し側の責務）', () => {
     expect(duplicateFormValues(source, [], NOW).photoFileName).toBeNull();
-  });
-
-  it('メモは空で始まる', () => {
-    expect(duplicateFormValues(source, [], NOW).memo).toBe('');
   });
 
   // 写すと、今日出す物に半年前の日付が入る。しかも販売日は出品日より前にできない

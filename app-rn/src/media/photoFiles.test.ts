@@ -157,4 +157,41 @@ describe('§1.3 createPhotoStore', () => {
 
     expect(fake.files.size).toBe(0);
   });
+
+  // 「過去の記録から複製」§7-12: 2 つの記録が同じファイル名を指すと、片方を消したときに
+  // もう片方の写真も一緒に消える（db/repository.ts が削除のたびに実ファイルを直接消す作り）
+  describe('duplicate（複製で写真を別ファイルとして持つ。§7-12）', () => {
+    it('新しい名前で複製し、元のファイルは残る', () => {
+      const original = store.save('file:///cache/a.jpg');
+
+      const copy = store.duplicate(original);
+
+      expect(copy).not.toBeNull();
+      expect(copy).not.toBe(original);
+      expect(fake.files.size).toBe(2);
+      // 複製先の中身は「元のファイルの中身」（偽物では from を控えているので、
+      // 複製元 URI そのものが中身として入っているはず）
+      expect(fake.files.get(`file:///documents/photos/${copy}`)).toBe(
+        `file:///documents/photos/${original}`,
+      );
+    });
+
+    it('複製した 1 枚を消しても、元の 1 枚は残る（ファイルを共有していない証拠）', () => {
+      const original = store.save('file:///cache/a.jpg');
+      const copy = store.duplicate(original);
+
+      store.remove(copy ?? '');
+
+      expect(fake.files.size).toBe(1);
+      expect(fake.files.has(`file:///documents/photos/${original}`)).toBe(true);
+    });
+
+    it('null（写真の無い記録）は null のまま', () => {
+      expect(store.duplicate(null)).toBeNull();
+    });
+
+    it('空文字も null を返す（壊れた URI を組み立てない）', () => {
+      expect(store.duplicate('')).toBeNull();
+    });
+  });
 });

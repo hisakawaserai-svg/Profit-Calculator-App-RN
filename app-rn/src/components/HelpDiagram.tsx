@@ -960,35 +960,36 @@ export function PackBuyFigure() {
 /**
  * 図: 複製で写るもの・写らないもの（記録ページ）。
  *
- * **文で列挙すると 10 個の読点になる。** 写る欄がそれだけ多いことこそが複製の値打ちなので、
+ * **文で列挙すると 13 個の読点になる。** 写る欄がそれだけ多いことこそが複製の値打ちなので、
  * 数を減らして書くわけにもいかない ── 2 列に分けて、左を読めば「打ち直さずに済むもの」、
- * 右を読めば「自分で入れるもの」が塊として見える形にする。
+ * 右を読めば「複製という操作そのものに由来するので毎回変わるもの」が塊として見える形にする。
  *
  * **欄の名前は画面の表示語をそのまま使う**（itemNameLabel(locale) など）。図の中で言い換えると、
  * 記録の画面と見比べたときに対応が取れない。
+ *
+ * **写る側に販売価格・写真・メモも含む**（決定 §7-12）。同じ商品を 2 つ仕入れて両方
+ * 記録するとき、値段も写真もメモもたいてい同じになる ── 写真は同じ 1 枚を共有するのでは
+ * なく、写真置き場でもう 1 部複製する（media/photoFiles.ts の PhotoStore.duplicate）。
  */
 function duplicateCopiedLabels(locale: Locale): string[] {
   return [
     itemNameLabel(locale),
     filterKindSectionLabel(locale),
     purchasePriceLabel(locale),
+    salesPriceLabel(locale),
     postageLabel(locale),
     commissionLabel(locale),
     envelopeCostLabel(locale),
     othersCostLabel(locale),
+    photoFieldLabel(locale),
+    memoLabel(locale),
     tagLabel(locale),
     targetProfitLabel(locale, 'sourced'),
   ];
 }
 
 function duplicateSkippedLabels(locale: Locale): string[] {
-  return [
-    salesPriceLabel(locale),
-    photoFieldLabel(locale),
-    memoLabel(locale),
-    helpFigureDuplicateDateLabel(locale),
-    helpFigureDuplicateStatusLabel(locale),
-  ];
+  return [helpFigureDuplicateDateLabel(locale), helpFigureDuplicateStatusLabel(locale)];
 }
 
 export function DuplicateFieldsFigure() {

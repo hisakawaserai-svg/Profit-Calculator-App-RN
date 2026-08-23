@@ -340,8 +340,18 @@ function RecordForm({
    *
    * state ではなく ref にしてあるのは、片づけが描画に関係しないため
    * （増えても減っても画面に出るものは変わらない）。
+   *
+   * **「過去の記録から複製」の写真もここに含めて始める。** `initialValues` は複製でしか
+   * 渡らない（編集は `record` を使う。上の Props のコメント）ので、
+   * `initialValues.photoFileName` が入っているときは常に「複製元の写真を
+   * screens/DuplicateSourceScreen.tsx が既に複製した、まだどの記録にも属さない 1 枚」
+   * ── カメラロールから選んだ写真と同じ扱いで、保存されなければ片づく必要がある。
+   * `useRef` の初期値としてここに渡すだけなら描画中の ref アクセスにならない
+   * （react-hooks/refs は `.current` の読み書きを禁じるもので、初期値の指定は対象外）。
    */
-  const createdPhotos = useRef<string[]>([]);
+  const createdPhotos = useRef<string[]>(
+    initialValues?.photoFileName == null ? [] : [initialValues.photoFileName],
+  );
   /** タグ選択シート（§3.2）。開いている間だけマウントする */
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   /** ヘッダの「？」（案 `20c`）。開いている間だけマウントする */
