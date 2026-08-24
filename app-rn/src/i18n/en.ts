@@ -223,6 +223,8 @@ export const en: Translations = {
     listedDate: 'Listed on',
     soldDate: 'Sold on',
     dateSection: '{{label}} {{date}}',
+    dateSectionListed: '{{label}} {{date}} · {{notSold}}',
+    notSoldYet: 'Not sold yet',
     today: 'Today ({{date}})',
     listedDatePickerNote: 'Dates after today cannot be picked',
     soldDatePickerNote: 'Dates before it was listed ({{date}}) and after today cannot be picked',

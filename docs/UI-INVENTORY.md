@@ -410,7 +410,7 @@ UI 設計を見直すための入力資料。**現在コードに存在する要
 | `TextField` | `src/components/TextField.tsx` | ラベル＋テキスト入力（複数行可）＋警告表示（赤枠＋赤字） | 記録フォーム |
 | `DateField` | `src/components/DateField.tsx` | ラベル＋日付ボタン → 年 / 月 / 日ホイールのシート | 記録フォーム、データタブ |
 | `Stepper` | `src/components/Stepper.tsx` | ラベル＋ − / ＋ ボタン（範囲でクランプ） | 計算タブ、記録フォーム |
-| `MiniCalculator` | `src/components/MiniCalculator.tsx` | モーダルの電卓。表示欄＋4×4 キーパッド（7〜0・C・=・+−*/）＋「この数字を入力する」＋閉じる | `NumericField` 経由で計算タブ・記録フォーム |
+| `MiniCalculator` | `src/components/MiniCalculator.tsx` | 下から出る電卓シート。行の積み上げ＋4×4 キーパッド（7〜0・⌫・=・+−×÷）＋下端のフッター「合計／決定」＋左上「閉じる」（UI-SPEC §7.1） | `NumericField` 経由で計算タブ・記録フォーム |
 | `SearchBar` | `src/components/SearchBar.tsx` | 虫眼鏡＋入力欄＋クリア× | 月別一覧、月別詳細 |
 | `OptionSheet` | `src/components/OptionSheet.tsx` | 下から出る選択肢シート。グループ配列で区切り線、選択中に ✓。主セクション（ソート）とは別の選択値を持つ追加セクション（種別）を 1 枚に同居させられる | 月別一覧、月別詳細（ソート＋種別フィルタ） |
 | `MonthPickerSheet` | `src/components/MonthPickerSheet.tsx` | 年 / 月ホイール＋「決定」「リセット」 | 月別一覧 |

@@ -65,7 +65,7 @@ type Props = {
    */
   pickedIds: readonly string[];
   /**
-   * 「入れる」「電卓で続ける」のどちらかで呼ばれる。渡すのは**選んだ順のプリセット**で、
+   * 「決定」「電卓で続ける」のどちらかで呼ばれる。渡すのは**選んだ順のプリセット**で、
    * 行の組み立ては呼び出し側（§4.5）。`destination` は上の 2 つ（案 c の追補）。
    */
   onSubmit: (presets: Preset[], destination: PackagingPickDestination) => void;
@@ -125,7 +125,7 @@ export function PresetMultiPickerSheet({
           pointerEvents="box-none"
           behavior="padding">
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            {/* ヘッダ。左「キャンセル」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」）。
+            {/* ヘッダ。左「キャンセル」／中央「梱包材を選ぶ」／右は空（確定は下端の「決定」）。
                 **「‹ 電卓」ではない**（案 c）── 入口が金額行の「🏷」に移り、閉じたときの戻り先が
                 電卓ではなくなった。単一選択のシート（右上「閉じる」）とも作法が揃う */}
             <View style={styles.header}>
@@ -151,7 +151,7 @@ export function PresetMultiPickerSheet({
                 この入口には「今の欄の値」に当たるものが無い（電卓の積み上げの合計は、
                 これから登録する 1 つの梱包材の値段ではない）ので、prefill すると別の額が入る。
 
-                登録しても**シートは閉じない** ── ここは選び終えてから「入れる」でまとめて積む
+                登録しても**シートは閉じない** ── ここは選び終えてから「決定」でまとめて積む
                 場所（§4.5）で、単一選択のような「選んだ瞬間に確定」ではないため。
                 代わりに作った行をその場で選択に足す */}
             <View style={styles.quickAdd}>
@@ -232,7 +232,7 @@ export function PresetMultiPickerSheet({
               )}
             </ScrollView>
 
-            {/* 下端の合計行 ＋「入れる」（§4.5-3）。電卓の合計行と同じ形にしてある ──
+            {/* 下端の合計行 ＋「決定」（§4.5-3）。電卓のフッターと同じ形（あちらをこちらに合わせた） ──
                 同じ「今いくらぶん選んでいるか」を、シートが変わるたびに違う形で出さない */}
             {presets.length > 0 && (
               <View style={[styles.footer, { borderTopColor: colors.separator }]}>
