@@ -11,15 +11,16 @@
 
 ## 計算タブ — 出品する前に
 
-<img src="docs/screenshots/01_calc.png" width="230" align="right" alt="計算タブ" />
+<p align="center">
+  <img src="docs/screenshots/01_calc.png" width="220" alt="計算タブ" />
+  <img src="docs/screenshots/03_reverse.png" width="220" alt="目標から逆算" />
+</p>
 
 #### 純利益の計算
 販売価格・仕入価格・送料・手数料・梱包材・その他を入れると、手元に残る額が画面上部に大きく出ます。入れた欄だけで計算するので、全部埋める必要はありません。スクロールで結果が流れても、固定バーに小さく出し続けます。
 
 #### 内訳の帯グラフ
 「内訳」を開くと、引かれる分が色分けの帯で出ます。手数料・送料・梱包材のどれがいちばん重いのかがひと目で分かります。
-
-<img src="docs/screenshots/03_reverse.png" width="230" align="left" alt="目標から逆算" />
 
 #### 目標から逆算
 「ほしい利益」を入れると、必要な販売価格を逆算します。計算と逆算は対等な 2 択で、同じ 1 本の帯をどちら側から見るかの違いです。
@@ -30,13 +31,15 @@
 #### 不用品 / 仕入品の切り替え
 仕入品を選ぶと仕入価格の欄が増え、見出しも「利益」に変わります。
 
-<br clear="all" />
-
 ---
 
 ## 記録タブ — 出品してから、売れるまで
 
-<img src="docs/screenshots/02_records.png" width="230" align="right" alt="記録の一覧" />
+<p align="center">
+  <img src="docs/screenshots/02_records.png" width="220" alt="記録の一覧" />
+  <img src="docs/screenshots/06_detail.png" width="220" alt="記録の詳細" />
+  <img src="docs/screenshots/04_simulator.png" width="220" alt="値下げシミュレータ" />
+</p>
 
 #### 一覧
 出品中と売却済みを切り替えて、月ごとに一覧できます。写真のサムネイル・商品名・純利益が並び、上部に月の収支が出ます。検索、期間・種別・タグでの絞り込み（タグは OR 条件）、並べ替えに対応。
@@ -44,23 +47,19 @@
 #### 記録の中身
 写真・商品名・タグ・メモ・販売日・目標利益。既存の記録から**複製**すれば、同じような商品を続けて出すときに入力をやり直さずに済みます。
 
-<img src="docs/screenshots/06_detail.png" width="230" align="right" alt="内訳の帯グラフ" />
-
 #### 詳細画面
 金額の内訳を帯グラフと引き出し線で表示。長押しで金額をコピーできます。出品からの経過日数も出ます。
 
-<img src="docs/screenshots/04_simulator.png" width="230" align="left" alt="値下げシミュレータ" />
-
 #### 値下げシミュレータ
 出品中の記録から「いくらで売る？」を開くと、価格スライダーが出ます。動かすと純利益がその場で変わり、**あといくらまで下げられるか**（赤字になる手前）が分かります。目標利益を決めておけば、その線も一緒に引かれます。決めた価格はそのまま記録に反映できます。
-
-<br clear="all" />
 
 ---
 
 ## データタブ — 振り返る
 
-<img src="docs/screenshots/05_data.png" width="230" align="right" alt="データタブ" />
+<p align="center">
+  <img src="docs/screenshots/05_data.png" width="220" alt="データタブ" />
+</p>
 
 #### 3 つの見かた
 
@@ -72,8 +71,6 @@
 
 #### 実績
 「はじめての売却」「累計利益 10 万円」「得意分野」など。難易度に応じてブロンズ〜レジェンドの段位が付き、達成するとトーストで知らせます。数字を追うだけでは続かないので、**続けること自体に手応えを持たせる**ために入れた機能です。
-
-<br clear="right" />
 
 ---
 
