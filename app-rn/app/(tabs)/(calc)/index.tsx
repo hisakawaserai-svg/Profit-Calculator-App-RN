@@ -66,6 +66,7 @@ import {
   deductedLabel,
   envelopeCostLabel,
   expensesLabel,
+  keyboardToolbarDoneLabel,
   othersCostLabel,
   postageLabel,
   purchasePriceLabel,
@@ -641,12 +642,18 @@ function TargetPanel({
       <View style={[styles.targetRow, { backgroundColor: colors.disabledBackground }]}>
         <Text style={[styles.targetLabel, { color: colors.label }]}>{label}</Text>
         <TextInput
+          // 言語を変えたら作り直す（純正ツールバーの文字は最初の 1 回しか読まれない。
+          // NumericField の同じ key を参照）
+          key={locale}
           style={[styles.targetInput, { color: colors.label }]}
           value={values.targetProfit}
           onChangeText={(text) => onChangeTargetProfit(sanitizeNumericInput(text))}
           placeholder="0"
           placeholderTextColor={colors.secondaryLabel}
           keyboardType="decimal-pad"
+          // 純正の閉じるツールバー（NumericField と同じ理由・同じ語）。この欄だけ
+          // NumericField を通らないので、prop も別に置く必要がある
+          inputAccessoryViewButtonLabel={keyboardToolbarDoneLabel(locale)}
           accessibilityLabel={label}
         />
       </View>

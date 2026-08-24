@@ -5,11 +5,16 @@
 //
 // 旧版（幅 280px のポップオーバー・`C` と `=`・オレンジの演算子キー）からの変更点は §7.1 の表のとおり:
 // - 画面中央のカード → **下から出るシート**（他のシートと同じ形。CalendarPicker / OptionSheet）
-// - 見出しは行き先を明示（「梱包材の計算」）。左上「閉じる」・右上「入れる」
+// - 見出しは行き先を明示（「梱包材の計算」）。左上「閉じる」
 // - 記号は `×` `÷`（`*` `/` は画面に出さない）。演算子キーは青（電卓からオレンジを廃止）
 // - `C` → `AC`（全消去）と `⌫`（1 手戻す）の 2 キー。`=` は行の結果が常に出るので廃止
 //
-// 行の積み上げ・合計・「入れる」の可否はすべて logic/calcMemo.ts の純粋関数が持つ。
+// **確定（「決定」）は下端のフッター**（§7.1 の改訂。実機の指摘を受けた 2026-08-24 の差し替え）。
+// 一度は右上のテキストリンクに移していたが、**ここから開く梱包材シート
+// （PresetMultiPickerSheet）の確定が下端の塗りボタン**で、同じ語なのに往復すると
+// 上下に飛んでいた。合計行をそのままフッターにして、あちらと同じ形に揃えてある。
+//
+// 行の積み上げ・合計・確定の可否はすべて logic/calcMemo.ts の純粋関数が持つ。
 // この画面が持つのは並び（4 列 × 4 行）と見た目だけで、式も合計もここでは組み立てない。
 // 表示語は labels.ts 経由（§0）。記号 → `*` `/` の変換は logic/calculator.ts に閉じる（§7.6）。
 import { Ionicons } from '@expo/vector-icons';
@@ -101,14 +106,14 @@ type Props = {
    * 開いたときの積み上げ（§7.2「開いたときの状態」）。マウント時の初期表示にのみ使う
    * （開いている間の親側の変化は反映しない）。
    *
-   * **前回「入れる」で確定した積み上げを、呼び出し側（NumericField）が欄の今の値と
+   * **前回「決定」で確定した積み上げを、呼び出し側（NumericField）が欄の今の値と
    * 突き合わせて渡す** ── 欄の値が前回の確定値のままなら内訳ごと復元し、そうでなければ
    * （手で打ち直された・プリセットで上書きされた等）今の値 1 行だけの状態を渡す。
    * ここでは判定しない（NumericField 参照）。
    */
   initialMemo: CalcMemo;
   /**
-   * 「入れる」で親の入力欄へ書き戻す。書き戻す値は**合計だけ**（§7.4）だが、
+   * 「決定」で親の入力欄へ書き戻す。書き戻す値は**合計だけ**（§7.4）だが、
    * 次に開いたときに内訳を復元できるよう、確定した積み上げ（memo）も一緒に返す。
    */
   onSubmit: (value: string, memo: CalcMemo) => void;
@@ -147,7 +152,7 @@ export function MiniCalculator({
   const locale = useLocale();
 
   const colors = useThemeColors();
-  // 「入れる」を押さずに閉じた分の積み上げは残らない（§7.4）。state はこの 1 つだけ
+  // 「決定」を押さずに閉じた分の積み上げは残らない（§7.4）。state はこの 1 つだけ
   const [memo, setMemo] = useState(() => initialMemo);
   const [showPacking, setShowPacking] = useState(false);
   const rowsRef = useRef<ScrollView>(null);
@@ -197,29 +202,25 @@ export function MiniCalculator({
             <View style={[styles.grabber, { backgroundColor: colors.separator }]} />
           </View>
 
-          {/* 2. ヘッダ。左「閉じる」／中央「{行き先}の計算」／右「入れる」 */}
+          {/* 2. ヘッダ。左「閉じる」／中央「{行き先}の計算」／**右は空**（確定は下端の 5）。
+              梱包材シート（PresetMultiPickerSheet）のヘッダと同じ形 ── 左と同じ幅の器を
+              右にも置いて、見出しを画面の中央から動かさない */}
           <View style={[styles.header, { borderBottomColor: colors.separator }]}>
-            <Pressable onPress={close} hitSlop={8} accessibilityRole="button">
-              <Text style={[styles.headerButton, { color: colors.blue }]}>{closeLabel(locale)}</Text>
-            </Pressable>
+            <View style={styles.headerSide}>
+              <Pressable
+                onPress={close}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={styles.closeButton}>
+                <Text style={[styles.headerButton, { color: colors.blue }]}>
+                  {closeLabel(locale)}
+                </Text>
+              </Pressable>
+            </View>
             <Text style={[styles.headerTitle, { color: colors.label }]} numberOfLines={1}>
               {calculatorTitle(locale, fieldLabel)}
             </Text>
-            <Pressable
-              onPress={() => handleSubmit(close)}
-              hitSlop={8}
-              disabled={blocked != null}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: blocked != null }}>
-              <Text
-                style={[
-                  styles.headerButton,
-                  styles.submitButton,
-                  { color: blocked != null ? colors.gray : colors.blue },
-                ]}>
-                {calcSubmitLabel(locale)}
-              </Text>
-            </Pressable>
+            <View style={styles.headerSide} />
           </View>
 
           {/* 3. 行の積み上げ。**ここだけがスクロールする**（§7.1）。
@@ -290,24 +291,51 @@ export function MiniCalculator({
             </ScrollView>
           </GestureHandlerRootView>
 
-          {/* 5. 合計行。負は赤（§7.4）。無効の理由はその下に 1 行で出す */}
-          <View style={[styles.totalBlock, { borderTopColor: colors.separator }]}>
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: colors.label }]}>{calcTotalLabel(locale)}</Text>
+          {/* 5. 合計 ＋ 確定のフッター（§7.1。実機の指摘を受けた改訂）。
+              **左に「合計」と合計額（負は赤・§7.4）、右に確定ボタン（青の塗り）。**
+              確定を右上のテキストリンクから下端へ移したのは、ここから開く梱包材シートの
+              確定が下端の塗りボタンで、同じ語なのに往復すると場所が飛んでいたため。
+              **並びも字の大きさも PresetMultiPickerSheet のフッターに揃えてある。**
+
+              「合計」を額の上に積むのは、額とボタンが 1 行に並ぶと ¥1,234,567 で詰まるため
+              （あちらと同じく額は flexShrink ＋ 1 行に丸める）。無効の理由はその下に残す ──
+              ボタンがグレーなだけでは理由が分からない（§7.4） */}
+          <View style={[styles.footer, { borderTopColor: colors.separator }]}>
+            <View style={styles.footerText}>
+              <Text style={[styles.totalLabel, { color: colors.secondaryLabel }]}>
+                {calcTotalLabel(locale)}
+              </Text>
               <Text
                 style={[styles.totalAmount, { color: total < 0 ? colors.red : colors.label }]}
                 numberOfLines={1}>
                 {formatCalcTotal(locale, total)}
               </Text>
+              {blocked != null && (
+                <Text style={[styles.blockedNote, { color: colors.secondaryLabel }]}>
+                  {calculatorBlockedNote(locale, blocked)}
+                </Text>
+              )}
             </View>
-            {blocked != null && (
-              <Text style={[styles.blockedNote, { color: colors.secondaryLabel }]}>
-                {calculatorBlockedNote(locale, blocked)}
+            <Pressable
+              onPress={() => handleSubmit(close)}
+              disabled={blocked != null}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: blocked != null }}
+              style={({ pressed }) => [
+                styles.submit,
+                {
+                  backgroundColor: blocked != null ? colors.disabledBackground : colors.blue,
+                  opacity: pressed && blocked == null ? 0.7 : 1,
+                },
+              ]}>
+              <Text
+                style={[styles.submitLabel, { color: blocked != null ? colors.gray : '#FFFFFF' }]}>
+                {calcSubmitLabel(locale)}
               </Text>
-            )}
+            </Pressable>
           </View>
 
-          {/* 5a. 梱包材の複数選択（§4.5）。電卓の上に重ねて出し、「入れる」で行として積む。
+          {/* 5a. 梱包材の複数選択（§4.5）。電卓の上に重ねて出し、「決定」で行として積む。
               電卓はこの下で開いたまま ── 戻ったときに積み上げが残っていることが要件 */}
           {showPacking && (
             <PresetMultiPickerSheet
@@ -503,12 +531,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  // 左右で同じ幅を取り、見出しを画面の中央から動かさない（PresetMultiPickerSheet と同じ）
+  headerSide: {
+    flex: 1,
+  },
+  // 器いっぱいに広がると「閉じる」の当たり判定が右へ伸びるので、文字の幅で止める
+  closeButton: {
+    alignSelf: 'flex-start',
   },
   headerTitle: {
     flexShrink: 1,
@@ -517,9 +552,6 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     fontSize: 16,
-  },
-  submitButton: {
-    fontWeight: '700',
   },
   rows: {
     // 中身が少ないうちはその高さ、増えたらここだけがスクロールする（§7.1）
@@ -607,33 +639,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  totalBlock: {
+  // 合計 ＋ 確定の帯。PresetMultiPickerSheet の footer と同じ形（左が文字・右がボタン）
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 4,
-    gap: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
+  footerText: {
+    flexShrink: 1,
+    gap: 2,
   },
   totalLabel: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
   },
   totalAmount: {
-    fontSize: 24,
+    // 24px から落としたのは、右にボタンが並ぶため（¥1,234,567 で詰まらない大きさ）
+    fontSize: 22,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   blockedNote: {
     fontSize: 12,
   },
+  submit: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  submitLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
   keypad: {
-    padding: 12,
+    paddingHorizontal: 12,
+    // **上だけ広い。** すぐ上が確定ボタン、真下が `7 8 9 ÷` の段になるので、
+    // 数字を打つ手が確定に触れないよう 12 → 20pt に離す（誤爆すると
+    // シートが閉じて積み上げが消える。§7.4 で行は保存しないため戻せない）
+    paddingTop: 20,
+    paddingBottom: 12,
     gap: 8,
   },
   keyRow: {

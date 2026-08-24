@@ -1958,10 +1958,24 @@ export function switchStatusLabel(locale: Locale, toSold: boolean): string {
  * 出す日付は状態によって変わる ── 出品中には販売日がない（SPEC.md §3.2）ため。
  */
 export function dateSectionLabel(locale: Locale, isSold: boolean, dateText: string): string {
-  return t('form.dateSection', locale, {
-    label: t(isSold ? 'form.soldDate' : 'form.listedDate', locale),
+  if (isSold) {
+    return t('form.dateSection', locale, { label: t('form.soldDate', locale), date: dateText });
+  }
+  // 出品中は**「売れた」の話がこの節にあること**まで畳んだ見出しに出す（§1.3-12 の改訂）。
+  // 出品日だけを出していた頃は、売れたに切り替えたい人がこの節を開く理由を持てなかった
+  return t('form.dateSectionListed', locale, {
+    label: t('form.listedDate', locale),
     date: dateText,
+    notSold: t('form.notSoldYet', locale),
   });
+}
+
+/**
+ * まだ売れていないこと（UI-SPEC §1.3-12 / §8.7 の改訂）。
+ * 畳んだ見出し（`dateSectionLabel`）と、日付の節の中の切替行の両方で同じ語を使う。
+ */
+export function notSoldYetLabel(locale: Locale): string {
+  return t('form.notSoldYet', locale);
 }
 
 /** 当日の日付（UI-SPEC §1.3-12）:「今日（2026/08/09）」。判定は呼び出し側（暦日差 0） */
@@ -2031,7 +2045,13 @@ export function calculatorTitle(locale: Locale, fieldLabel: string): string {
   return t('calculator.title', locale, { field: fieldLabel });
 }
 
-/** 合計を欄へ書き戻すボタン（§7.1）。「OK」ではなく行き先が読める語にする */
+/**
+ * 合計を欄へ書き戻すボタン（§7.1）。**電卓（MiniCalculator）と梱包材シート
+ * （PresetMultiPickerSheet）が同じキーを引く** ── 片方だけ語が変わることがないように。
+ *
+ * どちらも下端のフッターの塗りボタンで、色を選ぶシート・タグのシートと同じ「決定」。
+ * 確定の口はアプリ全体で同じ語にする。
+ */
 export function calcSubmitLabel(locale: Locale): string {
   return t('calculator.submit', locale);
 }

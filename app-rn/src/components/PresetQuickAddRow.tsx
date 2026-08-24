@@ -31,6 +31,7 @@ import { createPreset } from '@/db/usePresets';
 import type { Preset, PresetType } from '@/db/schema';
 import { sanitizeNumericInput } from '@/logic/input';
 import {
+  keyboardToolbarDoneLabel,
   presetBlockedNote,
   presetQuickAddNamePlaceholder,
   presetQuickAddSubmitAccessibilityLabel,
@@ -120,12 +121,19 @@ export function PresetQuickAddRow({ type, initialValue, presets, onCreated }: Pr
           {presetValueFieldLabel(locale, type)}
         </Text>
         <TextInput
+          // 言語を変えたら作り直す（純正ツールバーの文字は最初の 1 回しか読まれない。
+          // NumericField の同じ key を参照）
+          key={locale}
           style={[styles.valueInput, { color: colors.label }]}
           value={value}
           onChangeText={(text) => setValue(sanitizeNumericInput(text))}
           placeholder="0"
           placeholderTextColor={colors.secondaryLabel}
           keyboardType="decimal-pad"
+          // 純正の閉じるツールバー（NumericField と同じ理由・同じ語）。この行は
+          // シートの上端にあるので、鍵盤に隠れた「登録」を探して外を触られると
+          // シートごと閉じてしまう ── 閉じ口を鍵盤の上に置いておく
+          inputAccessoryViewButtonLabel={keyboardToolbarDoneLabel(locale)}
           accessibilityLabel={presetValueFieldLabel(locale, type)}
         />
         <Pressable

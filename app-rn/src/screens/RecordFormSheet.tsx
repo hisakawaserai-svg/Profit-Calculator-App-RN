@@ -10,6 +10,8 @@
 //   切り替えると日付カードの中で売れた日の行がその場で開く／閉じ、開いた行には数秒だけ
 //   薄い青の下地が付く（§8.7）。**確認ダイアログと undo バーは出さない**（§8.6 派生決定）──
 //   フォームは「保存」を押すまで何も書き込まないので、取り消す対象がまだない。
+//   **出品中 → 売れた は日付カードの中からも切り替えられる**（§8.7 の改訂）── 見出し行は
+//   伝票の一番上にあり、日付を見に来た位置からは画面の外に出ているため。逆向きは見出し行だけ。
 // - 写真の欄は商品名の**上**（SPEC-V5 §3.1）。金額の積み上げの中には入れない。
 //   **選んだ瞬間にファイルが増え、DB の列に載るのは「保存」を押した瞬間**（SPEC-V5 §1.5）。
 //   その間にできる「どこからも指されないファイル」は、このフォームが閉じるときに自分で片づける。
@@ -37,18 +39,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
-  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
 import {
   KeyboardAwareScrollView,
-  KeyboardToolbar,
   useKeyboardState,
   type KeyboardAwareScrollViewRef,
-  type KeyboardToolbarProps,
 } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -86,7 +84,6 @@ import {
   itemNameCaption,
   itemNameLabel,
   itemNamePlaceholder,
-  keyboardToolbarDoneLabel,
   listedDateFieldLabel,
   listedDatePickerNote,
   listingStatusLabel,
@@ -116,6 +113,7 @@ import {
   dateSectionLabel,
   deductionLabel,
   memoSectionLabel,
+  notSoldYetLabel,
   profitLabel,
   requiredPriceHeadline,
   soldDateNotes,
@@ -149,7 +147,7 @@ import {
 } from '@/logic/recordForm';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { getDefaultRecordKind , useLocale } from '@/settings';
-import { themes, useThemeColors, type ThemeColors } from '@/theme';
+import { useThemeColors, type ThemeColors } from '@/theme';
 
 /** 伝票カードの行高（UI-SPEC §1.1-5 の 60px より詰める。1 枚に全部の金額が載るようにするため） */
 const RECEIPT_ROW_HEIGHT = 48;
@@ -190,34 +188,6 @@ const MEMO_MIN_HEIGHT = 80;
  * 箱を丸ごと出すことに意味が無く、カーソルを追う既定の動きが正しい。
  */
 const MEMO_KEYBOARD_EXTRA = MEMO_MIN_HEIGHT;
-
-/**
- * 鍵盤の上に出す決定ツールバーの配色。アプリの ThemeColors（src/theme.ts）に揃える ──
- * ライブラリの既定色だとアプリの青とわずかに違い、鍵盤のすぐ上という目立つ場所で浮く。
- */
-const KEYBOARD_TOOLBAR_THEME: NonNullable<KeyboardToolbarProps['theme']> = {
-  light: {
-    primary: themes.light.blue,
-    disabled: themes.light.disabledContent,
-    background: themes.light.secondaryBackground,
-    ripple: themes.light.highlightBackground,
-  },
-  dark: {
-    primary: themes.dark.blue,
-    disabled: themes.dark.disabledContent,
-    background: themes.dark.secondaryBackground,
-    ripple: themes.dark.highlightBackground,
-  },
-};
-
-/**
- * 決定ボタンのガラス調の地色。colors.highlightBackground（選択中の行用、かなり薄い）だと
- * 鍵盤の上で存在感が弱すぎたので、同じ青に濃さだけ足した専用の色を持つ。
- */
-const KEYBOARD_TOOLBAR_DONE_TINT = {
-  light: 'rgba(0, 122, 255, 0.30)',
-  dark: 'rgba(10, 132, 255, 0.46)',
-};
 
 // ---- 帯（CostProportionBar）のスティッキーバー ----
 //
@@ -1170,6 +1140,16 @@ function RecordForm({
                 chipsNote={soldDateNoteText.chips}
               />
             )}
+            {/* 出品中は売れた日の欄そのものが無い（SPEC.md §3.2）ので、**その場所に
+                切り替えの口を置く**（§8.7 の改訂。実機の指摘を受けた 2026-08-24 の追補）。
+                見出し行のリンクまで戻らなくても、日付を見に来た流れのまま売れたにできる。
+
+                **逆（「出品中に戻す」）はここに置かない。** 日付を直しに来た手が
+                取り消しに触れる事故を避けるため、破壊的な向きの口は見出し行の 1 つだけに
+                しておく（§8.4 が逆方向にだけ確認を挟むのと同じ理由） */}
+            {!values.isSold && (
+              <SoldDateSwitchRow colors={colors} onSwitch={toggleStatus} />
+            )}
             {/* 出品日は過去に下限がなく、落ちるのは未来だけ（§8.10.4）。
                 チップが淡色になることは実際には起きない（今日より後のチップがないため） */}
             <DateField
@@ -1227,20 +1207,11 @@ function RecordForm({
       )}
       </View>
 
-      {/* 鍵盤の上に固定する決定ボタン（鍵盤を閉じるだけ）。
-          「鍵盤を消そうとして違う場所を押し、触りたくない部分に触れてしまう」事故を防ぐため、
-          鍵盤の真上に安全な閉じどころを常に置く。前後の欄への移動は出さない ──
-          需要が薄いわりに、欄の順序次第で変な移動をする不具合の芽になりやすい */}
-      {/* opacity="00" ─ ツールバー本体の地色（鍵盤の幅いっぱいの帯）を消す。
-          「決定」ボタン 1 個だけのために横いっぱいの帯を敷く理由が無い ──
-          ボタンだけが鍵盤の上に浮くように見せる */}
-      <KeyboardToolbar theme={KEYBOARD_TOOLBAR_THEME} opacity="00">
-        <KeyboardToolbar.Done button={KeyboardToolbarDoneButton}>
-          <Text style={styles.keyboardToolbarDoneButtonText}>
-            {keyboardToolbarDoneLabel(locale)}
-          </Text>
-        </KeyboardToolbar.Done>
-      </KeyboardToolbar>
+      {/* 鍵盤を閉じる口はこの画面には無い（2026-08-24 に撤去）。**OS 純正のツールバーへ移した**
+          ── 数値欄の `inputAccessoryViewButtonLabel`（NumericField）で、鍵盤自身の一部として
+          グレーの帯 ＋「決定」が出る。ここに置いていた KeyboardToolbar は、
+          地色を消したピルが伝票の内容（「未入力」の文字）に被り、読み上げも
+          ライブラリが英語で固定していた。詳しくは UI-SPEC §9 */}
 
       {/* タグ選択シート（§3.2）。**選んだ瞬間にフォームの state に入る**が、
           記録との紐付けが DB に入るのは「保存」を押したときだけ（UI-SPEC §8.6）。
@@ -1260,57 +1231,6 @@ function RecordForm({
           ── 設定タブへ push しても、このモーダルの下に隠れて見えない */}
       {showHelp && <HelpSheet entry="recordForm" onClose={() => setShowHelp(false)} />}
     </View>
-  );
-}
-
-/**
- * 決定ツールバーの「決定」ボタンの見た目（KeyboardToolbar.Done の `button` 差し替え）。
- *
- * 既定は下線もふちも無いただの青文字なので、鍵盤の上という目立つ場所にあっても
- * 「押せるボタン」だと気づきにくい。iOS の角丸ボタンのように、ふちと丸みを付けて
- * 押せることを見た目で示す。
- */
-function KeyboardToolbarDoneButton({
-  children,
-  onPress,
-  disabled,
-  accessibilityLabel,
-  accessibilityHint,
-  testID,
-  style,
-}: {
-  children?: React.ReactNode;
-  onPress?: (event: GestureResponderEvent) => void;
-  disabled?: boolean;
-  accessibilityLabel: string;
-  accessibilityHint: string;
-  testID: string;
-  style?: object;
-}) {
-  const colors = useThemeColors();
-  const tint =
-    useColorScheme() === 'dark' ? KEYBOARD_TOOLBAR_DONE_TINT.dark : KEYBOARD_TOOLBAR_DONE_TINT.light;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled }}
-      testID={testID}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        style,
-        styles.keyboardToolbarDoneButton,
-        {
-          borderColor: colors.blue,
-          backgroundColor: tint,
-          opacity: pressed ? 0.5 : 1,
-        },
-      ]}>
-      {children}
-    </Pressable>
   );
 }
 
@@ -1542,18 +1462,61 @@ function StatusHeaderRow({
   );
 }
 
+/**
+ * 出品中のときに、日付の節で売れた日の欄の**場所に**出す切替行（UI-SPEC §8.7 の改訂）。
+ *
+ * ```
+ * 売れた日            まだ売れていません
+ * [ 売れた記録にする ]
+ * ```
+ *
+ * 形は `DateField` に合わせてある ── 上の段が「欄名 ＋ いまの値」、下の段が
+ * **1 タップで決まる操作**（あちらの「今日・昨日・一昨日」のチップと同じ位置・同じ形）。
+ * 切り替えるとこの行がそのまま `DateField` に化け、`toggleStatus` が敷くハイライトが
+ * 「ここを直せばいい」と続けて指す（§8.3）。
+ *
+ * **逆向き（出品中に戻す）はここに置かない**（呼び出し側のコメント参照）。
+ */
+function SoldDateSwitchRow({
+  colors,
+  onSwitch,
+}: {
+  colors: ThemeColors;
+  onSwitch: () => void;
+}) {
+  // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
+  // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
+  const locale = useLocale();
+
+  return (
+    <View style={styles.soldSwitchRow}>
+      <View style={styles.soldSwitchValueRow}>
+        <Text style={[styles.soldSwitchLabel, { color: colors.label }]}>
+          {soldDateFieldLabel(locale)}
+        </Text>
+        {/* 値の位置だが押せない ── 開く先が無いので、DateField の値ボタンの形は借りない */}
+        <Text style={[styles.soldSwitchValue, { color: colors.secondaryLabel }]}>
+          {notSoldYetLabel(locale)}
+        </Text>
+      </View>
+      <Pressable
+        onPress={onSwitch}
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.soldSwitchChip,
+          { backgroundColor: colors.highlightBackground, opacity: pressed ? 0.5 : 1 },
+        ]}>
+        <Text style={[styles.soldSwitchChipLabel, { color: colors.blue }]}>
+          {switchStatusLabel(locale, true)}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  keyboardToolbarDoneButton: {
-    borderWidth: 1.5,
-    borderRadius: 18,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-  },
-  keyboardToolbarDoneButtonText: {
-    fontSize: 17,
   },
   // KeyboardAwareScrollView と StickyBreakdownBar を重ねて置くための器。
   // absolute の子は親の position 指定に関わらずこの View 基準で置かれる（RN の仕様）ので
@@ -1640,6 +1603,37 @@ const styles = StyleSheet.create({
   },
   statusSwitch: {
     fontSize: 14,
+  },
+  // 日付の節の中の切替行（SoldDateSwitchRow）。DateField の row と同じ余白・同じ段構え
+  soldSwitchRow: {
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  soldSwitchValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  soldSwitchLabel: {
+    fontSize: 16,
+  },
+  soldSwitchValue: {
+    flexShrink: 1,
+    fontSize: 16,
+  },
+  // 「今日・昨日・一昨日」のチップ（DateChips）と同じ形。押した時点で決まる操作だと示す
+  soldSwitchChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  soldSwitchChipLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   itemNameInput: {
     fontSize: 22,

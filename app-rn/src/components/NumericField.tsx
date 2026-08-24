@@ -29,6 +29,7 @@ import {
 } from '@/logic/shippingMaterial';
 import {
   calculatorAccessibilityLabel,
+  keyboardToolbarDoneLabel,
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 import { useLocale } from '@/settings';
@@ -188,6 +189,12 @@ export function NumericField({
           />
         )}
         <TextInput
+          // **言語を変えたら作り直す。** 純正ツールバーの文字は、RN が
+          // `setDefaultInputAccessoryView` で UIToolbar を組み立てた**その 1 回**しか読まない
+          // （`_hasInputAccessoryView` が立っていると以降は早期 return するので、
+          // prop だけ差し替えても帯の文字は前の言語のまま残る）。
+          // 欄ごと作り直せば新しい語で組み直される。値は state 側にあるので消えない
+          key={locale}
           style={[styles.input, { color: colors.label }, valueStyle, disabled && { color: valueColor }]}
           value={value}
           onChangeText={(text) => onChangeValue(sanitizeNumericInput(text))}
@@ -196,6 +203,16 @@ export function NumericField({
           placeholder={placeholder}
           placeholderTextColor={colors.secondaryLabel}
           keyboardType="decimal-pad"
+          // **iOS の数字キーボードには改行キーが無い**ので、この prop を渡して
+          // OS 純正のツールバー（グレーの帯 ＋ 右端の「決定」）を出させる。
+          // RN が number-pad 系の鍵盤にだけ UIToolbar を組み立てる仕組みで
+          //（RCTTextInputComponentView の setDefaultInputAccessoryView）、
+          // **鍵盤自身の一部**なので下の内容に重ならず、閉じ方も OS と同じになる。
+          //
+          // Android では無視される。**それでよい** ── あちらは戻る操作
+          //（3 ボタンなら ▼ に変わる戻るボタン、ジェスチャーなら戻るスワイプ）で
+          // いつでも閉じられる。困っているのは iOS だけなので、対策も片側だけにする。
+          inputAccessoryViewButtonLabel={keyboardToolbarDoneLabel(locale)}
           editable={!disabled}
           accessibilityLabel={label}
         />

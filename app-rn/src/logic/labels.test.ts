@@ -96,6 +96,7 @@ import {
   commissionRateLabel,
   commissionRowLabel,
   dateSectionLabel,
+  notSoldYetLabel,
   deductionLabel,
   lowerPriceWarning,
   memoSectionLabel,
@@ -113,6 +114,7 @@ import {
   calcRowSignLabel,
   calculatorBlockedNote,
   calculatorTitle,
+  calcSubmitLabel,
   profitLabel,
   profitTabLabel,
   recordKindLabel,
@@ -484,7 +486,19 @@ describe('UI-SPEC §1.3-12 日付カードの見出し', () => {
 
   it('売却済みは販売日、出品中は出品日を畳んだ見出しに出す', () => {
     expect(dateSectionLabel('ja', true, '今日（2026/08/09）')).toBe('販売日 今日（2026/08/09）');
-    expect(dateSectionLabel('ja', false, '2026/08/02')).toBe('出品日 2026/08/02');
+    expect(dateSectionLabel('ja', false, '2026/08/02')).toBe('出品日 2026/08/02・まだ売れていません');
+  });
+
+  /**
+   * §1.3-12 の改訂（2026-08-24）。**出品中の見出しには「売れた」の語まで出す。**
+   * 出品日だけを出していた頃は、売れたに切り替えたい人がこの節を開く理由を持てず、
+   * 見出し行まで戻れずに詰まっていた（実機の指摘）。日付が読めることは変えない。
+   */
+  it('出品中の見出しは、まだ売れていないことまで名乗る（§1.3-12 の改訂）', () => {
+    expect(dateSectionLabel('ja', false, '2026/08/02')).toContain(notSoldYetLabel('ja'));
+    expect(dateSectionLabel('ja', false, '2026/08/02')).toContain('2026/08/02');
+    // 売れた記録の側は変えない（売れた日そのものが出ているので足す語がない）
+    expect(dateSectionLabel('ja', true, '2026/08/02')).not.toContain(notSoldYetLabel('ja'));
   });
 });
 
@@ -619,9 +633,25 @@ describe('UI-SPEC §7 電卓', () => {
     expect(calculatorTitle('ja', '目標の純利益')).toBe('目標の純利益の計算');
   });
 
-  it('書き戻しは「入れる」、合計行は「合計」（§7.1）', () => {
-    expect(CALC_SUBMIT_LABEL).toBe('入れる');
+  /**
+   * §7.1 の改訂（2026-08-24）。**「入れる」→「決定」。**
+   * 確定がヘッダのリンクから下端の塗りボタンに移り、色を選ぶシート・タグのシートと
+   * 同じ「確定の口」になったため。語はアプリ全体で揃える。
+   */
+  it('書き戻しは「決定」、合計行は「合計」（§7.1）', () => {
+    expect(CALC_SUBMIT_LABEL).toBe('決定');
     expect(CALC_TOTAL_LABEL).toBe('合計');
+  });
+
+  /**
+   * **電卓と梱包材シートは同じ 1 つの語を引く**（§7.1 / §4.5-3）── 電卓 → 梱包材 →
+   * 電卓 と往復する間に確定の語が変わらないように。定数と関数が同じ値を返すことを見て、
+   * どちらか一方だけが別の語に差し替わった状態を落とす。
+   */
+  it('確定の語は電卓と梱包材シートで 1 つ（§4.5-3）', () => {
+    expect(CALC_SUBMIT_LABEL).toBe(calcSubmitLabel('ja'));
+    // 英語も語として入っている（未訳のまま日本語が出ることがない）
+    expect(calcSubmitLabel('en')).not.toBe(calcSubmitLabel('ja'));
   });
 
   it('積み上げの末尾は記録フォームと同じ「＋ …」の形（§7.1-4）', () => {
