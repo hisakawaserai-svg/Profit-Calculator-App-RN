@@ -159,7 +159,9 @@ npm run db:generate   # drizzle マイグレーション生成
 
 ## 経緯
 
-初版は SwiftUI + CoreData の iOS 専用アプリでした。Android にも届けるため React Native で全面的に作り直しています。旧版のソースは削除済みですが、仕様は [docs/SPEC.md](docs/SPEC.md) に記録として残しています。
+初版は SwiftUI + CoreData で書いた iOS 専用アプリでした。Android にも届けるため、React Native で全面的に作り直したのが本リポジトリです。
+
+初版のソースは別リポジトリに残しています ── **[hisakawaserai-svg/Profit-Calculator-App](https://github.com/hisakawaserai-svg/Profit-Calculator-App)**。移植のもとにした仕様は [docs/SPEC.md](docs/SPEC.md) に読み取ってまとめています。
 
 ## なぜソースを公開しているか
 
