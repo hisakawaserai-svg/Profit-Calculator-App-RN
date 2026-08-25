@@ -15,8 +15,15 @@
 // 引っ込むときは動き終わり ── 旧実装（iOS は keyboardWillHide）より一拍遅く戻るが、
 // 下がりきる前に広告を戻すと、まだ鍵盤に覆われている枠を「表示中」にしてしまう。
 //
-// 高さまで要る場合はこのフックを増やさず、`useReanimatedKeyboardAnimation()`（UI スレッドで
-// 追従する。KeyboardSaveBar が使っている）か、逃がしの部品そのものを使うこと。
+// **この「引っ込むときだけ遅い」は、ここでは仕様。** 同じ非対称が記録フォームの
+// スティッキーバーでは不具合になり（閉じたあとも帯が 0.4〜0.7 秒降りてくる）、あちらは
+// `useKeyboardTargetHeight`（行き先を返す。`keyboardWillHide` も聴く）へ移した。
+// **こちらを釣られて移さないこと** ── 広告は遅いほうが正しい。
+//
+// 読む口は用途で選び分ける。どれも同じライブラリの中にある:
+// - 出ているか（遅く戻ってよい）── このフック
+// - 落ち着く先の高さ（閉じ始めた時点で 0）── `useKeyboardTargetHeight`
+// - いまの高さ（毎フレーム追従する連続値）── `useReanimatedKeyboardAnimation`（KeyboardSaveBar）
 import { useKeyboardState } from 'react-native-keyboard-controller';
 
 export function useKeyboardVisible(): boolean {
