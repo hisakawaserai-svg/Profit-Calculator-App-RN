@@ -28,13 +28,15 @@
 // **この画面は 2 通りの出しかたで使い回す**（§5-9）:
 //   - 設定タブの「使いかた」から push（全ページ・**全部畳んだ状態**から）
 //   - 各画面の「？」からシート（案 `20c`。その画面の項目を**開いた状態**で出し、
-//     下端に「使いかたを最初から読む ›」を置く）
+//     **その段まで送ってから**見せる。下端に「使いかたを最初から読む ›」を置く）
+//     ── 記録ページは 27 項目あるので、開いた段が画面の外にあると
+//     「？ を押したのに何も起きていない」ように見える（pendingScroll 参照）
 //
 // 本文と並びは `logic/helpContent.ts`、図は `components/HelpDiagram.tsx`（概念）と
 // `components/HelpPartFigure.tsx`（実物の部品）。この画面が持つのは並べ方だけ。
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { InteractionManager, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Accordion } from '@/components/Accordion';
 import {
@@ -233,6 +235,34 @@ export function HelpScreen({
     scrollRef.current?.scrollTo({ y: Math.max(0, top - OPENED_TOP_MARGIN), animated: true });
   };
 
+  /** 「？」から渡された段へ送るのは 1 回だけ（下記 scrollToLead） */
+  const leadScrolled = useRef(false);
+
+  /**
+   * 「？」から渡された段まで送る（案 `20c`）。**開くだけでは足りない** ──
+   * 記録ページは 27 項目あるので、開いた段が画面の外にあると
+   * 「？ を押したのに何も起きていない」ように見える。
+   *
+   * **onLayout の経路（scrollToOpened）には相乗りできない。** あちらは
+   * 「せり上がったあとに送り直す」ためのもので、測り終わるのはシートが**出ている最中**。
+   * その時点の `scrollTo` は落ちる（まだ画面に出ていない ScrollView は動かない）。
+   * `runAfterInteractions` はシートが出終わってから動くので、測り済みの値がそのまま使えて、
+   * かつ確実に効く。**アニメーションは付けない** ── 出た瞬間にそこが見えているのが自然で、
+   * 出てから動くと「何かが動いた」ほうに目が行く。
+   *
+   * 呼ぶのは ScrollView の onLayout（**描画中ではなく行事の中**なので ref を触ってよい）。
+   * 設定タブから push したとき（`initialPage` が無い）は、どれも開かないので送り先も無い。
+   */
+  const scrollToLead = () => {
+    if (leadScrolled.current || initialPage == null || leadItemId == null) return;
+    leadScrolled.current = true;
+    InteractionManager.runAfterInteractions(() => {
+      const top = topOf(leadItemId);
+      if (top == null) return;
+      scrollRef.current?.scrollTo({ y: Math.max(0, top - OPENED_TOP_MARGIN), animated: false });
+    });
+  };
+
   /** 段を押したとき。開いているものがあれば閉じる（同時に 1 つだけ） */
   const toggleItem = (id: string) => {
     const next = openId === id ? null : id;
@@ -296,7 +326,11 @@ export function HelpScreen({
       </View>
 
       {/* ページを変えたら中身ごと作り直す（前のページの段の高さを持ち越さない） */}
-      <ScrollView ref={scrollRef} key={pageId} contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        key={pageId}
+        contentContainerStyle={styles.content}
+        onLayout={scrollToLead}>
         {showsTitle && (
           <Text style={[styles.pageTitle, { color: colors.label }]}>{page.title}</Text>
         )}
