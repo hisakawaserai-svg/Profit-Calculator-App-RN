@@ -1,25 +1,25 @@
 // 開発用テストデータ（__DEV__ 専用）の投入と削除。本番ビルドには入らない
 // （app/(tabs)/settings/index.tsx が import ではなく require で読む。理由はそちらのコメント）。
 //
-// **SQL は書かない。** 既存の repository / presetRepository / tagRepository の関数だけを使う。
-// 唯一入れ替えているのは **id の採番**で、createRepository 系が受け取る generateId に
-// DEV_SEED_ID_PREFIX 付きの UUID を返す関数を渡している ── これだけで
-// 「投入した行」と「手入力の行」がスキーマを変えずに見分けられる（testData.ts の冒頭を参照）。
+// **投入の仕掛け（採番・タグの用意・接頭辞での削除）は seedKit.ts が持つ。**
+// このファイルに残っているのは、開発用シード固有の「プリセットの揃え方」と
+// testData.ts への繋ぎだけ ── 撮影用シード（storeShotSeed.ts）が同じ仕掛けを使う。
 //
 // 記録は 1 件ずつ create する。create が自分でトランザクションを張るので、外側で
 // db.transaction() を重ねられない（tags.ts の「入れ子にしないのが規約」を参照）。
 
-import { randomUUID } from 'expo-crypto';
-
-import { db, presetRepository, repository, tagRepository } from '@/db/client';
-import { createPresetRepository } from '@/db/presets';
-import { createRepository } from '@/db/repository';
+import { presetRepository } from '@/db/client';
 import type { PresetType } from '@/db/schema';
-import { createTagRepository } from '@/db/tags';
-import { photoStore } from '@/media/expoPhotoFiles';
-import { PRESET_COLOR_HEXES, PRESET_COLOR_KEYS, PRESET_TYPES } from '@/logic/preset';
-import { nextTagColor } from '@/logic/tag';
+import { PRESET_COLOR_HEXES, PRESET_COLOR_KEYS } from '@/logic/preset';
 
+import {
+  countSeedRecords,
+  createSeedKit,
+  ensureTags,
+  removeSeedRows,
+  type CreatedCount,
+  type SeedSummary,
+} from './seedKit';
 import {
   buildDevSeedRecords,
   DEV_SEED_ID_PREFIX,
@@ -27,17 +27,8 @@ import {
   type DevSeedSources,
 } from './testData';
 
-/** 投入した行だけに付く id を作る。削除はこの接頭辞で絞る */
-function devSeedId(): string {
-  return `${DEV_SEED_ID_PREFIX}${randomUUID()}`;
-}
-
-// 投入用の入口。中身は本番と同じ createRepository で、採番だけが違う。
-// deletePhotoFile は client.ts と同じものを渡す（投入するデータに写真は無いので実際には呼ばれないが、
-// 「本番と同じ repository を使う」ことを崩さないため）。
-const seedRepository = createRepository(db, { generateId: devSeedId, deletePhotoFile: photoStore.remove });
-const seedPresetRepository = createPresetRepository(db, { generateId: devSeedId });
-const seedTagRepository = createTagRepository(db, { generateId: devSeedId });
+/** 開発用シードの投入口。id が `devseed-` で始まる（削除はこの接頭辞で絞る） */
+const kit = createSeedKit(DEV_SEED_ID_PREFIX);
 
 /**
  * 投入に最低限必要なプリセットの数。
@@ -75,19 +66,15 @@ const FALLBACK_PRESETS: Record<
   ],
 };
 
-/** 投入・削除の結果。画面がそのまま読み上げる */
-export type DevSeedSummary = {
-  records: number;
-  tags: number;
-  presets: number;
-};
+/** 投入・削除の結果。画面がそのまま読み上げる（撮影用シードと同じ形） */
+export type DevSeedSummary = SeedSummary;
 
 /**
  * 種類ごとのプリセットを揃える。**既存があればそれを使い、足りないぶんだけ作る**
  * （既存のプリセットは書き換えない）。作ったものには接頭辞付きの id が付くので、
  * 削除でも投入したぶんだけが消える。
  */
-function ensurePresets(type: PresetType, created: { count: number }) {
+function ensurePresets(type: PresetType, created: CreatedCount) {
   // 販売サイトの率が 100% だと逆算（testData の売上の押し上げ）が発散するので、極端な率は候補から外す
   const usable = presetRepository
     .listByType(type)
@@ -101,7 +88,7 @@ function ensurePresets(type: PresetType, created: { count: number }) {
     .filter((preset) => !existingNames.has(preset.name))
     .slice(0, missing)
     .map((preset, index) =>
-      seedPresetRepository.create({
+      kit.presets.create({
         type,
         name: preset.name,
         // プリセットの色は hex で保存する（SPEC-V7 §2.1）。タグは今もキーのまま
@@ -120,27 +107,6 @@ function ensurePresets(type: PresetType, created: { count: number }) {
 }
 
 /**
- * タグ 6 種を揃える。**同じ名前のタグが既にあればそれを使う** ── 作ってしまうと
- * 同名が 2 つ並び、絞り込みでどちらか分からなくなる（SPEC-V4 §1.3 が名前の重複を禁じている理由）。
- * 既存を使った場合、その行には接頭辞が付かないので削除でも残る。
- */
-function ensureTags(created: { count: number }): string[] {
-  const ids: string[] = [];
-  for (const name of DEV_SEED_TAG_NAMES) {
-    const existing = tagRepository.listAll().find((tag) => tag.name === name);
-    if (existing != null) {
-      ids.push(existing.id);
-      continue;
-    }
-    // 色は既存の使用状況から決める（SPEC-V4 §1.2）。1 件ずつ作るので毎回引き直す
-    const tag = seedTagRepository.create({ name, colorKey: nextTagColor(tagRepository.listAll()) });
-    ids.push(tag.id);
-    created.count += 1;
-  }
-  return ids;
-}
-
-/**
  * テストデータを投入する（記録 50 件 ＋ 必要なタグ・プリセット）。
  * 返り値は**このとき作った件数**（既存を使い回したタグ・プリセットは数に入らない）。
  */
@@ -151,7 +117,7 @@ export function insertDevSeed(): DevSeedSummary {
   const shipping = ensurePresets('shipping', createdPresets);
   const packaging = ensurePresets('packaging', createdPresets);
   const sites = ensurePresets('site', createdPresets);
-  const tagIds = ensureTags(createdTags);
+  const tagIds = ensureTags(kit, DEV_SEED_TAG_NAMES, createdTags);
 
   const sources: DevSeedSources = {
     shippings: shipping.map((preset) => ({
@@ -164,42 +130,20 @@ export function insertDevSeed(): DevSeedSummary {
   };
 
   const records = buildDevSeedRecords(sources);
-  for (const record of records) seedRepository.create(record);
+  for (const record of records) kit.records.create(record);
 
   return { records: records.length, tags: createdTags.count, presets: createdPresets.count };
 }
 
-function isDevSeedRow(row: { id: string }): boolean {
-  return row.id.startsWith(DEV_SEED_ID_PREFIX);
-}
-
 /**
  * 投入したぶんだけを消す。**手入力の記録・既存のタグ・既存のプリセットは残る**
- * （id の接頭辞で絞るため）。
- *
- * 記録は listForExport で全件を引いてから絞る ── 「期間なし・出品中も含める」は
- * 全件そのものなので（buildExportWhere が `1 = 1` になる）、この 1 本で足りる。
+ * （id の接頭辞で絞るため）。撮影用シード（`storeshot-`）も接頭辞が違うので巻き込まない。
  */
 export function removeDevSeed(): DevSeedSummary {
-  const records = repository
-    .listForExport({ period: null, includeListing: true })
-    .filter(isDevSeedRow);
-  for (const record of records) repository.remove(record.id);
-
-  // 記録を先に消してあるので、ここで消えるのは中間行の無いタグ本体だけ
-  const tags = tagRepository.listAll().filter(isDevSeedRow);
-  for (const tag of tags) tagRepository.remove(tag.id);
-
-  const presets = PRESET_TYPES.flatMap((type) => presetRepository.listByType(type)).filter(
-    isDevSeedRow,
-  );
-  for (const preset of presets) presetRepository.remove(preset.id);
-
-  return { records: records.length, tags: tags.length, presets: presets.length };
+  return removeSeedRows(DEV_SEED_ID_PREFIX);
 }
 
 /** 画面に出す「いま入っている投入ぶんの件数」 */
 export function countDevSeedRecords(): number {
-  return repository.listForExport({ period: null, includeListing: true }).filter(isDevSeedRow)
-    .length;
+  return countSeedRecords(DEV_SEED_ID_PREFIX);
 }

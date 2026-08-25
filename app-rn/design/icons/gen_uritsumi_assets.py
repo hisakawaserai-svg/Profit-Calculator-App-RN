@@ -22,6 +22,12 @@ Android は前景が円やスクワークルで切り抜かれる。108dp のう
 収まるまで縮小する。縮小率は絵の実際の広がりから毎回計算するので、
 デザインを変えても安全側に追従する(前作の ADAPTIVE_SCENE=0.66 相当の役割)。
 
+── Play ストア掲載用アイコン ─────────────────────────
+Play Console にアップロードするストア用アイコンは 512x512 の PNG で、1MB 以下、
+アルファチャンネルを持てない。ランチャーと違って円やスクワークルのマスクが
+かからないので、アダプティブアイコンの前景ではなく iOS と同じ全面版
+(背景のグラデーションと帯を焼き込んだ 1 枚)をそのまま縮めて出す。
+
 ── スプラッシュ ──────────────────────────────────────
 expo-splash-screen は「単色の背景 + 中央に置いた imageWidth 幅の画像」しか
 作れない。そこで画像はアイコンの背景を焼き込まず、絵だけの透過 PNG にする。
@@ -71,6 +77,11 @@ ANDROID_BG_COLOR = '#47517A'
 ADAPTIVE_SAFE_R = (66.0 / 108.0) / 2.0
 # 円マスク(72dp)の半径。ここを超えると円形ランチャーで欠ける。
 ADAPTIVE_MASK_R = (72.0 / 108.0) / 2.0
+
+# ── Play ストア掲載用アイコン ─────────────────────────
+# Play Console が受け付ける唯一の寸法と上限。どちらも Google 側の規定。
+STORE_ICON_SIZE = 512
+STORE_ICON_MAX_BYTES = 1024 * 1024
 
 # ── スプラッシュ ──────────────────────────────────────
 # 背景はアイコンと同じ単色。ここを app.json の
@@ -336,6 +347,31 @@ def render_adaptive_background(theme=DEFAULT_THEME, size=OUT):
     return img.resize((size, size), Image.LANCZOS).convert('RGB')
 
 
+def render_store_icon(theme=DEFAULT_THEME, size=STORE_ICON_SIZE):
+    """Play ストア掲載用アイコン。
+
+    ランチャーアイコンと違ってマスクがかからないため、アダプティブ前景ではなく
+    iOS の icon.png と同じ全面版を使う。render(background=True) は RGB を返すので
+    アルファチャンネルは最初から付かない。
+    """
+    return render(theme, size)
+
+
+def save_store_icon(path, theme=DEFAULT_THEME):
+    """ストア用アイコンを書き出し、Play Console の受け入れ条件を検査する。"""
+    img = render_store_icon(theme)
+    img.save(path, 'PNG', optimize=True)
+
+    n = os.path.getsize(path)
+    if img.size != (STORE_ICON_SIZE, STORE_ICON_SIZE):
+        raise SystemExit(f'{path}: {img.size} は 512x512 でない。')
+    if img.mode != 'RGB':
+        raise SystemExit(f'{path}: mode={img.mode}。アルファチャンネルは許されない。')
+    if n > STORE_ICON_MAX_BYTES:
+        raise SystemExit(f'{path}: {n} バイトは上限 {STORE_ICON_MAX_BYTES} を超えている。')
+    return n
+
+
 def render_splash_logo(size=OUT, fill=SPLASH_FILL):
     """スプラッシュ用の透過ロゴ。
 
@@ -474,6 +510,14 @@ def main():
     mask_preview().save(os.path.join(outdir, 'preview_android_masks.png'))
     splash_preview().save(os.path.join(outdir, 'preview_splash.png'))
     print('preview →', outdir)
+
+    # ストア用アイコンはプレビューではなく提出物なので out/ とは分ける。
+    storedir = os.path.join(HERE, 'store')
+    os.makedirs(storedir, exist_ok=True)
+    store_icon = os.path.join(storedir, f'play_store_icon_{STORE_ICON_SIZE}.png')
+    n = save_store_icon(store_icon, args.theme)
+    print(f'store  → {store_icon} ({STORE_ICON_SIZE}x{STORE_ICON_SIZE}, '
+          f'{n / 1024:.0f}KB, RGB)')
 
     if args.install:
         os.makedirs(ASSETS, exist_ok=True)
