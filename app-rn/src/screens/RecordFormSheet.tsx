@@ -45,7 +45,6 @@ import {
 } from 'react-native';
 import {
   KeyboardAwareScrollView,
-  useKeyboardState,
   type KeyboardAwareScrollViewRef,
 } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,6 +66,7 @@ import { StepperButtons } from '@/components/Stepper';
 import { TagChip } from '@/components/TagChip';
 import { TagPickerSheet } from '@/components/TagPickerSheet';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
+import { useKeyboardTargetHeight } from '@/components/useKeyboardTargetHeight';
 import { showAchievementToast } from '@/components/achievementToastBus';
 import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import {
@@ -388,9 +388,18 @@ function RecordForm({
   /** 商品名欄にカーソルがあるか。ここを打っている間は伝票のスティッキーバーを出さない
    * （名前を考えている最中に上から帯が降りてくるのが邪魔なため） */
   const [itemNameFocused, setItemNameFocused] = useState(false);
-  // 鍵盤の高さ（可視でなければ 0）。KeyboardSaveBar と違い符号は素の正の値
-  // （useReanimatedKeyboardAnimation ではなく useKeyboardState を使っているため）
-  const keyboardHeight = useKeyboardState((state) => state.height);
+  /**
+   * 鍵盤が**落ち着く先**の高さ（閉じ始めたら 0）。素の正の値で、KeyboardSaveBar が使う
+   * `useReanimatedKeyboardAnimation`（符号が逆・毎フレーム変わる連続値）とは別もの。
+   *
+   * **「いまの高さ」ではなく「行き先」を読む。** 下のスティッキーバーは、
+   * 鍵盤に隠れているかどうかで出し分ける ＝ **落ち着いた先の話**なので、
+   * 閉じ始めた時点で 0 として扱うのが正しい。`useKeyboardState` は引っ込むときだけ
+   * `keyboardDidHide`（アニメーション完了後）まで待つので、商品名の欄で改行して
+   * 閉じたときに帯が 0.4〜0.7 秒だけ降りてくる不具合になっていた
+   * （経緯と実測値は useKeyboardTargetHeight の冒頭）。
+   */
+  const keyboardHeight = useKeyboardTargetHeight();
 
   /**
    * ある領域（絶対位置の下端 `bottomY`）が画面に実際に見えているかを判定して、渡された setter
