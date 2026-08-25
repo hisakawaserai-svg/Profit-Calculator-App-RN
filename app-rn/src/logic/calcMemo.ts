@@ -49,13 +49,18 @@ export type CalcMemoRow = {
 };
 
 export type CalcMemo = {
-  /** 積んだ行 */
+  /** 画面に出る行の並びそのもの。**編集中の行もこの中にいる**。常に 1 行以上ある */
   rows: CalcMemoRow[];
   /**
-   * 編集中の行（積み上げの最終行）。常に 1 行あり、**その結果も合計に含める**（§7.2 派生決定）──
+   * いま打てる行の位置。**その結果も合計に含める**（§7.2 派生決定）──
    * `＋` をまだ押していない値が合計から漏れると、見えている数字と合計が食い違うため。
+   *
+   * **位置で持つ**（2026-08-25 改訂。旧 `draft`）。以前は編集中の行だけを別のスロットに
+   * 置いていたが、その形だと**編集中の行は必ず末尾に来る** ── 途中の行を押して編集中にすると
+   * その行が末尾へ抜け、**押していない行まで 1 つずつ繰り上がる**（UI-SPEC §7.3 の改訂）。
+   * 位置で持てば、押した行はその場で編集中になり、並びは 1 行も動かない。
    */
-  draft: CalcMemoRow;
+  editingIndex: number;
 };
 
 /** 「入れる」を押せない理由（§7.4）。文言は labels.ts の calculatorBlockedNote */
@@ -78,12 +83,25 @@ function newRow(sign: CalcRowSign, expression = ''): CalcMemoRow {
  */
 export function createMemo(initialText: string): CalcMemo {
   const expression = initialText === '0' ? '' : initialText;
-  return { rows: [], draft: newRow('+', expression) };
+  return { rows: [newRow('+', expression)], editingIndex: 0 };
 }
 
-/** 積んだ行 ＋ 編集中の行。画面に出る行の並びそのもの */
+/** 画面に出る行の並び。**編集中の行も含む**（editingIndex がその位置） */
 export function memoRows(memo: CalcMemo): CalcMemoRow[] {
-  return [...memo.rows, memo.draft];
+  return memo.rows;
+}
+
+/** いま打てる行。`rows` は常に 1 行以上あり、`editingIndex` は必ずその範囲に収まる */
+function editingRow(memo: CalcMemo): CalcMemoRow {
+  return memo.rows[memo.editingIndex];
+}
+
+/** 編集中の行だけを差し替える（他の行は同じ参照のまま） */
+function withEditingRow(memo: CalcMemo, row: CalcMemoRow): CalcMemo {
+  return {
+    rows: memo.rows.map((current, index) => (index === memo.editingIndex ? row : current)),
+    editingIndex: memo.editingIndex,
+  };
 }
 
 function endsWithOperator(expression: string): boolean {
@@ -103,15 +121,15 @@ function normalizeExpression(expression: string): string {
   return normalized;
 }
 
-function withDraftExpression(memo: CalcMemo, expression: string): CalcMemo {
-  return { rows: memo.rows, draft: { ...memo.draft, expression } };
+function withEditingExpression(memo: CalcMemo, expression: string): CalcMemo {
+  return withEditingRow(memo, { ...editingRow(memo), expression });
 }
 
 /** 数字キー。演算子の直後は空白を挟んで「1500 ÷ 1」の形にする */
 export function appendDigit(memo: CalcMemo, digit: string): CalcMemo {
-  const expression = memo.draft.expression;
-  if (expression === '') return withDraftExpression(memo, digit);
-  return withDraftExpression(
+  const expression = editingRow(memo).expression;
+  if (expression === '') return withEditingExpression(memo, digit);
+  return withEditingExpression(
     memo,
     endsWithOperator(expression) ? `${expression} ${digit}` : `${expression}${digit}`,
   );
@@ -122,9 +140,9 @@ export function appendDigit(memo: CalcMemo, digit: string): CalcMemo {
  * 空の行には置けない（左辺のない式になるため）。押し直したときは記号を差し替える。
  */
 export function appendOperator(memo: CalcMemo, operator: string): CalcMemo {
-  const expression = memo.draft.expression.trimEnd();
+  const expression = editingRow(memo).expression.trimEnd();
   if (expression === '') return memo;
-  return withDraftExpression(
+  return withEditingExpression(
     memo,
     endsWithOperator(expression)
       ? `${expression.slice(0, -1)}${operator}`
@@ -139,10 +157,10 @@ export function appendOperator(memo: CalcMemo, operator: string): CalcMemo {
  * （押しても何も起きないと壊れて見える）。行は積まないので、`6` になったところから
  * そのまま `× 2` と続けられる。行を積むのは `＋` `−` と「＋ 行を足す」のまま。
  */
-export function evaluateDraft(memo: CalcMemo): CalcMemo {
-  const result = rowResultText(memo.draft.expression);
+export function evaluateEditingRow(memo: CalcMemo): CalcMemo {
+  const result = rowResultText(editingRow(memo).expression);
   if (result === '') return memo;
-  return withDraftExpression(memo, result);
+  return withEditingExpression(memo, result);
 }
 
 /**
@@ -152,11 +170,18 @@ export function evaluateDraft(memo: CalcMemo): CalcMemo {
  * 式が空のまま押したときは行を積まず、次の行の記号だけを差し替える（空行は積まない）。
  */
 export function commitRow(memo: CalcMemo, sign: CalcRowSign): CalcMemo {
-  const expression = normalizeExpression(memo.draft.expression);
+  const current = editingRow(memo);
+  const expression = normalizeExpression(current.expression);
   if (expression === '') {
-    return { rows: memo.rows, draft: { ...memo.draft, sign } };
+    return withEditingRow(memo, { ...current, sign });
   }
-  return { rows: [...memo.rows, { ...memo.draft, expression }], draft: newRow(sign) };
+
+  // 新しい行は**確定した行のすぐ後ろ**に挟む。末尾を打っているときは今までどおり追記になり、
+  // 途中の行を打っているときも「打っていた場所の続き」に増える（並びが飛ばない）
+  const rows = [...memo.rows];
+  rows[memo.editingIndex] = { ...current, expression };
+  rows.splice(memo.editingIndex + 1, 0, newRow(sign));
+  return { rows, editingIndex: memo.editingIndex + 1 };
 }
 
 /** 梱包材プリセット 1 件ぶん（SPEC-V3 §4.5）。行に写すのは id・名前・金額・色 */
@@ -167,36 +192,6 @@ export type CalcPresetItem = {
   value: number;
   colorKey: string;
 };
-
-/**
- * 「梱包材から選ぶ」で選んだぶんを行として積む（SPEC-V3 §4.5）。
- *
- * - **1 件が 1 行**（`sign = '+'`、`name` はプリセット名、式は金額）。積んである行は消さない。
- * - 編集中の行が空ならそこから使い、値が入っていればその行を積んでから後ろに続ける。
- * - **最後の 1 件は編集中の行にする** ── 積んだ直後に `× 2` と打って個数を掛けられるように
- *   （§2.4 でプリセットに個数欄を持たせなかったぶんを、この続きの打ち方で賄う）。
- * - 合計は「表示されている行の結果の和」（`memoTotal`）のままなので、ここでは何も足さない。
- */
-export function appendPresetRows(memo: CalcMemo, items: readonly CalcPresetItem[]): CalcMemo {
-  const last = items.at(-1);
-  if (last == null) return memo;
-
-  const rows = [...memo.rows];
-  const draftExpression = normalizeExpression(memo.draft.expression);
-
-  // 空の draft は id ごと使い回す（行のリストキーが飛ばないように）
-  let base = memo.draft;
-  if (draftExpression !== '') {
-    rows.push({ ...memo.draft, expression: draftExpression });
-    base = newRow('+');
-  }
-
-  for (const item of items.slice(0, -1)) {
-    rows.push({ ...newRow('+'), ...presetRowFields(item) });
-  }
-
-  return { rows, draft: { ...base, ...presetRowFields(last) } };
-}
 
 function presetRowFields(item: CalcPresetItem) {
   return {
@@ -246,27 +241,27 @@ export function pickPresetsResult(
   memo: CalcMemo,
   items: readonly CalcPresetItem[],
 ): { text: string; memo: CalcMemo } {
-  const rows = memoRows(memo);
+  const current = memoRows(memo);
 
   // 手で打った行だけ残す。空の行（開いた直後の編集中の行）は落とす ──
-  // 残すと選んだ資材の前に空行が 1 つ挟まる
-  const manual = rows.filter(
-    (row) => row.presetId === '' && normalizeExpression(row.expression) !== '',
-  );
+  // 残すと選んだ資材の前に空行が 1 つ挟まる。打ちかけの式はここで確定させる
+  const manual = current
+    .map((row) => ({ ...row, expression: normalizeExpression(row.expression) }))
+    .filter((row) => row.presetId === '' && row.expression !== '');
 
   // 既に積んである行を id で引けるようにする（選ばれ続けているものを使い回すため）
-  const existing = new Map(rows.filter((row) => row.presetId !== '').map((row) => [row.presetId, row]));
+  const existing = new Map(
+    current.filter((row) => row.presetId !== '').map((row) => [row.presetId, row]),
+  );
 
   const picked = items.map(
     (item) => existing.get(item.id) ?? { ...newRow('+'), ...presetRowFields(item) },
   );
 
-  const last = picked.at(-1);
-  const next: CalcMemo = {
-    rows: [...manual, ...picked.slice(0, -1)],
-    // 選択を全部外したときは編集中の行を空に戻す（手で打った行は上に残る）
-    draft: last ?? newRow('+'),
-  };
+  // 選択を全部外したときは空の行を 1 つ置く（手で打った行は上に残る）
+  const rows = picked.length === 0 ? [...manual, newRow('+')] : [...manual, ...picked];
+  // 最後の 1 件が編集中（＝そのまま `× 2` と打てる。決定 §8-11）
+  const next: CalcMemo = { rows, editingIndex: rows.length - 1 };
   return { text: memoTotalText(next), memo: next };
 }
 
@@ -302,32 +297,37 @@ export function presetRowNames(memo: CalcMemo): string[] {
 }
 
 /**
- * **積んだ行を編集中の行にする**（UI-SPEC §7.3 の改訂）。`index` は `memoRows` の並びの位置。
+ * **押した行を編集中の行にする**（UI-SPEC §7.3 の改訂）。`index` は `memoRows` の並びの位置。
  *
- * 電卓で打てるのは編集中の行だけで、それは配列の中の位置ではなく**別のスロット**
- * （`draft`）── だから「並べ替え」では編集できるようにならない。押した行を
- * そのスロットへ移す、というのがこの関数。
+ * **行は 1 つも動かない。** 編集中の位置（`editingIndex`）が移るだけで、並びはそのまま ──
+ * これが `draft` を別のスロットで持つのをやめた理由で、旧い形では押した行が末尾へ抜け、
+ * **押していない行まで 1 つずつ繰り上がっていた**。
  *
- * - **押した行は末尾（編集中）へ移る。** 合計は行の結果の和なので、順番が変わっても値は同じ
- * - **それまでの編集中の行は、空でなければ積まれる**（`＋` を押したのと同じ扱い）。
- *   空なら捨てる ── 何も打っていない行を残すと、押すたびに空行が増える
+ * - **打ちかけの式はその場で確定させる**（`＋` を押したのと同じ正規化）。
+ *   離れたあとに「120 ×」のような途中の式が残ると、その行の結果が読めない
+ * - **空のまま離れる行は残さない** ── 何も打っていない行を残すと、押すたびに空行が増える。
+ *   落ちるのは自分の行なので、押した行の位置は 1 つ繰り上がる
  * - **編集中の行そのものを押しても何も起きない**（既にそこにいる）
  *
- * これで「あとから最初の行に `× 2` を掛ける」ができる。`⌫` の巻き戻し（空の編集中の行で
- * 直前の 1 行を戻す）は末尾にしか届かないので、そちらとは別の操作として持つ。
+ * これで「あとから最初の行に `× 2` を掛ける」ができる。`⌫` の巻き戻し（空の編集中の行を
+ * 消して 1 つ前へ）は隣にしか届かないので、そちらとは別の操作として持つ。
  */
 export function editRow(memo: CalcMemo, index: number): CalcMemo {
-  const target = memo.rows[index];
-  // 範囲外（＝編集中の行を押した）ときは何もしない。同じ参照を返して再描画も起こさない
-  if (target == null) return memo;
+  // 範囲外・編集中の行そのものなら何もしない。同じ参照を返して再描画も起こさない
+  if (memo.rows[index] == null || index === memo.editingIndex) return memo;
 
-  const rest = memo.rows.filter((_, position) => position !== index);
-  const draftExpression = normalizeExpression(memo.draft.expression);
+  const current = editingRow(memo);
+  const expression = normalizeExpression(current.expression);
 
-  return {
-    rows: draftExpression === '' ? rest : [...rest, { ...memo.draft, expression: draftExpression }],
-    draft: target,
-  };
+  if (expression === '') {
+    return {
+      rows: memo.rows.filter((_, position) => position !== memo.editingIndex),
+      // 自分より上の行が 1 つ消えたぶんだけ、押した行の位置がずれる
+      editingIndex: index < memo.editingIndex ? index : index - 1,
+    };
+  }
+
+  return { ...withEditingRow(memo, { ...current, expression }), editingIndex: index };
 }
 
 /**
@@ -335,15 +335,19 @@ export function editRow(memo: CalcMemo, index: number): CalcMemo {
  * 編集中の行が空のときは**直前に積んだ行を編集中に戻す**（＝行を積んだ操作の取り消し。派生決定）。
  */
 export function backspace(memo: CalcMemo): CalcMemo {
-  if (memo.draft.expression !== '') {
+  const expression = editingRow(memo).expression;
+  if (expression !== '') {
     // 演算子は前後の空白ごと 1 手で消す（見えている記号 1 個ぶんが 1 手）
-    const trimmed = memo.draft.expression.trimEnd();
-    return withDraftExpression(memo, trimmed.slice(0, -1).trimEnd());
+    const trimmed = expression.trimEnd();
+    return withEditingExpression(memo, trimmed.slice(0, -1).trimEnd());
   }
 
-  const last = memo.rows.at(-1);
-  if (last == null) return memo;
-  return { rows: memo.rows.slice(0, -1), draft: last };
+  // 空の行を消して 1 つ前を編集中にする（＝行を足した操作の取り消し）。1 行しかなければ何もしない
+  if (memo.rows.length === 1) return memo;
+  return {
+    rows: memo.rows.filter((_, index) => index !== memo.editingIndex),
+    editingIndex: Math.max(0, memo.editingIndex - 1),
+  };
 }
 
 /** `AC`（§7.3）。確認は挟まない ── 積み上げはシートを閉じれば消えるもので、失われるものが小さい */
@@ -353,7 +357,13 @@ export function clearAll(): CalcMemo {
 
 /** 行の左スワイプ →「削除」（§7.3）。編集中の行はスワイプの対象にしないので rows の添字だけ */
 export function removeRow(memo: CalcMemo, index: number): CalcMemo {
-  return { rows: memo.rows.filter((_, i) => i !== index), draft: memo.draft };
+  // 編集中の行はスワイプの対象にしない（§7.3）ので、来たら何もしない
+  if (index === memo.editingIndex || memo.rows[index] == null) return memo;
+  return {
+    rows: memo.rows.filter((_, position) => position !== index),
+    // 消えたのが上の行なら、編集中の行は 1 つ繰り上がる
+    editingIndex: index < memo.editingIndex ? memo.editingIndex - 1 : memo.editingIndex,
+  };
 }
 
 /** その行の結果（右端に出る文字列）。式が空なら空文字 */
@@ -387,7 +397,7 @@ export function memoTotalText(memo: CalcMemo): string {
 
 /** 行が 1 つもなく編集中の行も空（＝入るものがない） */
 export function isEmptyMemo(memo: CalcMemo): boolean {
-  return memo.rows.length === 0 && normalizeExpression(memo.draft.expression) === '';
+  return memo.rows.every((row) => normalizeExpression(row.expression) === '');
 }
 
 /**

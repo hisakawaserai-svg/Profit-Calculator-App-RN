@@ -25,7 +25,7 @@ import {
   backspace,
   clearAll,
   commitRow,
-  evaluateDraft,
+  evaluateEditingRow,
   memoRows,
   memoTotal,
   memoTotalText,
@@ -140,7 +140,7 @@ export function MiniCalculator({
         case CALC_KEY_BACKSPACE:
           return backspace(current);
         case CALC_KEY_EQUALS:
-          return evaluateDraft(current);
+          return evaluateEditingRow(current);
         case CALC_KEY_PLUS:
           return commitRow(current, '+');
         case CALC_KEY_MINUS:
@@ -162,8 +162,9 @@ export function MiniCalculator({
   };
 
   const rows = memoRows(memo);
-  // 編集中の行は必ず最後（memoRows の並び）。スワイプの対象にしない（§7.3 派生決定）
-  const draftIndex = rows.length - 1;
+  // 編集中の行は**並びの途中にもなる**（UI-SPEC §7.3 の改訂で、押した行がその場で編集中になる）。
+  // その行はスワイプの対象にしない（§7.3 派生決定）
+  const editingIndex = memo.editingIndex;
 
   return (
     <SheetModal onClose={onClose}>
@@ -211,7 +212,7 @@ export function MiniCalculator({
               // 行が増えたら末尾（編集中の行）が見えるところまで送る
               onContentSizeChange={() => rowsRef.current?.scrollToEnd({ animated: true })}>
               {rows.map((row, index) =>
-                index === draftIndex ? (
+                index === editingIndex ? (
                   <MemoRow key={row.id} row={row} colors={colors} editing />
                 ) : (
                   <SwipeToDeleteMemoRow
