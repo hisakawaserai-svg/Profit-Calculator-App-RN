@@ -846,9 +846,56 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
       expect(repo.filteredRecords({ isSoldMode: false, siteName: 'フリマA' })).toHaveLength(1);
     });
 
-    it('null / 空文字は「すべて」（条件を組み立てない）', () => {
+    /**
+     * **SPEC-V11 §4.2 で空文字の意味が変わった。** かつては null と同じ「すべて」だったが、
+     * 「未設定」の行（site_name が空の記録）を絞る値になった ── '' を「指定なし」と読む経路が
+     * 1 か所でも残ると、その行が静かに効かなくなる。
+     */
+    it('null だけが「すべて」で、空文字は未設定を指す', () => {
       expect(repo.countRecords({ isSoldMode: true, siteName: null })).toBe(3);
-      expect(repo.countRecords({ isSoldMode: true, siteName: '' })).toBe(3);
+      // 売却済みの 3 件はどれも名前が入っているので 0（出品中の 1 件は状態の側で外れる）
+      expect(repo.countRecords({ isSoldMode: true, siteName: '' })).toBe(0);
+    });
+
+    it('未設定の記録だけを絞れる（SPEC-V11 §4.2）', () => {
+      repo.create({
+        ...base,
+        kind: 'used',
+        purchasePrice: 0,
+        isSold: true,
+        saleDate: soldOn(4),
+        siteName: '',
+      });
+
+      expect(repo.countRecords({ isSoldMode: true, siteName: '' })).toBe(1);
+      expect(repo.countRecords({ isSoldMode: true, siteName: null })).toBe(4);
+    });
+
+    /**
+     * 行に出す使用件数（SPEC-V11 §4.1）。**自分の条件（siteName）だけが外れて数えられる** ──
+     * 外さないと「フリマA を選んだ状態のフリマB」が必ず 0 になり、予告として嘘になる。
+     */
+    it('countsBySiteForFilter は siteName だけを外して数える', () => {
+      const counts = repo.countsBySiteForFilter({ isSoldMode: true, siteName: 'フリマA' });
+
+      expect(counts.get('フリマA')).toBe(2);
+      expect(counts.get('フリマB')).toBe(1);
+    });
+
+    it('countsBySiteForFilter に他の条件はそのまま効き、未設定は空文字のキーで出る', () => {
+      repo.create({
+        ...base,
+        kind: 'sourced',
+        purchasePrice: 0,
+        isSold: true,
+        saleDate: soldOn(4),
+        siteName: '',
+      });
+      const counts = repo.countsBySiteForFilter({ isSoldMode: true, kind: 'sourced' });
+
+      expect(counts.get('')).toBe(1);
+      // 種別は外れないので、不用品として作った 3 件は数に入らない
+      expect(counts.get('フリマA')).toBeUndefined();
     });
   });
 
@@ -890,6 +937,136 @@ describe('SPEC-V4 §4.5 buildWhere に足した 2 条件（販売サイト / タ
   it('earliestMonthKey も同じ条件で動く（buildWhere の 4 経路すべてに効く。§4.4）', () => {
     expect(repo.earliestMonthKey({ isSoldMode: true, siteName: 'フリマB' })).toBe('2026-08');
     expect(repo.earliestMonthKey({ isSoldMode: true, siteName: '無い名前' })).toBeNull();
+  });
+});
+
+describe('SPEC-V11 §1.2 buildWhere に足した 6 条件（金額 3 / 目標 / 赤字 / メモ）', () => {
+  let repo: Repository;
+
+  const soldOn = (day: number) => new Date(2026, 7, day, 12, 0, 0);
+
+  /**
+   * 手数料 0% にして **netProfit = salesPrice − purchasePrice** の暗算が効く形にする。
+   * 4 件の売却済み（純利益 1000 / 500 / 0 / −200）＋ 出品中 1 件（純利益 −100）。
+   */
+  beforeEach(() => {
+    repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
+
+    const sold = (over: Partial<SaveRecordInput> & { purchasePrice: number }) =>
+      repo.create({
+        ...base,
+        kind: 'sourced',
+        commission: 0,
+        isSold: true,
+        saleDate: soldOn(1),
+        ...over,
+      });
+
+    // 販売 2000 / 仕入 1000 → 純利益 1000・経費 1000。目標 500 は達成、メモあり
+    sold({ salesPrice: 2000, purchasePrice: 1000, targetProfit: 500, memo: 'よく売れた' });
+    // 販売 1500 / 仕入 1000 → 純利益 500・経費 1000。目標 800 は未達、メモは空白だけ
+    sold({ salesPrice: 1500, purchasePrice: 1000, targetProfit: 800, memo: '   ' });
+    // 販売 1000 / 仕入 1000 → 純利益 0・経費 1000。目標なし、メモなし
+    sold({ salesPrice: 1000, purchasePrice: 1000 });
+    // 販売 800 / 仕入 1000 → 純利益 −200（赤字）・経費 1000。目標 0 は未達
+    sold({ salesPrice: 800, purchasePrice: 1000, targetProfit: 0 });
+    // 出品中（純利益 −100 の見込み）
+    repo.create({ ...base, kind: 'sourced', commission: 0, salesPrice: 900, purchasePrice: 1000 });
+  });
+
+  describe('金額の範囲（片側だけでも効く）', () => {
+    it('純利益は下限・上限それぞれで効き、境界を含む', () => {
+      expect(repo.countRecords({ isSoldMode: true, netProfitMin: 500 })).toBe(2);
+      expect(repo.countRecords({ isSoldMode: true, netProfitMax: 0 })).toBe(2);
+      expect(repo.countRecords({ isSoldMode: true, netProfitMin: 0, netProfitMax: 500 })).toBe(2);
+    });
+
+    it('販売価格と経費にも同じ形で効く', () => {
+      expect(repo.countRecords({ isSoldMode: true, salesPriceMin: 1500 })).toBe(2);
+      expect(repo.countRecords({ isSoldMode: true, expensesMin: 1000, expensesMax: 1000 })).toBe(4);
+      expect(repo.countRecords({ isSoldMode: true, expensesMax: 999 })).toBe(0);
+    });
+
+    /** null は「その側の境界なし」。0 を境界なしと読むと赤字の記録が黙って落ちる */
+    it('null は境界なしで、0 は 0 として効く', () => {
+      expect(repo.countRecords({ isSoldMode: true, netProfitMin: null, netProfitMax: null })).toBe(4);
+      expect(repo.countRecords({ isSoldMode: true, netProfitMin: 0 })).toBe(3);
+    });
+
+    it('合計行（careerSummary）にも同じ条件が効く', () => {
+      expect(repo.careerSummary({ isSoldMode: true, netProfitMin: 500 }).recordCount).toBe(2);
+    });
+  });
+
+  describe('目標の達成／未達（SPEC-V11 §7.1）', () => {
+    it('達成は「目標を決めていて、届いた」記録だけ', () => {
+      expect(repo.countRecords({ isSoldMode: true, targetStatus: 'met' })).toBe(1);
+    });
+
+    /** target_profit の null は「決めていません」（SPEC-V9 §1.2）で、未達ではない */
+    it('目標を決めていない記録はどちらにも入らない', () => {
+      expect(repo.countRecords({ isSoldMode: true, targetStatus: 'missed' })).toBe(2);
+      expect(
+        repo.countRecords({ isSoldMode: true, targetStatus: 'met' }) +
+          repo.countRecords({ isSoldMode: true, targetStatus: 'missed' }),
+      ).toBe(3);
+    });
+
+    /** 0 は有効な目標。純利益 −200 は 0 に届いていないので未達 */
+    it('目標 0 も有効な目標として扱う', () => {
+      const missed = repo.filteredRecords({ isSoldMode: true, targetStatus: 'missed' });
+
+      expect(missed.map((record) => record.targetProfit).sort()).toEqual([0, 800]);
+    });
+
+    it('出品中では条件ごと無視される（見込み額に「達成」は言えない）', () => {
+      expect(repo.countRecords({ isSoldMode: false, targetStatus: 'met' })).toBe(1);
+    });
+  });
+
+  describe('赤字のみ（SPEC-V11 §7.2）', () => {
+    it('純利益 0 は黒字側に入る', () => {
+      expect(repo.countRecords({ isSoldMode: true, lossOnly: true })).toBe(1);
+    });
+
+    /** **出品中でも落とさない** ── 値下げする前に見たい情報だから */
+    it('出品中でも効く', () => {
+      expect(repo.countRecords({ isSoldMode: false, lossOnly: true })).toBe(1);
+      expect(repo.countRecords({ isSoldMode: false })).toBe(1);
+    });
+
+    it('false は条件を組み立てない', () => {
+      expect(repo.countRecords({ isSoldMode: true, lossOnly: false })).toBe(4);
+    });
+  });
+
+  describe('メモの有無（trim してから見る）', () => {
+    it('空白だけのメモは「なし」に入る', () => {
+      expect(repo.countRecords({ isSoldMode: true, memoState: 'with' })).toBe(1);
+      expect(repo.countRecords({ isSoldMode: true, memoState: 'without' })).toBe(3);
+    });
+  });
+
+  it('増えた条件どうしも AND で重なる', () => {
+    expect(
+      repo.countRecords({ isSoldMode: true, netProfitMin: 500, memoState: 'with' }),
+    ).toBe(1);
+    expect(
+      repo.countRecords({ isSoldMode: true, netProfitMin: 500, memoState: 'without' }),
+    ).toBe(1);
+  });
+
+  /** buildWhere の全経路に同時に効く（§4.4 と同じ確かめ方） */
+  it('earliestMonthKey も同じ条件で動く', () => {
+    expect(repo.earliestMonthKey({ isSoldMode: true, lossOnly: true })).toBe('2026-08');
+    expect(repo.earliestMonthKey({ isSoldMode: true, netProfitMin: 99999 })).toBeNull();
+  });
+
+  /** データタブ側（buildAnalyticsWhere）にも同じ式が渡る（SPEC-V11 §1.2） */
+  it('データタブの集計にも同じ条件が効く', () => {
+    expect(repo.analyticsSummary({ period: null, netProfitMin: 500 }).recordCount).toBe(2);
+    expect(repo.analyticsSummary({ period: null, memoState: 'with' }).recordCount).toBe(1);
+    expect(repo.analyticsSummary({ period: null, targetStatus: 'missed' }).recordCount).toBe(2);
   });
 });
 

@@ -141,13 +141,15 @@ export function RecordListScreen() {
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
 
-  const { kind, siteName, tagIds } = useMemo(
+  // 条件は**まとめて展開する**（SPEC-V11 §8）── 9 本を 1 つずつ分解して組み直す形にすると、
+  // 条件を足すたびに 3 つの画面を直すことになり、1 つ忘れるとその画面だけ条件が効かない
+  const conditions = useMemo(
     () => toFilterConditions(recordFilter, isSoldMode),
     [recordFilter, isSoldMode],
   );
   const filter = useMemo(
-    () => ({ isSoldMode, period, kind, siteName, tagIds, searchText }),
-    [isSoldMode, period, kind, siteName, tagIds, searchText],
+    () => ({ isSoldMode, period, searchText, ...conditions }),
+    [isSoldMode, period, searchText, conditions],
   );
   /**
    * **合計行も一覧と同じ `filter` で数える**（検索を含む）。
@@ -501,8 +503,8 @@ export function RecordListScreen() {
  * | 絞り込みあり（検索中を含む） | 「条件に合う記録がありません」＋「絞り込みを解除」 |
  * | 記録なし                     | 従来どおりの追加への導線                          |
  *
- * **条件ごとの文言は作らない。** 効き得る条件が 6 つ（状態・期間・検索・種別・販売サイト・タグ）に
- * 増え、組み合わせごとに書くと爆発する。旧・検索中／種別で絞り込み中の 2 通りの出し分けも、
+ * **条件ごとの文言は作らない。** 効き得る条件が 12（状態・期間・検索 ＋ 下書きの 9 条件。
+ * SPEC-V11 §9.3）に増え、組み合わせごとに書くと爆発する。旧・検索中／種別で絞り込み中の 2 通りの出し分けも、
  * 「ほかの月にはあるかもしれません」のような推測の文もここで落とした ──
  * 期間も条件の 1 つになった以上、特定の条件だけを名指しして示唆する根拠がない。
  *

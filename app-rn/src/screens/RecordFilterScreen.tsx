@@ -1,17 +1,22 @@
-// 絞り込みページ（SPEC-V4 §4.2 / §6 / 案 33c・35a〜35f）。
+// 絞り込みページ（SPEC-V4 §4.2 / §6 / 案 33c・35a〜35f。SPEC-V11 で 9 条件・5 群へ）。
 // **記録タブとデータタブの Stack に、同じ画面を 1 枚ずつ積む。**
 //
 // **下から出るシートをやめて push するページにした**（案 33c）── シートでは販売サイトだけが
-// 2 枚目に分かれ、3 条件のうち 1 つだけ操作の深さが違っていた。1 枚のページなら 3 条件が
+// 2 枚目に分かれ、条件のうち 1 つだけ操作の深さが違っていた。1 枚のページなら条件が
 // 同じ深さで縦に並び、タグが数十件になっても縦に伸ばせる。
 //
-// **タブごとに画面をコピーしない**（§7.1）。3 条件も操作も同じで、分けると片方だけ直る事故が起きる。
+// **9 本を平らに並べない**（SPEC-V11 §2）。折りたたみの 5 群（種別・販売サイト・タグ・
+// 金額・その他）に畳み、**効いている群だけを開いた状態で始める**。開いた瞬間に読む量が
+// 条件の本数ではなく群の数（5）で決まるのが要点で、条件が増えてもここは増えない。
+// 初期の開閉は **マウント時に一度だけ**評価する（initialSectionExpansion のコメント）。
+//
+// **タブごとに画面をコピーしない**（§7.1）。条件も操作も同じで、分けると片方だけ直る事故が起きる。
 // 違いは Stack が持つ state（RecordFilterState）から読む 2 点だけで、画面には分岐を書かない:
-//   - `isSoldMode` … データタブは常に true（§6）。**販売サイトの節が常に出る**のはその帰結で、
-//     「出品中では節を消す」分岐（§4.2）は記録タブ側だけの話。下部の見出しも
+//   - `isSoldMode` … データタブは常に true（§6）。**販売サイトと目標の節が常に出る**のはその帰結で、
+//     「出品中では節を消す」分岐（§4.2 / SPEC-V11 §7）は記録タブ側だけの話。下部の見出しも
 //     matchingRecordLabel(locale, true) = 「この条件に合う記録」で自然に決まる
 //   - `scope` … 件数を数える集合（§6 / FilterScope）。データタブは isSold / saleDate 非 null が
-//     固定条件なので、記録タブの数え方をそのまま使うと下部の数もタグの行の数字も食い違う
+//     固定条件なので、記録タブの数え方をそのまま使うと下部の数も行の数字も食い違う
 //
 // この画面が持たない判断:
 // - **条件は選んだ瞬間から効く。** 「完了」は置かない（戻れば結果が見える。下部の件数も常に動く）
@@ -21,23 +26,35 @@
 // 表示語はすべて labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Accordion } from '@/components/Accordion';
+import { RangeField } from '@/components/RangeField';
 import { SearchBar } from '@/components/SearchBar';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TagDot } from '@/components/TagChip';
+import { usePresetList } from '@/db/usePresets';
 import { useFilteredRecordCount } from '@/db/useRecords';
-import { useSiteNames, useTagCountsForFilter, useTagList } from '@/db/useTags';
+import { useSiteCountsForFilter, useSiteNames, useTagCountsForFilter, useTagList } from '@/db/useTags';
 import { kindFilterOptions } from '@/logic/kindFilter';
 import {
   filterAllLabel,
+  filterAmountLabel,
+  filterAmountSectionLabel,
   filterClearAllLabel,
   filterKindSectionLabel,
   filterLabel,
+  filterLossOnlyLabel,
+  filterMemoLabel,
+  filterOtherSectionLabel,
+  filterSectionClearAccessibility,
+  filterSectionClearLabel,
+  filterSectionCountLabel,
   filterSiteEmptyBody,
   filterSiteEmptyTitle,
   filterSiteSectionLabel,
+  filterSiteUnsetLabel,
   filterTagEmptyBody,
   filterTagEmptyTitle,
   filterTagOrHint,
@@ -48,16 +65,33 @@ import {
   filterTagSearchEmptyTitle,
   filterTagSearchResultLabel,
   filterTagSectionLabel,
+  filterTargetLabel,
   matchingRecordCountValue,
   matchingRecordLabel,
   periodTitle,
 } from '@/logic/labels';
 import { isAllPeriod } from '@/logic/period';
-import { activeFilterCount, hasActiveFilter, toFilterConditions } from '@/logic/recordFilter';
+import {
+  activeFilterCount,
+  AMOUNT_RANGE_KEYS,
+  clearSection,
+  effectiveFilter,
+  hasActiveFilter,
+  initialSectionExpansion,
+  sectionActiveCount,
+  setAmountRange,
+  siteNameOptions,
+  toFilterConditions,
+  type FilterSectionKey,
+} from '@/logic/recordFilter';
 import { searchTags, selectedTags } from '@/logic/tag';
 import { useRecordFilterState } from '@/screens/RecordFilterState';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
+
+/** 販売サイトの行の値。null = すべて（条件を外す）/ '' = 未設定（SPEC-V11 §4.2） */
+const SITE_ALL = null;
+const SITE_UNSET = '';
 
 export function RecordFilterScreen() {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
@@ -69,29 +103,53 @@ export function RecordFilterScreen() {
   const kindOptions = kindFilterOptions(locale);
 
   const { tags } = useTagList();
-  const siteNames = useSiteNames();
+  const recordSiteNames = useSiteNames();
+  // 未使用の販売サイトも候補に出す（SPEC-V11 §4.3）。登録した名前は利用者にとって既に
+  // 存在するもので、まだ 1 件も売れていないことは候補から消す理由にならない
+  const { presets: sitePresets } = usePresetList('site');
 
   /** 検索欄の入力（案 35f）。**一覧の見え方だけを変える**ので filter には入れない */
   const [keyword, setKeyword] = useState('');
 
-  // 下部の件数（§4.6）。検索語は含めない ── ここに入れると「条件は 3 つ」という
-  // 決めごとが崩れ、下部の数の意味も変わる
-  const { kind, siteName, tagIds } = useMemo(
-    () => toFilterConditions(filter, isSoldMode),
-    [filter, isSoldMode],
+  /**
+   * 折りたたみの開閉（SPEC-V11 §2.2）。**初期値はマウント時に一度だけ**評価する ──
+   * 毎描画で「効いていれば開く」を計算すると、その群の最後の 1 つを外した瞬間に節が閉じ、
+   * いま押した行が画面から消える。以降は利用者の開閉操作だけで動かす。
+   */
+  const [expanded, setExpanded] = useState<Record<FilterSectionKey, boolean>>(() =>
+    initialSectionExpansion(filter, isSoldMode),
   );
+  const toggleSection = useCallback((key: FilterSectionKey) => {
+    setExpanded((current) => ({ ...current, [key]: !current[key] }));
+  }, []);
+
+  // 効いている条件は必ず**状態を織り込んだ後**の下書きから数える（§4.2 / SPEC-V11 §7）──
+  // 出品中で消えている節（販売サイト・目標）を数に残すと、群の見出しの数字と画面が食い違う
+  const applied = effectiveFilter(filter, isSoldMode);
+
+  // 下部の件数（§4.6）。検索語は含めない ── ここに入れると条件の本数の決めごとが崩れ、
+  // 下部の数の意味も変わる。**条件はまとめて展開する**（SPEC-V11 §8）── 1 つずつ
+  // 書き出すと、条件を足すたびにこの画面と一覧とグラフの 3 か所を直すことになる
+  const conditions = useMemo(() => toFilterConditions(filter, isSoldMode), [filter, isSoldMode]);
   const countFilter = useMemo(
-    () => ({ isSoldMode, period, kind, siteName, tagIds }),
-    [isSoldMode, period, kind, siteName, tagIds],
+    () => ({ isSoldMode, period, ...conditions }),
+    [isSoldMode, period, conditions],
   );
   const matchCount = useFilteredRecordCount(countFilter, scope);
   /**
-   * タグの行に出す使用件数（§4.2.1 / §2.2 の例外）。**下部の件数と同じ filter と scope を
-   * そのまま渡す** ── `tagIds` を外すのも集合を選ぶのも repository の側の責務で、
+   * タグ・販売サイトの行に出す使用件数（§4.2.1 / SPEC-V11 §4.1）。**下部の件数と同じ filter と
+   * scope をそのまま渡す** ── 自分の条件を外すのも集合を選ぶのも repository の側の責務で、
    * 2 か所で条件を組み立てない。こうしておくと「1 と出ている行を押して 0 件になる」が
    * 構造として起きない（タブが変わっても同じ理由で守られる）。
    */
-  const counts = useTagCountsForFilter(countFilter, scope);
+  const tagCounts = useTagCountsForFilter(countFilter, scope);
+  const siteCounts = useSiteCountsForFilter(countFilter, scope);
+
+  const presetSiteNames = useMemo(() => sitePresets.map((preset) => preset.name), [sitePresets]);
+  const siteNames = useMemo(
+    () => siteNameOptions(recordSiteNames, presetSiteNames, filter.siteName),
+    [recordSiteNames, presetSiteNames, filter.siteName],
+  );
 
   const visibleTags = useMemo(() => searchTags(tags, keyword), [tags, keyword]);
   const selectedNames = useMemo(
@@ -114,12 +172,13 @@ export function RecordFilterScreen() {
   // §4.2.3 / 案 35e: 0 件のときだけ下部を 2 行にする。期間名は月バーと同じ書式で
   // （年を選んでいれば「2025年」）、全期間なら出さない（入れる語が無いので）。
   // **条件が 0 本なら 2 行目ごと出ない**（filterNoMatchNote が null を返す）──
-  // 原因が期間しかなく、ここで言えることが無い
+  // 原因が期間しかなく、ここで言えることが無い。
+  // **条件が 9 本になっても文言は増えない**（SPEC-V11 §9.3）── 出すのは月名と本数だけ
   const noMatchNote =
     matchCount === 0
-      ? filterNoMatchNote(locale, 
+      ? filterNoMatchNote(locale,
           isAllPeriod(period) ? null : periodTitle(locale, period),
-          activeFilterCount(filter),
+          activeFilterCount(applied),
         )
       : null;
 
@@ -131,14 +190,14 @@ export function RecordFilterScreen() {
       headerRight: () => (
         <Pressable
           onPress={clearFilter}
-          disabled={!hasActiveFilter(filter)}
+          disabled={!hasActiveFilter(applied)}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityState={{ disabled: !hasActiveFilter(filter) }}>
+          accessibilityState={{ disabled: !hasActiveFilter(applied) }}>
           <Text
             style={[
               styles.headerButton,
-              { color: hasActiveFilter(filter) ? colors.blue : colors.mutedLabel },
+              { color: hasActiveFilter(applied) ? colors.blue : colors.mutedLabel },
             ]}>
             {filterClearAllLabel(locale)}
           </Text>
@@ -146,7 +205,7 @@ export function RecordFilterScreen() {
       ),
     }),
     // locale を入れないと、ヘッダの「すべて解除」だけ前の言語で残る
-    [filter, clearFilter, colors.blue, colors.mutedLabel, locale],
+    [applied, clearFilter, colors.blue, colors.mutedLabel, locale],
   );
 
   return (
@@ -158,39 +217,52 @@ export function RecordFilterScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           {/* §4.2-2: 種別。選択肢は kindFilterOptions をそのまま使う（SPEC-V2 §4.2）。
-              **描画のたびに引き直す** ── 表示名は locale で決まる（定数に畳むと言語が固定される） */}
-          <Section label={filterKindSectionLabel(locale)}>
-            <SegmentedControl
-              options={kindOptions.map((option) => option.label)}
-              selectedIndex={kindOptions.findIndex((option) => option.value === filter.kind)}
-              onChange={(index) => setFilter({ ...filter, kind: kindOptions[index].value })}
-            />
+              **描画のたびに引き直す** ── 表示名は locale で決まる（定数に畳むと言語が固定される）。
+              **この群だけは常に開いた状態で始まる**（SPEC-V11 §2.2） */}
+          <Section
+            label={filterKindSectionLabel(locale)}
+            count={sectionActiveCount(applied, 'kind')}
+            expanded={expanded.kind}
+            onToggle={() => toggleSection('kind')}
+            onClear={() => setFilter(clearSection(filter, 'kind'))}>
+            <Inset>
+              <SegmentedControl
+                options={kindOptions.map((option) => option.label)}
+                selectedIndex={kindOptions.findIndex((option) => option.value === filter.kind)}
+                onChange={(index) => setFilter({ ...filter, kind: kindOptions[index].value })}
+              />
+            </Inset>
           </Section>
 
           {/* §4.2-3: 販売サイト（単一選択）。**出品中では節ごと出さない**（§4.2）──
               出品中の記録は site_name が空なので、残すと「選ぶと必ず 0 件になる欄」になる。
               無い理由の説明文は置かない（案 35c）。下部の見出しが対象を言うので足りる */}
           {isSoldMode && (
-            <Section label={filterSiteSectionLabel(locale)}>
+            <Section
+              label={filterSiteSectionLabel(locale)}
+              count={sectionActiveCount(applied, 'site')}
+              expanded={expanded.site}
+              onToggle={() => toggleSection('site')}
+              onClear={() => setFilter(clearSection(filter, 'site'))}>
               {siteNames.length === 0 ? (
-                <Card>
-                  <View style={styles.notice}>
-                    <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                      {filterSiteEmptyTitle(locale)}
-                    </Text>
-                    <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                      {filterSiteEmptyBody(locale)}
-                    </Text>
-                  </View>
-                </Card>
+                <View style={styles.notice}>
+                  <Text style={[styles.noticeTitle, { color: colors.label }]}>
+                    {filterSiteEmptyTitle(locale)}
+                  </Text>
+                  <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
+                    {filterSiteEmptyBody(locale)}
+                  </Text>
+                </View>
               ) : (
-                <Card>
+                <>
                   {/* 先頭は「すべて」＝ 条件を外す行。**単一選択なので「選ばない状態」を
-                      表す行が要る**（複数選択のタグに同じ行を置かない理由がこれ。案 35a） */}
-                  {[null, ...siteNames].map((name, index) => (
+                      表す行が要る**（複数選択のタグに同じ行を置かない理由がこれ。案 35a）。
+                      末尾は「未設定」＝ 名前が入っていない記録（SPEC-V11 §4.2）──
+                      名前を持たないので、昇順に並んだ候補の中に居場所がない */}
+                  {[SITE_ALL, ...siteNames, SITE_UNSET].map((name, index) => (
                     <Row
-                      key={name ?? ''}
-                      showSeparator={index > 0}
+                      key={name == null ? 'all' : name === SITE_UNSET ? 'unset' : `name:${name}`}
+                      showSeparator
                       onPress={() => setFilter({ ...filter, siteName: name })}
                       selected={name === filter.siteName}
                       accessibilityRole="button">
@@ -205,12 +277,30 @@ export function RecordFilterScreen() {
                           },
                         ]}
                         numberOfLines={1}>
-                        {name ?? filterAllLabel(locale)}
+                        {name == null
+                          ? filterAllLabel(locale)
+                          : name === SITE_UNSET
+                            ? filterSiteUnsetLabel(locale)
+                            : name}
                       </Text>
+                      {/* 使用件数はタグの行と同じ「押したら何件出るか」の予告（SPEC-V11 §4.1）。
+                          「すべて」は条件を外す行なので数を出さない（下部の件数と同じ数になる） */}
+                      {name != null && (
+                        <Text
+                          style={[
+                            styles.rowCount,
+                            {
+                              color:
+                                name === filter.siteName ? colors.blue : colors.secondaryLabel,
+                            },
+                          ]}>
+                          {siteCounts.get(name) ?? 0}
+                        </Text>
+                      )}
                       <CheckSlot visible={name === filter.siteName} />
                     </Row>
                   ))}
-                </Card>
+                </>
               )}
             </Section>
           )}
@@ -221,64 +311,72 @@ export function RecordFilterScreen() {
               （読む値が増えるだけで、チェックを見れば分かる） */}
           <Section
             label={filterTagSectionLabel(locale, tags.length)}
-            hint={tags.length === 0 ? undefined : filterTagOrHint(locale)}>
+            count={sectionActiveCount(applied, 'tag')}
+            expanded={expanded.tag}
+            onToggle={() => toggleSection('tag')}
+            onClear={() => setFilter(clearSection(filter, 'tag'))}>
             {tags.length === 0 ? (
               // 案 35d: 検索欄も出さない。**設定への導線も置かない**（用が中断し、
               // 戻り道が記録タブではなく設定になる）。どこで作れるかだけを言う
-              <Card>
-                <View style={styles.notice}>
-                  <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                    {filterTagEmptyTitle(locale)}
-                  </Text>
-                  <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                    {filterTagEmptyBody(locale)}
-                  </Text>
-                </View>
-              </Card>
+              <View style={styles.notice}>
+                <Text style={[styles.noticeTitle, { color: colors.label }]}>
+                  {filterTagEmptyTitle(locale)}
+                </Text>
+                <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
+                  {filterTagEmptyBody(locale)}
+                </Text>
+              </View>
             ) : (
               <>
-                <View style={styles.searchRow}>
-                  <SearchBar
-                    value={keyword}
-                    onChangeValue={setKeyword}
-                    placeholder={filterTagSearchPlaceholder(locale)}
-                    style={styles.search}
-                  />
-                  {searching && (
-                    <Pressable
-                      onPress={() => setKeyword('')}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
-                      <Text style={[styles.searchCancel, { color: colors.blue }]}>
-                        {filterTagSearchCancelLabel(locale)}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
+                {/* §4.4 の OR を、選ぶ前に読んで分かる言い方で置く（案 35a）。
+                    見出しの右にあったものを**カードの上へ降ろした**（SPEC-V11 §2.3）──
+                    右端は群ごとの解除に取られる */}
+                <Inset>
+                  <Text style={[styles.sectionHint, { color: colors.secondaryLabel }]}>
+                    {filterTagOrHint(locale)}
+                  </Text>
+
+                  <View style={styles.searchRow}>
+                    <SearchBar
+                      value={keyword}
+                      onChangeValue={setKeyword}
+                      placeholder={filterTagSearchPlaceholder(locale)}
+                      style={styles.search}
+                    />
+                    {searching && (
+                      <Pressable
+                        onPress={() => setKeyword('')}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                        <Text style={[styles.searchCancel, { color: colors.blue }]}>
+                          {filterTagSearchCancelLabel(locale)}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </Inset>
 
                 {visibleTags.length === 0 ? (
-                  <Card>
-                    <View style={styles.notice}>
-                      <Text style={[styles.noticeTitle, { color: colors.label }]}>
-                        {filterTagSearchEmptyTitle(locale, keyword.trim())}
+                  <View style={styles.notice}>
+                    <Text style={[styles.noticeTitle, { color: colors.label }]}>
+                      {filterTagSearchEmptyTitle(locale, keyword.trim())}
+                    </Text>
+                    {/* 検索で選択中のタグが画面から隠れるので、効いていることを言う（案 35f） */}
+                    {filterTagSearchEmptyBody(locale, selectedNames) != null && (
+                      <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
+                        {filterTagSearchEmptyBody(locale, selectedNames)}
                       </Text>
-                      {/* 検索で選択中のタグが画面から隠れるので、効いていることを言う（案 35f） */}
-                      {filterTagSearchEmptyBody(locale, selectedNames) != null && (
-                        <Text style={[styles.noticeBody, { color: colors.secondaryLabel }]}>
-                          {filterTagSearchEmptyBody(locale, selectedNames)}
-                        </Text>
-                      )}
-                    </View>
-                  </Card>
+                    )}
+                  </View>
                 ) : (
-                  <Card>
+                  <>
                     {visibleTags.map((tag, index) => {
                       const checked = filter.tagIds.includes(tag.id);
                       return (
                         <Row
                           key={tag.id}
-                          showSeparator={index > 0}
+                          showSeparator
                           onPress={() => toggleTag(tag.id)}
                           selected={checked}
                           accessibilityRole="checkbox">
@@ -306,22 +404,138 @@ export function RecordFilterScreen() {
                               styles.rowCount,
                               { color: checked ? colors.blue : colors.secondaryLabel },
                             ]}>
-                            {counts.get(tag.id) ?? 0}
+                            {tagCounts.get(tag.id) ?? 0}
                           </Text>
                           <CheckSlot visible={checked} />
                         </Row>
                       );
                     })}
-                  </Card>
+                  </>
                 )}
 
                 {searching && (
-                  <Text style={[styles.searchResult, { color: colors.secondaryLabel }]}>
-                    {filterTagSearchResultLabel(locale, tags.length, visibleTags.length)}
-                  </Text>
+                  <Inset>
+                    <Text style={[styles.searchResult, { color: colors.secondaryLabel }]}>
+                      {filterTagSearchResultLabel(locale, tags.length, visibleTags.length)}
+                    </Text>
+                  </Inset>
                 )}
               </>
             )}
+          </Section>
+
+          {/* SPEC-V11 §6: 金額の範囲 3 本。**同じ形の欄を 3 つ並べるだけ**なので、
+              AMOUNT_RANGE_KEYS をそのまま map する（欄ごとに書き分けない） */}
+          <Section
+            label={filterAmountSectionLabel(locale)}
+            count={sectionActiveCount(applied, 'amount')}
+            expanded={expanded.amount}
+            onToggle={() => toggleSection('amount')}
+            onClear={() => setFilter(clearSection(filter, 'amount'))}>
+            <>
+              {AMOUNT_RANGE_KEYS.map((key) => (
+                <View key={key}>
+                  <Divider />
+                  <RangeField
+                    label={filterAmountLabel(locale, key)}
+                    min={filter.amounts[key].min}
+                    max={filter.amounts[key].max}
+                    onChangeMin={(value) =>
+                      setFilter(setAmountRange(filter, key, { ...filter.amounts[key], min: value }))
+                    }
+                    onChangeMax={(value) =>
+                      setFilter(setAmountRange(filter, key, { ...filter.amounts[key], max: value }))
+                    }
+                  />
+                </View>
+              ))}
+            </>
+          </Section>
+
+          {/* SPEC-V11 §2 / §7: 目標・赤字・メモ。どれも 2 択か入切なので、タグと同じ行で出す。
+              **出品中では目標の 2 行だけ消える**（§7.1）── 見込み額に「達成」は言えない。
+              赤字のみは出品中でも出す（§7.2。値下げする前に見たい情報） */}
+          <Section
+            label={filterOtherSectionLabel(locale)}
+            count={sectionActiveCount(applied, 'other')}
+            expanded={expanded.other}
+            onToggle={() => toggleSection('other')}
+            onClear={() => setFilter(clearSection(filter, 'other'))}>
+            <>
+              {[
+                ...(isSoldMode
+                  ? ([
+                      {
+                        key: 'targetMet',
+                        label: filterTargetLabel(locale, 'met'),
+                        checked: filter.targetStatus === 'met',
+                        onPress: () =>
+                          setFilter({
+                            ...filter,
+                            targetStatus: filter.targetStatus === 'met' ? null : 'met',
+                          }),
+                      },
+                      {
+                        key: 'targetMissed',
+                        label: filterTargetLabel(locale, 'missed'),
+                        checked: filter.targetStatus === 'missed',
+                        onPress: () =>
+                          setFilter({
+                            ...filter,
+                            targetStatus: filter.targetStatus === 'missed' ? null : 'missed',
+                          }),
+                      },
+                    ] as const)
+                  : []),
+                {
+                  key: 'lossOnly',
+                  label: filterLossOnlyLabel(locale),
+                  checked: filter.lossOnly,
+                  onPress: () => setFilter({ ...filter, lossOnly: !filter.lossOnly }),
+                },
+                {
+                  key: 'memoWith',
+                  label: filterMemoLabel(locale, 'with'),
+                  checked: filter.memoState === 'with',
+                  onPress: () =>
+                    setFilter({
+                      ...filter,
+                      memoState: filter.memoState === 'with' ? null : 'with',
+                    }),
+                },
+                {
+                  key: 'memoWithout',
+                  label: filterMemoLabel(locale, 'without'),
+                  checked: filter.memoState === 'without',
+                  onPress: () =>
+                    setFilter({
+                      ...filter,
+                      memoState: filter.memoState === 'without' ? null : 'without',
+                    }),
+                },
+              ].map((option) => (
+                <Row
+                  key={option.key}
+                  showSeparator
+                  onPress={option.onPress}
+                  selected={option.checked}
+                  accessibilityRole="checkbox">
+                  <Text
+                    style={[
+                      styles.rowLabel,
+                      styles.tagName,
+                      {
+                        color: option.checked ? colors.blue : colors.label,
+                        fontWeight: option.checked ? '700' : '400',
+                      },
+                    ]}
+                    numberOfLines={1}>
+                    {option.label}
+                  </Text>
+                  <CheckSlot visible={option.checked} />
+                </Row>
+              ))}
+            </>
           </Section>
         </ScrollView>
 
@@ -339,7 +553,7 @@ export function RecordFilterScreen() {
               {matchingRecordCountValue(locale, matchCount)}
             </Text>
           </View>
-          {/* 案 35e: 0 件のときだけ 2 行目。解除ボタンは足さず（解除の口はヘッダの 1 つ）、
+          {/* 案 35e: 0 件のときだけ 2 行目。解除ボタンは足さず（解除の口はヘッダと群の見出し）、
               警告色も使わない（間違いではなく事実なので） */}
           {noMatchNote != null && (
             <Text style={[styles.footerNote, { color: colors.secondaryLabel }]}>{noMatchNote}</Text>
@@ -350,42 +564,87 @@ export function RecordFilterScreen() {
   );
 }
 
-/** 節（見出し ＋ 右の補足 ＋ 中身）。3 つの節が同じ間隔・同じ見出しの大きさで並ぶようにする */
+/**
+ * 群（折りたたみのカード）。**見出しの時点からカードの中にある**（使いかたの画面と同じ
+ * `Accordion`）── 見出しだけカードの外に置くと、閉じている群が「押せる行」に見えず、
+ * 5 つ並んだときに面が読めない。開いても閉じても、群 1 つ = カード 1 枚。
+ *
+ * **中身の余白は外す**（`contentStyle`）。この画面の中身は行の一覧が主で、
+ * 行は自分で左右 16 の余白を持ち、**選択中の青い地はカードの端まで届く**必要がある
+ * （途中で切れると、行ではなく帯が浮いて見える）。余白の要る中身
+ * （セグメント・検索欄・注記）は、その中身の側が `sectionInset` を巻く。
+ *
+ * 見出しの右に**効いている数とその群だけの解除**を置く（SPEC-V11 §3）。
+ * 0 本のときは出さない ── 押せない「解除」が並ぶと、どの群が効いているのかを
+ * 数字ではなく色で読む話になる。数と解除を 1 つの押せる領域にまとめるのは、
+ * 別々に置くと見出し行に押せるものが 3 つ（開閉・数・解除）並ぶため。
+ */
 function Section({
   label,
-  hint,
+  count,
+  expanded,
+  onToggle,
+  onClear,
   children,
 }: {
   label: string;
-  hint?: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onClear: () => void;
   children: ReactNode;
 }) {
+  const locale = useLocale();
   const colors = useThemeColors();
 
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHead}>
-        <Text style={[styles.sectionLabel, { color: colors.secondaryLabel }]} numberOfLines={1}>
-          {label}
-        </Text>
-        {hint != null && (
-          <Text style={[styles.sectionHint, { color: colors.secondaryLabel }]} numberOfLines={1}>
-            {hint}
+    <Accordion
+      accessibilityLabel={label}
+      expanded={expanded}
+      onToggle={onToggle}
+      contentStyle={styles.sectionContent}
+      label={
+        <View style={styles.sectionHead}>
+          <Text style={[styles.sectionLabel, { color: colors.label }]} numberOfLines={1}>
+            {label}
           </Text>
-        )}
-      </View>
+          {count > 0 && (
+            <Pressable
+              onPress={onClear}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={filterSectionClearAccessibility(locale, label)}
+              style={({ pressed }) => [styles.sectionClear, { opacity: pressed ? 0.5 : 1 }]}>
+              <Text style={[styles.sectionCount, { color: colors.secondaryLabel }]}>
+                {filterSectionCountLabel(locale, count)}
+              </Text>
+              <Text style={[styles.sectionClearLabel, { color: colors.blue }]}>
+                {filterSectionClearLabel(locale)}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      }>
       {children}
-    </View>
+    </Accordion>
   );
 }
 
-function Card({ children }: { children: ReactNode }) {
+/** 行の一覧ではない中身（セグメント・検索欄・注記）に余白を戻すための巻き物 */
+function Inset({ children }: { children: ReactNode }) {
+  return <View style={styles.sectionInset}>{children}</View>;
+}
+
+/** 見出しと中身の間・行と行の間の区切り。カードの中なので左は 16 空ける */
+function Divider() {
   const colors = useThemeColors();
-  return (
-    <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>{children}</View>
-  );
+  return <View style={[styles.separator, { backgroundColor: colors.separator }]} />;
 }
 
+/**
+ * 行 1 つ。**上に区切りを敷く**（見出しと 1 行目の間にも 1 本入る）── 群がカードそのものに
+ * なった（SPEC-V11 §2.3）ので、見出しと一覧の境目を線で示さないと 1 行目が見出しに続いて見える。
+ */
 function Row({
   showSeparator,
   onPress,
@@ -447,27 +706,46 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 24,
-    gap: 20,
-  },
-  section: {
-    gap: 8,
+    gap: 12,
   },
   sectionHead: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-    marginLeft: 4,
+    gap: 12,
   },
   sectionLabel: {
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
+  },
+  /** 群の中身はカードの端まで届かせる（余白は中身の側が持つ。§2.3） */
+  sectionContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  /** 行の一覧ではない中身に余白を戻す。上は見出しの padding があるので空けない */
+  sectionInset: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   sectionHint: {
     fontSize: 12,
+    marginLeft: 4,
+  },
+  sectionClear: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionCount: {
+    fontSize: 12,
+  },
+  sectionClearLabel: {
+    fontSize: 14,
   },
   searchRow: {
     flexDirection: 'row',
@@ -486,10 +764,6 @@ const styles = StyleSheet.create({
   searchResult: {
     fontSize: 12,
     marginLeft: 4,
-  },
-  card: {
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',

@@ -288,6 +288,8 @@ export const en: Translations = {
     siteSection: 'Marketplace',
     siteEmptyTitle: 'No marketplaces yet',
     siteEmptyBody: 'Add a marketplace to a record and you can pick it here.',
+    siteUnset: 'Not set',
+    siteUnsetPart: 'No marketplace',
     tagSection: 'Tags',
     tagSectionWithCount: 'Tags ({{count}})',
     tagEmptyBody: 'You can create tags under the item name while recording. Tags you use show up here.',
@@ -310,6 +312,28 @@ export const en: Translations = {
     },
     matchingRecordSold: 'Records matching these conditions',
     matchingRecordListing: 'Listed records matching these conditions',
+
+    amountSection: 'Amount',
+    otherSection: 'Other',
+    sectionCount: { one: '{{count}} condition', other: '{{count}} conditions' },
+    sectionClear: 'Clear',
+    sectionClearAccessibility: 'Clear {{section}} conditions',
+    amountNetProfit: 'Net profit',
+    amountSalesPrice: 'Selling price',
+    amountExpenses: 'Expenses',
+    rangeMin: 'Min',
+    rangeMax: 'Max',
+    // 日本語の「〜」に当たる記号。英語の欄の間はダッシュで空きを取る
+    rangeSeparator: '–',
+    rangePartBoth: '{{name}} {{min}}–{{max}}',
+    rangePartFrom: '{{name}} {{min}}+',
+    rangePartTo: '{{name}} up to {{max}}',
+    targetMet: 'Target met',
+    targetMissed: 'Target missed',
+    lossOnly: 'At a loss only',
+    memoWith: 'With a note',
+    memoWithout: 'Without a note',
+    conditionOverflow: { one: '+{{count}} more condition', other: '+{{count}} more conditions' },
   },
 
   sort: {
@@ -1100,7 +1124,7 @@ export const en: Translations = {
       },
       'record-find-filter': {
         title: 'I want to narrow by type or tag',
-        body: 'Tap the “▽” at the right of the month row to open the filter screen. Under “Sold records” you can narrow by type, marketplace and tag; under “Listed” the marketplace is not decided yet, so you get type and tag. While a filter is on, a blue row appears — tapping it takes you back to the same screen.',
+        body: 'Tap the “▽” at the right of the month row to open the filter screen. The conditions are folded into five groups — “Type”, “Marketplace”, “Tags”, “Amount” and “Other”. Tap a heading to open one. “Amount” takes a minimum and a maximum for net profit, selling price and expenses. “Other” holds whether the target was met, “At a loss only”, and whether a note was written.\n\nHow many conditions are on shows at the right of each heading. Tap it to clear just that group; “Clear all” at the top right clears every one.\n\nUnder “Listed” there is no marketplace and no target: the marketplace is not decided yet, and the profit is only an estimate until it sells. “At a loss only” still works while listed.\n\nWhile a filter is on, a blue row appears — tapping it takes you back to the same screen.',
       },
       'record-tag-or': {
         title: 'What happens if I pick two tags',

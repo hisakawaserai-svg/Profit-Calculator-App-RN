@@ -25,12 +25,13 @@ import {
   EMPTY_RECORD_FILTER,
   type FilterScope,
   type RecordFilterDraft,
+  type TargetFilter,
 } from '@/logic/recordFilter';
 
 type RecordFilterState = {
   /** どのタブの絞り込みか（§6）。件数を数える集合が変わる */
   scope: FilterScope;
-  /** 3 条件の下書き（§4.2）。選んだ瞬間から効く */
+  /** 下書きの 9 条件（§4.2 / SPEC-V11 §1.1）。選んだ瞬間から効く */
   filter: RecordFilterDraft;
   setFilter: (next: RecordFilterDraft) => void;
   /**
@@ -39,12 +40,12 @@ type RecordFilterState = {
    * そのぶん販売サイトの節を消す分岐も起きない（§6）。
    */
   isSoldMode: boolean;
-  /** 販売サイトの退避・復元まで面倒を見る（§4.2）。素の setter は出さない */
+  /** 販売サイト・目標の退避・復元まで面倒を見る（§4.2 / SPEC-V11 §7.1）。素の setter は出さない */
   changeSoldMode: (nextIsSold: boolean) => void;
   /** 表示中の期間（全期間 / "YYYY" / "YYYY-MM"。logic/period.ts） */
   period: Period;
   setPeriod: (next: Period) => void;
-  /** 3 条件だけを初期値へ戻す（期間・検索・並び替えは動かさない。§4.2 / §4.3 / §4.8） */
+  /** 下書きだけを初期値へ戻す（期間・検索・並び替えは動かさない。§4.2 / §4.3 / §4.8） */
   clearFilter: () => void;
 };
 
@@ -65,16 +66,23 @@ export function RecordFilterProvider({
   const [isSoldMode, setIsSoldMode] = useState(true);
   const [period, setPeriod] = useState<Period>(currentMonthKey);
   /**
-   * 出品中に切り替える直前の販売サイトの指定（§4.2）。売れた記録に戻したときに復元する。
-   * **この Stack が生きている間だけ**保つ（決定 §9-9）。
+   * 出品中に切り替える直前の**販売サイトと目標**の指定（§4.2 / SPEC-V11 §7.1）。
+   * 売れた記録に戻したときに復元する。**この Stack が生きている間だけ**保つ（決定 §9-9）。
+   *
+   * 2 つを 1 つの箱で持つのは、退避する理由も戻す時機も同じだから ── 別々の state にすると
+   * 「片方だけ書き戻す」経路が作れてしまう。null = 退避しているものが無い。
    */
-  const [lastSiteName, setLastSiteName] = useState<string | null>(null);
+  const [stashed, setStashed] = useState<{
+    siteName: string | null;
+    targetStatus: TargetFilter | null;
+  } | null>(null);
 
   /**
-   * 状態の切り替え（§4.2）。出品中では販売サイトの指定を退避して外し、戻すときに復元する。
+   * 状態の切り替え（§4.2 / SPEC-V11 §7.1）。出品中では**販売サイトと目標**の指定を退避して外し、
+   * 戻すときに復元する。**赤字のみは退避しない**（出品中でも効く条件なので。§7.2）。
    *
    * 条件そのものは effectiveFilter / buildWhere の側でも落ちるが、ここで state からも外すのは、
-   * 節が消えている間に「すべて解除」の活性や条件の本数が販売サイトを数えたままに
+   * 節が消えている間に「すべて解除」の活性や条件の本数が、消えた節を数えたままに
    * ならないようにするため。
    */
   const changeSoldMode = useCallback(
@@ -83,21 +91,24 @@ export function RecordFilterProvider({
       if (nextIsSold) {
         // 退避した指定は 1 回だけ書き戻す。残しておくと、あとで自分で外した指定が
         // 状態を往復しただけで復活する
-        if (lastSiteName != null) {
-          setFilter({ ...filter, siteName: lastSiteName });
-          setLastSiteName(null);
+        if (stashed != null) {
+          setFilter({ ...filter, siteName: stashed.siteName, targetStatus: stashed.targetStatus });
+          setStashed(null);
         }
         return;
       }
-      setLastSiteName(filter.siteName);
-      setFilter({ ...filter, siteName: null });
+      // 何も指定していないなら退避するものが無い（空の箱を置くと、戻したときに
+      // 「1 回だけ書き戻す」が空振りではなく上書きになる）
+      if (filter.siteName == null && filter.targetStatus == null) return;
+      setStashed({ siteName: filter.siteName, targetStatus: filter.targetStatus });
+      setFilter({ ...filter, siteName: null, targetStatus: null });
     },
-    [filter, lastSiteName],
+    [filter, stashed],
   );
 
   const clearFilter = useCallback(() => {
     setFilter(EMPTY_RECORD_FILTER);
-    setLastSiteName(null);
+    setStashed(null);
   }, []);
 
   const value = useMemo(

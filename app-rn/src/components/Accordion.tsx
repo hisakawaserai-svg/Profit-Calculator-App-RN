@@ -25,6 +25,14 @@ type Props = {
   /** 自分で持つときの初期値（controlled では使わない） */
   initiallyExpanded?: boolean;
   containerStyle?: ViewStyle;
+  /**
+   * 開いた中身の余白の上書き（絞り込みの群。SPEC-V11 §2.3）。
+   * 既定は左右・下に 16 の余白だが、**カードの端まで届く行の一覧**を入れるときは
+   * `{ paddingHorizontal: 0, paddingBottom: 0 }` を渡して余白ごと外す ──
+   * 選択中の行の青い地が途中で切れると、行ではなく帯が浮いて見える。
+   * その場合の余白は中身の側（行や欄）が持つ。
+   */
+  contentStyle?: ViewStyle;
   children: ReactNode;
 };
 
@@ -35,6 +43,7 @@ export function Accordion({
   onToggle,
   initiallyExpanded = false,
   containerStyle,
+  contentStyle,
   children,
 }: Props) {
   const colors = useThemeColors();
@@ -62,7 +71,7 @@ export function Accordion({
         />
       </Pressable>
 
-      {expanded && <View style={styles.content}>{children}</View>}
+      {expanded && <View style={[styles.content, contentStyle]}>{children}</View>}
     </View>
   );
 }

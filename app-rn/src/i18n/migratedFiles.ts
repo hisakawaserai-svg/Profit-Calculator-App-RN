@@ -104,4 +104,6 @@ export const MIGRATED_FILES = [
   'src/components/RequiredPriceBlock.tsx',
   'src/components/BreakdownPartList.tsx',
   'src/components/ResultAmountBlock.tsx',
+  // SPEC-V11: 絞り込みの金額の範囲欄
+  'src/components/RangeField.tsx',
 ] as const;

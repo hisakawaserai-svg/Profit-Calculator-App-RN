@@ -368,14 +368,9 @@ export function DataScreen() {
 
   // データタブは状態を持たない（isSold = true 固定。SPEC §6.2）ので、
   // toFilterConditions には常に true を渡す ── 販売サイトの条件が落ちる分岐は起きない（§6）
-  const { kind, siteName, tagIds } = useMemo(
-    () => toFilterConditions(recordFilter, true),
-    [recordFilter],
-  );
-  const filter = useMemo(
-    () => ({ period, kind, siteName, tagIds }),
-    [period, kind, siteName, tagIds],
-  );
+  // 条件は**まとめて展開する**（SPEC-V11 §8）── 記録タブと同じ理由
+  const conditions = useMemo(() => toFilterConditions(recordFilter, true), [recordFilter]);
+  const filter = useMemo(() => ({ period, ...conditions }), [period, conditions]);
   // 刻みは期間から自動で決まる（§5-5）。画面に切替は出さず、凡例の語で示すだけ。
   // 全期間の刻みは対象の月数で決まり（36 か月超なら年ごと）、判定に最古の月が要るので
   // 取得側が chartUnitFor に決めさせて返す ── 画面はここで分岐しない

@@ -3139,9 +3139,130 @@ export function filterAllLabel(locale: Locale): string {
   return t('filter.all', locale);
 }
 
+/** 群の見出し（SPEC-V11 §2）。金額とその他は本書で増えた 2 群 */
+export function filterAmountSectionLabel(locale: Locale): string {
+  return t('filter.amountSection', locale);
+}
+export function filterOtherSectionLabel(locale: Locale): string {
+  return t('filter.otherSection', locale);
+}
+
+/**
+ * 群の見出しの右（SPEC-V11 §3）。**効いている数とその群だけの解除を 1 つの押せる領域にする** ──
+ * 数だけを見出しの右に置いて解除を別に足すと、見出し行に押せるものが 3 つ（開閉・数・解除）並ぶ。
+ * 数は**条件の本数**（件数ではない）なので、記録の件数と同じ語にしない。
+ */
+export function filterSectionCountLabel(locale: Locale, count: number): string {
+  return t('filter.sectionCount', locale, { count });
+}
+export function filterSectionClearLabel(locale: Locale): string {
+  return t('filter.sectionClear', locale);
+}
+/** 上の読み上げ。「解除」だけではどの群を解除するのか読み上げから分からない */
+export function filterSectionClearAccessibility(locale: Locale, section: string): string {
+  return t('filter.sectionClearAccessibility', locale, { section });
+}
+
+/** 販売サイトの「未設定」の行（SPEC-V11 §4.2）。名前が入っていない記録を絞る口 */
+export function filterSiteUnsetLabel(locale: Locale): string {
+  return t('filter.siteUnset', locale);
+}
+
+/**
+ * 金額の欄の名前（SPEC-V11 §6）。**青い行の条件名にも同じ語を使う** ──
+ * 欄で読んだ語と文で読む語が違うと、どの欄が効いているのか照らし合わせられない。
+ */
+export function filterAmountLabel(
+  locale: Locale,
+  key: 'netProfit' | 'salesPrice' | 'expenses',
+): string {
+  if (key === 'netProfit') return t('filter.amountNetProfit', locale);
+  return key === 'salesPrice' ? t('filter.amountSalesPrice', locale) : t('filter.amountExpenses', locale);
+}
+
+/** 範囲の 2 欄のプレースホルダと、その間に置く記号（SPEC-V11 §6） */
+export function filterRangeMinPlaceholder(locale: Locale): string {
+  return t('filter.rangeMin', locale);
+}
+export function filterRangeMaxPlaceholder(locale: Locale): string {
+  return t('filter.rangeMax', locale);
+}
+export function filterRangeSeparator(locale: Locale): string {
+  return t('filter.rangeSeparator', locale);
+}
+
+/**
+ * 青い行の金額の部分（SPEC-V11 §5）。「純利益 1000円〜5000円」。
+ * **片側だけのときは、入っていない側を出さない**（「純利益 0円〜5000円」は嘘になる ──
+ * 下限なしと 0 円以上は別の条件）。両方 null で呼ばれることはない（呼び出し側が弾く）。
+ *
+ * 金額の書式は文中に金額が並ぶときの詰めた形（formatYenTight）── 1 つの文に
+ * 金額が 2 つ以上入るので、空きのある形だと語の切れ目が読み取りにくい。
+ */
+export function filterRangePartLabel(
+  locale: Locale,
+  key: 'netProfit' | 'salesPrice' | 'expenses',
+  min: number | null,
+  max: number | null,
+): string {
+  const name = filterAmountLabel(locale, key);
+  if (min != null && max != null) {
+    return t('filter.rangePartBoth', locale, {
+      name,
+      min: formatYenTight(locale, min),
+      max: formatYenTight(locale, max),
+    });
+  }
+  if (min != null) return t('filter.rangePartFrom', locale, { name, min: formatYenTight(locale, min) });
+  return t('filter.rangePartTo', locale, { name, max: formatYenTight(locale, max ?? 0) });
+}
+
+/**
+ * 「その他」の群の行（SPEC-V11 §2 / §7）。**青い行の条件名と同じ語**を返す ──
+ * 押した行の語がそのまま文に出るので、対応づけに読み替えが要らない。
+ */
+export function filterTargetLabel(locale: Locale, status: 'met' | 'missed'): string {
+  return t(status === 'met' ? 'filter.targetMet' : 'filter.targetMissed', locale);
+}
+export function filterLossOnlyLabel(locale: Locale): string {
+  return t('filter.lossOnly', locale);
+}
+export function filterMemoLabel(locale: Locale, state: 'with' | 'without'): string {
+  return t(state === 'with' ? 'filter.memoWith' : 'filter.memoWithout', locale);
+}
+
 /** 解除バーの販売サイトの部分（§4.3）。名前だけでは何の名前か読めないので種類まで言う */
 export function filterSitePartLabel(locale: Locale, name: string): string {
   return t('filter.sitePart', locale, { name });
+}
+
+/**
+ * 上の「未設定」版（SPEC-V11 §4.2）。行の語は「未設定」だけだが、文の中では
+ * **何が未設定なのか**まで言わないと読めない（メモの有無と並ぶため）。
+ */
+export function filterSiteUnsetPartLabel(locale: Locale): string {
+  return t('filter.siteUnsetPart', locale);
+}
+
+/** 青い行の目標・赤字・メモの部分（SPEC-V11 §5）。行の語をそのまま使う */
+export function filterTargetPartLabel(locale: Locale, status: 'met' | 'missed'): string {
+  return filterTargetLabel(locale, status);
+}
+export function filterLossPartLabel(locale: Locale): string {
+  return filterLossOnlyLabel(locale);
+}
+export function filterMemoPartLabel(locale: Locale, state: 'with' | 'without'): string {
+  return filterMemoLabel(locale, state);
+}
+
+/**
+ * 青い行に収まらなかった条件の数（SPEC-V11 §5）。**「件」ではなく「条件」**で数える ──
+ * 末尾の「の N件だけ」が記録の件数なので、同じ語だと 2 つの数が同じものを数えているように読める。
+ * 区切り（「・」）で連ねる 3 つ目の部分として出す（末尾にくっつけると、
+ * タグ自身の「ほか1件」と並んで「ほか1件ほか5条件」になる）。
+ */
+export function filterConditionOverflowLabel(locale: Locale, count: number): string {
+  return t('filter.conditionOverflow', locale, { count });
 }
 
 /**
@@ -3228,7 +3349,8 @@ export const FILTER_TAG_OR_NOTE = '2つ以上選ぶと、どれかが付いた�
 
 /**
  * 絞り込みで 0 件になったときの空表示（§4.8 / 決定 §9-13）。
- * **条件ごとの文言を作らない** ── 効き得る条件が 6 つに増え、組み合わせで文言が爆発する。
+ * **条件ごとの文言を作らない** ── 効き得る条件が 12 に増え（SPEC-V11 §9.3。状態・期間・検索 ＋
+ * 下書きの 9 条件）、組み合わせで文言が爆発する。**条件が増えるほどこの決定は強くなる。**
  */
 export function filterEmptyTitle(locale: Locale): string {
   return t('list.filterEmptyTitle', locale);

@@ -414,6 +414,10 @@ export const ja = {
     siteSection: '販売サイト',
     siteEmptyTitle: '販売サイトがありません',
     siteEmptyBody: '記録に販売サイトを入れると、ここから選べます。',
+    /** 名前が入っていない記録を絞る行（SPEC-V11 §4.2）。候補の並びの末尾に置く */
+    siteUnset: '未設定',
+    /** 上の青い行での言い方。行の語だけでは何が未設定なのか文の中で読めない */
+    siteUnsetPart: '販売サイト未設定',
     tagSection: 'タグ',
     tagSectionWithCount: 'タグ（{{count}}）',
     tagEmptyBody: 'タグは記録するときに、品名の下から作れます。付けたタグはここに並びます。',
@@ -439,6 +443,38 @@ export const ja = {
     summary: { one: '{{parts}}の{{count}}件だけ', other: '{{parts}}の{{count}}件だけ' } as PluralForms,
     matchingRecordSold: 'この条件に合う記録',
     matchingRecordListing: 'この条件に合う出品中の記録',
+
+    // ---- SPEC-V11（条件が 3 本から 9 本へ。折りたたみの 5 群） ----
+    /** 増えた 2 群の見出し。「その他」は目標・赤字・メモをまとめたもの */
+    amountSection: '金額',
+    otherSection: 'その他',
+    /**
+     * 群の見出しの右（SPEC-V11 §3）。数えるのは**条件の本数**で記録の件数ではないので、
+     * common.count（「N件」）と語を分ける。
+     */
+    sectionCount: { one: '{{count}}条件', other: '{{count}}条件' } as PluralForms,
+    sectionClear: '解除',
+    sectionClearAccessibility: '{{section}}の条件を解除',
+    /** 金額の 3 欄。**青い行の条件名にも同じ語を使う**（欄と文で語を変えない） */
+    amountNetProfit: '純利益',
+    amountSalesPrice: '販売価格',
+    amountExpenses: '経費',
+    /** 範囲の 2 欄。空欄は「その側の境界なし」で、0 ではない */
+    rangeMin: '下限',
+    rangeMax: '上限',
+    rangeSeparator: '〜',
+    /** 青い行の金額の部分。**入っていない側は出さない**（下限なしと 0 円以上は別物） */
+    rangePartBoth: '{{name}}{{min}}〜{{max}}',
+    rangePartFrom: '{{name}}{{min}}〜',
+    rangePartTo: '{{name}}〜{{max}}',
+    /** 「その他」の群の行。押した行の語がそのまま青い行に出る */
+    targetMet: '目標を達成',
+    targetMissed: '目標に未達',
+    lossOnly: '赤字のみ',
+    memoWith: 'メモあり',
+    memoWithout: 'メモなし',
+    /** 青い行に収まらなかったぶん（SPEC-V11 §5）。末尾の「のN件だけ」と語を分ける */
+    conditionOverflow: { one: 'ほか{{count}}条件', other: 'ほか{{count}}条件' } as PluralForms,
   },
 
   /** 並び替え（recordSort.ts。一覧の並び替えシート） */
@@ -1323,7 +1359,7 @@ export const ja = {
       },
       'record-find-filter': {
         title: '種別やタグで絞りたい',
-        body: '月の行の右の「▽」を押すと、絞り込みの画面が開きます。「売れた記録」を見ているときは種別・販売サイト・タグの 3 つ、「出品中」を見ているときは販売サイトがまだ決まっていないので種別とタグの 2 つで絞れます。絞っている間は青い行が出て、そこを押すと同じ画面に戻れます。',
+        body: '月の行の右の「▽」を押すと、絞り込みの画面が開きます。条件は「種別」「販売サイト」「タグ」「金額」「その他」の 5 つに畳まれていて、見出しを押すと開きます。「金額」では純利益・販売価格・経費のそれぞれに下限と上限を入れられます。「その他」には目標を達成したか・「赤字のみ」・メモを書いたかがあります。\n\n効いている条件は見出しの右に数が出ます。そこを押すと、そのまとまりだけ解除できます。全部まとめて外すときは右上の「すべて解除」です。\n\n「出品中」を見ているときは、販売サイトと目標が出ません。販売サイトはまだ決まっておらず、利益も売れるまでは見込みの額だからです。「赤字のみ」は出品中でも使えます。\n\n絞っている間は青い行が出て、そこを押すと同じ画面に戻れます。'
       },
       'record-tag-or': {
         title: 'タグを 2 つ選ぶとどうなるか',

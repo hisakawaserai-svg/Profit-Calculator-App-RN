@@ -234,3 +234,40 @@ export function useTagCountsForFilter(
     [filter, scope, refreshToken],
   );
 }
+
+/** refreshToken の理由は queryList と同じ */
+function querySiteCountsForFilter(
+  filter: RecordListFilter,
+  scope: FilterScope,
+  refreshToken: object,
+): Map<string, number> {
+  void refreshToken;
+  return scope === 'data'
+    ? repository.analyticsCountsBySiteForFilter(toAnalyticsFilter(filter))
+    : repository.countsBySiteForFilter(filter);
+}
+
+/**
+ * 絞り込み画面の販売サイトの使用件数（SPEC-V11 §4.1）。**タグの行の数字と同じ扱い。**
+ *
+ * キーは販売サイト名で、**`''` は「未設定」**（§4.2）。0 件の名前はキーごと現れないので
+ * `?? 0` すること（プリセットにだけある名前は必ずこちら側に来る）。
+ *
+ * `siteName` を外すのは repository の責務なので、呼び出し側は下部の件数に渡すのと
+ * 同じ filter をそのまま渡してよい（useTagCountsForFilter と同じ分担）。
+ * `scope` も下部の件数と必ず同じものを渡すこと ── 片方だけ違うと行の数字と下部の数が食い違う。
+ */
+export function useSiteCountsForFilter(
+  filter: RecordListFilter,
+  scope: FilterScope,
+): Map<string, number> {
+  const [refreshToken, setRefreshToken] = useState<object>(() => ({}));
+  const refresh = useCallback(() => setRefreshToken({}), []);
+
+  useFocusEffect(refresh);
+
+  return useMemo(
+    () => querySiteCountsForFilter(filter, scope, refreshToken),
+    [filter, scope, refreshToken],
+  );
+}

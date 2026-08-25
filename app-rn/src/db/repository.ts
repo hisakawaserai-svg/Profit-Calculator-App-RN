@@ -38,7 +38,55 @@ export type SortTypeMonthly =
  */
 export type RecordSortType = SortTypeMonthly;
 
-export type RecordListFilter = {
+/**
+ * 記録タブとデータタブが**同じ式で持つ**絞り込み条件（SPEC-V4 §4.5 / SPEC-V11 §1.2）。
+ *
+ * 記録タブ（RecordListFilter）とデータタブ（AnalyticsFilter）は対象の集合が違うだけで、
+ * **条件そのものは同じ**。1 つの型に置いて `commonConditions` 1 本から組むので、
+ * 条件を足すときに片方だけ直る事故が起きない（タグの EXISTS を 2 回書かないのと同じ分担）。
+ *
+ * **金額の範囲・目標・赤字・メモ（SPEC-V11）で新しい列は 1 つも要らない。**
+ * どれも既存の列と既存の集計式（netProfitSql / totalExpensesSql）で書ける。
+ */
+export type CommonRecordFilter = {
+  /** 種別フィルタ（SPEC-V2 §4.2）。null/undefined = すべて */
+  kind?: RecordKind | null;
+  /**
+   * 販売サイト（SPEC-V4 §4.2 / SPEC-V11 §4.2）。
+   * null/undefined = すべて / **'' = 未設定**（site_name が空の記録）/ その他 = 完全一致。
+   *
+   * **isSoldMode = false のときは無視する**（記録タブのみ）。出品中の記録は site_name が空なので、
+   * 条件として残すと「選ぶと必ず 0 件になる欄」になる。画面でも節ごと消すが、
+   * 見た目だけで落とすと「見えないのに効いている」状態を作り得るので SQL の側でも無視する（§4.2）。
+   *
+   * **'' を「指定なし」と読む経路を残さないこと**（SPEC-V11 §4.2）── 1 か所でも残ると、
+   * 未設定の行が静かに効かなくなる。
+   */
+  siteName?: string | null;
+  /** タグの OR 条件（SPEC-V4 §4.4）。空配列・undefined = すべて */
+  tagIds?: readonly string[];
+  /**
+   * 金額の範囲（SPEC-V11 §1.2）。**null/undefined = その側の境界なし**で、0 とは別物。
+   * `BETWEEN` ではなく 2 本の不等号にしてあるのは、片側だけ指定できるようにするため。
+   */
+  netProfitMin?: number | null;
+  netProfitMax?: number | null;
+  salesPriceMin?: number | null;
+  salesPriceMax?: number | null;
+  expensesMin?: number | null;
+  expensesMax?: number | null;
+  /**
+   * 目標の達成／未達（SPEC-V11 §1.2 / §7.1）。null/undefined = 問わない。
+   * **isSoldMode = false のときは無視する**（出品中の純利益は見込み額で、達成が言えない）。
+   */
+  targetStatus?: 'met' | 'missed' | null;
+  /** 赤字のみ（netProfit < 0）。**出品中でも効く**（SPEC-V11 §7.2） */
+  lossOnly?: boolean;
+  /** メモの有無（trim 後の空判定。SPEC-V11 §1.2）。null/undefined = 問わない */
+  memoState?: 'with' | 'without' | null;
+};
+
+export type RecordListFilter = CommonRecordFilter & {
   /** true = 実績タブ（売却済み） / false = 出品中タブ */
   isSoldMode: boolean;
   /** 商品名の部分一致検索。空文字・undefined は無条件 */
@@ -48,18 +96,6 @@ export type RecordListFilter = {
    * "YYYY-MM" = その月 / "YYYY" = その年。**どちらも基準日の先頭一致**で効く（periodKeySql）。
    */
   period?: Period;
-  /** 種別フィルタ（SPEC-V2 §4.2）。null/undefined = すべて */
-  kind?: RecordKind | null;
-  /**
-   * 販売サイト名の完全一致（SPEC-V4 §4.2）。null/undefined = すべて。
-   *
-   * **isSoldMode = false のときは無視する。** 出品中の記録は site_name が空なので、
-   * 条件として残すと「選ぶと必ず 0 件になる欄」になる。画面でも節ごと消すが、
-   * 見た目だけで落とすと「見えないのに効いている」状態を作り得るので SQL の側でも無視する（§4.2）。
-   */
-  siteName?: string | null;
-  /** タグの OR 条件（SPEC-V4 §4.4）。空配列・undefined = すべて */
-  tagIds?: readonly string[];
 };
 
 export type MonthGroup = {
@@ -95,7 +131,7 @@ export type CareerSummary = {
  * （年は 4 文字・月は 7 文字。長さが変わるだけで条件の形は同じ。SPEC-V3 §5.5 の改訂）。
  * 種別で絞っても集計の形は変わらず、対象レコードが減るだけ（§4.4）。
  */
-export type AnalyticsFilter = {
+export type AnalyticsFilter = CommonRecordFilter & {
   /** 期間フィルタ。null = 全期間 / "YYYY-MM" = その月 / "YYYY" = その年（logic/period.ts） */
   period: Period;
   /**
@@ -104,18 +140,11 @@ export type AnalyticsFilter = {
    * period 単体では表せない範囲を要求するため。period はここでは無視される。
    */
   monthKeyRange?: { from: string; to: string };
-  /** 種別フィルタ。null/undefined = すべて */
-  kind?: RecordKind | null;
-  /**
-   * 販売サイト名の完全一致（SPEC-V4 §4.2 / §6）。null/undefined = すべて。
-   *
-   * 記録タブと違い**状態による無視の分岐がない** ── データタブは売却済みだけを見る面なので
-   * （SPEC §6.2）、「選ぶと必ず 0 件になる」状態が起きない。節も常に出る（§6）。
-   */
-  siteName?: string | null;
-  /** タグの OR 条件（SPEC-V4 §4.4）。空配列・undefined = すべて */
-  tagIds?: readonly string[];
 };
+
+// 条件そのものは CommonRecordFilter が持つ。データタブが記録タブと違うのは**状態の分岐がない**
+// ことだけで（SPEC §6.2 のとおり売却済みだけを見る面なので、販売サイトも目標も
+// 「選ぶと必ず 0 件になる」状態が起きない）、`commonConditions` には常に isSoldMode = true を渡す。
 
 /**
  * 記録タブの絞り込み条件 → データタブの集計条件（SPEC-V4 §6）。
@@ -127,12 +156,12 @@ export type AnalyticsFilter = {
  * saleDate 非 null が固定条件で（SPEC §6.2）、検索欄も持たない。
  */
 export function toAnalyticsFilter(filter: RecordListFilter): AnalyticsFilter {
-  return {
-    period: filter.period ?? null,
-    kind: filter.kind ?? null,
-    siteName: filter.siteName ?? null,
-    tagIds: filter.tagIds,
-  };
+  // 条件はまとめて写す ── 1 つずつ書き出すと、条件を足すたびにここを直すことになり、
+  // 忘れるとデータタブだけその条件が効かない（SPEC-V11 §8）
+  const { isSoldMode, searchText, period, ...conditions } = filter;
+  void isSoldMode;
+  void searchText;
+  return { ...conditions, period: period ?? null };
 }
 
 /** データタブの合計行（期間内合計）。すべて丸めなし（SPEC §6.2） */
@@ -329,20 +358,85 @@ function buildWhere(filter: RecordListFilter): SQL {
       sql`${saleRecords.itemName} LIKE ${likePattern(search)} ESCAPE '\\'`,
     );
   }
-  // 種別フィルタ（SPEC-V2 §4.2）。検索と違い「見る対象そのものの限定」なので、
+  // 絞り込みの 9 条件（SPEC-V11 §1.2）。検索と違い「見る対象そのものの限定」なので、
   // リスト本体だけでなく下部累計（summaryFilter）にも同じ条件が渡される。
+  conditions.push(...commonConditions(filter, filter.isSoldMode));
+  return sql.join(conditions, sql` AND `);
+}
+
+/**
+ * 記録タブとデータタブが共有する条件（SPEC-V4 §4.5 / SPEC-V11 §1.2）。**この 1 本だけに足す。**
+ *
+ * buildWhere と buildAnalyticsWhere に同じ式を 2 回書くと、条件が 9 本になった時点で
+ * 「片方だけ直す」余地が 9 か所できる。ここに 1 行足せば
+ * 一覧・合計・月グループ・最古の月・集計点・内訳・タグ別の全経路に同時に効く。
+ *
+ * **集計式（netProfitSql / totalExpensesSql）は変更しない。** タグの OR は EXISTS で書いてあり
+ * （§4.4）、行を増やさないので SUM はそのまま正しい ── JOIN + DISTINCT を退けた帰結。
+ *
+ * `isSoldMode` は**販売サイトと目標を落とすかどうか**だけに使う（SPEC-V11 §7）。
+ * データタブは売却済みだけを見る面なので、常に true を渡す。
+ */
+function commonConditions(filter: CommonRecordFilter, isSoldMode: boolean): SQL[] {
+  const conditions: SQL[] = [];
+
+  // 種別フィルタ（SPEC-V2 §4.2）
   if (filter.kind != null) {
     conditions.push(eq(saleRecords.kind, filter.kind));
   }
-  // 販売サイト（SPEC-V4 §4.2）。出品中モードでは組み立てない（型のコメントの理由）
-  if (filter.isSoldMode && filter.siteName != null && filter.siteName !== '') {
+  // 販売サイト（SPEC-V4 §4.2 / SPEC-V11 §4.2）。出品中モードでは組み立てない（型のコメントの理由）。
+  // **'' は「未設定」という条件**なので、null だけを無条件として扱う
+  if (isSoldMode && filter.siteName != null) {
     conditions.push(eq(saleRecords.siteName, filter.siteName));
   }
-  // タグ（SPEC-V4 §4.4）。種別と同じ「見る対象そのものの限定」なので合計行にも同じ条件が渡る
+  // タグ（SPEC-V4 §4.4）
   if (filter.tagIds != null && filter.tagIds.length > 0) {
     conditions.push(tagExistsSql(filter.tagIds));
   }
-  return sql.join(conditions, sql` AND `);
+
+  // 金額の範囲 3 本（SPEC-V11 §1.2）。**片側だけでも効く**ので不等号を別々に積む。
+  // null は「その側の境界なし」で 0 とは別物（0 を境界なしと読むと赤字が黙って落ちる）
+  for (const [value, column] of [
+    [filter.netProfitMin, netProfitSql],
+    [filter.salesPriceMin, sql`${saleRecords.salesPrice}`],
+    [filter.expensesMin, totalExpensesSql],
+  ] as const) {
+    if (value != null) conditions.push(sql`${column} >= ${value}`);
+  }
+  for (const [value, column] of [
+    [filter.netProfitMax, netProfitSql],
+    [filter.salesPriceMax, sql`${saleRecords.salesPrice}`],
+    [filter.expensesMax, totalExpensesSql],
+  ] as const) {
+    if (value != null) conditions.push(sql`${column} <= ${value}`);
+  }
+
+  // 目標の達成／未達（SPEC-V11 §1.2 / §7.1）。**IS NOT NULL を必ず伴う** ──
+  // target_profit の null は「決めていません」（SPEC-V9 §1.2）で、未達ではない。
+  // SQLite の比較は null で偽になるので結果は同じだが、**式を読んで意味が分かる形にしておく**
+  if (isSoldMode && filter.targetStatus != null) {
+    conditions.push(
+      filter.targetStatus === 'met'
+        ? sql`${saleRecords.targetProfit} IS NOT NULL AND ${netProfitSql} >= ${saleRecords.targetProfit}`
+        : sql`${saleRecords.targetProfit} IS NOT NULL AND ${netProfitSql} < ${saleRecords.targetProfit}`,
+    );
+  }
+  // 赤字のみ（SPEC-V11 §7.2）。**出品中でも落とさない** ── 比べる相手が 0 なので、
+  // 見込み額のままでも「この価格で売れても赤字」は今日言える事実になる。0 は黒字側に入る
+  if (filter.lossOnly === true) {
+    conditions.push(sql`${netProfitSql} < 0`);
+  }
+  // メモの有無（SPEC-V11 §1.2）。**trim する** ── 空白だけのメモを「あり」と数えると、
+  // 書いたつもりのないものが混ざる
+  if (filter.memoState != null) {
+    conditions.push(
+      filter.memoState === 'with'
+        ? sql`trim(${saleRecords.memo}) <> ''`
+        : sql`trim(${saleRecords.memo}) = ''`,
+    );
+  }
+
+  return conditions;
 }
 
 /**
@@ -364,12 +458,12 @@ function tagExistsSql(tagIds: readonly string[]): SQL {
  * データタブの対象条件（SPEC §6.2 / UI-SPEC §1.5）。
  * - isSold = true かつ saleDate が非 null のみ（出品中は一切含まれない）
  * - 期間は販売日の先頭一致（月 "YYYY-MM" / 年 "YYYY"）。null なら期間条件なし（全期間。§5-5）
- * - 種別（SPEC-V2 §4.2）は指定があればそのまま等値条件にする。
- * - 販売サイト・タグ（SPEC-V4 §6）は buildWhere と**同じ式**を足す。
+ * - 絞り込みの 9 条件（種別・販売サイト・タグ・金額 3・目標・赤字・メモ）は
+ *   `commonConditions` から**記録タブと同じ式**で足す（SPEC-V11 §1.2）。
  *
  * **集計式（netProfitSql / totalExpensesSql）は変更しない。** タグの OR は EXISTS で書いてあり
  * （§4.4）、行を増やさないので SUM はそのまま正しい ── JOIN + DISTINCT を退けた帰結。
- * この関数に条件を足すだけで、合計行・集計点・内訳・最古の月の 4 経路すべてに同時に効く。
+ * `commonConditions` に条件を足すだけで、合計行・集計点・内訳・最古の月の 4 経路すべてに同時に効く。
  */
 function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   const conditions: SQL[] = [
@@ -382,16 +476,9 @@ function buildAnalyticsWhere(filter: AnalyticsFilter): SQL {
   } else if (filter.period != null) {
     conditions.push(periodMatchSql(sql<string>`${saleRecords.saleDate}`, filter.period));
   }
-  if (filter.kind != null) {
-    conditions.push(eq(saleRecords.kind, filter.kind));
-  }
-  // 記録タブの buildWhere にある isSoldMode の分岐はここには要らない（型のコメント参照）
-  if (filter.siteName != null && filter.siteName !== '') {
-    conditions.push(eq(saleRecords.siteName, filter.siteName));
-  }
-  if (filter.tagIds != null && filter.tagIds.length > 0) {
-    conditions.push(tagExistsSql(filter.tagIds));
-  }
+  // 記録タブの buildWhere にある isSoldMode の分岐はここには要らない（型のコメント参照）ので、
+  // commonConditions には常に true を渡す ── 販売サイトも目標も落ちない
+  conditions.push(...commonConditions(filter, true));
   return sql.join(conditions, sql` AND `);
 }
 
@@ -708,6 +795,27 @@ export function createRepository(
     },
 
     /**
+     * 絞り込み画面の販売サイトの行に出す使用件数（SPEC-V11 §4.1）。**タグと同じ形。**
+     * `siteName` -> 件数。キー `''` は**未設定**（§4.2）で、0 件の名前はキーごと現れない。
+     *
+     * **渡された filter から `siteName` だけを外して数える。** 外す理由はタグとは違って
+     * 単一選択だから ── 「フリマA」を選んだ状態で「フリマB」の行に `A AND B` の数
+     * （＝必ず 0）を出すと、押せば置き換わるという実際の動きを予告できない。
+     *
+     * タグと違い EXISTS も JOIN も要らない（記録が持つ名前は 1 つなので、
+     * `site_name` で GROUP BY すれば 1 本のクエリで全候補ぶん数え終わる）。
+     */
+    countsBySiteForFilter(filter: RecordListFilter): Map<string, number> {
+      const rows = db
+        .select({ siteName: saleRecords.siteName, count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(buildWhere({ ...filter, siteName: null }))
+        .groupBy(saleRecords.siteName)
+        .all();
+      return new Map(rows.map((row) => [row.siteName, row.count]));
+    },
+
+    /**
      * 「過去の記録から複製」の複製元の候補。
      *
      * **`buildWhere` を通さない理由は 1 つだけ ── 売却済みと出品中を混ぜて返すため。**
@@ -991,6 +1099,21 @@ export function createRepository(
         .groupBy(recordTags.tagId)
         .all();
       return new Map(rows.map((row) => [row.tagId, row.count]));
+    },
+
+    /**
+     * 上の販売サイト版（SPEC-V11 §4.1）。数える集合だけがデータタブのものに変わる ──
+     * 記録タブ側の `countsBySiteForFilter` と**外す条件も数え方も同じ**で、
+     * 違いは `buildAnalyticsWhere`（isSold = true かつ saleDate 非 null が固定）を通ることだけ。
+     */
+    analyticsCountsBySiteForFilter(filter: AnalyticsFilter): Map<string, number> {
+      const rows = db
+        .select({ siteName: saleRecords.siteName, count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(buildAnalyticsWhere({ ...filter, siteName: null }))
+        .groupBy(saleRecords.siteName)
+        .all();
+      return new Map(rows.map((row) => [row.siteName, row.count]));
     },
 
     /**
