@@ -753,6 +753,40 @@ describe('0012 送料のバッジを写した名前で引く', () => {
     expect(presetNameForLookup('210B')).toBe('210B');
   });
 
+  /**
+   * 選択シートのチェックも**この 1 本から出す**（0012）── PresetPickerSheet は
+   * 自分で引き直さず、PresetTagButton がバッジに使った答えを `checked` で受け取る。
+   * よって「バッジとチェックが一致する」はここの戻り値の性質そのもの:
+   * `unselected` ならチェック無し、それ以外はその `preset` の行に付く。
+   */
+  const checkedRow = <T,>(tag: ReturnType<typeof resolvePresetTag<T & { name: string; value: number }>>) =>
+    tag.kind === 'unselected' ? null : tag.preset;
+
+  it('同じ額の 2 件で、バッジとチェックが同じ行を指す', () => {
+    const tag = resolvePresetTag(sameAmount, 210, '210B');
+
+    // バッジに出るプリセットと、チェックが付く行が同一であることが要点
+    expect(tag.kind).toBe('selected');
+    expect(checkedRow(tag)).toBe(sameAmount[1]);
+    // 額で引き直すと別の行（210A）を指してしまう ── シートに引き直させない理由
+    expect(findPresetByValue(sameAmount, 210)).toBe(sameAmount[0]);
+  });
+
+  it('率を手で変えた記録でも、選んだプリセットにチェックが付く（薄いバッジと同じ行）', () => {
+    // 10% のフリマAを選んでから 8% に変えた記録。選んだものは変わっていない
+    const marketplaces = [{ name: 'フリマA', value: 10 }];
+    const tag = resolvePresetTag(marketplaces, 8, 'フリマA');
+
+    expect(tag.kind).toBe('rate-changed');
+    expect(checkedRow(tag)).toBe(marketplaces[0]);
+    // 率で引き直すとどの行も指さない ── 以前のシートはこれで「選択中の行が無い」状態だった
+    expect(findPresetByValue(marketplaces, 8)).toBeNull();
+  });
+
+  it('選んでいなければチェックは付かない', () => {
+    expect(checkedRow(resolvePresetTag(sameAmount, 999))).toBeNull();
+  });
+
   it('**販売サイトは空文字で値に落とさない** ── 落とし方が違うので関数を分けてある', () => {
     // 率 10% と一致するプリセットがあっても、選んでいなければ札は出ない（§1.5.1）。
     // 販売サイトは presetNameForLookup を通さず、空文字をそのまま渡す

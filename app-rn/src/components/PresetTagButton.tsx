@@ -173,6 +173,9 @@ export function PresetTagButton({
           type={type}
           presets={presets}
           value={value}
+          // **チェックはバッジと同じ判定から出す**（0012）── シートに自分で引き直させると、
+          // 同じ額のプリセットが 2 件あるときにバッジと別の行を指し得る
+          checked={tag.kind === 'unselected' ? null : tag.preset}
           onSelect={onSelect}
           canOpenSettings={canOpenSettings}
           /**

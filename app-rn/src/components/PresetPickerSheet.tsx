@@ -8,6 +8,9 @@
 // - **上書きの確認を挟まない。** 欄に値が入っていても黙って置き換える（§4.3）
 // - 値の正規化はしない。書き戻しは呼び出し側が電卓と同じ経路
 //   （NumericField の onSubmit → sanitizeNumericInput）へ通す（§4.3）
+// - **どの行が選択中かを自分で決めない**（0012）。呼び出し側（PresetTagButton）が
+//   バッジを決めるのに使った答えをそのまま `checked` で受け取る ── 自分で引き直すと、
+//   同じ画面のバッジとチェックが別の行を指し得る（`checked` の説明）
 //
 // 複数選択（梱包材。§4.5）は電卓の中に置くので、この部品には入れていない（Step 4）。
 //
@@ -43,7 +46,6 @@ import {
   presetPickerEmptyTitle,
   presetPickerTitle,
 } from '@/logic/labels';
-import { findPresetByValue } from '@/logic/preset';
 import {
   hasShippingMaterial,
   shippingAmountFor,
@@ -58,11 +60,29 @@ type Props = {
   type: PresetType;
   presets: Preset[];
   /**
-   * 今の欄の値。一致する行にチェックを付ける（§4.3-2）。空欄は null。
-   * 送料では**どちらの側（送料のみ / ＋資材）が効いているか**もこの値から決まる（45b）──
-   * 保存済みの記録を開き直したときの復元もこれで足りる（postage は選んだ側の額そのもの）。
+   * 今の欄の値。**チェックを付ける行はこれでは決めない**（0012 で `checked` へ移した）。
+   * ここが決めるのは 2 つだけ:
+   *   - 送料の**どちらの側（送料のみ / ＋資材）が効いているか**（45b）。
+   *     保存済みの postage は選んだ側の額そのものなので、これで復元できる
+   *   - 上端の「その場で登録」の初期値（PresetQuickAddRow）
+   * 空欄は null。
    */
   value: number | null;
+  /**
+   * チェックを付ける行（§4.3-2）。**呼び出し側が resolvePresetTag で決めたものをそのまま受け取る。**
+   *
+   * 以前はこの部品が `findPresetByValue(presets, value)` で自分で引いていたが、
+   * **バッジ（PresetTagButton）と別々に決めていたので、食い違い得た**（0012）──
+   * 同じ額のプリセットが 2 件あると、バッジは記録が持つ名前で「後者」を出すのに、
+   * シートのチェックは並び順で先の「前者」に付いていた。同じ画面で 2 つの答えが出る。
+   *
+   * **判定を持たず受け取る形にすることで、バッジとチェックが構造として一致する。**
+   * 率を手で変えた記録（`rate-changed`。薄いバッジ）でも、選んだ行にはチェックが付く ──
+   * 選んだものは変わっていないので、選択中の行が無い状態にするほうが実態と合わない。
+   *
+   * null = 選んでいない（どの行にもチェックを付けない）。
+   */
+  checked: Preset | null;
   /**
    * 選んだ時点で呼ばれる。シートはこのあと自分で閉じる。
    * `choice` は 45b の 2 択（送料以外・資材費 0 円の行では常に `'with-material'`）。
@@ -94,6 +114,7 @@ export function PresetPickerSheet({
   type,
   presets,
   value,
+  checked,
   onSelect,
   canOpenSettings = true,
   onCreated,
@@ -104,7 +125,6 @@ export function PresetPickerSheet({
 
   const colors = useThemeColors();
   const router = useRouter();
-  const checked = findPresetByValue(presets, value);
 
   // 末尾のリンクの行き先は設定タブの一覧（§4.3-3）。0 件のときは「追加する」に語だけ変わる
   const openSettings = () => router.push(`/settings/presets/${type}`);
