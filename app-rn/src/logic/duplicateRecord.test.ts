@@ -35,6 +35,7 @@ const source: SaleRecord = {
   targetProfit: 900,
   // SPEC-V9 §1.1 で列だけ確保した将来用の出品日。読み書きしないので複製にも関わらない
   listedAt: null,
+  shippingName: '',
 };
 
 describe('写す欄', () => {
@@ -78,6 +79,14 @@ describe('写す欄', () => {
   // 手数料率と同時にしか入らない値（SPEC-V3 §4.3）。率だけ写すと札の消えた記録ができる
   it('販売サイト名も入る（手数料率と対になっているため）', () => {
     expect(duplicateFormValues(source, [], NOW).siteName).toBe('フリマA');
+  });
+
+  // 送料と対になっている値（0012）。額だけ写して名前を落とすと、
+  // 同じ送料なのに札の消えた記録ができる（siteName と同じ理由）
+  it('送料プリセット名も入る（送料と対になっているため）', () => {
+    expect(
+      duplicateFormValues({ ...source, shippingName: '宅配便（小）' }, [], NOW).shippingName,
+    ).toBe('宅配便（小）');
   });
 
   it('タグが入る', () => {

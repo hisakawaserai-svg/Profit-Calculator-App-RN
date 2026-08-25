@@ -55,6 +55,13 @@ export type ShippingMaterialState = {
   postage: string;
   shippingMaterialCost: number;
   excludesShippingMaterial: boolean;
+  /**
+   * 選んだプリセットの名前の写し（0012）。**空文字 = プリセットを使っていない。**
+   *
+   * 控えの 2 つ（資材費・トグル）と違い、これは**バッジを引くための値** ──
+   * これが無い間、送料のバッジは postage からの逆引きで決まっていた。
+   */
+  shippingName: string;
 };
 
 /** プリセットの合計（送料 ＋ 資材費）。編集画面の合計行と、記録に入る既定値の両方がこれ */
@@ -127,14 +134,20 @@ export function shippingMaterialChoiceOf(
  * 控え（shippingMaterialCost）は選んだ側に関わらず必ず残す ── 開き直したときに
  * セグメントを出すかどうかは、この控えではなくプリセットの側が決めるが、
  * CSV に出ない「そのとき資材がいくらだったか」の記録としてここにしか残らない。
+ *
+ * **名前（shippingName）もここで控える**（0012）。**選んだ側に関わらず同じ名前**で、
+ * 「送料のみ」を選んでも選んだプリセットが変わるわけではない ── 選んだのはあくまで
+ * その配送方法で、2 択は資材費を足すかどうかだけの話。
  */
 export function selectShippingPreset(
-  preset: ShippingPresetAmounts,
+  /** 名前も要る（0012）。金額だけの型（ShippingPresetAmounts）では足りない唯一の関数 */
+  preset: ShippingPresetAmounts & { name: string },
   choice: ShippingMaterialChoice = 'with-material',
 ): ShippingMaterialState {
   return {
     postage: amountToInput(shippingAmountFor(preset, choice)),
     shippingMaterialCost: preset.materialCost,
     excludesShippingMaterial: choice === 'shipping-only',
+    shippingName: preset.name,
   };
 }

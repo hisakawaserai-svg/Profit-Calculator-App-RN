@@ -85,6 +85,13 @@
       "when": 1786604657874,
       "tag": "0011_remove_seed_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1786604658874,
+      "tag": "0012_shipping_name",
+      "breakpoints": true
     }
   ]
 }

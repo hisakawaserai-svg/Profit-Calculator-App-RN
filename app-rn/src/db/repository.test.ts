@@ -64,6 +64,8 @@ const base: Omit<SaveRecordInput, 'kind' | 'purchasePrice'> = {
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 送料プリセット名の写し（0012）。既定は「プリセットを使っていない」
+  shippingName: '',
   // タグ（SPEC-V4 §1.4）。タグを使う describe 群は自前で上書きする
   // 目標は既定で「決めていない」（SPEC-V9 §1）
   targetProfit: null,
@@ -1816,6 +1818,87 @@ describe('SPEC-V6 §1 マイグレーション: 専用資材の 3 列', () => {
     expect(record?.excludesShippingMaterial).toBe(false);
     // 1000 − (300 + 175 + 20 + 5 + 100) = 400。資材費の列は計算に入らない
     expect(netProfit(record!)).toBeCloseTo(400);
+  });
+});
+
+describe('0012 マイグレーション: 送料プリセット名の写し', () => {
+  /** 0011 までを流した「shipping_name の無い状態」に行を入れてから 0012 を流す */
+  function migrateWithRows() {
+    const sqlite = newDatabase(11);
+    sqlite
+      .prepare(
+        `INSERT INTO sale_records
+           (id, item_name, sales_price, purchase_price, postage, envelope_cost, others_cost,
+            commission, is_sold, sale_start_date, sale_date, memo, kind, site_name,
+            shipping_material_cost, excludes_shipping_material)
+         VALUES (?, ?, 1000, 300, 175, 20, 5, 10, 1,
+                 '2026-08-01T12:00:00.000', '2026-08-09T12:00:00.000', 'メモ', 'sourced', 'フリマA',
+                 0, 0)`,
+      )
+      .run('id-0', '既存の記録');
+    for (const statement of migrationSql('0012_shipping_name')) sqlite.exec(statement);
+    return sqlite;
+  }
+
+  it('既存の記録は空文字で埋まり、金額は 1 円も動かない', () => {
+    const row = migrateWithRows().prepare('SELECT * FROM sale_records').get() as Record<
+      string,
+      unknown
+    >;
+
+    expect(row).toMatchObject({
+      postage: 175,
+      shipping_material_cost: 0,
+      // **空文字 = 写しを持たない記録**。バッジは従来どおり額の逆引きで決まる
+      shipping_name: '',
+    });
+  });
+
+  it('列を足したあとも、既存の行を repository から読めて計算も変わらない', () => {
+    const repo = createRepository(drizzle(migrateWithRows(), { schema }), recordDeps());
+    const record = repo.getById('id-0');
+
+    expect(record?.shippingName).toBe('');
+    // 1000 − (300 + 175 + 20 + 5 + 100) = 400。名前の列は計算に入らない
+    expect(netProfit(record!)).toBeCloseTo(400);
+  });
+
+  it('保存した名前がそのまま読み戻る（同じ額の別プリセットと取り違えない）', () => {
+    const repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
+    // 同じ 210 円でも、選んだのは「後者」のほう
+    const created = repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      postage: 210,
+      shippingName: '210B',
+    });
+
+    expect(repo.getById(created.id)?.shippingName).toBe('210B');
+  });
+
+  it('編集しても名前は消えない（update は行を丸ごと書くので渡し忘れが起きない型にしてある）', () => {
+    const repo = createRepository(drizzle(newDatabase(), { schema }), recordDeps());
+    const created = repo.create({
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      postage: 520,
+      shippingName: '宅配便（小）',
+    });
+
+    // 額だけ手で直した記録。名前は残る（バッジは薄くなるが、選んだものは変わらない）
+    repo.update(created.id, {
+      ...base,
+      kind: 'used',
+      purchasePrice: 0,
+      postage: 600,
+      shippingName: '宅配便（小）',
+    });
+
+    const updated = repo.getById(created.id);
+    expect(updated?.postage).toBe(600);
+    expect(updated?.shippingName).toBe('宅配便（小）');
   });
 });
 

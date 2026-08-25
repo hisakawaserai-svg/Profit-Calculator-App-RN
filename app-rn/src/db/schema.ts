@@ -86,6 +86,25 @@ export const saleRecords = sqliteTable('sale_records', {
    * **UI も計算式も CSV の読み書き以外の経路も無い**（バックアップの往復だけは通す）。
    */
   listedAt: text('listed_at'),
+  /**
+   * 送料プリセット名の「写し」（0012）。**`siteName` と同じ扱い**（SPEC-V3 §1.5.1）──
+   * プリセットの id は持たず、「そのとき何と書いてあったか」だけを持つ。
+   * 空文字 = 未設定（NULL は使わない。`siteName` と同じ方針）。
+   *
+   * **計算式にも buildWhere にも入らない。** 金額は従来どおり `postage` が唯一の真実で、
+   * この列は**バッジを正しく出すためだけ**にある ── これが無い間、送料のバッジは
+   * `postage` からプリセットを逆引きしていた（logic/preset.ts の findPresetByValue）ので、
+   * プリセットの金額を直すと過去の記録のバッジが消え、同額のプリセットが 2 件あると
+   * 並び順で先の 1 件が勝っていた。名前を記録の側に持てば、どちらも起きない。
+   *
+   * **空文字の記録は従来どおり金額で逆引きする**（resolvePresetTag）── この列を足す前に
+   * 保存された記録の見た目を変えないため。名前が入っている記録だけが名前で引かれる。
+   *
+   * **列の定義順は物理列順（＝ ALTER TABLE の追加順）に合わせて末尾に置く。**
+   * バックアップの records.csv は「DB の全カラムをカラム名のまま・定義順」で書くので
+   * （logic/backup.ts の RECORD_COLUMNS）、ここを途中に挿すと対応が崩れる。
+   */
+  shippingName: text('shipping_name').notNull().default(''),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),

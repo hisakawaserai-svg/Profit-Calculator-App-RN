@@ -86,6 +86,15 @@ type Props = {
    */
   presetType?: PresetType;
   /**
+   * 写した名前でバッジを引くための値（PresetTagButton の `selectedName` にそのまま渡る）。
+   *
+   * **記録フォームの送料だけが渡す**（0012）── 記録は選んだプリセット名を持つので、
+   * 額ではなく名前でバッジを決められる。渡さない欄（計算タブの送料）は
+   * 従来どおり額の逆引きになる。空文字ではなく `undefined` を渡すこと
+   * （落とし方の違いは logic/preset の presetNameForLookup が持つ）。
+   */
+  selectedPresetName?: string;
+  /**
    * プリセットを選んだときの処理の差し替え（SPEC-V6 §3）。
    *
    * 既定は「シートで選ばれた側の額を欄に書く」だけ（送料では 45b の 2 択で決まる額）。
@@ -127,6 +136,7 @@ export function NumericField({
   rowHeight = ROW_HEIGHT,
   valueStyle,
   presetType,
+  selectedPresetName,
   onSelectPreset,
   onClearPreset,
   canOpenSettings = true,
@@ -175,6 +185,8 @@ export function NumericField({
             type={presetType}
             // 空欄は「選んでいない」。0 円のプリセットのバッジが未入力の欄に出ないようにする
             value={value === '' ? null : parseNumericInput(value)}
+            // 記録フォームの送料だけが渡す（0012）。渡らなければ額の逆引きのまま
+            selectedName={selectedPresetName}
             // 書き戻しは電卓と同じ経路を通す（§4.3）。プリセットの値が範囲外でも必ず正規化される
             onSelect={(preset, choice) =>
               onSelectPreset != null

@@ -40,6 +40,7 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   excludesShippingMaterial: false,
   targetProfit: null,
   listedAt: null,
+  shippingName: '',
   ...partial,
 });
 

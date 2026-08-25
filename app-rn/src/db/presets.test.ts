@@ -239,6 +239,7 @@ describe('§1.5.1 repository: site_name の保存と取得', () => {
     photoFileName: null,
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    shippingName: '',
     // 目標は既定で「決めていない」（SPEC-V9 §1）
     targetProfit: null,
     tagIds: [],
@@ -308,6 +309,7 @@ describe('§3.1 / 設計案 25c 件数の 2 本', () => {
     photoFileName: null,
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    shippingName: '',
     // 目標は既定で「決めていない」（SPEC-V9 §1）
     targetProfit: null,
     tagIds: [],

@@ -64,6 +64,8 @@ const RECORD_ROW = {
   // まだ書き込まない出品日（常に空欄）
   target_profit: '2000',
   listed_at: '',
+  // 0012。選んだ送料プリセット名の写し（空欄なら手入力・またはこの列より前の記録）
+  shipping_name: 'A4・厚さ3cm以内',
 };
 
 const PRESET_ROW = {
@@ -114,7 +116,7 @@ function recordsWith(overrides: Partial<typeof RECORD_ROW>): string {
 // ---- §2.2 CSV の組み立て ----
 
 describe('§2.2 buildBackupFile', () => {
-  it('ヘッダは DB のカラム名がそのまま並ぶ（19 列）', () => {
+  it('ヘッダは DB のカラム名がそのまま並ぶ（20 列）', () => {
     const [header] = parseCsv(buildBackupFile(BACKUP_RECORDS_FILE, []));
 
     expect(header).toEqual([
@@ -139,6 +141,8 @@ describe('§2.2 buildBackupFile', () => {
       // 「先頭 17 列が一致するか」で読める（RECORD_COLUMNS_LEGACY）
       'target_profit',
       'listed_at',
+      // 0012 で足した 1 列。同じ理由で末尾（先頭 19 列で読める版が 1 つ増える）
+      'shipping_name',
     ]);
   });
 
@@ -243,7 +247,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const broken = 'id,item_name\r\nr1,えんぴつ\r\n';
 
     expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
-      'records.csv の列の数が違います。必要な列は 19 ですが、ファイルには 2 あります。',
+      'records.csv の列の数が違います。必要な列は 20 ですが、ファイルには 2 あります。',
     );
   });
 
@@ -331,7 +335,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const csv = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]) + 'r2,足りない\r\n';
 
     expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
-      /3行目：項目の数が 19 ではなく 2 です/,
+      /3行目：項目の数が 20 ではなく 2 です/,
     );
   });
 
@@ -846,6 +850,67 @@ describe('§4.4 サイズの表示', () => {
 
   it('上限は 50MB（§4.4 / §6.2 のメモリ実測が根拠）', () => {
     expect(BACKUP_PHOTO_SIZE_LIMIT).toBe(50 * 1024 * 1024);
+  });
+});
+
+describe('0012 送料プリセット名の列が無い古い records.csv も読める', () => {
+  /**
+   * **0012 より前が実際に書き出していた 19 列**をそのまま書く
+   * （buildBackupFile は現在の 20 列で組むので、古いファイルの再現には使えない）。
+   *
+   * **17 列の版（SPEC-V9 §3 より前）と両方が読めることが要点** ── 古い版の表は
+   * 配列で持ち、新しい順に試す（RECORD_COLUMNS_LEGACY）。1 つしか持てない形のままだと、
+   * 列を足すたびに 1 つ前の版しか読めなくなる。
+   */
+  const LEGACY_HEADER =
+    'id,item_name,sales_price,purchase_price,postage,envelope_cost,others_cost,' +
+    'commission,is_sold,sale_start_date,sale_date,memo,kind,site_name,' +
+    'photo_file_name,shipping_material_cost,excludes_shipping_material,target_profit,listed_at';
+
+  const legacyRecords = (row = '') =>
+    `${LEGACY_HEADER}\r\n${row || 'r1,えんぴつ,1500,300,210,15,0,10,1,2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0,2000,'}\r\n`;
+
+  it('**エラーにならず**、足りない 1 列は空欄として読める', () => {
+    const rows = parseBackupFile('ja', BACKUP_RECORDS_FILE, legacyRecords());
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].shipping_name).toBe('');
+    // 19 列ぶんの値はそのまま入る（読み落としが無いことの確認）
+    expect(rows[0].sales_price).toBe('1500');
+    expect(rows[0].target_profit).toBe('2000');
+  });
+
+  it('5 ファイル揃った古いバックアップがそのまま復元の手前まで通る', () => {
+    const contents = readBackupContents(
+      'ja',
+      goodFiles({ [BACKUP_RECORDS_FILE]: legacyRecords() }),
+    );
+
+    expect(contents.preview.counts.records).toBe(1);
+    expect(contents.tables.records[0].shipping_name).toBe('');
+  });
+
+  it('もっと古い 17 列の版も同時に読める（古い版の表を 1 つに減らさない）', () => {
+    const older =
+      'id,item_name,sales_price,purchase_price,postage,envelope_cost,others_cost,' +
+      'commission,is_sold,sale_start_date,sale_date,memo,kind,site_name,' +
+      'photo_file_name,shipping_material_cost,excludes_shipping_material\r\n' +
+      'r1,えんぴつ,1500,300,210,15,0,10,1,2026-08-01T12:00:00.000,2026-08-10T09:30:00.000,,sourced,フリマA,,0,0\r\n';
+    const rows = parseBackupFile('ja', BACKUP_RECORDS_FILE, older);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].shipping_name).toBe('');
+    expect(rows[0].target_profit).toBe('');
+  });
+
+  it('新しい版は名前をそのまま往復させる', () => {
+    const rows = parseBackupFile(
+      'ja',
+      BACKUP_RECORDS_FILE,
+      buildBackupFile(BACKUP_RECORDS_FILE, [{ ...RECORD_ROW, shipping_name: '宅配便（小）' }]),
+    );
+
+    expect(rows[0].shipping_name).toBe('宅配便（小）');
   });
 });
 

@@ -124,6 +124,7 @@ import {
 } from '@/logic/labels';
 import { daysBetween } from '@/logic/listingDays';
 import { orphanPhotoFiles } from '@/logic/photo';
+import { presetNameForLookup } from '@/logic/preset';
 import {
   costBreakdown,
   requiredPriceResult,
@@ -594,6 +595,9 @@ function RecordForm({
       postage: '',
       shippingMaterialCost: 0,
       excludesShippingMaterial: false,
+      // 名前の写しも一緒に外す（0012）。額だけ消して名前が残ると、
+      // 空欄の行に薄いバッジ（rate-changed）が出たままになる
+      shippingName: '',
     }));
   };
 
@@ -882,6 +886,11 @@ function RecordForm({
             valueStyle={[styles.deductionValue, { color: colors.red }]}
             // 送料はプリセットから選べる（SPEC-V3 §4.2）
             presetType="shipping"
+            // **バッジは保存した名前で引く**（0012）── 額の逆引きだと、同じ額の
+            // プリセットが 2 件あるときに並び順で先の 1 件が勝ち、選んだものと
+            // 違う札が出る。写しを持たない記録（この列より前・手入力）は
+            // undefined になり、従来どおり額の逆引きに落ちる
+            selectedPresetName={presetNameForLookup(values.shippingName)}
             // **選んだ行そのものを受け取る**（SPEC-V6 §3）── 欄に入るのは送料と専用資材の
             // 合計で、資材費の控えも記録に持つ必要があるため、値の書き戻しだけでは足りない
             onSelectPreset={selectShipping}

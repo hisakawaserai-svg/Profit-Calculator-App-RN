@@ -69,6 +69,8 @@ const base: SaveRecordInput = {
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 送料プリセット名の写し（0012）。既定は「プリセットを使っていない」
+  shippingName: '',
   // 目標は既定で「決めていない」（SPEC-V9 §1）
   targetProfit: null,
   tagIds: [],

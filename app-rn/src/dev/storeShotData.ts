@@ -479,9 +479,24 @@ function buildRecord(row: Row, sources: StoreShotSources): SaveRecordInput {
     // 専用資材の要る配送方法は使っていない（SPEC-V6 §3）ので、控えもトグルも既定のまま
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    // 選んだ送料プリセット名の写し（0012）。**表の送料はプリセットの金額と揃えてある**
+    // （STORE_SHOT_PRESETS の冒頭）ので、額から引き当てた名前が「そのとき選んだもの」になる。
+    // 揃っていない行（見積りを間違えた記録）は空文字 ＝ 手で入れた扱い
+    shippingName: shippingPresetNameFor(row.postage, sources.locale),
     targetProfit: row.targetProfit ?? null,
     tagIds: row.tags.map((index) => sources.tagIds[index]).filter((id) => id != null),
   };
+}
+
+/**
+ * 送料の額に対応するプリセット名（0012）。無ければ空文字 ＝ プリセットを使っていない記録。
+ *
+ * **投入データを作るためだけの引き当て**で、アプリ側の逆引き（旧 findPresetByValue）とは別物 ──
+ * こちらは「この行はこのプリセットを選んだ」という表の意図を名前に直しているだけで、
+ * 出来上がった記録は名前を持つので、アプリはもう額から引き直さない。
+ */
+function shippingPresetNameFor(postage: number, locale: Locale): string {
+  return STORE_SHOT_PRESETS[locale].shipping.find((preset) => preset.value === postage)?.name ?? '';
 }
 
 /**

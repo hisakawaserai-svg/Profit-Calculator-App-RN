@@ -44,6 +44,7 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   // 目標利益（SPEC-V9 §1）。既定は「決めていない」= null。listed_at はまだ読み書きしない
   targetProfit: null,
   listedAt: null,
+  shippingName: '',
   ...partial,
 });
 
@@ -386,6 +387,18 @@ describe('SPEC-V6 §3 送料の専用資材', () => {
       shippingMaterialCost: 70,
       excludesShippingMaterial: false,
     });
+  });
+
+  it('名前の写しも編集で戻り、保存入力に乗る（0012）', () => {
+    const values = recordToFormValues(record({ postage: 520, shippingName: '宅配便（小）' }), NOW);
+
+    expect(values.shippingName).toBe('宅配便（小）');
+    expect(toSaveInput(values)).toMatchObject({ postage: 520, shippingName: '宅配便（小）' });
+  });
+
+  it('写しを持たない記録は空文字のまま戻る（列を足す前の記録・手入力。0012）', () => {
+    expect(recordToFormValues(record({ postage: 210 }), NOW).shippingName).toBe('');
+    expect(newFormValues('used', undefined, NOW).shippingName).toBe('');
   });
 
   it('控えは計算に入らない（伝票の金額は postage だけで決まる）', () => {

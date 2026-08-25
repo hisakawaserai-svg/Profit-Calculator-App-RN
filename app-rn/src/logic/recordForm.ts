@@ -70,6 +70,14 @@ export type RecordFormValues = {
   /** 「専用資材を使わない」（SPEC-V6 §3）。false = 資材費を含める（既定） */
   excludesShippingMaterial: boolean;
   /**
+   * 選んだ送料プリセット名の写し（0012）。空文字 = 未設定。**siteName と同じ扱い。**
+   *
+   * 送料プリセットを選んだ瞬間に額と同時に入り、**手で額を変えても消さない**
+   * （名前は利用者が選んだ札で、額の調整で無効になるものではない。SPEC-V3 §1.5.1）。
+   * 消せるのはタグボタンの「✕」からだけ。計算にも集計にも入らず、バッジを引くためだけにある。
+   */
+  shippingName: string;
+  /**
    * 目標利益（SPEC-V9 §2）。**入力中の文字列**で、空欄 = 「目標を決めていません」。
    *
    * 他の金額欄と同じ文字列で持つが、意味が 1 つだけ違う: **空欄は 0 ではなく null になる**
@@ -148,9 +156,12 @@ export function newFormValues(
     // siteName のように引き継ぐ元も無い（InitialAmounts が持たないのはそのため）
     photoFileName: null,
     // 送料は計算タブから金額だけを引き継ぐ（プリセットの選択そのものは引き継がない）ので、
-    // 控えは常に 0 から始まる ＝ トグルは出ない（SPEC-V6 §3）
+    // 控えは常に 0 から始まる ＝ トグルは出ない（SPEC-V6 §3）。
+    // **名前の写しも同じ理由で空**（0012）── 額だけが渡ってくるので、
+    // 引き継いだ額に一致するプリセットのバッジは従来どおり値の逆引きで出る
     shippingMaterialCost: 0,
     excludesShippingMaterial: false,
+    shippingName: '',
     // **目標の既定値は空欄（＝決めていない）**（SPEC-V9 §2）。アプリ全体の既定値を
     // 作らないので、設定から引く元は無い。計算タブの逆算から来たときだけ、その目標額が
     // ここに入る（SPEC-V9 §5.3）── 入るのはあくまでフォームの初期値で、欄に見える状態で
@@ -234,6 +245,9 @@ export function recordToFormValues(
     // 保存済みの控えをそのまま戻す（SPEC-V6 §3）。これでトグルの有無も向きも復元される
     shippingMaterialCost: record.shippingMaterialCost,
     excludesShippingMaterial: record.excludesShippingMaterial,
+    // 名前の写し（0012）。**この列を足す前の記録は空文字**で戻り、
+    // バッジは従来どおり額の逆引きで決まる（presetNameForLookup）
+    shippingName: record.shippingName,
     // 目標（SPEC-V9 §2）。null は空欄、0 は "0" のまま戻る（targetProfitToInput の理由）
     targetProfit: targetProfitToInput(record.targetProfit),
     tagIds: [...tagIds],
@@ -311,6 +325,8 @@ export function toSaveInput(values: RecordFormValues): SaveRecordInput {
     // 送料の内訳の控え（SPEC-V6 §3）。postage には既に含まれた形で入っている
     shippingMaterialCost: values.shippingMaterialCost,
     excludesShippingMaterial: values.excludesShippingMaterial,
+    // 送料プリセット名の写し（0012）。siteName と同じく表示のためだけの列
+    shippingName: values.shippingName,
     // 目標利益（SPEC-V9 §2）。**空欄は 0 ではなく null**（他の金額欄と扱いが違う唯一の欄）
     targetProfit: parseTargetProfitInput(values.targetProfit),
     // タグ（SPEC-V4 §1.4 / §3.1）。**中間テーブルは全消し → 入れ直し**なので、

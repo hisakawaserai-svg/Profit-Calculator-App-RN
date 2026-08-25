@@ -972,6 +972,7 @@ export const ja = {
       excludesShippingMaterial: '専用資材を使わない',
       targetProfit: '目標利益',
       listedAt: '出品日（予備）',
+      shippingName: '送料プリセット',
       presetId: 'プリセットID',
       presetType: '種類',
       name: '名前',

@@ -157,7 +157,7 @@ export type DevSeedSources = {
    * 送料プリセット（円）。**送料と専用資材の代金の 2 つ**（SPEC-V6 §1）──
    * 記録に入るのは合計（資材を使わない記録だけ送料のみ）なので、片方だけでは組み立てられない。
    */
-  shippings: readonly ShippingPresetAmounts[];
+  shippings: readonly (ShippingPresetAmounts & { name: string })[];
   /** 梱包材プリセットの値（円）。1 件以上 */
   packagingValues: readonly number[];
   /** 販売サイトプリセットの名前と手数料率（%）。1 件以上・率は 0〜50 */
@@ -245,10 +245,15 @@ type Amounts = {
   /** 送料の内訳の控え（SPEC-V6 §3）。postage には既に含まれている（使わない記録を除く） */
   shippingMaterialCost: number;
   excludesShippingMaterial: boolean;
+  /** 選んだ送料プリセット名の写し（0012）。バッジがこの名前で引かれる */
+  shippingName: string;
 };
 
-/** 送料 1 件ぶんの決め方（SPEC-V6 §3）。postage・控え・トグルの 3 つは必ず一緒に決まる */
-type Shipping = Pick<Amounts, 'postage' | 'shippingMaterialCost' | 'excludesShippingMaterial'>;
+/** 送料 1 件ぶんの決め方（SPEC-V6 §3 / 0012）。postage・控え・トグル・名前は必ず一緒に決まる */
+type Shipping = Pick<
+  Amounts,
+  'postage' | 'shippingMaterialCost' | 'excludesShippingMaterial' | 'shippingName'
+>;
 
 /**
  * 送料を 1 つ選ぶ。**「専用資材を使わない」の枠だけは資材費のあるプリセットを当てる** ──
@@ -264,6 +269,7 @@ function shippingFor(index: number, sources: DevSeedSources, highest = false): S
       postage: preset.value,
       shippingMaterialCost: preset.materialCost,
       excludesShippingMaterial: true,
+      shippingName: preset.name,
     };
   }
 
@@ -276,6 +282,7 @@ function shippingFor(index: number, sources: DevSeedSources, highest = false): S
     postage: shippingPresetTotal(preset),
     shippingMaterialCost: preset.materialCost,
     excludesShippingMaterial: false,
+    shippingName: preset.name,
   };
 }
 

@@ -121,6 +121,9 @@ export function insertDevSeed(): DevSeedSummary {
 
   const sources: DevSeedSources = {
     shippings: shipping.map((preset) => ({
+      // 名前も渡す（0012）── 記録は選んだ送料プリセット名を写すので、
+      // 値だけでは投入データがバッジの経路を通らない
+      name: preset.name,
       value: preset.value,
       materialCost: preset.materialCost,
     })),

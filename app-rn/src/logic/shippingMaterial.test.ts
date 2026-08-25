@@ -9,8 +9,10 @@ import {
   shippingPresetTotal,
 } from './shippingMaterial';
 
-const withMaterial = { value: 450, materialCost: 70 };
-const withoutMaterial = { value: 210, materialCost: 0 };
+// 名前は selectShippingPreset（0012 で写しを返すようになった）だけが見る。
+// 他の関数は金額しか使わないので、同じ 2 件をそのまま渡してよい
+const withMaterial = { name: '宅配便（小）', value: 450, materialCost: 70 };
+const withoutMaterial = { name: 'A4・厚さ3cm以内', value: 210, materialCost: 0 };
 
 describe('shippingPresetTotal', () => {
   it('送料と資材費を足す', () => {
@@ -72,6 +74,7 @@ describe('selectShippingPreset', () => {
       postage: '520',
       shippingMaterialCost: 70,
       excludesShippingMaterial: false,
+      shippingName: '宅配便（小）',
     });
   });
 
@@ -80,6 +83,7 @@ describe('selectShippingPreset', () => {
       postage: '210',
       shippingMaterialCost: 0,
       excludesShippingMaterial: false,
+      shippingName: 'A4・厚さ3cm以内',
     });
   });
 
@@ -91,7 +95,7 @@ describe('selectShippingPreset', () => {
   });
 
   it('送料も資材費も 0 のプリセットは空欄になる（amountToInput と同じ規則）', () => {
-    expect(selectShippingPreset({ value: 0, materialCost: 0 }).postage).toBe('');
+    expect(selectShippingPreset({ name: '手渡し', value: 0, materialCost: 0 }).postage).toBe('');
   });
 });
 
@@ -101,6 +105,8 @@ describe('selectShippingPreset（45b の 2 択）', () => {
       postage: '450',
       shippingMaterialCost: 70,
       excludesShippingMaterial: true,
+      // 「送料のみ」でも選んだプリセットは変わらないので、名前は同じ（0012）
+      shippingName: '宅配便（小）',
     });
   });
 
@@ -116,11 +122,17 @@ describe('selectShippingPreset（45b の 2 択）', () => {
       postage: '210',
       shippingMaterialCost: 0,
       excludesShippingMaterial: false,
+      shippingName: 'A4・厚さ3cm以内',
     });
   });
 
+  it('名前は選んだ側に関わらず同じ（0012。2 択は資材費を足すかどうかだけの話）', () => {
+    expect(selectShippingPreset(withMaterial, 'with-material').shippingName).toBe('宅配便（小）');
+    expect(selectShippingPreset(withMaterial, 'shipping-only').shippingName).toBe('宅配便（小）');
+  });
+
   it('小数の資材費でも選んだ側の額がそのまま入る', () => {
-    const fractional = { value: 450, materialCost: 15.5 };
+    const fractional = { name: '宅配便（小）', value: 450, materialCost: 15.5 };
     expect(selectShippingPreset(fractional, 'with-material').postage).toBe('465.5');
     expect(selectShippingPreset(fractional, 'shipping-only').postage).toBe('450');
   });

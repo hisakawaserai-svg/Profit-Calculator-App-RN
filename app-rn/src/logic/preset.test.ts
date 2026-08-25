@@ -31,6 +31,7 @@ import {
   presetDraftUnitPrice,
   presetDraftUsePrice,
   presetInitial,
+  presetNameForLookup,
   presetUnitPrice,
   nextPresetColor,
   quickPresetDraft,
@@ -680,6 +681,83 @@ describe('§4.1 / §1.5.1 タグボタンの見た目', () => {
       kind: 'rate-changed',
       preset: sites[0],
     });
+  });
+});
+
+/**
+ * 0012 で送料も「写した名前で引く」側に入った。**この describe が直したかった 4 つを見る。**
+ *
+ * 送料が販売サイトと違うのは 2 点だけで、どちらもここで確かめる:
+ *   - 額の照合は**資材費込みでも一致する**（SPEC-V6 §3）── 選んだ直後に薄くならない
+ *   - 名前が空文字なら**値の逆引きに落ちる**（presetNameForLookup）── 列を足す前の記録の
+ *     見た目を変えないため
+ */
+describe('0012 送料のバッジを写した名前で引く', () => {
+  /** 同じ額（210 円）のプリセットが 2 件。並び順は「先」が 210A */
+  const sameAmount = [
+    { name: '210A', value: 210, materialCost: 0 },
+    { name: '210B', value: 210, materialCost: 0 },
+  ];
+  /** 資材費のある行。選ぶと欄に入るのは合計の 520 円（45b の「＋資材」） */
+  const withMaterial = [{ name: '宅配便（小）', value: 450, materialCost: 70 }];
+
+  it('同じ額のプリセットが 2 件でも、選んだほうの札が出る（並び順で先が勝たない）', () => {
+    // 額だけでは区別が付かない ── 逆引きは常に並び順で先の 1 件を返していた
+    expect(findPresetByValue(sameAmount, 210)?.name).toBe('210A');
+    // 名前があれば、後者を選んだ記録は後者のまま
+    expect(resolvePresetTag(sameAmount, 210, '210B')).toEqual({
+      kind: 'selected',
+      preset: sameAmount[1],
+    });
+  });
+
+  it('設定で金額を変えても、過去の記録の札は同じプリセットのまま（消えない・入れ替わらない）', () => {
+    // 記録は 210 円のまま。プリセットだけ 250 円に直された
+    const edited = [{ name: 'ネコポス', value: 250, materialCost: 0 }];
+
+    // 逆引きの時代は「どれとも一致しない」＝ 札が消えていた
+    expect(findPresetByValue(edited, 210)).toBeNull();
+    // 名前で引けば、同じプリセットを指したまま。額が違うことは薄いバッジ（▾ なし）で示す
+    expect(resolvePresetTag(edited, 210, 'ネコポス')).toEqual({
+      kind: 'rate-changed',
+      preset: edited[0],
+    });
+  });
+
+  it('資材費込みで選んだ記録は、選んだ直後から通常のバッジ（薄くならない）', () => {
+    // 欄に入るのは 450 + 70 = 520。value だけと照合すると rate-changed に落ちてしまう
+    expect(resolvePresetTag(withMaterial, 520, '宅配便（小）')).toEqual({
+      kind: 'selected',
+      preset: withMaterial[0],
+    });
+    // 「専用資材を使わない」を選んだ記録は送料そのもの。こちらも通常のバッジ
+    expect(resolvePresetTag(withMaterial, 450, '宅配便（小）')).toEqual({
+      kind: 'selected',
+      preset: withMaterial[0],
+    });
+    // どちらでもない額を手で入れたときだけ薄くなる
+    expect(resolvePresetTag(withMaterial, 500, '宅配便（小）')).toEqual({
+      kind: 'rate-changed',
+      preset: withMaterial[0],
+    });
+  });
+
+  it('写しを持たない記録（列を足す前・手入力）は従来どおり額で引く', () => {
+    // presetNameForLookup が空文字を undefined に落とし、値の逆引きへ入る
+    expect(presetNameForLookup('')).toBeUndefined();
+    expect(resolvePresetTag(sameAmount, 210, presetNameForLookup(''))).toEqual({
+      kind: 'selected',
+      preset: sameAmount[0],
+    });
+    // 名前があるときはそのまま名前で引く
+    expect(presetNameForLookup('210B')).toBe('210B');
+  });
+
+  it('**販売サイトは空文字で値に落とさない** ── 落とし方が違うので関数を分けてある', () => {
+    // 率 10% と一致するプリセットがあっても、選んでいなければ札は出ない（§1.5.1）。
+    // 販売サイトは presetNameForLookup を通さず、空文字をそのまま渡す
+    const marketplaces = [{ name: 'フリマA', value: 10 }];
+    expect(resolvePresetTag(marketplaces, 10, '')).toEqual({ kind: 'unselected' });
   });
 });
 

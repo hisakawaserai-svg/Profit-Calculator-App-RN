@@ -157,24 +157,35 @@ const RECORD_COLUMNS: readonly ColumnSpec[] = [
   // 将来の出品日（SPEC-V9 §1）。アプリはまだ書き込まないので、当面は常に空欄。
   // それでも列を出すのは「records.csv = DB の全カラム」の対応を保つため
   { name: 'listed_at', type: 'dateOrEmpty', label: 'listedAt' },
+  // 送料プリセット名の写し（0012）。site_name と同じ text で、空欄 = 未設定。
+  // **末尾に足す**（下の LEGACY の作り方と対）
+  { name: 'shipping_name', type: 'text', label: 'shippingName' },
 ];
 
 /**
- * SPEC-V9 §3 より前の records.csv（17 列）。**復元の互換のためだけに残す。**
+ * 古い版の records.csv。**復元の互換のためだけに残す。**
  *
- * 末尾の 2 列（`target_profit` / `listed_at`）が無いバックアップを、
- * **エラーにせず null として読み込む**ための表（§3 の「1 件でもエラーなら一切読み込まない」の例外）。
- * 例外にする理由は写真の欠落（§4.3）と同じ考え方 ── 列が 2 つ増えたというアプリ側の都合で、
- * 利用者が既に持っているバックアップを読めなくする理由がない。
- * 目標利益は後から足した任意項目なので、無くても記録の意味は変わらない。
+ * 末尾の列が無いバックアップを**エラーにせず空文字として読み込む**ための表
+ * （§3 の「1 件でもエラーなら一切読み込まない」の例外）。例外にする理由は写真の欠落（§4.3）と
+ * 同じ考え方 ── 列が増えたというアプリ側の都合で、利用者が既に持っているバックアップを
+ * 読めなくする理由がない。後から足した列はどれも任意項目で、無くても記録の意味は変わらない。
+ *
+ * **版が増えるので配列で持つ**（0012）。`parseBackupFile` が**新しい順に試し**、
+ * ヘッダがそのまま一致した表で読む。1 つしか持てない形のままだと、
+ * 列を足すたびに 1 つ前の版しか読めなくなる（もっと古いファイルが読めなくなる）。
  *
  * **末尾を削るだけで作る**（列名を書き写さない）── 書き写すと、
- * 先頭 17 列を直したときにこちらだけが古くなる。
+ * 先頭の列を直したときにこちらだけが古くなる。削る数はその版から**後に**足した列の数:
+ *
+ * | 版 | 列数 | 足りない列 |
+ * |---|---|---|
+ * | 0012 より前 | 19 | `shipping_name` |
+ * | SPEC-V9 §3 より前 | 17 | ＋ `target_profit` / `listed_at` |
  */
-const RECORD_COLUMNS_LEGACY: readonly ColumnSpec[] = RECORD_COLUMNS.slice(
-  0,
-  RECORD_COLUMNS.length - 2,
-);
+const RECORD_COLUMNS_LEGACY: readonly (readonly ColumnSpec[])[] = [
+  RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 1),
+  RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 3),
+];
 
 /**
  * presets.csv の 15 列（§2.1 ＋ SPEC-V10 §1.6）。
@@ -214,10 +225,9 @@ const PRESET_COLUMNS: readonly ColumnSpec[] = [
  * 既定の計算方式（個数から）とサイズ 0 に倒す ── **既存のバックアップから戻した梱包材は、
  * 保存したときと同じ「個数から」の行になる。**
  */
-const PRESET_COLUMNS_LEGACY: readonly ColumnSpec[] = PRESET_COLUMNS.slice(
-  0,
-  PRESET_COLUMNS.length - 5,
-);
+const PRESET_COLUMNS_LEGACY: readonly (readonly ColumnSpec[])[] = [
+  PRESET_COLUMNS.slice(0, PRESET_COLUMNS.length - 5),
+];
 
 /** tags.csv の 4 列（§2.1） */
 const TAG_COLUMNS: readonly ColumnSpec[] = [
@@ -280,7 +290,7 @@ const COLUMNS_BY_FILE: Record<string, readonly ColumnSpec[]> = {
  * （足りない列は空文字 ＝ null）。`backup-info.csv` は版そのものを持つファイルなので
  * ここには載せず、`readBackupInfo` が自分で切り替える（§1.2.1）。
  */
-const LEGACY_COLUMNS_BY_FILE: Record<string, readonly ColumnSpec[] | undefined> = {
+const LEGACY_COLUMNS_BY_FILE: Record<string, readonly (readonly ColumnSpec[])[] | undefined> = {
   [BACKUP_RECORDS_FILE]: RECORD_COLUMNS_LEGACY,
   [BACKUP_PRESETS_FILE]: PRESET_COLUMNS_LEGACY,
 };
@@ -540,9 +550,11 @@ export function parseBackupFile(locale: Locale, fileName: string, text: string):
 
   // 古い版の列で書かれたファイル（§3 の例外。RECORD_COLUMNS_LEGACY 参照）。
   // **見るのはヘッダの形であって backup-info.csv の版ではない** ── 版の数字は
-  // 手で書き換えられるし、書き換えられていても中身が読めるならそれで足りる
-  if (legacy != null && hasHeader(rows, legacy)) {
-    return parseTable(locale, fileName, legacy, rows).map((row) =>
+  // 手で書き換えられるし、書き換えられていても中身が読めるならそれで足りる。
+  // 表は新しい順に並んでいるので、先に一致した版で読む（列数が違うので取り違えは起きない）
+  const legacyColumns = legacy?.find((candidate) => hasHeader(rows, candidate));
+  if (legacyColumns != null) {
+    return parseTable(locale, fileName, legacyColumns, rows).map((row) =>
       withMissingColumns(row, columns),
     );
   }

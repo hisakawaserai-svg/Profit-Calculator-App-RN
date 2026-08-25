@@ -50,6 +50,7 @@ const record = (over: Partial<SaleRecord> = {}): SaleRecord => ({
   // 目標利益（SPEC-V9 §1）。既定は「決めていない」= null。listed_at はまだ読み書きしない
   targetProfit: null,
   listedAt: null,
+  shippingName: '',
   ...over,
 });
 

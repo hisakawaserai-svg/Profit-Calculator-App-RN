@@ -283,16 +283,29 @@ export function findPresetByValue<T extends { value: number; materialCost?: numb
   presets: readonly T[],
   value: number | null,
 ): T | null {
-  if (value == null) return null;
-  // 送料プリセットは**合計でも引ける**（SPEC-V6 §3）── 選ぶと欄に入るのは
-  // 「送料 ＋ 専用資材」なので、value だけで引くと選んだ直後に札が消える。
-  // 「専用資材を使わない」を立てた記録では欄が送料そのものになるので、両方を見る
-  return (
-    presets.find(
-      (preset) =>
-        preset.value === value || preset.value + (preset.materialCost ?? 0) === value,
-    ) ?? null
-  );
+  return presets.find((preset) => matchesPresetValue(preset, value)) ?? null;
+}
+
+/**
+ * 欄の値がこのプリセットのものか。**照合の規則はこの 1 本だけが持つ。**
+ *
+ * 送料プリセットは**合計でも一致する**（SPEC-V6 §3）── 選ぶと欄に入るのは
+ * 「送料 ＋ 専用資材」なので、value だけを見ると選んだ直後に札が消える。
+ * 「専用資材を使わない」を立てた記録では欄が送料そのものになるので、両方を見る。
+ *
+ * 値で引く経路（findPresetByValue）と、**名前で引いたあとに「額がプリセットのものか」を
+ * 見る経路**（resolvePresetTag の rate-changed 判定）の両方がここを通る ──
+ * 2 か所に書くと、資材費の扱いが片方だけ古くなる。
+ *
+ * 空欄（null）はどのプリセットにも一致しない ── 0 円のプリセットがあると、
+ * 何も入れていない欄にバッジが出てしまうため、値がないことと 0 であることを分ける。
+ */
+function matchesPresetValue(
+  preset: { value: number; materialCost?: number },
+  value: number | null,
+): boolean {
+  if (value == null) return false;
+  return preset.value === value || preset.value + (preset.materialCost ?? 0) === value;
 }
 
 /**
@@ -331,16 +344,20 @@ export type PresetTagState<T> =
  * 「プリセットの率がそのまま入っている」と読めてしまうので、
  * 率がプリセットと違うときは薄いバッジ（▾ なし）に落として、例外的な率だと分かるようにする。
  *
- * `selectedName` を渡さない欄（送料など）は値だけで引く。手で額を変えれば
- * その時点でどのプリセットとも一致しなくなり、バッジは消える（`unselected`）。
- * この欄には「名前は合っているが値が違う」状態が存在しないので、`rate-changed` にはならない。
+ * **送料も 0012 から同じ経路に入る**（写しの列 `shipping_name` を足したため）。
+ * 額の照合は `matchesPresetValue` を通すので、資材費込みで選んだ記録
+ * （欄は「送料 ＋ 資材費」）でも選んだ直後から `selected` のままになる。
+ *
+ * `selectedName` を渡さない欄（計算タブの送料・写しを持たない記録）は**値だけで引く。**
+ * 手で額を変えればどのプリセットとも一致しなくなり、バッジは消える（`unselected`）。
+ * この経路には「名前は合っているが値が違う」状態が無いので、`rate-changed` にはならない。
  *
  * **プリセットが削除・改名されていて名前で引けないときは `unselected`。**
  * バッジの色と頭文字はプリセットの保存値そのものなので、消えた行の札は描きようがない
  * （名前だけから色を作ると、同じ記録が編集のたびに違う色で出る）。
  * 販売サイト名は欄の下の行（SiteNameRow）に残るので、どこで売ったかは読める。
  */
-export function resolvePresetTag<T extends { name: string; value: number }>(
+export function resolvePresetTag<T extends { name: string; value: number; materialCost?: number }>(
   presets: readonly T[],
   value: number | null,
   selectedName?: string,
@@ -352,9 +369,31 @@ export function resolvePresetTag<T extends { name: string; value: number }>(
 
   const named = findPresetByName(presets, selectedName);
   if (named == null) return { kind: 'unselected' };
-  return named.value === value
+  return matchesPresetValue(named, value)
     ? { kind: 'selected', preset: named }
     : { kind: 'rate-changed', preset: named };
+}
+
+/**
+ * 写しの名前を `resolvePresetTag` の引数に直す（0012）。
+ *
+ * **空文字を `undefined` に落とすのがこの関数の全て**で、それが
+ * 「名前があれば名前で引き、無ければ従来どおり値で引く」という 0012 の約束そのものになる。
+ * 空文字が来るのは 2 通り:
+ *
+ *   - `shipping_name` を足す前に保存された記録（ALTER TABLE の DEFAULT で埋まった行）
+ *   - プリセットを選ばず、額を手で打った記録
+ *
+ * **前者の見た目を変えないために値の逆引きへ落とす**のが目的だが、
+ * 保存されている値だけでは後者と区別が付かないので、**後者も従来どおり
+ * 額の一致するプリセットのバッジが出る**（0012 で解けない唯一の項目）。
+ *
+ * 販売サイト（`site_name`）はこれを通さない ── あちらは空文字を「選んでいない」として
+ * 扱い、**値では引き直さない**（既定の 10% がたまたま一致するプリセットのバッジを、
+ * 選んでもいないのに出さないため。§1.5.1）。落とす先が違うので関数も分ける。
+ */
+export function presetNameForLookup(name: string): string | undefined {
+  return name === '' ? undefined : name;
 }
 
 /**

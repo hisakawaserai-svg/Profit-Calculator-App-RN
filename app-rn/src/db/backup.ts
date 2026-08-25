@@ -138,6 +138,8 @@ export function createBackupRepository(db: Database) {
           // 目標利益と将来の出品日（SPEC-V9 §3）。どちらも null は空欄
           target_profit: nullableNumberField(row.targetProfit),
           listed_at: dateField(row.listedAt),
+          // 送料プリセット名の写し（0012）。site_name と同じく素の文字列
+          shipping_name: row.shippingName,
         })),
         presets: presetRows.map((row) => ({
           id: row.id,
@@ -294,6 +296,14 @@ function toRecordRow(row: BackupRow, availablePhotos: ReadonlySet<string>) {
      */
     targetProfit: nullableNumber(row.target_profit),
     listedAt: emptyToNull(row.listed_at),
+    /**
+     * 送料プリセット名の写し（0012）。**列そのものが無い古いバックアップでも空文字**
+     * （logic/backup.ts の withMissingColumns が埋める）ので `?? ''` で受ける。
+     *
+     * 空文字で戻った記録のバッジは従来どおり額の逆引きで決まる（resolvePresetTag）ので、
+     * **この列より前に取ったバックアップから戻しても見た目は変わらない。**
+     */
+    shippingName: row.shipping_name ?? '',
   };
 }
 

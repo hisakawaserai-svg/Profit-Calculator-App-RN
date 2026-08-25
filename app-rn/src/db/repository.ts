@@ -226,6 +226,17 @@ export type SaveRecordInput = {
   shippingMaterialCost: number;
   excludesShippingMaterial: boolean;
   /**
+   * 選んだ送料プリセット名の写し（0012）。空文字 = 未設定。**`siteName` と同じ扱い。**
+   *
+   * 金額（postage）とは独立に持つ ── バッジをこの名前で引くための列で、
+   * 計算にも集計にも入らない。手で額を変えても消さない（名前は利用者が選んだ札で、
+   * 額の調整で無効になるものではない。SPEC-V3 §1.5.1 と同じ考え方）。
+   *
+   * **省略可にしない**（siteName / photoFileName / tagIds と同じ理由）── update は
+   * 行を丸ごと書き換えるので、省略できると「渡し忘れて静かに札が消える」経路ができる。
+   */
+  shippingName: string;
+  /**
    * 目標利益（SPEC-V9 §1）。**null = 目標を決めていない。0 で代用しない。**
    *
    * **省略可にしない**（siteName / photoFileName / tagIds と同じ理由）── update は
@@ -491,6 +502,9 @@ export function createRepository(
       // 送料の内訳の控え（SPEC-V6 §3）。postage と違って計算には入らない
       shippingMaterialCost: input.shippingMaterialCost,
       excludesShippingMaterial: input.excludesShippingMaterial,
+      // 送料プリセット名の写し（0012）。siteName と同じく正規化しない ──
+      // 額を手で変えても名前は消さない
+      shippingName: input.shippingName,
       // 目標利益（SPEC-V9 §1）。**null をそのまま入れる** ── 0 に落とすと
       // 「決めていない」が「目標 0 円」に化ける。listed_at は列に触らない（型のコメント参照）
       targetProfit: input.targetProfit,

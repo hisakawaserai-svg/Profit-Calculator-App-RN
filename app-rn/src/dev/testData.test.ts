@@ -22,13 +22,13 @@ const SOURCES: DevSeedSources = {
   // 送料と専用資材の代金（SPEC-V6 §1）。2 件だけ資材費を持たせて、
   // 「専用資材を使わない」の記録が作られることを確かめられるようにする
   shippings: [
-    { value: 210, materialCost: 0 },
-    { value: 185, materialCost: 0 },
-    { value: 450, materialCost: 70 },
-    { value: 750, materialCost: 0 },
-    { value: 850, materialCost: 100 },
-    { value: 1050, materialCost: 0 },
-    { value: 0, materialCost: 0 },
+    { name: '小型薄型', value: 210, materialCost: 0 },
+    { name: '小型薄型（安）', value: 185, materialCost: 0 },
+    { name: '宅配（小）', value: 450, materialCost: 70 },
+    { name: '宅配（中）', value: 750, materialCost: 0 },
+    { name: '宅配（大）', value: 850, materialCost: 100 },
+    { name: '宅配（特大）', value: 1050, materialCost: 0 },
+    { name: '手渡し', value: 0, materialCost: 0 },
   ],
   packagingValues: [15, 40, 20, 60, 100, 10],
   sites: [
@@ -316,10 +316,28 @@ describe('SPEC-V6 §5 専用資材', () => {
 
       expect(included.length).toBeGreaterThan(0);
       for (const record of included) {
-        expect(SOURCES.shippings).toContainEqual({
-          value: record.postage - record.shippingMaterialCost,
-          materialCost: record.shippingMaterialCost,
-        });
+        expect(SOURCES.shippings).toContainEqual(
+          expect.objectContaining({
+            value: record.postage - record.shippingMaterialCost,
+            materialCost: record.shippingMaterialCost,
+          }),
+        );
+      }
+    });
+  });
+
+  it('送料プリセット名の写しが入る（0012。バッジは額ではなくこの名前で引かれる）', () => {
+    eachRun((records) => {
+      for (const record of records) {
+        // 投入データは必ずプリセットから送料を決めている（shippingFor）ので、全件に名前が入る
+        expect(record.shippingName).not.toBe('');
+        const preset = SOURCES.shippings.find((item) => item.name === record.shippingName);
+        expect(preset).toBeDefined();
+        // 名前と額が同じプリセットを指していること（写しが額と食い違わない）
+        const expected = record.excludesShippingMaterial
+          ? preset!.value
+          : preset!.value + preset!.materialCost;
+        expect(record.postage).toBe(expected);
       }
     });
   });

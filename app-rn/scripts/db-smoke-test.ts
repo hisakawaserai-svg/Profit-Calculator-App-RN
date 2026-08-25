@@ -54,6 +54,8 @@ const base: Omit<SaveRecordInput, 'itemName' | 'isSold' | 'saleStartDate' | 'sal
   photoFileName: null,
   shippingMaterialCost: 0,
   excludesShippingMaterial: false,
+  // 送料プリセット名の写し（0012）。既定は「プリセットを使っていない」
+  shippingName: '',
   // タグ（SPEC-V4 §1.4）。この経路ではタグを付けないので空配列
   // 目標は既定で「決めていない」（SPEC-V9 §1）
   targetProfit: null,

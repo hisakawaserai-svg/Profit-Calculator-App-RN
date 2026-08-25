@@ -774,6 +774,7 @@ export const en: Translations = {
       excludesShippingMaterial: 'Not using dedicated materials',
       targetProfit: 'Target profit',
       listedAt: 'Listing date (reserved)',
+      shippingName: 'Shipping preset',
       presetId: 'Preset ID',
       presetType: 'Kind',
       name: 'Name',
