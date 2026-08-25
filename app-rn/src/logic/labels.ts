@@ -2050,20 +2050,28 @@ export function calcAddRowLabel(locale: Locale): string {
 }
 
 /**
- * 積み上げの末尾の中央（SPEC-V3 §4.5 / 設計案 26c）。左「＋ 行を足す」と右「AC」の間。
- * 頭のタグ印はアイコンで出す（PresetTagButton と同じ `pricetag-outline`）ので、語だけを持つ。
+ * 複数選択シートの下端の青リンク（案 c の追補）。**「入れる」と同じことをしたうえで電卓を開く。**
+ *
+ * 語を「電卓で続ける」にしてあるのは、押した先が**やり直しではなく続き**だから ──
+ * 選んだぶんは既に積まれていて、そこに `× 2` を足しに行く（決定 §8-11）。
+ * 「電卓を開く」だと、選んだものが持ち越されるのかが読めない。
  */
-export function calcPickPackagingLabel(locale: Locale): string {
-  return t('calculator.pickPackaging', locale);
+export function calcContinueLabel(locale: Locale): string {
+  return t('preset.continueInCalc', locale);
 }
 
 /**
- * 複数選択シートのヘッダ左（§4.5 / 設計案 26c）。「キャンセル」ではなく**戻り先の名前**にする ──
- * このシートは電卓の上に重なって出るので、閉じると電卓に戻ることが語から読める方がよい。
- * 「‹」はアイコンで出す。
+ * 梱包材の欄の下に出す、選んだ資材の名前（案 c）。
+ *
+ * **バッジは出さず名前だけを連ねる**（決定 §8-6 と揃える）── 同じ出どころ（電卓の品名列）の
+ * 情報で、3 件並んでもバッジより読みやすい。区切りは言語ごとに辞書が持つ
+ * （日本語は「・」、英語は前後に空きのある「, 」）。
+ *
+ * 名前が 0 件なら null（行ごと出さない）。
  */
-export function calcPickerBackLabel(locale: Locale): string {
-  return t('preset.pickerBack', locale);
+export function pickedPresetNamesLabel(locale: Locale, names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  return names.join(t('preset.pickedNameSeparator', locale));
 }
 
 /** 複数選択シートの合計行（§4.5-3）。選んだ数を「点」で数える（金額と混ざらない単位） */
@@ -5797,7 +5805,6 @@ export const CANCEL_LABEL = t('action.cancel', 'ja');
 export const CLOSE_LABEL = t('action.close', 'ja');
 export const DELETE_LABEL = t('action.delete', 'ja');
 export const CALC_ADD_ROW_LABEL = t('calculator.addRow', 'ja');
-export const CALC_PICK_PACKAGING_LABEL = t('calculator.pickPackaging', 'ja');
 export const CALC_SUBMIT_LABEL = t('calculator.submit', 'ja');
 export const CALC_TOTAL_LABEL = t('calculator.total', 'ja');
 

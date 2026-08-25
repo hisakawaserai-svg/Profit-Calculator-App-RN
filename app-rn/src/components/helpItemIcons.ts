@@ -65,7 +65,7 @@ export const HELP_ITEM_ICONS: Record<string, HelpIconName> = {
   'record-tag-delete': 'trash-outline',
   // 登録しておく
   'record-preset': 'bookmarks-outline', // よく使う値を登録しておく
-  'record-preset-material': 'layers-outline', // 電卓の中で 1 行ずつ積まれる
+  'record-preset-material': 'pricetag-outline', // 欄の横の「タグの印」から選ぶ（案 c で電卓の中から移した）
   'record-preset-edit': 'lock-closed-outline', // 直しても保存済みの記録は動かない
   'record-preset-pack': 'cube-outline', // まとめ買いした梱包材
   'record-badge': 'text-outline', // バッジの中の文字

@@ -39,8 +39,8 @@ import { costBreakdown, requiredPriceResult, type CalcFormValues } from '@/logic
 import { formatCalcTotal, formatUnitYen, formatYenSymbol } from '@/logic/format';
 import { PRICING_EXAMPLE, PRICING_EXAMPLE_SIMULATED_PRICE } from '@/logic/helpFigureExample';
 import {
-  calcPickPackagingLabel,
-  calcPickerBackLabel,
+  cancelLabel,
+  pickedPresetNamesLabel,
   calcSubmitLabel,
   cumulativeProfitLabel,
   dataModeAchievementsLabel,
@@ -83,6 +83,7 @@ import {
   ONBOARDING_CHART_PROFITS,
   ONBOARDING_DATA_EXAMPLE,
   onboardingItemNameExample,
+  onboardingPackagingNamesExample,
   onboardingPackagingPresetExample,
   onboardingShippingPresetExample,
   onboardingSitePresetExample,
@@ -359,13 +360,17 @@ export function OnboardingPresetFigure() {
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
-        {/* 梱包材の行そのものにはタグの入口は無い（送料・手数料と違い、行の外＝電卓の中に
-            しかプリセットへの入口を持たない。ファイル冒頭コメント参照）。電卓ボタンだけを
-            実物の NumericField（envelopeCost 欄は presetType を渡していない）と同じ形で出す */}
+        {/* 梱包材の行にも**タグの入口がある**（案 c で電卓の中から行へ移した）。
+            送料・手数料の行と同じ位置・同じ印で、押すと複数選択のシートが開く。
+            違いは押したあとで、複数選ぶのでバッジには変わらず、
+            選んだ名前が行の下に出る（実物の PackagingNamesRow）。
+            実物の NumericField と同じ並び（ラベル → タグ → 額 → 電卓ボタン）にしてある */}
         <View style={styles.presetFieldRow}>
           <Text style={[styles.fieldLabel, { color: colors.label }]} numberOfLines={1}>
             {envelopeCostLabel(locale)}
           </Text>
+          <Ionicons name="pricetag-outline" size={22} color={colors.blue} />
+          <Ionicons name="chevron-down" size={12} color={colors.blue} />
           <View style={styles.grow} />
           <Text style={[styles.fieldValue, { color: colors.label }]} numberOfLines={1}>
             {formatYenSymbol(envelopeCost)}
@@ -373,12 +378,13 @@ export function OnboardingPresetFigure() {
           <Ionicons name="calculator-outline" size={22} color={colors.blue} />
         </View>
 
-        {/* プリセットの入口は電卓を開いた先にある（実物の MiniCalculator の
-            「🏷 梱包材から選ぶ」ボタン。canPickPackaging）。行の下に、その入口の見本を添える */}
-        <View style={[styles.pickPackagingRow, { borderTopColor: colors.separator }]}>
-          <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
-          <Text style={[styles.pickPackagingLabel, { color: colors.blue }]}>
-            {calcPickPackagingLabel(locale)}
+        {/* 選んだ資材の名前（実物の PackagingNamesRow）。**押した直後だけ出る控え**で
+            記録には残らないが、図としては「選ぶと何が起きるか」を示す side なので出す */}
+        <View style={[styles.pickedNamesRow, { borderTopColor: colors.separator }]}>
+          <Text
+            style={[styles.pickedNamesLabel, { color: colors.secondaryLabel }]}
+            numberOfLines={1}>
+            {pickedPresetNamesLabel(locale, onboardingPackagingNamesExample(locale)) ?? ''}
           </Text>
         </View>
       </View>
@@ -734,9 +740,9 @@ function exampleAchievement(id: Achievement['id']): Achievement {
  * NumericField をそのまま使っているので pointerEvents="none" で包む
  * （OnboardingTargetFigure の PriceSlider と同じ理由。ファイル冒頭コメント参照）。
  *
- * カード 2 は実物の PresetMultiPickerSheet（電卓の「🏷 梱包材から選ぶ」の先。
- * MiniCalculator.tsx 参照）の簡易再現。実物は usePresetList でユーザーの DB を読む
- * シートなので図にはそのまま使えず、同じヘッダ（‹ 電卓／見出し）・チェック行（実物の
+ * カード 2 は実物の PresetMultiPickerSheet（**梱包材の欄の「🏷」の先**。案 c で
+ * 電卓の中から金額行へ移した）の簡易再現。実物は usePresetList でユーザーの DB を読む
+ * シートなので図にはそのまま使えず、同じヘッダ（キャンセル／見出し）・チェック行（実物の
  * PresetRow）・下端の合計行という構成だけをカード 1 と同じ 1 件のプリセットで組み直した。
  */
 export function OnboardingPackagingPresetFigure() {
@@ -774,9 +780,10 @@ export function OnboardingPackagingPresetFigure() {
       <View style={[styles.card, styles.pickerCard, { backgroundColor: colors.secondaryBackground }]}>
         <View style={styles.pickerHeader}>
           <View style={styles.pickerHeaderSide}>
-            <Ionicons name="chevron-back" size={18} color={colors.blue} />
-            <Text style={[styles.pickerBackLabel, { color: colors.blue }]}>
-              {calcPickerBackLabel(locale)}
+            {/* 実物と同じ「キャンセル」（案 c）。「‹ 電卓」ではない ── 入口が金額行の
+                「🏷」へ移り、閉じたときの戻り先が電卓ではなくなった */}
+            <Text style={[styles.pickerBackLabel, { color: colors.blue }]} numberOfLines={1}>
+              {cancelLabel(locale)}
             </Text>
           </View>
           <Text style={[styles.pickerTitle, { color: colors.label }]} numberOfLines={1}>
@@ -916,17 +923,17 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 44,
   },
-  // 実物の MiniCalculator「🏷 梱包材から選ぶ」ボタンの見本（OnboardingPresetFigure）
-  pickPackagingRow: {
+  // 選んだ資材の名前の見本（実物の PackagingNamesRow。OnboardingPresetFigure）。
+  // 太字にしないのは実物と同じ ── これは操作できる口ではなく、選んだ結果の控えなので
+  pickedNamesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  pickPackagingLabel: {
+  pickedNamesLabel: {
+    flex: 1,
     fontSize: 13,
-    fontWeight: '600',
   },
   // OnboardingPackagingPresetFigure カード 2（電卓の「梱包材を選ぶ」シートの簡易再現）
   pickerCard: {

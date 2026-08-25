@@ -12,18 +12,15 @@
 // 行の積み上げ・合計・「入れる」の可否はすべて logic/calcMemo.ts の純粋関数が持つ。
 // この画面が持つのは並び（4 列 × 4 行）と見た目だけで、式も合計もここでは組み立てない。
 // 表示語は labels.ts 経由（§0）。記号 → `*` `/` の変換は logic/calculator.ts に閉じる（§7.6）。
-import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { PresetBadge } from '@/components/PresetBadge';
-import { PresetMultiPickerSheet } from '@/components/PresetMultiPickerSheet';
 import { SheetModal } from '@/components/SheetModal';
 import {
   appendDigit,
-  appendPresetRows,
   appendOperator,
   backspace,
   clearAll,
@@ -50,7 +47,6 @@ import {
   CALC_KEY_MINUS,
   CALC_KEY_MULTIPLY,
   CALC_KEY_PLUS,
-  calcPickPackagingLabel,
   calcSubmitLabel,
   calcTotalLabel,
   closeLabel,
@@ -112,24 +108,6 @@ type Props = {
    * 次に開いたときに内訳を復元できるよう、確定した積み上げ（memo）も一緒に返す。
    */
   onSubmit: (value: string, memo: CalcMemo) => void;
-  /**
-   * 梱包材シート末尾の「設定で編集する ▸」を出すか（既定 true）。
-   * 記録フォームからは false（PresetPickerSheet と同じ理由。モーダルの裏に遷移するため）。
-   */
-  canOpenSettings?: boolean;
-  /**
-   * 「🏷 梱包材から選ぶ」を出すか（**既定 false**。SPEC-V3 §4.5）。
-   *
-   * 出すのは**梱包材の欄から開いた電卓だけ**。シートの中身は元々どの欄から開いても同じだが、
-   * 梱包材プリセットを積める先は梱包材の欄しかないので、販売価格や送料の電卓に置くと
-   * 「この欄でも使うのか」と読ませてしまう。ヘルプ（helpContent の「よく使う値」）も
-   * 梱包材の欄からの導線としてだけ説明している。
-   *
-   * 梱包材のプリセットを**登録する**画面（PresetFormScreen / PackBuyFields）でも出ない。
-   * 「封筒」を登録するのに「封筒」を選べる経路は作らない（§4.2）。ただし電卓そのものは残す
-   * ──「1000 ÷ 30」の単価計算に使うため（§3.3）。
-   */
-  canPickPackaging?: boolean;
   onClose: () => void;
 };
 
@@ -138,8 +116,6 @@ export function MiniCalculator({
   fieldLabel,
   initialMemo,
   onSubmit,
-  canOpenSettings = true,
-  canPickPackaging = false,
   onClose,
 }: Props) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
@@ -149,7 +125,6 @@ export function MiniCalculator({
   const colors = useThemeColors();
   // 「入れる」を押さずに閉じた分の積み上げは残らない（§7.4）。state はこの 1 つだけ
   const [memo, setMemo] = useState(() => initialMemo);
-  const [showPacking, setShowPacking] = useState(false);
   const rowsRef = useRef<ScrollView>(null);
 
   const total = memoTotal(memo);
@@ -259,24 +234,6 @@ export function MiniCalculator({
                     {additionLabel(locale, calcAddRowLabel(locale))}
                   </Text>
                 </Pressable>
-                {/* 出さないときは詰め物も置かない。左「＋ 行を足す」と右「AC」の
-                    2 つ構成に戻るだけで、どちらの位置も変わらない（space-between） */}
-                {canPickPackaging && (
-                  <Pressable
-                    onPress={() => setShowPacking(true)}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.addRow,
-                      styles.pickPacking,
-                      { opacity: pressed ? 0.5 : 1 },
-                    ]}>
-                    {/* タグ印はプリセットの入口の合図（行のタグボタンと同じ pricetag-outline） */}
-                    <Ionicons name="pricetag-outline" size={16} color={colors.blue} />
-                    <Text style={[styles.addRowLabel, { color: colors.blue }]}>
-                      {calcPickPackagingLabel(locale)}
-                    </Text>
-                  </Pressable>
-                )}
                 <Pressable
                   onPress={() => handleKey(CALC_KEY_CLEAR_ALL)}
                   accessibilityRole="button"
@@ -306,27 +263,6 @@ export function MiniCalculator({
               </Text>
             )}
           </View>
-
-          {/* 5a. 梱包材の複数選択（§4.5）。電卓の上に重ねて出し、「入れる」で行として積む。
-              電卓はこの下で開いたまま ── 戻ったときに積み上げが残っていることが要件 */}
-          {showPacking && (
-            <PresetMultiPickerSheet
-              canOpenSettings={canOpenSettings}
-              onSubmit={(presets) =>
-                setMemo((current) =>
-                  appendPresetRows(
-                    current,
-                    presets.map((preset) => ({
-                      name: preset.name,
-                      value: preset.value,
-                      colorKey: preset.colorKey,
-                    })),
-                  ),
-                )
-              }
-              onClose={() => setShowPacking(false)}
-            />
-          )}
 
           {/* 6. キーパッド。下端に固定 */}
           <View style={styles.keypad}>

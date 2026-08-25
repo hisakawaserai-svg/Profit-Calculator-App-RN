@@ -124,7 +124,6 @@ export const en: Translations = {
     accessibility: 'Calculator for {{field}}',
     total: 'Total',
     addRow: 'Add a row',
-    pickPackaging: 'Pick from packaging',
     submit: 'Use this',
     backspaceAccessibility: 'Delete one character',
     clearAllAccessibility: 'Clear everything',
@@ -139,7 +138,9 @@ export const en: Translations = {
     typeSiteInline: 'marketplaces',
     typeShippingInline: 'shipping options',
     typePackagingInline: 'packaging',
-    pickerBack: 'Calculator',
+    continueInCalc: 'Continue in calculator',
+    /** 選んだ梱包材の名前を欄の下に連ねるときの区切り（案 c） */
+    pickedNameSeparator: ', ',
     pickerEmptyBody: 'Type a name in the field above to save one right here.',
     pickerEditLink: 'Edit in Settings ▸',
     pickerAddLink: 'Add in Settings ▸',
@@ -877,7 +878,7 @@ export const en: Translations = {
     deletedMessage: 'Deleted the {{type}}',
     listNoteSite: 'Picking one fills in the fee rate. Fees on saved records do not change.',
     listNoteShipping: 'Picking one fills in the shipping cost. Check the actual rates with each carrier.',
-    listNotePackaging: 'You can pick several from inside the calculator. The total goes into the packaging field.',
+    listNotePackaging: 'Pick several from the tag mark beside the packaging field. The total goes into the field.',
     editValueNoteRate: 'Changing the fee rate does not change the fee on records you have already saved.',
     editValueNoteAmount: 'Changing the amount does not change the amount on records you have already saved.',
     nameField: 'Name',
@@ -1015,7 +1016,7 @@ export const en: Translations = {
       },
       'calc-preset': {
         title: 'I want to stop typing the same numbers',
-        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row is for “Marketplace”: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on “Marketplace” removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nPackaging has no mark beside its field — you pick it from inside the calculator. You save all of these under “Saved Values” in the Settings tab.',
+        body: 'Tap the tag mark beside the shipping field to pick from the shipping costs you saved. The mark beside the fee row is for “Marketplace”: tapping one fills in both the fee rate and the site name, and a row with the site name appears below.\n\nAfter you pick, an “✕” appears to the right of the mark. The “✕” on shipping empties the shipping field; the “✕” on “Marketplace” removes only the name (the rate stays). You can also clear the name from the “✕” on the site name row below.\n\nThe packaging mark is the only one that never turns into a badge — you can pick any number of items, so what you picked is listed by name under the field (it is not saved with the record, and it disappears if you edit the amount by hand). You save all of these under “Saved Values” in the Settings tab.',
         linkLabel: 'See how to save them ›',
       },
       'calc-shipping-material': {
@@ -1117,11 +1118,11 @@ export const en: Translations = {
       },
       'record-preset': {
         title: 'I want to save values I use often',
-        body: 'Under “Saved Values” in the Settings tab you can save marketplaces, shipping costs and packaging. Once saved, filling a field is just a matter of picking one.\n\nMarketplaces and shipping are picked from the tag mark beside their field, and the value you tap goes straight in. Packaging is the one you call up from somewhere else.\n\nShipping amounts are the ones you saved yourself; check the actual rates with the delivery service.',
+        body: 'Under “Saved Values” in the Settings tab you can save marketplaces, shipping costs and packaging. Once saved, filling a field is just a matter of picking one.\n\nAll three are picked from the tag mark beside their field, and the value you tap goes straight in. Packaging is the only one where you can pick several.\n\nShipping amounts are the ones you saved yourself; check the actual rates with the delivery service.',
       },
       'record-preset-material': {
         title: 'Where packaging is picked from',
-        body: 'Packaging has no tag mark beside its field. Tap the blue calculator button to the right of the packaging field, then use “Pick from packaging” (the blue text with the tag mark) inside the calculator.\n\nYou can pick as many as you like here. “Use this” stacks each one as its own row and puts the total into the field. Save the box and the tape separately and two taps give you the total.',
+        body: 'Tap the tag mark beside the packaging field to pick. It is the same place as marketplaces and shipping, but here you can pick as many as you like.\n\n“Use this” stacks each one as its own row and puts the total into the field. Save the box and the tape separately and two taps give you the total. What you picked is listed by name under the field (it is not saved with the record, and it disappears if you edit the amount by hand).\n\nOn a day you used two of the same thing, tap “Continue in calculator”: the calculator opens with your picks already stacked, and you can type “× 2” to multiply.',
       },
       'record-preset-pack': {
         title: 'Working out a per-item or per-use cost for a bulk buy',
@@ -1407,7 +1408,7 @@ export const en: Translations = {
     saveBody: 'An item name is enough to save. Photos, tags and the type can all go into the record too.',
     presetTitle: 'Saved values go in with a tap',
     /** 日本語側と同じ並び（その場登録が先、設定タブはそのあと）。ja.ts の presetBody のコメント参照 */
-    presetBody: 'Marketplaces and shipping come from the mark beside the field, and packaging from inside the calculator. You can also save one on the spot, at the top of the picker. You can save them under “{{section}}” in the Settings tab too.',
+    presetBody: 'Marketplaces, shipping and packaging all come from the mark beside the field (packaging is the one where you can pick several). You can also save one on the spot, at the top of the picker. You can save them under “{{section}}” in the Settings tab too.',
     simulatorTitle: 'Try a discount while it is still listed',
     simulatorBody: 'Move the current price and see the expected profit right away. Moving it does not change the record. Open it from a record’s details, on the row just under the bar in the amounts card.',
     simulatorNotePrefix: 'The target line only appears when the record has a ',
@@ -1426,6 +1427,9 @@ export const en: Translations = {
     examplePresetSite: '10% fee',
     examplePresetPackaging: 'Bubble wrap (S)',
     examplePresetPackagingInitial: 'BW',
+    /** 梱包材の欄の下に出す「選んだ資材」の例（案 c）。複数選択だと読めるよう 2 件 */
+    examplePackagingName1: 'Small box',
+    examplePackagingName2: 'Bubble wrap',
     exampleItemName: 'Wristwatch',
     exampleTag: 'Accessories',
   },

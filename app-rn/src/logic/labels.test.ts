@@ -63,6 +63,7 @@ import {
   nextPeriodLabel,
   periodProfitLabel,
   periodTitle,
+  pickedPresetNamesLabel,
   previousPeriodLabel,
   COMMISSION_LABEL,
   ENVELOPE_AND_OTHERS_FIELD_LABEL,
@@ -224,6 +225,24 @@ describe('§1.3 / UI-SPEC §6-4 計算タブのラベル', () => {
   it('計算タブの手数料の ± の中に置く率だけの表記', () => {
     expect(commissionRateLabel('ja', 10)).toBe('10%');
     expect(commissionRateLabel('en', 50)).toBe('50%');
+  });
+});
+
+describe('案 c 梱包材の欄の下に出す名前', () => {
+  it('日本語は「・」で連ねる', () => {
+    expect(pickedPresetNamesLabel('ja', ['段ボール（小）', '緩衝材'])).toBe('段ボール（小）・緩衝材');
+  });
+
+  it('英語は前後に空きのある「, 」で連ねる', () => {
+    expect(pickedPresetNamesLabel('en', ['Small box', 'Bubble wrap'])).toBe('Small box, Bubble wrap');
+  });
+
+  it('1 件ならその名前だけ', () => {
+    expect(pickedPresetNamesLabel('ja', ['緩衝材'])).toBe('緩衝材');
+  });
+
+  it('0 件は null（行ごと出さない）', () => {
+    expect(pickedPresetNamesLabel('ja', [])).toBeNull();
   });
 });
 

@@ -26,7 +26,8 @@ import type { Preset } from '@/db/schema';
 import { usePresetList } from '@/db/usePresets';
 import { formatCalcTotal } from '@/logic/format';
 import {
-  calcPickerBackLabel,
+  calcContinueLabel,
+  cancelLabel,
   calcSubmitLabel,
   presetPickerAddLink,
   presetPickerEditLink,
@@ -41,9 +42,33 @@ import { useThemeColors } from '@/theme';
 /** この部品が扱うのは梱包材だけ（§4.5）。他の 2 種は単一選択で入る */
 const TYPE = 'packaging';
 
+/**
+ * 確定したあとどこへ行くか（案 c の追補）。**どちらも「選んだぶんを積む」ところまでは同じ**で、
+ * 違うのは積んだ結果を見せる場所だけ:
+ *
+ * - `field`      … 欄へ合計を書いて閉じる（**既定の道**。個数を掛けないならここで終わり）
+ * - `calculator` … 同じことをしたうえで、続けて電卓を開く（`× 2` を打つための道。決定 §8-11）
+ *
+ * 行き先を 2 つの callback に分けないのは、**やることが同じで最後の 1 手だけが違う**ため ──
+ * 分けると「積む処理」が 2 か所に書かれる。送料の 2 択（45b の `ShippingMaterialChoice`）と同じ形。
+ */
+export type PackagingPickDestination = 'field' | 'calculator';
+
 type Props = {
-  /** 「入れる」で呼ばれる。渡すのは**選んだ順のプリセット**で、行の組み立ては呼び出し側（§4.5） */
-  onSubmit: (presets: Preset[]) => void;
+  /**
+   * **開いたときにチェックが付いている id**（案 c）。呼び出し側が「いま欄に入っているもの」を渡す
+   * （NumericField の presetRowIds）。
+   *
+   * 空で開くと、選び直しのつもりの人が同じものをもう一度選ぶことになり、
+   * 確定した瞬間に二重に積まれる ── **この初期値と、確定が置き換えであること
+   * （pickPresetsResult）は対で成り立っている。**片方だけでは選び直しにならない。
+   */
+  pickedIds: readonly string[];
+  /**
+   * 「入れる」「電卓で続ける」のどちらかで呼ばれる。渡すのは**選んだ順のプリセット**で、
+   * 行の組み立ては呼び出し側（§4.5）。`destination` は上の 2 つ（案 c の追補）。
+   */
+  onSubmit: (presets: Preset[], destination: PackagingPickDestination) => void;
   /** 設定タブへのリンクを出すか。記録フォームからは false（PresetPickerSheet と同じ理由） */
   canOpenSettings?: boolean;
   /** 「‹ 電卓」・幕のタップで閉じる。電卓はこの下に開いたまま残っている */
@@ -51,7 +76,12 @@ type Props = {
 };
 
 /** 開いている間だけマウントする前提（選択は閉じれば消える。電卓の積み上げと同じ扱い） */
-export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClose }: Props) {
+export function PresetMultiPickerSheet({
+  pickedIds: initialPickedIds,
+  onSubmit,
+  canOpenSettings = true,
+  onClose,
+}: Props) {
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
   const locale = useLocale();
 
@@ -61,8 +91,10 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
   const { presets, refresh } = usePresetList(TYPE);
 
   // 選んだ順を保つ（積まれる行の並びがタップした順になる）。id の配列で持つのは、
-  // 一覧が引き直されても選択が保てるようにするため
-  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  // 一覧が引き直されても選択が保てるようにするため。
+  // **初期値は「いま欄に入っているもの」**（案 c）── 開いている間だけマウントされるので、
+  // 開くたびに呼び出し側の今の状態から入り直す
+  const [pickedIds, setPickedIds] = useState<string[]>(() => [...initialPickedIds]);
 
   const picked = pickedIds
     .map((id) => presets.find((preset) => preset.id === id))
@@ -93,17 +125,18 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
           pointerEvents="box-none"
           behavior="padding">
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            {/* ヘッダ。左「‹ 電卓」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」） */}
+            {/* ヘッダ。左「キャンセル」／中央「梱包材を選ぶ」／右は空（確定は下端の「入れる」）。
+                **「‹ 電卓」ではない**（案 c）── 入口が金額行の「🏷」に移り、閉じたときの戻り先が
+                電卓ではなくなった。単一選択のシート（右上「閉じる」）とも作法が揃う */}
             <View style={styles.header}>
               <View style={styles.headerSide}>
                 <Pressable
                   onPress={close}
                   hitSlop={8}
                   accessibilityRole="button"
-                  style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.5 : 1 }]}>
-                  <Ionicons name="chevron-back" size={20} color={colors.blue} />
+                  style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                   <Text style={[styles.headerButton, { color: colors.blue }]}>
-                    {calcPickerBackLabel(locale)}
+                    {cancelLabel(locale)}
                   </Text>
                 </Pressable>
               </View>
@@ -211,26 +244,65 @@ export function PresetMultiPickerSheet({ onSubmit, canOpenSettings = true, onClo
                     {formatCalcTotal(locale, total)}
                   </Text>
                 </View>
-                <Pressable
-                  onPress={() => {
-                    if (blocked) return;
-                    onSubmit(picked);
-                    close();
-                  }}
-                  disabled={blocked}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: blocked }}
-                  style={({ pressed }) => [
-                    styles.submit,
-                    {
-                      backgroundColor: blocked ? colors.disabledBackground : colors.blue,
-                      opacity: pressed && !blocked ? 0.7 : 1,
-                    },
-                  ]}>
-                  <Text style={[styles.submitLabel, { color: blocked ? colors.gray : '#FFFFFF' }]}>
-                    {calcSubmitLabel(locale)}
-                  </Text>
-                </Pressable>
+                {/* 決定（「入れる」）と、その続き（「電卓で続ける」）。**縦に並べる。**
+                    横に並べないのは、右端に 2 つ置くと日本語では収まっても英語
+                    （"Continue in calculator"）で合計額（22px 太字）と押し合うため ──
+                    合計が省略記号で切れると、選んだ額が読めなくなる。
+                    縦なら語の長さに関わらず崩れず、**決定のすぐ隣**という関係も保てる。
+
+                    主従は形で示す（塗り ＞ リンク）:
+                    - 「入れる」   … 青の塗りボタン。**決定はこれ 1 つ**
+                    - 「電卓で続ける」… 青リンク ＋ 電卓アイコン。決定を**やり直す**のではなく、
+                      積んだものに `× 2` を足しに行く続きの道（決定 §8-11）。
+                    塗りを 2 つ並べると同格に見え、どちらが決定なのか読めなくなる */}
+                <View style={styles.footerActions}>
+                  <Pressable
+                    onPress={() => {
+                      if (blocked) return;
+                      onSubmit(picked, 'calculator');
+                      close();
+                    }}
+                    disabled={blocked}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: blocked }}
+                    style={({ pressed }) => [
+                      styles.continueLink,
+                      { opacity: pressed && !blocked ? 0.5 : 1 },
+                    ]}>
+                    {/* 行の右端の電卓ボタン（NumericField）と同じ印。この先が電卓だと形で分かる */}
+                    <Ionicons
+                      name="calculator-outline"
+                      size={16}
+                      color={blocked ? colors.gray : colors.blue}
+                    />
+                    <Text
+                      style={[styles.continueLabel, { color: blocked ? colors.gray : colors.blue }]}
+                      numberOfLines={1}>
+                      {calcContinueLabel(locale)}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      if (blocked) return;
+                      onSubmit(picked, 'field');
+                      close();
+                    }}
+                    disabled={blocked}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: blocked }}
+                    style={({ pressed }) => [
+                      styles.submit,
+                      {
+                        backgroundColor: blocked ? colors.disabledBackground : colors.blue,
+                        opacity: pressed && !blocked ? 0.7 : 1,
+                      },
+                    ]}>
+                    <Text style={[styles.submitLabel, { color: blocked ? colors.gray : '#FFFFFF' }]}>
+                      {calcSubmitLabel(locale)}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             )}
           </View>
@@ -322,6 +394,19 @@ const styles = StyleSheet.create({
   footerText: {
     flexShrink: 1,
     gap: 2,
+  },
+  // 決定とその続きの 2 つ。右端で縦に積む（上がリンク・下が塗りボタン）
+  footerActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  continueLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  continueLabel: {
+    fontSize: 14,
   },
   pickedCount: {
     fontSize: 13,

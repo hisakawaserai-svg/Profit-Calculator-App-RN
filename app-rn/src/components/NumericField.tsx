@@ -6,7 +6,7 @@
 // 欄ごとに変わるのは見出しの語（calculatorLabel）だけで、行の形もボタンの位置も変えない（§7.6）。
 // 入力のフィルタは src/logic/input.ts（SPEC §5.1 / 決定 §7-9）に委譲する。
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   Pressable,
@@ -19,9 +19,21 @@ import {
 } from 'react-native';
 
 import { MiniCalculator } from '@/components/MiniCalculator';
+import { PackagingNamesRow } from '@/components/PackagingNamesRow';
+import {
+  PresetMultiPickerSheet,
+  type PackagingPickDestination,
+} from '@/components/PresetMultiPickerSheet';
 import { PresetTagButton } from '@/components/PresetTagButton';
 import type { Preset, PresetType } from '@/db/schema';
-import { createMemo, type CalcMemo } from '@/logic/calcMemo';
+import {
+  createMemo,
+  pickPresetsResult,
+  presetRowIds,
+  presetRowNames,
+  type CalcMemo,
+  type CalcPresetItem,
+} from '@/logic/calcMemo';
 import { parseNumericInput, sanitizeNumericInput } from '@/logic/input';
 import {
   shippingAmountFor,
@@ -29,6 +41,7 @@ import {
 } from '@/logic/shippingMaterial';
 import {
   calculatorAccessibilityLabel,
+  presetPickerTitle,
 } from '@/logic/labels';
 import { useThemeColors } from '@/theme';
 import { useLocale } from '@/settings';
@@ -38,6 +51,12 @@ const ROW_HEIGHT = 60;
 
 /** 電卓ボタンの幅（アイコン 22 ＋ padding 4 × 2） */
 const CALC_BUTTON_SIZE = 30;
+
+/** タグ印の大きさ。PresetTagButton と同じ値（同じスロットに同じ印が入るため） */
+const ICON_SIZE = 22;
+
+/** タグボタンのスロット幅。PresetTagButton の button と同じ計算（バッジ 24 ＋ gap 2 ＋ ▾ 12） */
+const TAG_SLOT_WIDTH = 24 + 2 + 12;
 
 /**
  * 数値の右端から行の右端までの幅（電卓ボタン ＋ その左の間隔）。
@@ -112,8 +131,14 @@ type Props = {
   /** シート末尾の「設定で編集する ▸」を出すか。記録フォームからは false（PresetTagButton 参照） */
   canOpenSettings?: boolean;
   /**
-   * 電卓の中に「🏷 梱包材から選ぶ」を出すか（SPEC-V3 §4.5）。
-   * **梱包材の欄だけ true**（既定は false。MiniCalculator 参照）。
+   * 行に**梱包材の「🏷」**を出すか（SPEC-V3 §4.5。**案 c で電卓の中から行へ移した**）。
+   * **梱包材の欄だけ true**（既定は false）。
+   *
+   * 押すと複数選択のシートが直接開く ── 以前は電卓を開いてからその中の
+   * 「🏷 梱包材から選ぶ」を押す形で、入口が 2 タップ深かった。
+   *
+   * `presetType`（販売サイト・送料の単一選択）と**同じスロットを使う**が、両立はしない ──
+   * 1 つの欄が 2 種類のプリセットを持つことはないため。梱包材の欄は `presetType` を渡さない。
    */
   canPickPackaging?: boolean;
   /**
@@ -150,6 +175,17 @@ export function NumericField({
 
   const colors = useThemeColors();
   const [showCalc, setShowCalc] = useState(false);
+  /** 梱包材の複数選択シート（案 c）。行の「🏷」から直接開く */
+  const [showPacking, setShowPacking] = useState(false);
+  /**
+   * 「電卓で続ける」を押したか。**シートが下がり切るまで持っておく**（すぐには開かない）。
+   *
+   * その場で `setShowCalc(true)` すると、**閉じ始めたシートがまだ出ている間に電卓を開く**
+   * ことになる。iOS は表示中のモーダルの上に別のモーダルを出せないので、電卓が出ないまま
+   * `showCalc` だけ true で残り、**画面が固まったように見える**
+   * （AddRecordMenuSheet が同じ理由で同じ形にしてある。SheetModal の selfClosed も参照）。
+   */
+  const pendingCalc = useRef(false);
   const calcLabel = calculatorLabel ?? label;
 
   /**
@@ -164,6 +200,49 @@ export function NumericField({
   );
   const initialMemo =
     committedMemo != null && committedMemo.value === value ? committedMemo.memo : createMemo(value);
+
+  /**
+   * 電卓が「入れる」で返してきたものを欄と控えに書く（UI-SPEC §7.4）。
+   * **行の「🏷」から選んだときも同じ道を通す**（案 c）── 欄と内訳の関係を 1 本に保つため。
+   */
+  const commit = (text: string, memo: CalcMemo) => {
+    // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
+    const sanitized = sanitizeNumericInput(text);
+    onChangeValue(sanitized);
+    // 次に開いたときの内訳の復元先。欄の値がこの sanitized のままなら memo を使う
+    setCommittedMemo({ value: sanitized, memo });
+    return sanitized;
+  };
+
+  /**
+   * 「🏷」で選んだ梱包材を積む（案 c）。**行き先の 2 つは最後の 1 手だけが違う**
+   * （PresetMultiPickerSheet の PackagingPickDestination）:
+   *
+   * - `field`      … 欄へ書いて終わり
+   * - `calculator` … 同じことをしたうえで電卓を開く。`initialMemo` は
+   *   「欄の値 === 控えの値」で復元されるので、**開いた電卓は積んだ直後の状態**になり
+   *   （最後の 1 件が編集中の行）、そのまま `× 2` が打てる（決定 §8-11）
+   *
+   * 2 つの setState と `onChangeValue`（親の setState）は同じ束で処理されるので、
+   * 電卓がマウントされる時点では欄の値も控えも新しくなっている。
+   */
+  const pickPackaging = (
+    items: readonly CalcPresetItem[],
+    destination: PackagingPickDestination,
+  ) => {
+    const result = pickPresetsResult(initialMemo, items);
+    // 欄と控えはその場で書く（モーダルではないので、シートが下がる間に裏で値が変わるだけ）
+    commit(result.text, result.memo);
+    // **電卓を開くのはシートが下がり切ってから**（下の pendingCalc）
+    if (destination === 'calculator') pendingCalc.current = true;
+  };
+
+  /**
+   * 欄の下に出す「いま選んだ資材」（案 c）。**控えが欄の値と一致する間だけ。**
+   * `initialMemo` が既にその判定を通っているので、ここに条件を書き足さない ──
+   * 手で打ち直した時点で `createMemo(value)` に切り替わり、名前を持つ行が無くなる。
+   */
+  const pickedNames = canPickPackaging ? presetRowNames(initialMemo) : [];
 
   // 無効は文字色だけで示す（UI-SPEC §1.1「挙動」）。
   //
@@ -180,6 +259,30 @@ export function NumericField({
           {label}
         </Text>
         {/* タグボタンはラベルの直後（設計案 29b）。行の右端は全行とも電卓ボタンで揃う */}
+        {/* 梱包材の「🏷」（案 c）。**単一選択のタグボタンと同じスロット・同じ印**だが、
+            複数選択なので押してもバッジには変わらない ── 何を選んだかは行の下の
+            PackagingNamesRow が受け持つ。幅は PresetTagButton と同じにして、
+            欄によって金額の右端がずれないようにする（設計案 26a-2 の「同じ幅で入れ替える」） */}
+        {canPickPackaging && (
+          <Pressable
+            onPress={() => {
+              // シートはキーボードと同じ側から出るので、欄を編集中に押されたときは引っ込める
+              // （電卓ボタン・タグボタンと同じ扱い）
+              Keyboard.dismiss();
+              setShowPacking(true);
+            }}
+            disabled={disabled}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={presetPickerTitle(locale, 'packaging')}
+            style={({ pressed }) => [
+              styles.packingButton,
+              { opacity: disabled ? 0.3 : pressed ? 0.5 : 1 },
+            ]}>
+            <Ionicons name="pricetag-outline" size={ICON_SIZE} color={colors.blue} />
+            <Ionicons name="chevron-down" size={12} color={colors.blue} />
+          </Pressable>
+        )}
         {presetType != null && (
           <PresetTagButton
             type={presetType}
@@ -239,19 +342,46 @@ export function NumericField({
         <MiniCalculator
           fieldLabel={calcLabel}
           initialMemo={initialMemo}
-          onSubmit={(result, memo) => {
-            // Swift 版は書き戻し後に onChange のフィルタが走るため、こちらも同じフィルタを通す
-            const sanitized = sanitizeNumericInput(result);
-            onChangeValue(sanitized);
-            // 次に開いたときの内訳の復元先。欄の値がこの sanitized のままなら memo を使う
-            setCommittedMemo({ value: sanitized, memo });
-          }}
-          // 電卓の中の梱包材シートも設定タブへ遷移できるかは同じ条件（SPEC-V3 §4.5）
-          canOpenSettings={canOpenSettings}
-          canPickPackaging={canPickPackaging}
+          onSubmit={commit}
           onClose={() => setShowCalc(false)}
         />
       ) : null}
+
+      {/* 梱包材の複数選択（案 c）。**電卓の中ではなくここ**にある ── 入口が行へ移ったので、
+          シートを持つのも行の側（単一選択の PresetPickerSheet を PresetTagButton が
+          持っているのと同じ形）。開いている間だけマウントする */}
+      {showPacking && (
+        <PresetMultiPickerSheet
+          canOpenSettings={canOpenSettings}
+          // チェックの初期値は**いま欄に入っているもの**（案 c）── 付けないと、
+          // 選び直しのつもりで同じものをもう一度選び、二重に積むことになる
+          pickedIds={presetRowIds(initialMemo)}
+          onSubmit={(presets, destination) =>
+            pickPackaging(
+              presets.map((preset) => ({
+                id: preset.id,
+                name: preset.name,
+                value: preset.value,
+                colorKey: preset.colorKey,
+              })),
+              destination,
+            )
+          }
+          // SheetModal は**下がり切ってから**これを呼ぶ。電卓を開くのはこの時点（pendingCalc）
+          onClose={() => {
+            setShowPacking(false);
+            if (pendingCalc.current) {
+              pendingCalc.current = false;
+              setShowCalc(true);
+            }
+          }}
+        />
+      )}
+
+      {/* 選んだ資材の名前（案 c）。**押した直後だけ出る控え**で、記録には残らない
+          （PackagingNamesRow の冒頭）。名前が 0 件なら行ごと出ないので、
+          選んでいない間の行の高さは今までと変わらない */}
+      <PackagingNamesRow names={pickedNames} />
     </View>
   );
 }
@@ -278,6 +408,15 @@ const styles = StyleSheet.create({
   },
   calcButton: {
     padding: 4,
+  },
+  // 梱包材の「🏷」（案 c）。PresetTagButton と同じ幅・同じ寄せにして、
+  // タグの有る行と無い行で金額の始まりが動かないようにする
+  packingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    width: TAG_SLOT_WIDTH,
+    justifyContent: 'flex-start',
   },
   calcButtonSpacer: {
     width: CALC_BUTTON_SIZE,

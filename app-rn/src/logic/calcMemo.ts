@@ -25,6 +25,17 @@ export type CalcMemoRow = {
    */
   name: string;
   /**
+   * この行の出どころのプリセット id（SPEC-V3 §4.5）。**手で作った行は空文字。**
+   *
+   * 名前ではなく id を持つのは、**プリセット名が一意ではない**ため（validatePreset は
+   * 重複を弾かない）── 同じ名前の梱包材が 2 件あると、名前では選び直しの照合ができない。
+   *
+   * これがあるので「🏷 をもう一度開いたとき、いま入っているものにチェックが付いている」
+   * （presetRowIds）と「選び直すと積み増しではなく置き換わる」（pickPresetsResult）が
+   * 成り立つ。**表示には使わない**（品名列に出るのは name）。
+   */
+  presetId: string;
+  /**
    * 品名の前に出すバッジの色キー（SPEC-V3 §4.5 / 設計案 26c）。手で作った行は空文字。
    *
    * §8-6 は「電卓は数字を読む面なので品名にバッジは出さない」と決めていたが、
@@ -58,7 +69,7 @@ let lastRowId = 0;
 
 function newRow(sign: CalcRowSign, expression = ''): CalcMemoRow {
   lastRowId += 1;
-  return { id: lastRowId, sign, name: '', colorKey: '', expression };
+  return { id: lastRowId, sign, name: '', presetId: '', colorKey: '', expression };
 }
 
 /**
@@ -148,8 +159,10 @@ export function commitRow(memo: CalcMemo, sign: CalcRowSign): CalcMemo {
   return { rows: [...memo.rows, { ...memo.draft, expression }], draft: newRow(sign) };
 }
 
-/** 梱包材プリセット 1 件ぶん（SPEC-V3 §4.5）。行に写すのは名前・金額・色だけ */
+/** 梱包材プリセット 1 件ぶん（SPEC-V3 §4.5）。行に写すのは id・名前・金額・色 */
 export type CalcPresetItem = {
+  /** 選び直しの照合に使う（CalcMemoRow.presetId）。名前は一意ではないので id で持つ */
+  id: string;
   name: string;
   value: number;
   colorKey: string;
@@ -189,9 +202,103 @@ function presetRowFields(item: CalcPresetItem) {
   return {
     sign: '+' as const,
     name: item.name,
+    presetId: item.id,
     colorKey: item.colorKey,
     expression: formatCalculatorNumber(item.value),
   };
+}
+
+/**
+ * **行の「🏷」から梱包材を選んだときの結果**（案 c。SPEC-V3 §4.5 の改訂）。
+ *
+ * 入口が電卓の中から金額行へ移ったので、選んだ瞬間に「欄へ書き戻す値」と
+ * 「次に電卓を開いたときの積み上げ」の両方をここで作る ──
+ * **電卓の「入れる」（MiniCalculator の onSubmit）が返しているものと同じ 2 つ。**
+ *
+ * ## 積み増しではなく**置き換え**（`appendPresetRows` との違い）
+ *
+ * `appendPresetRows` は**電卓の中で使う前提**の関数で、積んである行を消さずに足す ──
+ * 積み上げが目の前に見えているので、増えることが画面から分かる。
+ *
+ * **行の「🏷」は目の前に積み上げが無い。** そこで積み増しにすると、
+ * シートを開き直して選び直すたびに黙って倍になる（「箱 ＋ テープ」を選び直して 140 円）。
+ * この口が答えているのは「この記録でどの梱包材を使ったか」という 1 つの問いなので、
+ * **答え直したら前の答えは置き換わる**のが素直。だから:
+ *
+ * - **手で打った行は残す**（`presetId` が空の行）── 「300 と打ってから箱を選ぶ」は足し算のまま
+ * - **選ばれ続けているプリセットの行はそのまま使い回す** ── 電卓で `× 2` と打った行が、
+ *   資材を 1 つ足しただけで 1 個ぶんに戻らない
+ * - **外したプリセットの行は落ちる**
+ * - **新しく選ばれたものは末尾に足す**
+ *
+ * 選び直しのチェックの初期値は `presetRowIds` が返す（同じ `presetId` で照合する）。
+ *
+ * ## `× 2` の導線（決定 §8-11）
+ *
+ * **最後の 1 件を編集中の行にする**ので、このあと 🖩 を押した電卓は
+ * 「電卓の中で選んで入れた直後」と同じ状態で開き、続けて `× 2` と打てる。
+ * 個数欄を持たないという結論はそのままで、変わったのは選ぶ場所だけ。
+ *
+ * `text` は**まだ欄のフィルタを通していない**（`sanitizeNumericInput` は呼び出し側）──
+ * 書き戻しの経路を電卓と 1 本に保つため（UI-SPEC §7.4）。
+ */
+export function pickPresetsResult(
+  memo: CalcMemo,
+  items: readonly CalcPresetItem[],
+): { text: string; memo: CalcMemo } {
+  const rows = memoRows(memo);
+
+  // 手で打った行だけ残す。空の行（開いた直後の編集中の行）は落とす ──
+  // 残すと選んだ資材の前に空行が 1 つ挟まる
+  const manual = rows.filter(
+    (row) => row.presetId === '' && normalizeExpression(row.expression) !== '',
+  );
+
+  // 既に積んである行を id で引けるようにする（選ばれ続けているものを使い回すため）
+  const existing = new Map(rows.filter((row) => row.presetId !== '').map((row) => [row.presetId, row]));
+
+  const picked = items.map(
+    (item) => existing.get(item.id) ?? { ...newRow('+'), ...presetRowFields(item) },
+  );
+
+  const last = picked.at(-1);
+  const next: CalcMemo = {
+    rows: [...manual, ...picked.slice(0, -1)],
+    // 選択を全部外したときは編集中の行を空に戻す（手で打った行は上に残る）
+    draft: last ?? newRow('+'),
+  };
+  return { text: memoTotalText(next), memo: next };
+}
+
+/**
+ * 積み上げに入っているプリセットの id（案 c）。**選択シートのチェックの初期値。**
+ *
+ * これがあるので、「🏷」を開き直したときに**いま欄に入っているものにチェックが付く** ──
+ * 付いていないと、選び直しのつもりで同じものをもう一度選んで二重に積むことになる
+ * （`pickPresetsResult` が置き換えなのはそのため。両方揃って初めて選び直しが成り立つ）。
+ *
+ * 並びは積んである順（＝前に選んだ順）。名前ではなく id で返す理由は `CalcMemoRow.presetId`。
+ */
+export function presetRowIds(memo: CalcMemo): string[] {
+  return memoRows(memo)
+    .map((row) => row.presetId)
+    .filter((presetId) => presetId !== '');
+}
+
+/**
+ * 積み上げのうち**プリセットから来た行の名前**（案 c の「選んだ名前の行」）。
+ *
+ * 手で作った行は `name` が空なので落ちる ── 拾えるのは「🏷 から選んだもの」だけで、
+ * 打ち込んだ数字が名前として現れることはない。
+ * 編集中の行も見る（`memoRows`）── 選んだ最後の 1 件はそこに入っているため。
+ *
+ * **同じ資材を 2 回選べば 2 回出る。** 積まれている行がそのまま 2 行なので、
+ * ここで畳むと画面と行の数が食い違う。
+ */
+export function presetRowNames(memo: CalcMemo): string[] {
+  return memoRows(memo)
+    .map((row) => row.name)
+    .filter((name) => name !== '');
 }
 
 /**

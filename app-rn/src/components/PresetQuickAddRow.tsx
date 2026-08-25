@@ -93,9 +93,20 @@ export function PresetQuickAddRow({ type, initialValue, presets, onCreated }: Pr
       packPrice: validation.packPrice,
       materialCost: validation.materialCost,
     });
-    // 名前だけ空に戻す（金額は欄の値のまま）── 複数選択のシートは開いたままなので、
-    // 続けてもう 1 つ登録するときに打ち直すのは名前だけでよい
+    /**
+     * **名前も金額も「開いた直後」に戻す。**
+     *
+     * 金額を残す形にしていたが、**続けて登録できるのは複数選択のシート（梱包材）だけ**で、
+     * そこは `initialValue = null`（欄の値を引き継がない）── 直前に登録した資材の値段が
+     * 次の資材の欄に残ってしまい、「箱 60 円」の次に「テープ」を打つと 60 円で登録される。
+     * 資材ごとに値段が違うのだから、持ち越して嬉しい値ではない。
+     *
+     * 単一選択のシートは登録した時点で閉じる（PresetPickerSheet の onCreated）ので、
+     * どちらに倒しても見え方は変わらない。**引き継ぐ元がある（欄の値）ときはそこへ戻す**
+     * ── 開き直したのと同じ状態にするのが、この行の「開いた直後」なので。
+     */
     setName('');
+    setValue(initialValue == null ? '' : String(initialValue));
     onCreated(preset);
   };
 

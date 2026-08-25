@@ -8,6 +8,9 @@ import {
   appendDigit,
   appendOperator,
   appendPresetRows,
+  pickPresetsResult,
+  presetRowIds,
+  presetRowNames,
   backspace,
   clearAll,
   commitRow,
@@ -268,8 +271,8 @@ describe('「入れる」の有効・無効（§7.4）', () => {
 
 
 describe('梱包材プリセットから行を積む（SPEC-V3 §4.5）', () => {
-  const box = { name: '箱（小）', value: 120, colorKey: 'blue' };
-  const cushion = { name: '緩衝材', value: 40, colorKey: 'green' };
+  const box = { id: 'p-box', name: '箱（小）', value: 120, colorKey: 'blue' };
+  const cushion = { id: 'p-cushion', name: '緩衝材', value: 40, colorKey: 'green' };
 
   it('空の編集中の行はそこから使う（空行を挟まない）', () => {
     const memo = appendPresetRows(createMemo(''), [box]);
@@ -313,6 +316,159 @@ describe('梱包材プリセットから行を積む（SPEC-V3 §4.5）', () => 
     const memo = press(createMemo(''), '120');
 
     expect(appendPresetRows(memo, [])).toBe(memo);
+  });
+
+  describe('行の「🏷」から選んだとき（案 c の pickPresetsResult）', () => {
+    it('欄へ書く値と、次に電卓を開いたときの積み上げを一緒に返す', () => {
+      const result = pickPresetsResult(createMemo(''), [box, cushion]);
+
+      expect(result.text).toBe('160');
+      expect(visibleRows(result.memo)).toEqual(['+ 120 = 120', '+ 40 = 40']);
+    });
+
+    it('欄に値が入っていれば、その行を積んでから後ろに続ける（電卓と同じ扱い）', () => {
+      const result = pickPresetsResult(createMemo('300'), [box]);
+
+      expect(result.text).toBe('420');
+      expect(visibleRows(result.memo)).toEqual(['+ 300 = 300', '+ 120 = 120']);
+    });
+
+    /**
+     * **これが `× 2` の導線を保っている条件**（決定 §8-11）── 返した memo をそのまま
+     * 電卓の初期値にすれば、最後の 1 件が編集中の行なので続けて掛けられる。
+     * 「電卓で続ける」はこの memo を持って電卓を開くだけ（NumericField）。
+     */
+    it('返した積み上げの最後の 1 件は編集中の行なので、そのまま × 2 が打てる', () => {
+      const result = pickPresetsResult(createMemo(''), [box, cushion]);
+
+      // 行の id は採番なので、比べるのは見えている行（電卓で積んだ直後と同じ並び・同じ式）
+      expect(visibleRows(press(result.memo, '×2'))).toEqual(
+        visibleRows(press(appendPresetRows(createMemo(''), [box, cushion]), '×2')),
+      );
+      expect(memoTotal(press(result.memo, '×2'))).toBe(200);
+    });
+
+    it('欄へ書く値は電卓の「入れる」と同じ（memoTotalText）', () => {
+      const result = pickPresetsResult(createMemo(''), [box, cushion]);
+
+      expect(result.text).toBe(memoTotalText(result.memo));
+    });
+  });
+
+  /**
+   * **選び直しは積み増しではなく置き換え。**
+   *
+   * 行の「🏷」には積み上げが見えていないので、開き直して同じものを選ぶたびに増えると
+   * 黙って倍になる（実機で「箱 ＋ テープ」を選び直して 140 円になった）。
+   * `presetRowIds` でチェックが復元されることと対で「選び直し」が成り立つ。
+   */
+  describe('もう一度選び直したとき（案 c の置き換え）', () => {
+    it('同じものを選び直しても倍にならない', () => {
+      const first = pickPresetsResult(createMemo(''), [box, cushion]);
+      const again = pickPresetsResult(first.memo, [box, cushion]);
+
+      expect(first.text).toBe('160');
+      expect(again.text).toBe('160');
+    });
+
+    it('外したプリセットの行は落ちる', () => {
+      const first = pickPresetsResult(createMemo(''), [box, cushion]);
+      const again = pickPresetsResult(first.memo, [box]);
+
+      expect(again.text).toBe('120');
+      expect(presetRowNames(again.memo)).toEqual(['箱（小）']);
+    });
+
+    it('足したぶんだけ増える', () => {
+      const first = pickPresetsResult(createMemo(''), [box]);
+      const again = pickPresetsResult(first.memo, [box, cushion]);
+
+      expect(again.text).toBe('160');
+      expect(presetRowNames(again.memo)).toEqual(['箱（小）', '緩衝材']);
+    });
+
+    it('電卓で × 2 と打った行は、資材を足しても 1 個ぶんに戻らない', () => {
+      const first = pickPresetsResult(createMemo(''), [box]);
+      // 「電卓で続ける」→ × 2 → 「入れる」で確定した積み上げ
+      const doubled = press(first.memo, '×2');
+      expect(memoTotal(doubled)).toBe(240);
+
+      const again = pickPresetsResult(doubled, [box, cushion]);
+
+      // 箱は 120 × 2 のまま。緩衝材が足されるだけ
+      expect(again.text).toBe('280');
+    });
+
+    it('手で打った行は残る（選び直しても消えない）', () => {
+      const first = pickPresetsResult(createMemo('300'), [box]);
+      const again = pickPresetsResult(first.memo, [cushion]);
+
+      // 300（手打ち）＋ 40（緩衝材）。箱は外したので落ちる
+      expect(again.text).toBe('340');
+      expect(presetRowNames(again.memo)).toEqual(['緩衝材']);
+    });
+
+    it('全部外すと手で打った行だけが残る', () => {
+      const first = pickPresetsResult(createMemo('300'), [box]);
+      const again = pickPresetsResult(first.memo, []);
+
+      expect(again.text).toBe('300');
+      expect(presetRowNames(again.memo)).toEqual([]);
+    });
+  });
+
+  describe('選択シートのチェックの初期値（案 c の presetRowIds）', () => {
+    it('積み上げに入っているプリセットの id を積んだ順に返す', () => {
+      const result = pickPresetsResult(createMemo(''), [box, cushion]);
+
+      expect(presetRowIds(result.memo)).toEqual(['p-box', 'p-cushion']);
+    });
+
+    it('手で打った行は id を持たないので落ちる', () => {
+      const result = pickPresetsResult(createMemo('300'), [box]);
+
+      expect(presetRowIds(result.memo)).toEqual(['p-box']);
+    });
+
+    it('× 2 と打っても id は残る（選び直しでチェックが外れない）', () => {
+      const result = pickPresetsResult(createMemo(''), [box]);
+
+      expect(presetRowIds(press(result.memo, '×2'))).toEqual(['p-box']);
+    });
+
+    it('手で打っただけの積み上げは 0 件', () => {
+      expect(presetRowIds(press(createMemo(''), '120＋40'))).toEqual([]);
+    });
+  });
+
+  describe('選んだ資材の名前（案 c の presetRowNames）', () => {
+    it('プリセットから来た行の名前だけを、積んだ順に返す', () => {
+      const memo = appendPresetRows(createMemo(''), [box, cushion]);
+
+      expect(presetRowNames(memo)).toEqual(['箱（小）', '緩衝材']);
+    });
+
+    it('手で打った行は名前を持たないので落ちる', () => {
+      const memo = appendPresetRows(press(createMemo(''), '300'), [box]);
+
+      expect(presetRowNames(memo)).toEqual(['箱（小）']);
+    });
+
+    it('× 2 を打っても名前は残る（編集中の行も見るため）', () => {
+      const memo = press(appendPresetRows(createMemo(''), [box]), '×2');
+
+      expect(presetRowNames(memo)).toEqual(['箱（小）']);
+    });
+
+    it('同じ資材を 2 回選べば 2 回出る（積まれている行と数が食い違わない）', () => {
+      const memo = appendPresetRows(createMemo(''), [box, box]);
+
+      expect(presetRowNames(memo)).toEqual(['箱（小）', '箱（小）']);
+    });
+
+    it('手で打っただけの積み上げは 0 件（＝欄の下に行が出ない）', () => {
+      expect(presetRowNames(press(createMemo(''), '120＋40'))).toEqual([]);
+    });
   });
 
   it('行の id は重複しない（空の編集中の行は id ごと使い回す）', () => {

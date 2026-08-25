@@ -151,6 +151,20 @@ export function onboardingPackagingPresetExample(locale: Locale) {
 }
 
 /**
+ * プリセットページの梱包材の欄の下に出す、選んだ資材の名前（案 c）。
+ *
+ * **2 件にしてある** ── 梱包材が複数選択であること（＝販売サイト・送料のように
+ * バッジ 1 つに畳めないこと）が、名前が 2 つ並んで初めて図から読める。
+ * 「箱 ＋ 緩衝材」という §2.4 の使い方をそのまま題材にする。
+ */
+export function onboardingPackagingNamesExample(locale: Locale): readonly string[] {
+  return [
+    t('onboarding.examplePackagingName1', locale),
+    t('onboarding.examplePackagingName2', locale),
+  ];
+}
+
+/**
  * 5 ページ目の丸アイコンに使う 5 ジャンル（構成の指定「紫・緑・ティール・青・オレンジ」）。
  * 色とアイコンは実物と同じ定数（AchievementsSection.categoryColor / CATEGORY_ICONS）から引く。
  * 並びは 1 ジャンル 1 色の実物の対応（紫=start / 緑=strike / ティール=career_profit /
