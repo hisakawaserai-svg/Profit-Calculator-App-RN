@@ -726,6 +726,7 @@ export function helpItemsOf(page: HelpPage): HelpItem[] {
 export type HelpEntryId =
   | 'calc'
   | 'recordList'
+  | 'recordFilter'
   | 'recordDetail'
   | 'recordForm'
   | 'pricing'
@@ -751,6 +752,14 @@ export function helpEntries(locale: Locale): Record<HelpEntryId, HelpEntry> {
   calc: { page: 'calc', sheetTitle: title('calc') },
   // 一覧で詰まるのは「目当ての記録が出てこない」とき
   recordList: { page: 'record', leadItemId: 'record-find-filter', sheetTitle: title('recordList') },
+  // 絞り込みページそのもの（SPEC-V11 §2）。条件が 9 本・5 群になり、
+  // 「その他」に何が入るのかは開かないと分からない ── 一覧の「？」と同じ項目を開くが、
+  // **見出しはこの画面の語にする**（開いた先が絞り込みの話だと分かるように）
+  recordFilter: {
+    page: 'record',
+    leadItemId: 'record-find-filter',
+    sheetTitle: title('recordFilter'),
+  },
   recordDetail: { page: 'record', leadItemId: 'record-bar', sheetTitle: title('recordDetail') },
   // 販売日を選べなかった直後に開くのがいちばん役に立つ（案 `20c`）
   recordForm: { page: 'record', leadItemId: 'record-saledate', sheetTitle: title('recordForm') },

@@ -25,11 +25,13 @@
 //
 // 表示語はすべて labels.ts 経由（SPEC-V2 §5.3。画面で文字列を組み立てない）。
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Accordion } from '@/components/Accordion';
+import { HelpButton } from '@/components/HelpButton';
+import { HelpSheet } from '@/components/HelpSheet';
 import { RangeField } from '@/components/RangeField';
 import { SearchBar } from '@/components/SearchBar';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -93,12 +95,37 @@ import { useThemeColors } from '@/theme';
 const SITE_ALL = null;
 const SITE_UNSET = '';
 
+/**
+ * 群の見出しのアイコン（SPEC-V11 §2.3）。**使いかたの画面と同じ絵を使う**
+ * （`components/helpItemIcons.ts`）── 同じ話に別の絵を当てると、使いかたで見た絵が
+ * ここで通じない。選び方の作法もあちらに従う（中身がそのまま思い浮かぶ絵・outline で揃える）。
+ *
+ * | 群 | 絵 | 使いかたのどれと同じか |
+ * |---|---|---|
+ * | 種別 | `bag-handle-outline` | `record-kind`（不用品と仕入品） |
+ * | 販売サイト | `globe-outline` | `terms-site`（販売サイトの表示額） |
+ * | タグ | `pricetags-outline` | `record-tag` / `data-tag` |
+ * | 金額 | `wallet-outline` | `calc-net`（手元に残るお金） |
+ * | その他 | `ellipsis-horizontal-circle-outline` | **同じ絵は無い** |
+ *
+ * 「その他」だけ使いかたに相手がいない ── 目標・赤字・メモの寄せ集めで、
+ * 中身を 1 つの絵にできない。**「その他」であること自体を絵にする**（同じ outline の族）。
+ */
+const SECTION_ICONS: Record<FilterSectionKey, keyof typeof Ionicons.glyphMap> = {
+  kind: 'bag-handle-outline',
+  site: 'globe-outline',
+  tag: 'pricetags-outline',
+  amount: 'wallet-outline',
+  other: 'ellipsis-horizontal-circle-outline',
+};
+
 export function RecordFilterScreen() {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
   const colors = useThemeColors();
+  const router = useRouter();
   const { scope, filter, setFilter, isSoldMode, period, clearFilter } = useRecordFilterState();
   const kindOptions = kindFilterOptions(locale);
 
@@ -110,6 +137,8 @@ export function RecordFilterScreen() {
 
   /** 検索欄の入力（案 35f）。**一覧の見え方だけを変える**ので filter には入れない */
   const [keyword, setKeyword] = useState('');
+  /** ヘッダの「？」（UI-SPEC §5-9）。開閉は画面が持つ（ボタンはヘッダの options の中） */
+  const [showHelp, setShowHelp] = useState(false);
 
   /**
    * 折りたたみの開閉（SPEC-V11 §2.2）。**初期値はマウント時に一度だけ**評価する ──
@@ -187,25 +216,33 @@ export function RecordFilterScreen() {
       title: filterLabel(locale),
       // §4.2-1 の「完了」は置かない ── 条件は選んだ瞬間から効くので、閉じるだけのボタンになる。
       // 戻る導線はヘッダ左の「‹ 記録」1 つ（案 33c）
+      // 「？」は**「すべて解除」の左**（SPEC-V11 §2.4）── 条件が 9 本になり、
+      // 「その他」に何が入るのかは開くまで分からない。右端は解除のままにして、
+      // 押し間違えたときの被害が小さいほう（読むだけ）を内側に置く
       headerRight: () => (
-        <Pressable
-          onPress={clearFilter}
-          disabled={!hasActiveFilter(applied)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !hasActiveFilter(applied) }}>
-          <Text
-            style={[
-              styles.headerButton,
-              { color: hasActiveFilter(applied) ? colors.blue : colors.mutedLabel },
-            ]}>
-            {filterClearAllLabel(locale)}
-          </Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <HelpButton onPress={() => setShowHelp(true)} />
+          <Pressable
+            onPress={clearFilter}
+            disabled={!hasActiveFilter(applied)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !hasActiveFilter(applied) }}>
+            <Text
+              style={[
+                styles.headerButton,
+                { color: hasActiveFilter(applied) ? colors.blue : colors.mutedLabel },
+              ]}>
+              {filterClearAllLabel(locale)}
+            </Text>
+          </Pressable>
+        </View>
       ),
     }),
     // locale を入れないと、ヘッダの「すべて解除」だけ前の言語で残る
-    [applied, clearFilter, colors.blue, colors.mutedLabel, locale],
+    // setShowHelp は不変だが、**書かないと React Compiler が最適化ごと諦める**
+    // （手書きの依存と推論した依存が食い違う、という報告になる）
+    [applied, clearFilter, colors.blue, colors.mutedLabel, locale, setShowHelp],
   );
 
   return (
@@ -221,6 +258,7 @@ export function RecordFilterScreen() {
               **この群だけは常に開いた状態で始まる**（SPEC-V11 §2.2） */}
           <Section
             label={filterKindSectionLabel(locale)}
+            icon={SECTION_ICONS.kind}
             count={sectionActiveCount(applied, 'kind')}
             expanded={expanded.kind}
             onToggle={() => toggleSection('kind')}
@@ -240,6 +278,7 @@ export function RecordFilterScreen() {
           {isSoldMode && (
             <Section
               label={filterSiteSectionLabel(locale)}
+              icon={SECTION_ICONS.site}
               count={sectionActiveCount(applied, 'site')}
               expanded={expanded.site}
               onToggle={() => toggleSection('site')}
@@ -311,6 +350,7 @@ export function RecordFilterScreen() {
               （読む値が増えるだけで、チェックを見れば分かる） */}
           <Section
             label={filterTagSectionLabel(locale, tags.length)}
+            icon={SECTION_ICONS.tag}
             count={sectionActiveCount(applied, 'tag')}
             expanded={expanded.tag}
             onToggle={() => toggleSection('tag')}
@@ -428,6 +468,7 @@ export function RecordFilterScreen() {
               AMOUNT_RANGE_KEYS をそのまま map する（欄ごとに書き分けない） */}
           <Section
             label={filterAmountSectionLabel(locale)}
+            icon={SECTION_ICONS.amount}
             count={sectionActiveCount(applied, 'amount')}
             expanded={expanded.amount}
             onToggle={() => toggleSection('amount')}
@@ -457,6 +498,7 @@ export function RecordFilterScreen() {
               赤字のみは出品中でも出す（§7.2。値下げする前に見たい情報） */}
           <Section
             label={filterOtherSectionLabel(locale)}
+            icon={SECTION_ICONS.other}
             count={sectionActiveCount(applied, 'other')}
             expanded={expanded.other}
             onToggle={() => toggleSection('other')}
@@ -560,6 +602,17 @@ export function RecordFilterScreen() {
           )}
         </View>
       </View>
+
+      {/* ヘッダの「？」（UI-SPEC §5-9）。記録タブ・データタブは設定タブとは別スタックなので
+          push しない。開くのは一覧の「？」と同じ項目（record-find-filter）で、
+          見出しだけこの画面の語になる（helpEntries の recordFilter） */}
+      {showHelp && (
+        <HelpSheet
+          entry="recordFilter"
+          onClose={() => setShowHelp(false)}
+          onReadAll={() => router.push('/settings/help')}
+        />
+      )}
     </>
   );
 }
@@ -581,6 +634,7 @@ export function RecordFilterScreen() {
  */
 function Section({
   label,
+  icon,
   count,
   expanded,
   onToggle,
@@ -588,6 +642,8 @@ function Section({
   children,
 }: {
   label: string;
+  /** 見出しの左に添える印（SECTION_ICONS）。使いかたの各項目と同じ形の行にする */
+  icon: keyof typeof Ionicons.glyphMap;
   count: number;
   expanded: boolean;
   onToggle: () => void;
@@ -605,6 +661,9 @@ function Section({
       contentStyle={styles.sectionContent}
       label={
         <View style={styles.sectionHead}>
+          {/* 絵は読み上げに載せない（accessibilityLabel は見出しの語だけ）──
+              絵は語の言い換えで、読み上げると同じことを 2 回言う（HelpScreen と同じ扱い） */}
+          <Ionicons name={icon} size={19} color={colors.blue} style={styles.sectionIcon} />
           <Text style={[styles.sectionLabel, { color: colors.label }]} numberOfLines={1}>
             {label}
           </Text>
@@ -701,6 +760,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
   headerButton: {
     fontSize: 16,
   },
@@ -713,11 +777,16 @@ const styles = StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
+  },
+  /** 使いかたの各項目と同じ幅（helpItemIcons の行と頭を揃える） */
+  sectionIcon: {
+    width: 22,
+    textAlign: 'center',
   },
   sectionLabel: {
-    flexShrink: 1,
+    // 見出しが伸びて、解除を右端へ押し出す（数と解除は常に右）
+    flex: 1,
     fontSize: 16,
     fontWeight: '600',
   },

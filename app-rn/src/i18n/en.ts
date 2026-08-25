@@ -977,6 +977,7 @@ export const en: Translations = {
     entries: {
       calc: 'How to calculate',
       recordList: 'Reading your records',
+      recordFilter: 'Using the filter',
       recordDetail: 'Reading your records',
       recordForm: 'How to keep records',
       pricing: 'Before and after a sale',
@@ -1123,7 +1124,7 @@ export const en: Translations = {
         body: 'Use “Sold records” and “Listed” at the right of the row with the amount. The total above switches too: under “Listed” it becomes “Total listed price” rather than the net total. The rows change as well — sold records show the net, listed ones show the listing price and an estimate of “about ◯ when it sells”. That estimate deducts the expenses entered so far. If you have not entered shipping yet, it has not been deducted.',
       },
       'record-find-filter': {
-        title: 'I want to narrow by type or tag',
+        title: 'I want to narrow by type, amount or tag',
         body: 'Tap the “▽” at the right of the month row to open the filter screen. The conditions are folded into five groups — “Type”, “Marketplace”, “Tags”, “Amount” and “Other”. Tap a heading to open one. “Amount” takes a minimum and a maximum for net profit, selling price and expenses. “Other” holds whether the target was met, “At a loss only”, and whether a note was written.\n\nHow many conditions are on shows at the right of each heading. Tap it to clear just that group; “Clear all” at the top right clears every one.\n\nUnder “Listed” there is no marketplace and no target: the marketplace is not decided yet, and the profit is only an estimate until it sells. “At a loss only” still works while listed.\n\nWhile a filter is on, a blue row appears — tapping it takes you back to the same screen.',
       },
       'record-tag-or': {
