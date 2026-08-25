@@ -124,6 +124,8 @@ export const en: Translations = {
     accessibility: 'Calculator for {{field}}',
     total: 'Total',
     addRow: 'Add a row',
+    /** 積んだ行を押したときの読み上げ（UI-SPEC §7.3 の改訂）。押せることは見た目に出ない */
+    editRowAccessibility: 'Edit {{row}} in the current row',
     submit: 'Use this',
     backspaceAccessibility: 'Delete one character',
     clearAllAccessibility: 'Clear everything',

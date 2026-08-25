@@ -363,6 +363,14 @@ export function deleteAccessibilityLabel(locale: Locale, name: string): string {
   return t('action.deleteNamed', locale, { name });
 }
 
+/**
+ * 積んだ行を押したときの読み上げ（UI-SPEC §7.3 の改訂）。
+ * **押せることが見た目に出ない**行なので、何が起きるかは語で言う。
+ */
+export function calcEditRowAccessibilityLabel(locale: Locale, row: string): string {
+  return t('calculator.editRowAccessibility', locale, { row });
+}
+
 /** ± ボタンの読み上げ（UI-SPEC §1.3-9）。何を増減するのかは呼び出し側の欄名が入る */
 export function decreaseAccessibilityLabel(locale: Locale, label: string): string {
   return t('action.decrease', locale, { label });

@@ -201,6 +201,8 @@ export const ja = {
     accessibility: '{{field}}の電卓',
     total: '合計',
     addRow: '行を足す',
+    /** 積んだ行を押したときの読み上げ（UI-SPEC §7.3 の改訂）。押せることは見た目に出ない */
+    editRowAccessibility: '{{row}} を編集中の行にする',
     submit: '入れる',
     backspaceAccessibility: '1 文字消す',
     clearAllAccessibility: 'すべて消す',

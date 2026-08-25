@@ -302,6 +302,35 @@ export function presetRowNames(memo: CalcMemo): string[] {
 }
 
 /**
+ * **積んだ行を編集中の行にする**（UI-SPEC §7.3 の改訂）。`index` は `memoRows` の並びの位置。
+ *
+ * 電卓で打てるのは編集中の行だけで、それは配列の中の位置ではなく**別のスロット**
+ * （`draft`）── だから「並べ替え」では編集できるようにならない。押した行を
+ * そのスロットへ移す、というのがこの関数。
+ *
+ * - **押した行は末尾（編集中）へ移る。** 合計は行の結果の和なので、順番が変わっても値は同じ
+ * - **それまでの編集中の行は、空でなければ積まれる**（`＋` を押したのと同じ扱い）。
+ *   空なら捨てる ── 何も打っていない行を残すと、押すたびに空行が増える
+ * - **編集中の行そのものを押しても何も起きない**（既にそこにいる）
+ *
+ * これで「あとから最初の行に `× 2` を掛ける」ができる。`⌫` の巻き戻し（空の編集中の行で
+ * 直前の 1 行を戻す）は末尾にしか届かないので、そちらとは別の操作として持つ。
+ */
+export function editRow(memo: CalcMemo, index: number): CalcMemo {
+  const target = memo.rows[index];
+  // 範囲外（＝編集中の行を押した）ときは何もしない。同じ参照を返して再描画も起こさない
+  if (target == null) return memo;
+
+  const rest = memo.rows.filter((_, position) => position !== index);
+  const draftExpression = normalizeExpression(memo.draft.expression);
+
+  return {
+    rows: draftExpression === '' ? rest : [...rest, { ...memo.draft, expression: draftExpression }],
+    draft: target,
+  };
+}
+
+/**
  * `⌫`（§7.3）。編集中の行の末尾 1 文字を消す。
  * 編集中の行が空のときは**直前に積んだ行を編集中に戻す**（＝行を積んだ操作の取り消し。派生決定）。
  */

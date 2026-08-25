@@ -15,6 +15,7 @@ import {
   clearAll,
   commitRow,
   createMemo,
+  editRow,
   evaluateDraft,
   isEmptyMemo,
   memoRows,
@@ -269,6 +270,67 @@ describe('「入れる」の有効・無効（§7.4）', () => {
   });
 });
 
+
+describe('積んだ行を編集中にする（UI-SPEC §7.3 の改訂）', () => {
+  /**
+   * **並べ替えでは編集できるようにならない**（編集中の行は配列の位置ではなく別のスロット）
+   * ので、押した行をそのスロットへ移す形にしてある。
+   */
+  it('押した行が編集中になり、そのまま × 2 が打てる', () => {
+    // 120 ＋ 40 を積んで、編集中の行は空
+    const memo = press(createMemo(''), '120＋40＋');
+    expect(visibleRows(memo)).toEqual(['+ 120 = 120', '+ 40 = 40', '+  = ']);
+
+    // 最初の行（120）を押す
+    const edited = editRow(memo, 0);
+    expect(visibleRows(edited)).toEqual(['+ 40 = 40', '+ 120 = 120']);
+
+    // 続けて × 2 と打てる（これが要件）
+    expect(visibleRows(press(edited, '×2'))).toEqual(['+ 40 = 40', '+ 120 × 2 = 240']);
+    expect(memoTotal(press(edited, '×2'))).toBe(280);
+  });
+
+  it('空の編集中の行は捨てる（押すたびに空行が増えない）', () => {
+    const memo = press(createMemo(''), '120＋40＋');
+
+    expect(memoRows(editRow(memo, 0))).toHaveLength(2);
+  });
+
+  it('打ちかけの編集中の行は積まれる（＋ を押したのと同じ扱い）', () => {
+    const memo = press(createMemo(''), '120＋40＋7');
+    const edited = editRow(memo, 0);
+
+    // 打ちかけの 7 は積まれ、押した 120 が編集中に来る
+    expect(visibleRows(edited)).toEqual(['+ 40 = 40', '+ 7 = 7', '+ 120 = 120']);
+    expect(memoTotal(edited)).toBe(167);
+  });
+
+  it('合計は変わらない（順番が変わるだけ）', () => {
+    const memo = press(createMemo(''), '120＋40＋15');
+
+    expect(memoTotal(editRow(memo, 0))).toBe(memoTotal(memo));
+  });
+
+  it('編集中の行そのものを押しても何も起きない（同じ参照を返す）', () => {
+    const memo = press(createMemo(''), '120＋40');
+
+    // memoRows の末尾＝編集中の行。rows には無いので範囲外になる
+    expect(editRow(memo, memo.rows.length)).toBe(memo);
+    expect(editRow(memo, 99)).toBe(memo);
+  });
+
+  it('プリセットから積んだ行を押すと、名前も色も付いたまま編集中になる', () => {
+    const box = { id: 'p-box', name: '箱（小）', value: 120, colorKey: 'blue' };
+    const cushion = { id: 'p-cushion', name: '緩衝材', value: 40, colorKey: 'green' };
+    const memo = pickPresetsResult(createMemo(''), [box, cushion]).memo;
+    const edited = editRow(memo, 0);
+
+    expect(edited.draft.name).toBe('箱（小）');
+    expect(edited.draft.presetId).toBe('p-box');
+    // 選び直しのチェックも外れない
+    expect(presetRowIds(edited)).toEqual(['p-cushion', 'p-box']);
+  });
+});
 
 describe('梱包材プリセットから行を積む（SPEC-V3 §4.5）', () => {
   const box = { id: 'p-box', name: '箱（小）', value: 120, colorKey: 'blue' };

@@ -29,6 +29,7 @@ import {
   memoRows,
   memoTotal,
   memoTotalText,
+  editRow,
   removeRow,
   rowResultText,
   submitBlockedReason,
@@ -55,6 +56,7 @@ import {
   calcRowSignLabel,
   calculatorBlockedNote,
   calculatorTitle,
+  calcEditRowAccessibilityLabel,
   deleteAccessibilityLabel,
 } from '@/logic/labels';
 import { useThemeColors, type ThemeColors } from '@/theme';
@@ -217,6 +219,9 @@ export function MiniCalculator({
                     row={row}
                     colors={colors}
                     onDelete={() => setMemo((current) => removeRow(current, index))}
+                    // 押すとその行が編集中になる（UI-SPEC §7.3 の改訂）。
+                    // 「最初の行にあとから × 2 を掛ける」の入口はここ 1 つ
+                    onEdit={() => setMemo((current) => editRow(current, index))}
                   />
                 ),
               )}
@@ -288,10 +293,13 @@ function SwipeToDeleteMemoRow({
   row,
   colors,
   onDelete,
+  onEdit,
 }: {
   row: CalcMemoRow;
   colors: ThemeColors;
   onDelete: () => void;
+  /** 押すとこの行が編集中になる（UI-SPEC §7.3 の改訂）。編集中の行には渡らない */
+  onEdit: () => void;
 }) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
@@ -311,9 +319,20 @@ function SwipeToDeleteMemoRow({
           <Text style={styles.deleteLabel}>{deleteLabel(locale)}</Text>
         </Pressable>
       )}>
-      <View style={[styles.rowSurface, { backgroundColor: colors.secondaryBackground }]}>
+      {/* **押すと編集中の行になる**（UI-SPEC §7.3 の改訂）。左スワイプの削除とは別の手で、
+          横に払う（削除）と真下に押す（編集）で取り違えは起きない。
+          押せることは形では示さない ── 行の見た目を変えると 4 列の並びが崩れるので、
+          押した結果（青い下線が移る）で分かる形にする */}
+      <Pressable
+        onPress={onEdit}
+        accessibilityRole="button"
+        accessibilityLabel={calcEditRowAccessibilityLabel(locale, rowAccessibilityLabel(row))}
+        style={({ pressed }) => [
+          styles.rowSurface,
+          { backgroundColor: colors.secondaryBackground, opacity: pressed ? 0.5 : 1 },
+        ]}>
         <MemoRow row={row} colors={colors} />
-      </View>
+      </Pressable>
     </ReanimatedSwipeable>
   );
 }
