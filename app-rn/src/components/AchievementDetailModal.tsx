@@ -39,6 +39,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useModalPresence } from '@/review/modalPresence';
+
 import {
   achievementIcon,
   categoryColor,
@@ -239,6 +241,10 @@ export function AchievementDetailModal({
     },
     [onClose, router],
   );
+
+  // レビュー依頼をこのモーダルの上に被せないための申告（src/review/modalPresence.ts）
+  // 実績が 0 件のときは下で null を返す（＝ Modal を出さない）ので、その条件も含めて渡す
+  useModalPresence(visible && achievements.length > 0);
 
   if (achievements.length === 0) return null;
 

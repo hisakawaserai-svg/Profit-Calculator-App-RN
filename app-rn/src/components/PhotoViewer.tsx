@@ -12,6 +12,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { photoImageLabel, photoViewerCloseLabel } from '@/logic/labels';
+import { useModalPresence } from '@/review/modalPresence';
 import { useLocale } from '@/settings';
 
 export function PhotoViewer({
@@ -28,6 +29,9 @@ export function PhotoViewer({
   const locale = useLocale();
 
   const insets = useSafeAreaInsets();
+
+  // レビュー依頼をこのモーダルの上に被せないための申告（src/review/modalPresence.ts）
+  useModalPresence(visible);
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose} transparent={false}>

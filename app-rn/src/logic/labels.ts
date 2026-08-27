@@ -3481,6 +3481,23 @@ export function helpLinkNote(locale: Locale): string {
 }
 
 /**
+ * 設定タブ「レビューを書く」（docs/DESIGN-REVIEW-PROMPT.md §5）。
+ *
+ * **押しても OS のレビュー画面は出ない。ストアの掲載ページを開くだけ。**
+ * 自動のレビュー依頼（src/review/requestReview.ts）とはまったく別の経路で、
+ * Google のガイドラインが In-App Review の API をボタンで起動することを
+ * 禁じているため（割り当てに達している人には何も出ず、壊れた行になる）。
+ * 注記を独立して持つのはそのため ── サポート・プライバシーポリシーの
+ * 「ブラウザで開きます」とは開く先が違う（ストアアプリが受け取りうる）。
+ */
+export function reviewLinkLabel(locale: Locale): string {
+  return t('settings.review.label', locale);
+}
+export function reviewLinkNote(locale: Locale): string {
+  return t('settings.review.note', locale);
+}
+
+/**
  * サポートとプライバシーポリシー（外部のページ）。**「使いかた」のすぐ下に置く** ──
  * どちらも「困ったときに読むもの」で、アプリの中の説明で足りなかった人が
  * 次に行く先だから。設定の他の群（記録の既定値・データ）とは用が違う。

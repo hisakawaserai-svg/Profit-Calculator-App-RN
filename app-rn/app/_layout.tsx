@@ -14,7 +14,7 @@ import { OnboardingOverlay } from '@/components/OnboardingOverlay';
 import { registerOnboardingRequestListener } from '@/components/onboardingBus';
 import { initDatabase } from '@/db/client';
 import { dbInitFailedMessage } from '@/logic/labels';
-import { useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
+import { countLaunch, useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
@@ -141,6 +141,17 @@ export default function RootLayout() {
       () => setDbReady(true),
       (error: Error) => setDbError(error),
     );
+  }, []);
+
+  /**
+   * この起動を 1 回として数える（アプリ内レビュー依頼のゲート。docs/DESIGN-REVIEW-PROMPT.md）。
+   * **アプリ全体でここだけ**（useDeviceLanguageSync と同じ規約）。
+   *
+   * DB の準備を待たない ── 数えるのは kv-store（設定 DB）で、記録の DB とは別ファイル。
+   * 待つと、初期化に失敗した起動だけが数から漏れることになる。
+   */
+  useEffect(() => {
+    countLaunch();
   }, []);
 
   // 設定タブ「チュートリアルをもう一度見る」からの要求（achievementToastBus と同じ配線）。

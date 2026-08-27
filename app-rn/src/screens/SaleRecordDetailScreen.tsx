@@ -95,6 +95,8 @@ import {
 import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievements';
 import { listingDays } from '@/logic/listingDays';
 import { photoStore } from '@/media/expoPhotoFiles';
+import { netProfit } from '@/logic/profit';
+import { requestReviewAfterSave } from '@/review/requestReview';
 import { initialSaleDate } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import { RecordFormSheet } from '@/screens/RecordFormSheet';
@@ -154,6 +156,16 @@ export function SaleRecordDetailScreen() {
       initialSaleDate(fromDbDate(record.saleStartDate), today),
     );
     showAchievementToast(newlyCompleted);
+    // 「売れた」はフォームを経由しない唯一の保存経路（setSoldStatus のコメント）なので、
+    // レビュー依頼の発火点もここに要る（docs/DESIGN-REVIEW-PROMPT.md）。
+    // **戻す側（handleUndoMarkSold / handleRevertToListing）からは呼ばない** ──
+    // 取り消しはポジティブな場面ではない（設計の除外条件）。
+    // SaleRecord は profit.ts の CostInput の列をそのまま持つので素通しできる
+    // （achievements.ts の recordNetProfit と同じ考え方）
+    requestReviewAfterSave({
+      newlyCompletedCount: newlyCompleted.length,
+      netProfit: netProfit(record),
+    });
     refresh();
     setShowUndo(true);
     setHighlightSoldDate(true);

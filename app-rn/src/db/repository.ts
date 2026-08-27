@@ -728,6 +728,24 @@ export function createRepository(
     },
 
     /**
+     * 売れた記録だけの件数。アプリ内レビュー依頼のゲート（docs/DESIGN-REVIEW-PROMPT.md）が使う。
+     *
+     * **totalCount と分けるのは母集団が違うから。** あちらは「この端末に何件入っているか」を
+     * 見せるための数で、こちらは「売るところまで通った回数」── 記録しただけの段階では
+     * アプリが役に立ったかどうかがまだ分からないので、レビューを頼む条件には使えない。
+     *
+     * 絞り込みを持たないので buildAnalyticsWhere は通さない（totalCount と同じ扱い）。
+     */
+    soldCount(): number {
+      const row = db
+        .select({ count: sql<number>`count(*)` })
+        .from(saleRecords)
+        .where(eq(saleRecords.isSold, true))
+        .get();
+      return row?.count ?? 0;
+    },
+
+    /**
      * ある販売サイト名を写した記録の件数（SPEC-V3 §1.5.1）。
      * プリセットの削除確認（設計案 25c）が使う。
      *

@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useModalPresence } from '@/review/modalPresence';
+
 import { HelpButton } from '@/components/HelpButton';
 import {
   OnboardingAchievementsFigure,
@@ -92,6 +94,9 @@ function onboardingHelpScreenTitles(locale: Locale): readonly string[] {
 const FIGURE_AREA_HEIGHT = 360;
 
 export function OnboardingOverlay({ visible, onDone }: Props) {
+  // レビュー依頼をこのモーダルの上に被せないための申告（src/review/modalPresence.ts）
+  useModalPresence(visible);
+
   return (
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen" onRequestClose={onDone}>
       {/* 開いている間だけマウントして、ページ位置を毎回 1 枚目から始める(RecordFormSheet と同じ作り) */}

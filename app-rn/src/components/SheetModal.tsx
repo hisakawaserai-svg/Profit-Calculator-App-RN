@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 
 import { closeLabel } from '@/logic/labels';
+import { useModalPresence } from '@/review/modalPresence';
 import { useLocale } from '@/settings';
 
 /** 幕の濃さ。明暗どちらの外観でも同じ（下の画面を沈めるのが役目で、地色ではない） */
@@ -84,6 +85,9 @@ export function SheetModal({ visible = true, onClose, onBackdropPress, children 
   }
 
   const rendered = visible || closing;
+
+  // レビュー依頼をこのモーダルの上に被せないための申告（src/review/modalPresence.ts）
+  useModalPresence(rendered);
 
   useEffect(() => {
     if (!visible) return;

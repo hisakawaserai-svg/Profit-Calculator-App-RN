@@ -27,6 +27,14 @@ import {
   type Locale,
 } from './language';
 import { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+import {
+  FIRST_LAUNCH_AT_KEY,
+  LAUNCH_COUNT_KEY,
+  normalizeCounter,
+  normalizeEpochMs,
+  REVIEW_REQUEST_COUNT_KEY,
+  REVIEW_REQUESTED_AT_KEY,
+} from './reviewRequest';
 import { normalizeTutorialSeen, TUTORIAL_SEEN_KEY } from './tutorialSeen';
 
 export {
@@ -46,6 +54,14 @@ export {
   type Locale,
 } from './language';
 export { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+export {
+  FIRST_LAUNCH_AT_KEY,
+  LAUNCH_COUNT_KEY,
+  normalizeCounter,
+  normalizeEpochMs,
+  REVIEW_REQUEST_COUNT_KEY,
+  REVIEW_REQUESTED_AT_KEY,
+} from './reviewRequest';
 export { normalizeTutorialSeen, TUTORIAL_SEEN_KEY } from './tutorialSeen';
 
 /**
@@ -100,11 +116,26 @@ type SettingsStore = Settings & {
    * 起動時の値と `useDeviceLanguageSync()` が流し込む値をここで一本化している。
    */
   deviceLanguages: readonly string[];
+  /**
+   * アプリ内レビュー依頼の履歴（docs/DESIGN-REVIEW-PROMPT.md）。
+   * **設定ではなく端末の履歴**なので `deviceLanguages` と同じく `Settings` には入れない ──
+   * 画面に出す値ではなく（出す予定も無い）、判定から読むだけのもの。
+   *
+   * `reviewRequestCount` / `reviewRequestedAt` が数えているのは**こちらから頼んだ回数と時刻**で、
+   * 利用者が実際にレビュー画面を見た回数ではない。表示回数は OS が管理し、
+   * 出たかどうかはアプリに返ってこない（logic/reviewPrompt.ts の冒頭）。
+   */
+  launchCount: number;
+  firstLaunchAt: number | null;
+  reviewRequestedAt: number | null;
+  reviewRequestCount: number;
   setDefaultRecordKind: (kind: RecordKind) => void;
   setDeviceLanguages: (languages: readonly string[]) => void;
   setLanguage: (language: LanguageSetting) => void;
   setLastBackupAt: (createdAt: string) => void;
   markTutorialSeen: () => void;
+  countLaunch: (now: number) => void;
+  markReviewRequested: (at: number) => void;
 };
 
 // 起動時の言語。kv-store は同期に読めるので、初期値をその場で決められる
@@ -120,6 +151,10 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
   deviceLanguages: initialDeviceLanguageTags,
   lastBackupAt: normalizeLastBackupAt(Storage.getItemSync(LAST_BACKUP_AT_KEY)),
   tutorialSeen: normalizeTutorialSeen(Storage.getItemSync(TUTORIAL_SEEN_KEY)),
+  launchCount: normalizeCounter(Storage.getItemSync(LAUNCH_COUNT_KEY)),
+  firstLaunchAt: normalizeEpochMs(Storage.getItemSync(FIRST_LAUNCH_AT_KEY)),
+  reviewRequestedAt: normalizeEpochMs(Storage.getItemSync(REVIEW_REQUESTED_AT_KEY)),
+  reviewRequestCount: normalizeCounter(Storage.getItemSync(REVIEW_REQUEST_COUNT_KEY)),
   setDefaultRecordKind: (kind) => {
     // 先に永続化してからストアを更新する。書き込みが失敗したら state も進めない
     Storage.setItemSync(DEFAULT_RECORD_KIND_KEY, kind);
@@ -156,6 +191,35 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
   markTutorialSeen: () => {
     Storage.setItemSync(TUTORIAL_SEEN_KEY, '1');
     set({ tutorialSeen: true });
+  },
+  /**
+   * この起動を 1 回として数える。呼ぶのは `countLaunch()` だけ（下記の once ガード付き）。
+   *
+   * **初回起動の時刻は、まだ無いときだけ書く。** 上書きしてしまうと
+   * 「初回起動から 7 日以上」の条件が毎回リセットされ、永久に満たせなくなる。
+   */
+  countLaunch: (now) => {
+    const next = get().launchCount + 1;
+    Storage.setItemSync(LAUNCH_COUNT_KEY, String(next));
+
+    const firstLaunchAt = get().firstLaunchAt;
+    if (firstLaunchAt == null) {
+      Storage.setItemSync(FIRST_LAUNCH_AT_KEY, String(now));
+      set({ launchCount: next, firstLaunchAt: now });
+      return;
+    }
+
+    set({ launchCount: next });
+  },
+  /**
+   * レビューを**頼んだ**ことを記録する（見せられたことではない。型のコメント参照）。
+   * 他の値と同じく、先に永続化してからストアを更新する。
+   */
+  markReviewRequested: (at) => {
+    const next = get().reviewRequestCount + 1;
+    Storage.setItemSync(REVIEW_REQUESTED_AT_KEY, String(at));
+    Storage.setItemSync(REVIEW_REQUEST_COUNT_KEY, String(next));
+    set({ reviewRequestedAt: at, reviewRequestCount: next });
   },
 }));
 
@@ -210,4 +274,50 @@ export function getDefaultRecordKind(): RecordKind {
 /** 設定画面以外から書き換える必要はないが、API の対称性のために公開しておく */
 export function setDefaultRecordKind(kind: RecordKind): void {
   useSettingsStore.getState().setDefaultRecordKind(kind);
+}
+
+/** `countLaunch()` を 1 プロセスにつき 1 回に抑える番人（下記の理由） */
+let launchCounted = false;
+
+/**
+ * この起動を 1 回として数える。**アプリ全体で 1 か所だけで呼ぶ**（RootLayout）。
+ *
+ * `useDeviceLanguageSync()` と同じく「起動につき 1 回」の副作用だが、こちらは
+ * **呼ばれた回数がそのまま保存される**ので、二重呼び出しが数字の誤りとして残る ──
+ * effect は開発時の再マウントや将来の StrictMode で 2 回走りうる。
+ * モジュールの寿命はプロセスと同じなので、ここで弾けば実際の起動回数と一致する。
+ */
+export function countLaunch(now: number = Date.now()): void {
+  if (launchCounted) return;
+  launchCounted = true;
+  useSettingsStore.getState().countLaunch(now);
+}
+
+/**
+ * レビュー依頼の判定（logic/reviewPrompt.ts）が読む履歴。**購読はしない** ──
+ * 読むのは保存操作の直後に 1 回だけで、値が変わったことを画面に映す必要がない。
+ *
+ * 売れた記録の件数（`soldRecordCount`）はここに含めない。あれは設定ではなく
+ * 記録 DB の集計なので、呼び出し側が repository から足す。
+ */
+export function getReviewPromptHistory(): {
+  launchCount: number;
+  firstLaunchAt: number | null;
+  lastRequestedAt: number | null;
+  requestCount: number;
+} {
+  const { launchCount, firstLaunchAt, reviewRequestedAt, reviewRequestCount } =
+    useSettingsStore.getState();
+
+  return {
+    launchCount,
+    firstLaunchAt,
+    lastRequestedAt: reviewRequestedAt,
+    requestCount: reviewRequestCount,
+  };
+}
+
+/** レビューを頼んだことを記録する。呼ぶのは src/review/requestReview.ts だけ */
+export function markReviewRequested(at: number = Date.now()): void {
+  useSettingsStore.getState().markReviewRequested(at);
 }

@@ -149,6 +149,8 @@ import {
   type RecordFormValues,
 } from '@/logic/recordForm';
 import { photoStore } from '@/media/expoPhotoFiles';
+import { requestReviewAfterSave } from '@/review/requestReview';
+import { useModalPresence } from '@/review/modalPresence';
 import { getDefaultRecordKind , useLocale } from '@/settings';
 import { themes, useThemeColors, type ThemeColors } from '@/theme';
 
@@ -278,6 +280,9 @@ export function RecordFormSheet({
    * （その場合の写真の後片付けはアンマウント時の useEffect が最後の関所として拾う）。
    */
   const handleCancelRef = useRef<(() => void) | null>(null);
+
+  // レビュー依頼をこのシートの上に被せないための申告（src/review/modalPresence.ts）
+  useModalPresence(visible);
 
   return (
     <Modal
@@ -670,6 +675,14 @@ function RecordForm({
 
     const newlyCompleted = saveRecord(record?.id ?? null, toSaveInput(values));
     showAchievementToast(newlyCompleted);
+    // 保存が成立した「落ち着いた瞬間」にレビューを頼めるか見てもらう（docs/DESIGN-REVIEW-PROMPT.md）。
+    // 出すかどうかも、いつ出すかも向こうが決めるので、ここは起きたことを渡すだけ。
+    // **純利益は売れた記録のときだけ渡す** ── 出品中はまだ利益という値が無い
+    // （0 として渡すと、出品しただけで発火点になってしまう）
+    requestReviewAfterSave({
+      newlyCompletedCount: newlyCompleted.length,
+      netProfit: values.isSold ? netProfit(toCostInput(values)) : null,
+    });
     cleanUpPhotos(values.photoFileName);
     onSaved?.();
     onClose();

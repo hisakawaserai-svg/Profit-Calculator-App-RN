@@ -1469,6 +1469,10 @@ export const en: Translations = {
     replayTutorial: {
       label: 'Watch the Tutorial Again',
     },
+    review: {
+      label: 'Write a Review',
+      note: 'Opens the store page.',
+    },
     support: {
       label: 'Support',
       privacy: 'Privacy Policy',

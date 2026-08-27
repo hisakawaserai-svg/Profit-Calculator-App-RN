@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ReactNativeLegal } from 'react-native-legal';
 
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -52,6 +52,8 @@ import {
   recordCountLabel,
   recordSettingsSectionTitle,
   replayTutorialLabel,
+  reviewLinkLabel,
+  reviewLinkNote,
   settingsTabLabel,
   supportLinkLabel,
   supportSectionNote,
@@ -62,6 +64,7 @@ import {
   versionLabel,
 } from '@/logic/labels';
 import { PRESET_TYPES } from '@/logic/preset';
+import { storeReviewUrl } from '@/review/storeUrl';
 import { useSettings } from '@/settings';
 import { useThemeColors } from '@/theme';
 
@@ -93,6 +96,14 @@ const DevSeedCard: ComponentType<{ onChanged: () => void }> | null = __DEV__
  */
 const SUPPORT_URL = 'https://hisakawaserai-svg.github.io/Profit-Calculator-App-RN/support.html';
 const PRIVACY_URL = 'https://hisakawaserai-svg.github.io/Profit-Calculator-App-RN/privacy.html';
+
+/**
+ * 「レビューを書く」の行き先（src/review/storeUrl.ts）。ストアの無い経路（web）では null で、
+ * その場合は行ごと出さない ── 押しても何も起きない行を残さない。
+ *
+ * **ここで expo-store-review を呼ばないことが要点。** 理由は storeUrl.ts の冒頭にある。
+ */
+const REVIEW_URL = storeReviewUrl(Platform.OS);
 
 /**
  * 設定タブのカードに並べる色の点（SPEC-V4 §2.1）。一覧のチップの点（6px）より大きくするのは、
@@ -326,6 +337,30 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+
+        {/* 「レビューを書く」。サポート・プライバシーポリシーとは**別のカードにする** ──
+            あちらは「困ったときに読むもの」で、こちらは書きに行くもの。同じカードに
+            3 行目として並べると、下の注記（「どちらも端末のブラウザで開きます」）が
+            開く先の違う行にも掛かってしまう（こちらはストアアプリが受け取りうる）。
+            押しても OS のレビュー画面は出ない ── 出すのは自動の依頼だけで、
+            その理由は src/review/storeUrl.ts の冒頭にある */}
+        {REVIEW_URL != null && (
+          <View style={styles.section}>
+            <Pressable
+              onPress={() => openExternal(REVIEW_URL)}
+              style={StyleSheet.flatten([
+                styles.linkRow,
+                { backgroundColor: colors.secondaryBackground },
+              ])}
+              accessibilityRole="link">
+              <Text style={[styles.label, { color: colors.label }]}>{reviewLinkLabel(locale)}</Text>
+              <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
+            </Pressable>
+            <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+              {reviewLinkNote(locale)}
+            </Text>
+          </View>
+        )}
 
         {/* 外部のページ 2 行。**設定の一番下（データ群の下）に置く** ── どちらも
             「困ったときに読むもの」で、上の各群（表示言語・記録の既定値・データなど）を
