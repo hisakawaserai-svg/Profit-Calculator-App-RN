@@ -19,7 +19,7 @@
 // 手数料の既定値（defaultCommission。UI-SPEC §1.6-2）はまだ無いので、
 // 「記録の既定値」群は種別だけ。
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -68,8 +68,26 @@ import { storeReviewUrl } from '@/review/storeUrl';
 import { useSettings } from '@/settings';
 import { useThemeColors } from '@/theme';
 
-/** app.json の version。取れない経路（開発ビルドの一部）では行ごと出さない */
-const APP_VERSION = Constants.expoConfig?.version ?? null;
+/**
+ * 表示するバージョン。**いま動いているバイナリに焼かれた値**を読む
+ * （iOS は Info.plist の `CFBundleShortVersionString`、Android は `versionName`）。
+ *
+ * **`Constants.expoConfig?.version` は使わない。** あれが返すのは
+ * 「ビルド時点の app.json の値」で、ネイティブに焼かれた値ではない ──
+ * expo-constants はビルドのたびに app.json から `app.config` を作り直して埋め込むだけで、
+ * Info.plist も build.gradle も読まない。両者が一致するのは
+ * **prebuild が app.json の最後の変更のあとに走ったときだけ**で、ビルドはそれを保証しない
+ * （`expo run:*` は ios/ android/ があると prebuild を飛ばす）。
+ * その状態で app.json の version だけ上げると、**表示は新しい値・バイナリは古い値**になり、
+ * しかも表示が正しく見えるので気付けない。
+ *
+ * `Constants.nativeAppVersion` は SDK 57 で型定義から削除済みなので使えない
+ * （deprecation 先がこの expo-application）。
+ *
+ * 取れなければ行ごと出さない、という扱いは変えない ── 返り値は `string | null` で、
+ * 出せない値の代わりに「バージョン ???」と出しても読む人にできることが無い。
+ */
+const APP_VERSION = Application.nativeApplicationVersion;
 
 /**
  * 開発用のテストデータ投入（src/dev/）。**import 文ではなく require で読む。**

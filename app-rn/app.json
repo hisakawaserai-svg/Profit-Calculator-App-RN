@@ -12,7 +12,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.sera.profit-calculator",
-      "appleTeamId": "NHKTC768TP"
+      "appleTeamId": "NHKTC768TP",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +22,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.sera.profitcalculator"
+      "package": "com.sera.profitcalculator",
+      "versionCode": 6
     },
     "web": {
       "output": "static",
