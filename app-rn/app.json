@@ -2,7 +2,7 @@
   "expo": {
     "name": "うりつみ",
     "slug": "uritsumi",
-    "version": "1.1.0",
+    "version": "1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "uritsumi",
@@ -13,7 +13,7 @@
     "ios": {
       "bundleIdentifier": "com.sera.profit-calculator",
       "appleTeamId": "NHKTC768TP",
-      "buildNumber": "7"
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
