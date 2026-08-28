@@ -8,17 +8,22 @@
 // 文章の良し悪しは見ない。人が読めば分かることを機械に判定させない。
 //
 // 使い方:
-//   node scripts/check-changelog.mjs            すべて
-//   node scripts/check-changelog.mjs 1.1.0      そのバージョンだけ
-//   node scripts/check-changelog.mjs 1.0.0 1.1.0
+//   node CHANGELOG/check-changelog.mjs            すべて
+//   node CHANGELOG/check-changelog.mjs 1.1.0      そのバージョンだけ
+//   node CHANGELOG/check-changelog.mjs 1.0.0 1.1.0
 //
-// 依存なし（Node の標準モジュールだけ）。リポジトリ直下から実行する。
+// 依存なし（Node の標準モジュールだけ）。**どこから実行してもよい** ──
+// 見に行く先も git を回す場所も、このファイル自身の位置から決めている。
 
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DIR = 'CHANGELOG';
+/** 検査する先は、このスクリプトが置いてあるディレクトリ自身（CHANGELOG/） */
+const DIR = dirname(fileURLToPath(import.meta.url));
+/** 画面に出すときの見え方。フルパスは長いので CHANGELOG/1.1.0.md の形にする */
+const LABEL = basename(DIR);
 /** Google Play のリリースノートの上限（1 言語あたり）。App Store の 4000 より厳しい方に合わせる */
 const MAX_CHARS = 500;
 /** ファイル名は 3 桁固定。1.1.md と 1.1.2.md が並ぶと辞書順が狂うため（README 参照） */
@@ -40,7 +45,7 @@ const note = (file, line, message) => problems.push({ file, line, message });
  */
 const gitAvailable = (() => {
   try {
-    execFileSync('git', ['rev-parse', '--git-dir'], { stdio: 'ignore' });
+    execFileSync('git', ['rev-parse', '--git-dir'], { cwd: DIR, stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -51,7 +56,7 @@ const gitAvailable = (() => {
 function commitExists(hash) {
   if (!gitAvailable) return true;
   try {
-    execFileSync('git', ['cat-file', '-e', `${hash}^{commit}`], { stdio: 'ignore' });
+    execFileSync('git', ['cat-file', '-e', `${hash}^{commit}`], { cwd: DIR, stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -59,8 +64,8 @@ function commitExists(hash) {
 }
 
 function checkFile(name) {
-  const path = join(DIR, name);
-  const text = readFileSync(path, 'utf8');
+  const path = join(LABEL, name);
+  const text = readFileSync(join(DIR, name), 'utf8');
   const lines = text.split('\n');
 
   const matched = name.match(FILE_NAME);
@@ -153,7 +158,7 @@ const targets = wanted.length
 
 for (const name of targets) {
   if (!all.includes(name)) {
-    note(join(DIR, name), 1, 'ファイルが無い');
+    note(join(LABEL, name), 1, 'ファイルが無い');
     continue;
   }
   checkFile(name);
