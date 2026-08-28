@@ -2,7 +2,7 @@
   "expo": {
     "name": "うりつみ",
     "slug": "uritsumi",
-    "version": "1.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "uritsumi",
