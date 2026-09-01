@@ -13,7 +13,7 @@
 2. AAB を作り直す（コミット済みの内容でビルドする場合は、先にコミットしておくこと）。
 
    ```bash
-   cd /Users/hs./Documents/Programming/Profit-Calculator-App-RN/app-rn && \
+   cd /Users/hs./Documents/Programming/Profit-Calculator-App-RN/app-rn/android && \
    JAVA_HOME="$(/usr/libexec/java_home -v 17)" \
    ANDROID_HOME="$HOME/Library/Android/sdk" \
    ./gradlew app:bundleRelease
