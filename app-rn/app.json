@@ -13,7 +13,7 @@
     "ios": {
       "bundleIdentifier": "com.sera.profit-calculator",
       "appleTeamId": "NHKTC768TP",
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "adaptiveIcon": {
