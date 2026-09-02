@@ -85,27 +85,39 @@ function checkFile(name) {
     if (!text.includes(`\n${heading}\n`)) note(path, 1, `${heading} が無い`);
   }
 
-  // 3) ストアへ貼る本文。```text ブロックがちょうど 1 つ
+  // 3) ストアへ貼る本文。```text ブロックが 1 つ（共通）か 2 つ（Android 用 → iOS 用の順）
   const blocks = [...text.matchAll(/```text\n([\s\S]*?)\n```/g)];
-  if (blocks.length !== 1) {
-    note(path, 1, `\`\`\`text ブロックが ${blocks.length} 個（1 つにする）`);
+  if (blocks.length !== 1 && blocks.length !== 2) {
+    note(path, 1, `\`\`\`text ブロックが ${blocks.length} 個（1 つか、Android 用/iOS 用の 2 つにする）`);
   } else {
-    const body = blocks[0][1];
-    const startLine = text.slice(0, blocks[0].index).split('\n').length;
+    for (const block of blocks) {
+      const body = block[1];
+      const startLine = text.slice(0, block.index).split('\n').length;
 
-    if (body.length > MAX_CHARS) {
-      note(path, startLine, `リリースノートが ${body.length} 字（上限 ${MAX_CHARS}）`);
+      if (body.length > MAX_CHARS) {
+        note(path, startLine, `リリースノートが ${body.length} 字（上限 ${MAX_CHARS}）`);
+      }
+      body.split('\n').forEach((line, i) => {
+        if (/^\s*([-*#>]|\d+\.)\s/.test(line)) {
+          note(path, startLine + 1 + i, `本文に Markdown 記法「${line.trim().slice(0, 12)}」── 記号のまま表示される`);
+        }
+        if (line.includes('**')) {
+          note(path, startLine + 1 + i, `本文に "**" ── 記号のまま表示される`);
+        }
+      });
+      // 群の区切りは空行 1 つ（2 つ以上空けるとストアの狭い欄で 1 画面に入らない）
+      if (/\n\n\n/.test(body)) note(path, startLine, '本文に空行が 2 つ以上続く箇所がある');
     }
-    body.split('\n').forEach((line, i) => {
-      if (/^\s*([-*#>]|\d+\.)\s/.test(line)) {
-        note(path, startLine + 1 + i, `本文に Markdown 記法「${line.trim().slice(0, 12)}」── 記号のまま表示される`);
+    // 2 つに分けた場合、他ストアの名前が残っていないか（1 つ目 = Android 用、2 つ目 = iOS 用）
+    if (blocks.length === 2) {
+      const [androidLine, iosLine] = blocks.map((b) => text.slice(0, b.index).split('\n').length);
+      if (/App Store/.test(blocks[0][1])) {
+        note(path, androidLine, 'Android 用のブロックに "App Store" が残っている');
       }
-      if (line.includes('**')) {
-        note(path, startLine + 1 + i, `本文に "**" ── 記号のまま表示される`);
+      if (/Google Play/.test(blocks[1][1])) {
+        note(path, iosLine, 'iOS 用のブロックに "Google Play" が残っている');
       }
-    });
-    // 群の区切りは空行 1 つ（2 つ以上空けるとストアの狭い欄で 1 画面に入らない）
-    if (/\n\n\n/.test(body)) note(path, startLine, '本文に空行が 2 つ以上続く箇所がある');
+    }
   }
 
   // 4) 日付の形
