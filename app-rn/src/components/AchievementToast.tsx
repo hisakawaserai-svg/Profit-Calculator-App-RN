@@ -28,7 +28,7 @@ const MAX_STACK_BADGES = 3;
 /** カード左右の余白（SaveConfirmationToast と同じ実測値） */
 const CARD_MARGIN = 12;
 
-export function AchievementToast({ props, isVisible }: ToastConfigParams<AchievementToastProps>) {
+export function AchievementToast({ props, isVisible, hide }: ToastConfigParams<AchievementToastProps>) {
   const colors = useThemeColors();
   const { width: windowWidth } = useWindowDimensions();
   if (props == null) return null;
@@ -87,6 +87,15 @@ export function AchievementToast({ props, isVisible }: ToastConfigParams<Achieve
           <Text style={[styles.chevron, { color: colors.secondaryLabel }]}>›</Text>
         </View>
 
+        {/* SaveConfirmationToast と同じくバツも置く。RN のタッチ responder は親へ伝播しないので、
+            ここを押しても外側の Pressable（カード全体タップ＝実績詳細を開く）は発火しない */}
+        <Pressable
+          onPress={() => hide()}
+          hitSlop={8}
+          style={[styles.closeButton, { backgroundColor: colors.secondaryBackground }]}>
+          <Ionicons name="close" size={16} color={colors.secondaryLabel} />
+        </Pressable>
+
         {!isSingle && (
           <View style={[styles.chipsRow, { borderTopColor: colors.separator }]}>
             {badges.map((badge, index) => (
@@ -144,6 +153,12 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingVertical: 13,
     gap: 11,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 10,
   },
   mainRow: {
     flexDirection: 'row',

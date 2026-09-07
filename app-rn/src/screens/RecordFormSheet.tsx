@@ -29,7 +29,7 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Animated,
@@ -337,6 +337,9 @@ function RecordForm({
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
+  // 保存確認カードのタップ遷移で使う。SaleRecordDetailScreen から編集して保存したときのように、
+  // 遷移先がすでに開いている画面と同じなら push しない（同じ記録詳細が二重に積まれるのを防ぐ）
+  const pathname = usePathname();
 
   const colors = useThemeColors();
 
@@ -677,33 +680,48 @@ function RecordForm({
     }
 
     const { id: savedId, newlyCompleted } = saveRecord(record?.id ?? null, toSaveInput(values));
-    // 保存の確認を必ず先に出す。実績を新規獲得していても、保存確認を実績トーストに
-    // 差し替えたりはしない ── 「今保存した内容」の確認が主役で、実績はその後のおまけ
-    // （デザイン確定仕様版・3a〜3c。https://claude.ai/design/p/a60b1716-101b-4601-a5fb-b38492474c44）。
-    // react-native-toast-message は一度に 1 つしか出せないので、保存確認が閉じた瞬間
-    // （onHide）に続けて実績トーストを出す
-    const costs = toCostInput(values);
-    const saveConfirmationProps: SaveConfirmationToastProps = {
-      itemName: values.itemName,
-      photoFileName: values.photoFileName,
-      kind: values.kind,
-      isSold: values.isSold,
-      salesPrice: costs.salesPrice,
-      expenses: totalExpenses(costs),
-      netProfit: netProfit(costs),
-      tagNames: selectedTags(tags, values.tagIds).map((tag) => tag.name),
-    };
-    Toast.show({
-      type: SAVE_CONFIRMATION_TOAST_TYPE,
-      props: saveConfirmationProps,
-      // 記録タブの詳細ルートへ固定で飛ぶ(3a のメモ「タップで記録詳細へ」)。
-      // データタブから開いた保存でも記録タブ側に着地する ── Toast は Stack の外の
-      // 常駐コンポーネントで、どちらのタブから保存したかを覚えていないため
-      onPress: () => router.push({ pathname: '/records/record/[id]', params: { id: savedId } }),
-      onHide: () => {
-        if (newlyCompleted.length > 0) showAchievementToast(newlyCompleted);
-      },
-    });
+    // 保存した記録の詳細画面に、いま自分がもう居るかどうか。SaleRecordDetailScreen で
+    // 編集して保存したときがこれに当たる。この場合、保存確認カード自体を出さない ──
+    // 画面がその記録の詳細そのものなので、保存直後の再描画でもう同じ情報が見えており、
+    // カードで重ねて言う意味がない（実績トーストだけは新規獲得時に出す）
+    const alreadyOnRecordDetail =
+      pathname === `/records/record/${savedId}` || pathname === `/data/record/${savedId}`;
+    if (alreadyOnRecordDetail) {
+      if (newlyCompleted.length > 0) showAchievementToast(newlyCompleted);
+    } else {
+      // 保存の確認を必ず先に出す。実績を新規獲得していても、保存確認を実績トーストに
+      // 差し替えたりはしない ── 「今保存した内容」の確認が主役で、実績はその後のおまけ
+      // （デザイン確定仕様版・3a〜3c。https://claude.ai/design/p/a60b1716-101b-4601-a5fb-b38492474c44）。
+      // react-native-toast-message は一度に 1 つしか出せないので、保存確認が閉じた瞬間
+      // （onHide）に続けて実績トーストを出す
+      const costs = toCostInput(values);
+      const saveConfirmationProps: SaveConfirmationToastProps = {
+        itemName: values.itemName,
+        photoFileName: values.photoFileName,
+        kind: values.kind,
+        isSold: values.isSold,
+        salesPrice: costs.salesPrice,
+        expenses: totalExpenses(costs),
+        netProfit: netProfit(costs),
+        tagNames: selectedTags(tags, values.tagIds).map((tag) => tag.name),
+      };
+      Toast.show({
+        type: SAVE_CONFIRMATION_TOAST_TYPE,
+        props: saveConfirmationProps,
+        // 記録タブの詳細ルートへ固定で飛ぶ(3a のメモ「タップで記録詳細へ」)。
+        // データタブから開いた保存でも記録タブ側に着地する ── Toast は Stack の外の
+        // 常駐コンポーネントで、どちらのタブから保存したかを覚えていないため。
+        // **遷移したら自分で閉じる**（Toast.hide）。実績トーストは onHide 連鎖でこの直後に
+        // 出るので、hide を呼んでもチェーンは途切れない（AnimatedContainer が最後に呼ぶだけ）
+        onPress: () => {
+          Toast.hide();
+          router.push({ pathname: '/records/record/[id]', params: { id: savedId } });
+        },
+        onHide: () => {
+          if (newlyCompleted.length > 0) showAchievementToast(newlyCompleted);
+        },
+      });
+    }
     // 保存が成立した「落ち着いた瞬間」にレビューを頼めるか見てもらう（docs/DESIGN-REVIEW-PROMPT.md）。
     // 出すかどうかも、いつ出すかも向こうが決めるので、ここは起きたことを渡すだけ。
     // **純利益は売れた記録のときだけ渡す** ── 出品中はまだ利益という値が無い

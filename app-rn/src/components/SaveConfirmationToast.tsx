@@ -56,6 +56,7 @@ export function SaveConfirmationToast({
   props,
   isVisible,
   onPress,
+  hide,
 }: ToastConfigParams<SaveConfirmationToastProps>) {
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
   const locale = useLocale();
@@ -66,7 +67,12 @@ export function SaveConfirmationToast({
 
   const { itemName, photoFileName, kind, isSold, salesPrice, expenses, netProfit, tagNames } = props;
   const photoUri = photoFileName != null ? photoStore.uri(photoFileName) : null;
+  // 純利益は出品中/売却済みを問わず黒字=緑・赤字=赤（金額そのものの符号だけを見る）
   const profitColor = netProfit < 0 ? colors.red : colors.green;
+  // 状態バッジ・状態チップの色（純利益とは別軸。SaleRecordDetailScreen の状態バッジ
+  // （isSold ? colors.green : colors.orange）と同じ配色に揃える）
+  const statusColor = isSold ? colors.green : colors.orange;
+  const statusBackground = isSold ? colors.successBackground : colors.warningBackground;
   const hasTags = tagNames.length > 0;
 
   // formatYenSymbol は "¥2,020" / "-¥1,880" を返す（符号は ¥ の前）。
@@ -95,6 +101,13 @@ export function SaveConfirmationToast({
           <Text style={[styles.headerText, { color: profitColor }]} numberOfLines={1}>
             {savedCardHeader(locale)}
           </Text>
+          {/* スワイプでも消せる（react-native-toast-message の既定 swipeable）が、
+              カード全体がタップ領域を兼ねていて気づきにくいので、明示のバツも置く。
+              RN のタッチ responder は DOM と違って親へ伝播しないので、ここを押しても
+              外側の Pressable（カード全体タップ＝記録詳細へ遷移）は発火しない */}
+          <Pressable onPress={() => hide()} hitSlop={8} style={styles.closeButton}>
+            <Ionicons name="close" size={16} color={colors.secondaryLabel} />
+          </Pressable>
         </View>
 
         <View style={styles.mainRow}>
@@ -108,8 +121,8 @@ export function SaveConfirmationToast({
                 {itemName}
               </Text>
               {!isSold && (
-                <View style={[styles.statusBadge, { backgroundColor: colors.highlightBackground }]}>
-                  <Text style={[styles.statusBadgeText, { color: colors.blue }]} numberOfLines={1}>
+                <View style={[styles.statusBadge, { backgroundColor: statusBackground }]}>
+                  <Text style={[styles.statusBadgeText, { color: statusColor }]} numberOfLines={1}>
                     {savedCardStatusLabel(locale, isSold)}
                   </Text>
                 </View>
@@ -150,9 +163,9 @@ export function SaveConfirmationToast({
 
         {hasTags && (
           <View style={[styles.tagsRow, { borderTopColor: colors.separator }]}>
-            <View style={[styles.statusChip, { backgroundColor: colors.successBackground }]}>
-              <View style={[styles.statusDot, { backgroundColor: colors.green }]} />
-              <Text style={[styles.statusChipText, { color: colors.green }]} numberOfLines={1}>
+            <View style={[styles.statusChip, { backgroundColor: statusBackground }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.statusChipText, { color: statusColor }]} numberOfLines={1}>
                 {savedCardStatusLabel(locale, isSold)}
               </Text>
             </View>
@@ -202,8 +215,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerText: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '600',
+  },
+  closeButton: {
+    flexShrink: 0,
   },
   mainRow: {
     flexDirection: 'row',
