@@ -53,7 +53,8 @@ import {
   CHART_UNIT_NOTE,
   DATA_MODE_PROFIT_LABEL,
   DATA_MODE_TAG_LABEL,
-  achievementToastText,
+  achievementToastEyebrow,
+  achievementToastTitle,
   filterNoMatchNote,
   filterTagSearchEmptyBody,
   filterTagSearchEmptyTitle,
@@ -1189,17 +1190,15 @@ describe('データタブのセグメント（収支 / タグ）の語', () => {
   });
 });
 
-describe('achievementToastText（実績獲得トースト）', () => {
-  it('1個だけなら実績名をそのまま出す', () => {
-    expect(achievementToastText('ja', ['first_sale'])).toBe(
-      '実績「初めての一歩」を達成しました',
-    );
+describe('achievementToastEyebrow / achievementToastTitle（実績獲得トースト）', () => {
+  it('1個だけなら見出しは固定文言、大見出しは実績名そのもの', () => {
+    expect(achievementToastEyebrow('ja', ['first_sale'])).toBe('実績を獲得');
+    expect(achievementToastTitle('ja', ['first_sale'])).toBe('初めての一歩');
   });
 
-  it('複数なら件数でまとめる', () => {
-    expect(achievementToastText('ja', ['first_sale', 'first_profit'])).toBe(
-      '実績を2件達成しました',
-    );
+  it('複数なら見出しに件数、大見出しは「先頭の実績名 ほかN件」', () => {
+    expect(achievementToastEyebrow('ja', ['first_sale', 'first_profit'])).toBe('実績を2件獲得');
+    expect(achievementToastTitle('ja', ['first_sale', 'first_profit'])).toBe('初めての一歩 ほか1件');
   });
 });
 

@@ -2,8 +2,8 @@
 // つなぐだけの、モジュール内 1 対 1 の購読。
 //
 // RecordFormSheet は記録タブ・計算タブなど複数の入口から開くため、保存直後にどの画面が
-// 前面にいるかを問わずトーストを出したい。Toast 自体も同じ理由で Stack の外（全画面の上）に
-// 1 つだけ置かれている（app/_layout.tsx）ので、実績獲得の通知もそれと同じ「常駐する 1 つの
+// 前面にいるかを問わずトーストを出したい。Toast 自体も同じ理由で Stack の外(全画面の上)に
+// 1 つだけ置かれている(app/_layout.tsx)ので、実績獲得の通知もそれと同じ「常駐する 1 つの
 // 受け手」に投げる形にする。購読者は AchievementToastHost だけの想定（複数箇所から
 // registerAchievementToastListener を呼ばない）。
 import type { Ionicons } from '@expo/vector-icons';
@@ -13,14 +13,22 @@ import type { Achievement } from '@/logic/achievements';
 /** react-native-toast-message の Toast.show({ type }) / <Toast config={{ [type]: ... }}/> 共通のキー */
 export const ACHIEVEMENT_TOAST_TYPE = 'achievement';
 
-/**
- * 実績獲得トーストの Toast.show({ props }) に載せる、種類ごとのアイコン。
- * 新規獲得が 1 件のときだけ AchievementToastHost が実績固有のアイコン・色を入れる。
- * 複数件同時獲得（1つのトーストにまとめる仕様）は種類が混在するため付けない ──
- * その場合は app/_layout.tsx の toastConfig 側が既定の trophy にフォールバックする。
- */
+/** バッジ1個ぶんの表示情報（デザイン確定仕様版・3c の重ねバッジ・チップに使う） */
+export type AchievementToastBadge = {
+  name: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+};
+
 export type AchievementToastProps = {
-  icon?: { name: keyof typeof Ionicons.glyphMap; color: string };
+  /** 見出し。「実績を獲得」/「実績を{{count}}件獲得」 */
+  eyebrow: string;
+  /** 大見出し。実績名、または「先頭の実績名 ほかN件」 */
+  title: string;
+  /** 新規獲得した実績（表示順 = 詳細モーダルの index と一致させる） */
+  badges: readonly AchievementToastBadge[];
+  /** カード全体、またはチップ個別のタップ。渡す index で詳細モーダルの開始位置を指定する */
+  onSelect: (index: number) => void;
 };
 
 type Listener = (achievements: readonly Achievement[]) => void;

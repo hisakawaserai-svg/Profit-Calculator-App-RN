@@ -8,10 +8,16 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Toast, { BaseToast, type ToastConfig, type ToastConfigParams } from 'react-native-toast-message';
 
 import { initializeAds } from '@/ads/consent';
+import { AchievementToast } from '@/components/AchievementToast';
 import { AchievementToastHost } from '@/components/AchievementToastHost';
 import { ACHIEVEMENT_TOAST_TYPE, type AchievementToastProps } from '@/components/achievementToastBus';
 import { OnboardingOverlay } from '@/components/OnboardingOverlay';
 import { registerOnboardingRequestListener } from '@/components/onboardingBus';
+import {
+  SaveConfirmationToast,
+  SAVE_CONFIRMATION_TOAST_TYPE,
+  type SaveConfirmationToastProps,
+} from '@/components/SaveConfirmationToast';
 import { initDatabase } from '@/db/client';
 import { dbInitFailedMessage } from '@/logic/labels';
 import { countLaunch, useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
@@ -52,10 +58,12 @@ function toastLeadingIcon(name: keyof typeof Ionicons.glyphMap, color: string) {
  * トーストの種類ごとの見た目（UI-SPEC 未採番。トーストへのアイコン追加）。
  *
  * success/error/info は BaseToast をそのまま再利用し、renderLeadingIcon でアイコンだけ足す
- * （方法A。BaseToast のレイアウト・色・文字サイズは変えない）。achievement は記録保存で
- * 新規に実績を獲得したときのトースト（RecordFormSheet → achievementToastBus →
- * AchievementToastHost）で、タップすると該当の実績を AchievementDetailModal で開ける
- * （params.onPress が呼び出し側の Toast.show({ onPress }) をそのまま運んでくる）。
+ * （方法A。BaseToast のレイアウト・色・文字サイズは変えない）。
+ *
+ * saveConfirmation（記録保存の確認カード）と achievement（実績獲得）は BaseToast を使わず、
+ * デザイン確定仕様版（3a/3b/3c）に合わせた完全に自前のカードを描く。どちらも
+ * RecordFormSheet.handleSave からの一方通行（実績を新規獲得したときは achievement に譲り、
+ * それ以外は saveConfirmation を出す）。
  */
 const toastConfig: ToastConfig = {
   success: (params: ToastConfigParams<unknown>) => (
@@ -79,19 +87,18 @@ const toastConfig: ToastConfig = {
       renderLeadingIcon={toastLeadingIcon('information-circle', TOAST_COLORS.info)}
     />
   ),
-  [ACHIEVEMENT_TOAST_TYPE]: (params: ToastConfigParams<AchievementToastProps>) => {
-    // 新規獲得が 1 件のときだけ AchievementToastHost が実績固有のアイコン・色を props に積む。
-    // 複数件同時獲得（種類が混在）や props 未指定時は既定の金色トロフィーにフォールバックする
-    const icon = params.props?.icon;
-    const color = icon?.color ?? TOAST_COLORS.achievement;
-    return (
-      <BaseToast
-        {...params}
-        style={{ borderLeftColor: color }}
-        renderLeadingIcon={toastLeadingIcon(icon?.name ?? 'trophy', color)}
-      />
-    );
-  },
+  // **コンポーネント関数をそのまま渡さない。** react-native-toast-message の ToastUI は
+  // config[type] を `ToastComponent({ ...params })` と素の関数呼び出しで実行する（JSX にしない）
+  // ので、そのままだと中の useThemeColors 等のフックが ToastUI 自身に属してしまい、
+  // トーストの種類が切り替わるたびにフックの数・順序が食い違って落ちる（実機で確認済み）。
+  // success/error/info と同じく、JSX 要素を返す関数でラップして初めて別のコンポーネント
+  // （別の fiber）として扱われる
+  [SAVE_CONFIRMATION_TOAST_TYPE]: (params: ToastConfigParams<SaveConfirmationToastProps>) => (
+    <SaveConfirmationToast {...params} />
+  ),
+  [ACHIEVEMENT_TOAST_TYPE]: (params: ToastConfigParams<AchievementToastProps>) => (
+    <AchievementToast {...params} />
+  ),
 };
 
 /**

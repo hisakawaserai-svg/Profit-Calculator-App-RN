@@ -243,6 +243,8 @@ export const ja = {
     /** 帯の不足ぶんの区画（記録詳細） */
     shortfallSegment: '足りない',
     listingStatus: '出品中',
+    /** 保存確認カードの状態バッジ（デザイン確定仕様版・3a/3b）。一覧の行では使わない ── そちらは売却済みでも無地 */
+    soldStatus: '売却済み',
     listedDate: '出品',
     soldDate: '販売',
     soldRecords: '売れた記録',
@@ -307,6 +309,13 @@ export const ja = {
     newTitle: '新しい記録',
     editTitle: '記録を編集',
     save: '保存',
+    /**
+     * 保存確認カード(デザイン確定仕様版・3a/3b)の見出し。実績を新規獲得したときは
+     * 実績トーストに譲るので、こちらは出さない
+     */
+    savedCardHeader: '記録を保存しました',
+    /** 出品中の保存で「純利益」に付ける接尾辞。売れるまでは確定額ではないことを示す */
+    profitEstimateSuffix: '{{profit}}（見込み）',
     itemName: '商品名',
     itemNameRequired: '⚠️ 商品名を入力してください',
     itemNameCaption: '商品名（必須）',
@@ -759,9 +768,14 @@ export const ja = {
     lockedSectionTitle: '未解除（{{count}}）',
     completeTitle: 'すべての実績を達成しました',
     completeMessage: 'お疲れさまです。新しい実績が増えたらまたお知らせします。',
-    /** 獲得トースト。1 件なら名前、複数なら件数でまとめる */
-    toastOne: '実績「{{name}}」を達成しました',
-    toastMany: '実績を{{count}}件達成しました',
+    /**
+     * 獲得トースト。見出し(小)→バッジ名(大)の縦2段（デザイン確定仕様版・3c）。
+     * 1件なら見出しは固定文言、大見出しは実績名そのもの。複数件は見出しに件数、
+     * 大見出しは「先頭の実績名 ほかN件」（Nは残りの件数 = 合計-1）
+     */
+    toastEyebrowOne: '実績を獲得',
+    toastEyebrowMany: '実績を{{count}}件獲得',
+    toastTitleMany: '{{name}} ほか{{count}}件',
     /** 次の実績までの進み具合。単位が円か件かで文を分ける */
     progressYen: '{{current}} / {{target}}円',
     progressCount2: '{{current}} / {{target}}件',

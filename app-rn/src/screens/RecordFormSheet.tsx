@@ -29,6 +29,7 @@
 //   シートは閉じない（DB 書き込みもしない）。
 // - 保存時の saleDate 正規化（isSold=false → null）は repository の責務なのでここでは行わない。
 // - 値の組み立て・変換・バリデーションは src/logic/recordForm.ts の純粋関数に寄せている。
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Animated,
@@ -51,6 +52,7 @@ import {
   type KeyboardToolbarProps,
 } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { BreakdownPartList } from '@/components/BreakdownPartList';
@@ -70,6 +72,7 @@ import { TagChip } from '@/components/TagChip';
 import { TagPickerSheet } from '@/components/TagPickerSheet';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
 import { showAchievementToast } from '@/components/achievementToastBus';
+import { SAVE_CONFIRMATION_TOAST_TYPE, type SaveConfirmationToastProps } from '@/components/SaveConfirmationToast';
 import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import {
   selectShippingPreset,
@@ -131,7 +134,7 @@ import {
   type CostBreakdown,
   type RequiredPriceResult,
 } from '@/logic/calcForm';
-import { commissionCost, netProfit } from '@/logic/profit';
+import { commissionCost, netProfit, totalExpenses } from '@/logic/profit';
 import { initialSaleDate, saleDateRange } from '@/logic/saleDate';
 import { selectedTags } from '@/logic/tag';
 import {
@@ -673,8 +676,34 @@ function RecordForm({
       return;
     }
 
-    const newlyCompleted = saveRecord(record?.id ?? null, toSaveInput(values));
-    showAchievementToast(newlyCompleted);
+    const { id: savedId, newlyCompleted } = saveRecord(record?.id ?? null, toSaveInput(values));
+    // 保存の確認を必ず先に出す。実績を新規獲得していても、保存確認を実績トーストに
+    // 差し替えたりはしない ── 「今保存した内容」の確認が主役で、実績はその後のおまけ
+    // （デザイン確定仕様版・3a〜3c。https://claude.ai/design/p/a60b1716-101b-4601-a5fb-b38492474c44）。
+    // react-native-toast-message は一度に 1 つしか出せないので、保存確認が閉じた瞬間
+    // （onHide）に続けて実績トーストを出す
+    const costs = toCostInput(values);
+    const saveConfirmationProps: SaveConfirmationToastProps = {
+      itemName: values.itemName,
+      photoFileName: values.photoFileName,
+      kind: values.kind,
+      isSold: values.isSold,
+      salesPrice: costs.salesPrice,
+      expenses: totalExpenses(costs),
+      netProfit: netProfit(costs),
+      tagNames: selectedTags(tags, values.tagIds).map((tag) => tag.name),
+    };
+    Toast.show({
+      type: SAVE_CONFIRMATION_TOAST_TYPE,
+      props: saveConfirmationProps,
+      // 記録タブの詳細ルートへ固定で飛ぶ(3a のメモ「タップで記録詳細へ」)。
+      // データタブから開いた保存でも記録タブ側に着地する ── Toast は Stack の外の
+      // 常駐コンポーネントで、どちらのタブから保存したかを覚えていないため
+      onPress: () => router.push({ pathname: '/records/record/[id]', params: { id: savedId } }),
+      onHide: () => {
+        if (newlyCompleted.length > 0) showAchievementToast(newlyCompleted);
+      },
+    });
     // 保存が成立した「落ち着いた瞬間」にレビューを頼めるか見てもらう（docs/DESIGN-REVIEW-PROMPT.md）。
     // 出すかどうかも、いつ出すかも向こうが決めるので、ここは起きたことを渡すだけ。
     // **純利益は売れた記録のときだけ渡す** ── 出品中はまだ利益という値が無い

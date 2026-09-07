@@ -1370,17 +1370,30 @@ export function achievementName(locale: Locale, id: AchievementId): string {
 
 
 /**
- * 記録保存時の実績獲得トースト（text1）。
- * 1個だけ新規獲得なら実績名をそのまま、複数なら件数でまとめる。
+ * 記録保存時の実績獲得トースト、小見出し（デザイン確定仕様版・3c）。
+ * 「実績を獲得」(1件) / 「実績を{{count}}件獲得」(複数)
  */
-export function achievementToastText(
+export function achievementToastEyebrow(
   locale: Locale,
   newlyCompletedIds: readonly AchievementId[],
 ): string {
   if (newlyCompletedIds.length === 1) {
-    return t('achievement.toastOne', locale, { name: achievementName(locale, newlyCompletedIds[0]) });
+    return t('achievement.toastEyebrowOne', locale);
   }
-  return t('achievement.toastMany', locale, { count: newlyCompletedIds.length });
+  return t('achievement.toastEyebrowMany', locale, { count: newlyCompletedIds.length });
+}
+
+/**
+ * 記録保存時の実績獲得トースト、大見出し（デザイン確定仕様版・3c）。
+ * 1件ならその実績名、複数なら「先頭の実績名 ほかN件」（N = 合計 - 1）
+ */
+export function achievementToastTitle(
+  locale: Locale,
+  newlyCompletedIds: readonly AchievementId[],
+): string {
+  const first = achievementName(locale, newlyCompletedIds[0]);
+  if (newlyCompletedIds.length === 1) return first;
+  return t('achievement.toastTitleMany', locale, { name: first, count: newlyCompletedIds.length - 1 });
 }
 
 /** 実績ごとの説明文（全画面表示。獲得した実績の一覧はこれを出さない） */
@@ -1648,6 +1661,28 @@ export function cancelLabel(locale: Locale): string {
 }
 export function saveLabel(locale: Locale): string {
   return t('form.save', locale);
+}
+
+/**
+ * 保存確認カード(デザイン確定仕様版・3a/3b)の見出し。実績を新規獲得したときは
+ * 実績トーストに譲るので、そのときは呼ばない
+ */
+export function savedCardHeader(locale: Locale): string {
+  return t('form.savedCardHeader', locale);
+}
+
+/**
+ * 保存確認カードの純利益ラベル。出品中(未売却)のときだけ「(見込み)」を付ける ──
+ * 売れるまでは確定額ではないことを示す
+ */
+export function savedCardProfitLabel(locale: Locale, kind: RecordKind, isSold: boolean): string {
+  const base = profitLabel(locale, kind);
+  return isSold ? base : t('form.profitEstimateSuffix', locale, { profit: base });
+}
+
+/** 保存確認カードの状態バッジ */
+export function savedCardStatusLabel(locale: Locale, isSold: boolean): string {
+  return isSold ? t('list.soldStatus', locale) : listingStatusLabel(locale);
 }
 
 /**

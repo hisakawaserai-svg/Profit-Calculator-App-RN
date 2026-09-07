@@ -2,9 +2,10 @@
 // Toast 本体（react-native-toast-message）と同じ理由で、app/_layout.tsx の Stack の外に
 // 常駐 1 つだけ置く ── 記録タブ・計算タブなど、保存操作がどの画面から起きても拾えるようにするため。
 //
-// タップ時は AchievementDetailModal（既存。実績一覧・一撃バッジと共通のコンポーネント）を、
-// 今回新規獲得した実績だけの配列で開く。「モーダルだけで完結」という指定どおり、
-// タブ遷移は行わない（onClose で閉じるだけ）。
+// タップ時（カード全体、またはデザイン確定仕様版・3c のチップ個別）は AchievementDetailModal
+// （既存。実績一覧・一撃バッジと共通のコンポーネント）を、今回新規獲得した実績だけの配列で開く。
+// チップごとの initialIndex を渡せるので、「どれを獲ったか」からそのまま該当の実績詳細へ飛べる。
+// 「モーダルだけで完結」という指定どおり、タブ遷移は行わない（onClose で閉じるだけ）。
 //
 // タグ（resolveTag）はタップされた瞬間に tagRepository.listAll() で読む。トースト表示中に
 // タグが変わることは実質なく、常時購読する理由がない（useTagList の useFocusEffect は
@@ -15,7 +16,7 @@ import Toast from 'react-native-toast-message';
 
 import { tagRepository } from '@/db/client';
 import { achievementCategory, type Achievement, type AchievementId } from '@/logic/achievements';
-import { achievementToastText } from '@/logic/labels';
+import { achievementName, achievementToastEyebrow, achievementToastTitle } from '@/logic/labels';
 import { useLocale } from '@/settings';
 import { useThemeColors } from '@/theme';
 
@@ -27,7 +28,7 @@ import {
 import { AchievementDetailModal } from './AchievementDetailModal';
 import { achievementIcon, categoryColor, resolveTagFrom, type TagLookup } from './AchievementsSection';
 
-type Pending = { achievements: Achievement[]; resolveTag: TagLookup };
+type Pending = { achievements: Achievement[]; initialIndex: number; resolveTag: TagLookup };
 
 /**
  * トースト用のアイコン。基本は achievementIcon（実績詳細・バッジと共通）をそのまま使うが、
@@ -51,27 +52,29 @@ export function AchievementToastHost() {
   useEffect(() => {
     registerAchievementToastListener((achievements) => {
       const list = [...achievements];
-      // 1 件だけの新規獲得はその実績固有のアイコン・色を出す。複数件は種類が
-      // 混在するため付けない（type 定義のコメント参照。呼び出し先が既定の trophy にフォールバック）
-      const props: AchievementToastProps = {
-        icon:
-          list.length === 1
-            ? {
-                name: toastAchievementIcon(list[0].id),
-                color: categoryColor(achievementCategory(list[0].id), colors),
-              }
-            : undefined,
+      const ids = list.map((a) => a.id);
+
+      const open = (index: number) => {
+        Toast.hide();
+        // タップされた瞬間の最新タグで解決する（常時購読はしない。ファイル冒頭コメント参照）
+        setPending({
+          achievements: list,
+          initialIndex: index,
+          resolveTag: resolveTagFrom(tagRepository.listAll()),
+        });
       };
-      Toast.show({
-        type: ACHIEVEMENT_TOAST_TYPE,
-        text1: achievementToastText(locale, list.map((a) => a.id)),
-        props,
-        onPress: () => {
-          Toast.hide();
-          // タップされた瞬間の最新タグで解決する（常時購読はしない。ファイル冒頭コメント参照）
-          setPending({ achievements: list, resolveTag: resolveTagFrom(tagRepository.listAll()) });
-        },
-      });
+
+      const props: AchievementToastProps = {
+        eyebrow: achievementToastEyebrow(locale, ids),
+        title: achievementToastTitle(locale, ids),
+        badges: list.map((a) => ({
+          name: achievementName(locale, a.id),
+          icon: toastAchievementIcon(a.id),
+          color: categoryColor(achievementCategory(a.id), colors),
+        })),
+        onSelect: open,
+      };
+      Toast.show({ type: ACHIEVEMENT_TOAST_TYPE, props });
     });
     return () => registerAchievementToastListener(null);
   }, [colors, locale]);
@@ -79,7 +82,7 @@ export function AchievementToastHost() {
   return (
     <AchievementDetailModal
       achievements={pending?.achievements ?? []}
-      initialIndex={0}
+      initialIndex={pending?.initialIndex ?? 0}
       visible={pending != null}
       onClose={() => setPending(null)}
       resolveTag={pending?.resolveTag ?? NO_TAG_LOOKUP}

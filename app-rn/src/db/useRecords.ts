@@ -389,13 +389,20 @@ export function setTargetProfit(id: string, targetProfit: number | null): void {
  * 記録数が数千件規模でもクエリ自体は同期 SQLite の集計 SELECT で軽いはずだが、
  * 実績が増えて評価コストが上がった場合は保存のたびに体感できる遅延が出る可能性がある
  * （ユーザー確認事項として報告）。
+ *
+ * **保存した id も返す**（保存確認カードのタップ遷移先に要る）。新規作成のときは
+ * repository.create の戻り値から拾う ── id はここで初めて DB 側が発番するため、
+ * 呼び出し側（RecordFormSheet）はこの戻り値を待たないと知りようがない。
  */
-export function saveRecord(id: string | null, input: SaveRecordInput): Achievement[] {
+export function saveRecord(
+  id: string | null,
+  input: SaveRecordInput,
+): { id: string; newlyCompleted: Achievement[] } {
   const before = fetchAchievements();
-  if (id == null) repository.create(input);
-  else repository.update(id, input);
+  const savedId = id ?? repository.create(input).id;
+  if (id != null) repository.update(id, input);
   const after = fetchAchievements();
-  return newlyCompletedAchievements(before, after);
+  return { id: savedId, newlyCompleted: newlyCompletedAchievements(before, after) };
 }
 
 /** レコード 1 件の削除（SPEC §5.4: 確認なしで即削除）。呼び出し側で refresh すること */
