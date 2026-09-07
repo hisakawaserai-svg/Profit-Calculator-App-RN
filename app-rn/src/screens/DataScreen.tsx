@@ -857,75 +857,98 @@ export function DataScreen() {
 
               {mode === DATA_MODE_TAG && (
                 <ScrollView contentContainerStyle={styles.scrollContent}>
-                  {/* 「グラフ」のときだけ、「収支の推移」カードと同じ位置・同じ仕様で出す。
-                      点タップの内訳（タグ別内訳）はこのカードの中に出る（採用案 1a） */}
-                  {tagViewMode === TAG_VIEW_MODE_OVERLAY && (
-                    <TagProfitTrendCard
-                      candidates={allTagRanking}
-                      seriesByTag={tagTrendSeriesByTag}
-                      overlaySelected={tagTrendSelected}
-                      axisPoints={densePoints}
-                      unit={unit}
-                      selectedKey={tagChartSelectedKey}
-                      onSelectKey={selectTagChartDate}
-                      viewMode={tagViewMode}
-                      onChangeViewMode={setTagViewMode}
-                      breakdownItems={tagChartBreakdown}
-                      dataMode={mode}
-                      onChangeDataMode={setMode}
-                      selectedBreakdownTagId={tagChartSelectedBreakdownTagId}
-                      onSelectBreakdownTag={selectTagChartBreakdownTag}
-                    />
-                  )}
-
-                  {tagChartSelectedBreakdownTagId !== undefined && (
-                    <SelectedTagChartTagList
-                      dateText={formatPointDate(
-                        locale,
-                        densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
-                        unit,
+                  {/* 売れた記録が 1 件も無いと allTagRanking が空になり、TagProfitSection は
+                      何も描かない（items.length === 0 で return null）。そのまま放っておくと
+                      「タグ」を触った瞬間に画面が真っ白になり、モード切替（DataModeTabs）も
+                      TagProfitSection の中にしか無いので収支へ戻る手段まで消える。
+                      「収支」の空状態（chartCard + DataModeTabs + EmptyChart）と同じ形にして、
+                      モード切替だけは必ず残す */}
+                  {allTagRanking.length === 0 ? (
+                    <View style={[styles.chartCard, { backgroundColor: colors.secondaryBackground }]}>
+                      <DataModeTabs
+                        options={[
+                          dataModeProfitLabel(locale),
+                          dataModeTagLabel(locale),
+                          dataModeAchievementsLabel(locale),
+                        ]}
+                        selectedIndex={mode}
+                        onChange={setMode}
+                      />
+                      <EmptyChart />
+                    </View>
+                  ) : (
+                    <>
+                      {/* 「グラフ」のときだけ、「収支の推移」カードと同じ位置・同じ仕様で出す。
+                          点タップの内訳（タグ別内訳）はこのカードの中に出る（採用案 1a） */}
+                      {tagViewMode === TAG_VIEW_MODE_OVERLAY && (
+                        <TagProfitTrendCard
+                          candidates={allTagRanking}
+                          seriesByTag={tagTrendSeriesByTag}
+                          overlaySelected={tagTrendSelected}
+                          axisPoints={densePoints}
+                          unit={unit}
+                          selectedKey={tagChartSelectedKey}
+                          onSelectKey={selectTagChartDate}
+                          viewMode={tagViewMode}
+                          onChangeViewMode={setTagViewMode}
+                          breakdownItems={tagChartBreakdown}
+                          dataMode={mode}
+                          onChangeDataMode={setMode}
+                          selectedBreakdownTagId={tagChartSelectedBreakdownTagId}
+                          onSelectBreakdownTag={selectTagChartBreakdownTag}
+                        />
                       )}
-                      tagName={
-                        tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
-                          ?.name ?? unclassifiedTagLabel(locale)
-                      }
-                      details={tagChartTagDetails}
-                      strikeBadges={strikeBadges}
-                      onClear={() => setTagChartTagSelection(null)}
-                      onPressRecord={openDetail}
-                    />
-                  )}
 
-                  <TagProfitSection
-                    items={allTagRanking}
-                    zeroRecordTags={zeroRecordTags}
-                    summary={summary}
-                    period={period}
-                    sparklineSeriesByTag={sparklineSeriesByTag}
-                    sparklineBounds={sparklineBounds}
-                    overlaySelected={tagTrendSelected}
-                    onToggleOverlay={toggleTagTrendSelected}
-                    viewMode={tagViewMode}
-                    onChangeViewMode={setTagViewMode}
-                    // 「収支 / タグ」タブはタグモードの最初のカードにだけ出す ──
-                    // 「グラフ」なら TagProfitTrendCard が先に出ているので、ここには渡さない
-                    dataMode={tagViewMode === TAG_VIEW_MODE_LIST ? mode : undefined}
-                    onChangeDataMode={tagViewMode === TAG_VIEW_MODE_LIST ? setMode : undefined}
-                    selectedTagId={selectedTagId}
-                    onSelectTag={selectTag}
-                  />
+                      {tagChartSelectedBreakdownTagId !== undefined && (
+                        <SelectedTagChartTagList
+                          dateText={formatPointDate(
+                            locale,
+                            densePoints.find((point) => point.key === tagChartSelectedKey)?.date ?? today,
+                            unit,
+                          )}
+                          tagName={
+                            tagChartBreakdown.find((item) => item.tagId === tagChartSelectedBreakdownTagId)
+                              ?.name ?? unclassifiedTagLabel(locale)
+                          }
+                          details={tagChartTagDetails}
+                          strikeBadges={strikeBadges}
+                          onClear={() => setTagChartTagSelection(null)}
+                          onPressRecord={openDetail}
+                        />
+                      )}
 
-                  {selectedTagId !== undefined && (
-                    <SelectedTagList
-                      tagName={
-                        allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
-                        unclassifiedTagLabel(locale)
-                      }
-                      details={tagDetails}
-                      strikeBadges={strikeBadges}
-                      onClear={() => setTagSelection(null)}
-                      onPressRecord={openDetail}
-                    />
+                      <TagProfitSection
+                        items={allTagRanking}
+                        zeroRecordTags={zeroRecordTags}
+                        summary={summary}
+                        period={period}
+                        sparklineSeriesByTag={sparklineSeriesByTag}
+                        sparklineBounds={sparklineBounds}
+                        overlaySelected={tagTrendSelected}
+                        onToggleOverlay={toggleTagTrendSelected}
+                        viewMode={tagViewMode}
+                        onChangeViewMode={setTagViewMode}
+                        // 「収支 / タグ」タブはタグモードの最初のカードにだけ出す ──
+                        // 「グラフ」なら TagProfitTrendCard が先に出ているので、ここには渡さない
+                        dataMode={tagViewMode === TAG_VIEW_MODE_LIST ? mode : undefined}
+                        onChangeDataMode={tagViewMode === TAG_VIEW_MODE_LIST ? setMode : undefined}
+                        selectedTagId={selectedTagId}
+                        onSelectTag={selectTag}
+                      />
+
+                      {selectedTagId !== undefined && (
+                        <SelectedTagList
+                          tagName={
+                            allTagRanking.find((item) => item.tagId === selectedTagId)?.name ??
+                            unclassifiedTagLabel(locale)
+                          }
+                          details={tagDetails}
+                          strikeBadges={strikeBadges}
+                          onClear={() => setTagSelection(null)}
+                          onPressRecord={openDetail}
+                        />
+                      )}
+                    </>
                   )}
                 </ScrollView>
               )}
