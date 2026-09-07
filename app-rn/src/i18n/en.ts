@@ -92,6 +92,9 @@ export const en: Translations = {
       duplicateLabel: 'Copy an earlier record',
       duplicateNote: 'Carries over shipping and fees',
     },
+    rowMenu: {
+      pricingLabel: 'View break-even price',
+    },
   },
 
   calc: {

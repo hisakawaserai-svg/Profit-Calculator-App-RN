@@ -155,6 +155,10 @@ export const ja = {
       duplicateLabel: '過去の記録から複製',
       duplicateNote: '送料や手数料を引き継いで作ります',
     },
+    /** 記録タブの行を長押ししたときの操作シート */
+    rowMenu: {
+      pricingLabel: '損益分岐点を見る',
+    },
   },
 
   /** 計算タブ（UI-SPEC §1.1） */

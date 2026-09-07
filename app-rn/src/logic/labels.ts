@@ -289,6 +289,11 @@ export function duplicateRecordActionNote(locale: Locale): string {
   return t('record.menu.duplicateNote', locale);
 }
 
+/** 記録タブの行を長押ししたときの操作シート、「損益分岐点を見る」の行 */
+export function recordRowPricingActionLabel(locale: Locale): string {
+  return t('record.rowMenu.pricingLabel', locale);
+}
+
 /** 複製元を選ぶ画面（DuplicateSourceScreen） */
 export function duplicateScreenTitle(locale: Locale): string {
   return t('duplicate.title', locale);

@@ -23,7 +23,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View, type NativeSyntheticEvent } from 'react-native';
+import ContextMenu, { type ContextMenuOnPressNativeEvent } from 'react-native-context-menu-view';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { BANNER_UNIT_ID } from '@/ads/adUnits';
@@ -50,7 +51,9 @@ import { strikeAchievementsByRecordId, type Achievement } from '@/logic/achievem
 import { formatYenSymbol } from '@/logic/format';
 import {
   cancelLabel,
+  deleteConfirmTitle,
   deleteLabel,
+  editRecordLabel,
   expensesLabel,
   filterEmptyActionLabel,
   filterEmptyTitle,
@@ -69,6 +72,7 @@ import {
   periodProfitLabel,
   recordCountValue,
   recordDetailAccessibilityLabel,
+  recordRowPricingActionLabel,
 } from '@/logic/labels';
 import {
   activeFilterCount,
@@ -91,6 +95,7 @@ const DEFAULT_SORT: RecordSortType = 'saleDateDesc';
 const MASCOT_SIZE = 80;
 
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
+const RECORD_PRICING_PATHNAME = '/records/record/[id]/pricing' as const;
 
 /** 「過去の記録から複製」の複製元を選ぶ画面（記録タブの Stack に積む） */
 const DUPLICATE_PATHNAME = '/records/duplicate' as const;
@@ -137,6 +142,8 @@ export function RecordListScreen() {
   const [showForm, setShowForm] = useState(false);
   /** ＋のメニュー（新しく作る / 過去の記録から複製） */
   const [showAddMenu, setShowAddMenu] = useState(false);
+  /** 行の長押し（ContextMenu）の「編集」から開く記録フォーム。＋の新規作成（showForm）とは別に持つ */
+  const [editingRecord, setEditingRecord] = useState<SaleRecord | null>(null);
 
   // 青い行の文言に要るタグ名（§4.3）。候補の一覧そのものは絞り込みページ側が引く
   const { tags } = useTagList();
@@ -234,12 +241,31 @@ export function RecordListScreen() {
     [refresh],
   );
 
+  // 長押しメニューの「削除」は詳細画面と同じく確認アラートを挟む（SaleRecordDetailScreen.handleDelete
+  // と同じ理由・同じ規則。SPEC §5.4「詳細画面の削除は確認アラートを挟む」）。
+  // スワイプ削除（handleDelete をそのまま呼ぶ）とはここだけ経路を分ける
+  const confirmDelete = useCallback(
+    (record: SaleRecord) => {
+      Alert.alert(deleteConfirmTitle(locale), undefined, [
+        { text: cancelLabel(locale), style: 'cancel' },
+        { text: deleteLabel(locale), style: 'destructive', onPress: () => handleDelete(record.id) },
+      ]);
+    },
+    [locale, handleDelete],
+  );
+
   // 行タップ → レコード詳細へプッシュ遷移（UI-SPEC §2「一覧から詳細へ 1 タップ」）。
   // 詳細側での売却トグル・編集・削除は、戻ってきたときに useFocusEffect で拾われる。
   const openDetail = useCallback(
     (record: SaleRecord) => {
       router.push({ pathname: RECORD_DETAIL_PATHNAME, params: { id: record.id } });
     },
+    [router],
+  );
+
+  // 行の長押し（ContextMenu）の「損益分岐点を見る」の行き先
+  const openRecordPricing = useCallback(
+    (record: SaleRecord) => router.push({ pathname: RECORD_PRICING_PATHNAME, params: { id: record.id } }),
     [router],
   );
 
@@ -421,7 +447,10 @@ export function RecordListScreen() {
                 tags={tagsByRecord.get(item.id) ?? []}
                 strikeAchievement={strikeBadges.get(item.id) ?? null}
                 onPress={() => openDetail(item)}
+                onEdit={() => setEditingRecord(item)}
+                onViewPricing={() => openRecordPricing(item)}
                 onDelete={() => handleDelete(item.id)}
+                onRequestDelete={() => confirmDelete(item)}
               />
             )}
           />
@@ -484,6 +513,14 @@ export function RecordListScreen() {
         onClose={() => setShowAddMenu(false)}
       />
       <RecordFormSheet visible={showForm} onClose={() => setShowForm(false)} onSaved={refresh} />
+
+      {/* 行の長押し（ContextMenu）の「編集」用フォーム。＋の新規作成（showForm）とは別インスタンス */}
+      <RecordFormSheet
+        visible={editingRecord != null}
+        record={editingRecord}
+        onClose={() => setEditingRecord(null)}
+        onSaved={refresh}
+      />
 
       {/* ヘッダの「？」（UI-SPEC §5-9）。記録タブは設定タブとは別スタックなので push しない */}
       {showHelp && (
@@ -591,6 +628,11 @@ function ListEmpty({
 /**
  * リストの 1 行。左スワイプで「削除」が出て、押すと確認なしで消える（SPEC §5.4）。
  * 旧 SaleRecordScreen の SwipeToDeleteRow の移植。
+ *
+ * 長押しは ContextMenu（react-native-context-menu-view。iOS は UIMenu、Android は
+ * ContextMenu を使うネイティブ実装。MIT）で編集・損益分岐点・削除の 3 択を出す。
+ * 上下どちらに開くかは OS のネイティブメニューが画面内の空きから自動で決める ──
+ * こちら側で行の位置を測って調整する必要はない。
  */
 function SwipeToDeleteRow({
   record,
@@ -599,7 +641,10 @@ function SwipeToDeleteRow({
   tags,
   strikeAchievement,
   onPress,
+  onEdit,
+  onViewPricing,
   onDelete,
+  onRequestDelete,
 }: {
   record: SaleRecord;
   isSoldMode: boolean;
@@ -607,13 +652,32 @@ function SwipeToDeleteRow({
   tags: readonly Tag[];
   strikeAchievement: Achievement | null;
   onPress: () => void;
+  onEdit: () => void;
+  onViewPricing: () => void;
+  /** スワイプの「削除」。確認なしで即実行（SPEC §5.4） */
   onDelete: () => void;
+  /** 長押しメニューの「削除」。確認アラートを挟んでから実行する（呼び出し側の責務） */
+  onRequestDelete: () => void;
 }) {
   // 表示語は locale を引数に取る（渡さないと React Compiler が初回の文字列で固定する。
   // src/i18n/index.ts の冒頭）。この購読で言語を変えたときに引き直される
   const locale = useLocale();
 
   const colors = useThemeColors();
+
+  const handleContextMenuPress = (e: NativeSyntheticEvent<ContextMenuOnPressNativeEvent>) => {
+    switch (e.nativeEvent.index) {
+      case 0:
+        onEdit();
+        break;
+      case 1:
+        onViewPricing();
+        break;
+      case 2:
+        onRequestDelete();
+        break;
+    }
+  };
 
   return (
     <ReanimatedSwipeable
@@ -629,24 +693,32 @@ function SwipeToDeleteRow({
           <Text style={styles.deleteLabel}>{deleteLabel(locale)}</Text>
         </Pressable>
       )}>
-      <Pressable
-        style={({ pressed }) => [
-          styles.rowCard,
-          {
-            backgroundColor: pressed ? colors.disabledBackground : colors.secondaryBackground,
-          },
+      <ContextMenu
+        actions={[
+          { title: editRecordLabel(locale), systemIcon: 'pencil' },
+          { title: recordRowPricingActionLabel(locale), systemIcon: 'chart.line.uptrend.xyaxis' },
+          { title: deleteLabel(locale), systemIcon: 'trash', destructive: true },
         ]}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={recordDetailAccessibilityLabel(locale, record.itemName)}>
-        <RecordRow
-          record={record}
-          isSoldMode={isSoldMode}
-          today={today}
-          tags={tags}
-          strikeAchievement={strikeAchievement}
-        />
-      </Pressable>
+        onPress={handleContextMenuPress}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.rowCard,
+            {
+              backgroundColor: pressed ? colors.disabledBackground : colors.secondaryBackground,
+            },
+          ]}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={recordDetailAccessibilityLabel(locale, record.itemName)}>
+          <RecordRow
+            record={record}
+            isSoldMode={isSoldMode}
+            today={today}
+            tags={tags}
+            strikeAchievement={strikeAchievement}
+          />
+        </Pressable>
+      </ContextMenu>
     </ReanimatedSwipeable>
   );
 }
