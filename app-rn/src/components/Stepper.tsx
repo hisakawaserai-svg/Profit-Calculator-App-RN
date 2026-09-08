@@ -75,7 +75,12 @@ export function Stepper({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.label }]}>{label}</Text>
+      {/* numberOfLines を明示しておく ── flexShrink だけだと、英語の長いラベル
+          （例: 通知設定の "Listing alert (days)"）が縮みきらず ± ボタンと重なった実績がある
+          （実機で確認）。2 行までなら折り返しで逃がせる */}
+      <Text style={[styles.label, { color: colors.label }]} numberOfLines={2}>
+        {label}
+      </Text>
       {accessory}
       {/* ± は行の右端のまま。ラベルとタグボタンが左に寄った分の余りはここが吸う */}
       <View style={styles.buttonsSlot}>

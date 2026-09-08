@@ -573,7 +573,7 @@ export function OnboardingDataFigure() {
     ONBOARDING_DATA_EXAMPLE;
 
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel(locale, period),
+    label: periodProfitLabel(locale),
     value: formatYenSymbol(totalNetProfit),
     color: totalNetProfit >= 0 ? colors.green : colors.red,
   };

@@ -105,6 +105,25 @@ export const saleRecords = sqliteTable('sale_records', {
    * （logic/backup.ts の RECORD_COLUMNS）、ここを途中に挿すと対応が崩れる。
    */
   shippingName: text('shipping_name').notNull().default(''),
+  /**
+   * 販売価格を最後に変えた日時（0013）。**出品滞留アラート（お知らせ機能）専用の列。**
+   *
+   * `NULL` = まだ一度も値下げしていない（＝出品時の価格のまま）。出品滞留アラートの
+   * 「あと何日で知らせるか」は、この列（無ければ `saleStartDate`）を基準に数える
+   * （logic/notifications.ts）。**この列を足しても、出品日自体の意味や他の画面の
+   * 「経過日数」表示（一覧の行・記録詳細・値下げシミュレーター）は変わらない** ──
+   * それらは今まで通り `saleStartDate` を見る。基準を変えるのは通知の判定だけ。
+   *
+   * **`photoFileName` と同じ NULL 許容**（DEFAULT を置かない）。バックフィルはしない ──
+   * 「いつ値下げしたか」は既存データから分からない情報で、出品日を代入すると
+   * 「値下げした」と偽ることになる。既存レコードは NULL のまま、読み取り側の
+   * フォールバックで従来通り出品日基準になる。
+   *
+   * **`repository.update()` が価格変更を検知したときだけ書く**（`photoFileName` の
+   * 削除判定と同じ「更新前の値を読んでから比較する」形）。保存のたびに書くと、
+   * メモやタグだけの編集でも基準日がリセットされてしまう。
+   */
+  priceChangedAt: text('price_changed_at'),
 }, (table) => [
   // 一覧・集計は常に isSold で絞り、基準日 (売却済み=saleDate / 出品中=saleStartDate) で並べる
   index('idx_sale_records_sold_sale_date').on(table.isSold, table.saleDate),

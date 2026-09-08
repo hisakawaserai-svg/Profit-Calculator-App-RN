@@ -36,6 +36,7 @@ const source: SaleRecord = {
   // SPEC-V9 §1.1 で列だけ確保した将来用の出品日。読み書きしないので複製にも関わらない
   listedAt: null,
   shippingName: '',
+  priceChangedAt: null,
 };
 
 describe('写す欄', () => {

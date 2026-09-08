@@ -34,6 +34,7 @@
 import type { PresetType, RecordKind } from '@/db/schema';
 import { t, type TranslationKey } from '@/i18n';
 import type { Translations } from '@/i18n/ja';
+import { NOTIFICATION_HISTORY_LIMIT } from '@/settings/notificationHistory';
 import type { Locale } from '@/settings/language';
 
 import {
@@ -787,22 +788,12 @@ export function lowerPriceWarning(
 }
 
 /**
- * 合計行の収支の見出し（UI-SPEC §1.2）:「この月の収支」/「**2025年の収支**」/「全期間の収支」。
+ * 合計行の収支の見出し。期間は月バーがすぐ上に出しているので、見出し側は常に
+ * 「収支」だけにする（桁が大きいときに「この月の収支」が先に切れて何の数字か分からなくなるため）。
  * 合計なので種別語ではなく中立語（§5.3）。
- *
- * 年だけ「この年」ではなく年そのものを出すのは、月バーの表示（「‹ 2025年 ⌄ ›」）と
- * 同じ語にするため ── 年を選ぶのは「去年 1 年でいくら儲かったか」を見る操作なので、
- * どの年の話かが見出しの側にも要る。月は月バーがすぐ上にあり、「この月」で迷わない。
  */
-export function periodProfitLabel(locale: Locale, period: Period): string {
-  const kind = periodKind(period);
-  const subject =
-    kind === 'all'
-      ? t('period.allInline', locale)
-      : kind === 'year'
-        ? formatYearTitle(locale, periodYear(period) as number)
-        : t('period.thisMonth', locale);
-  return t('period.profitLabel', locale, { subject, total: totalProfitLabel(locale) });
+export function periodProfitLabel(locale: Locale): string {
+  return totalProfitLabel(locale);
 }
 
 /**
@@ -985,7 +976,7 @@ export function cumulativeProfitLabel(locale: Locale): string {
  * 凡例の行が選択中に化ける「値の行」の、藍の見本の隣に出る語。
  * 金額は**常に全桁**（軸の目盛りは千円・万円に丸めているが、こちらは実額）。
  *
- * **未選択のときに最終の累計は出さない** ── 同じ値が集計段の「この月の収支」に出ているため
+ * **未選択のときに最終の累計は出さない** ── 同じ値が集計段の「収支」に出ているため
  * （折れ線の終点＝期間の合計）。同じ数字を 1 画面に 2 回出さない。
  */
 export function cumulativeValueLabel(locale: Locale, amountText: string): string {
@@ -1223,7 +1214,6 @@ export function chartUnitNote(locale: Locale): string {
     month: chartUnitLabel(locale, 'month'),
     year: chartUnitLabel(locale, 'year'),
     years: YEAR_UNIT_MONTH_THRESHOLD / 12,
-    total: totalProfitLabel(locale),
   });
 }
 
@@ -1399,6 +1389,174 @@ export function achievementToastTitle(
   const first = achievementName(locale, newlyCompletedIds[0]);
   if (newlyCompletedIds.length === 1) return first;
   return t('achievement.toastTitleMany', locale, { name: first, count: newlyCompletedIds.length - 1 });
+}
+
+// 通知（記録タブのベル・ローカル通知）。logic/notifications.ts の NotificationContent が
+// 中身を決め、ここは locale ごとの文字列を組み立てるだけ
+
+export function notificationBellLabel(locale: Locale): string {
+  return t('notification.bellLabel', locale);
+}
+/** お知らせ画面（app/notifications.tsx）のヘッダー見出し */
+export function notificationScreenTitle(locale: Locale): string {
+  return t('notification.screenTitle', locale);
+}
+/** 画面内の3タブ（SegmentedControl の options） */
+export function notificationTabHistory(locale: Locale): string {
+  return t('notification.tabHistory', locale);
+}
+export function notificationTabStagnant(locale: Locale): string {
+  return t('notification.tabStagnant', locale);
+}
+export function notificationTabUpdates(locale: Locale): string {
+  return t('notification.tabUpdates', locale);
+}
+/** 空状態（滞留中タブに何も対象が無いとき） */
+export function notificationEmptyMessage(locale: Locale): string {
+  return t('notification.empty', locale);
+}
+/** 空状態（すべてタブにまだ何も届いていないとき） */
+export function notificationHistoryEmptyMessage(locale: Locale): string {
+  return t('notification.historyEmpty', locale);
+}
+/** すべてタブの下に出す、保存件数の上限についての注記 */
+export function notificationHistoryLimitNote(locale: Locale): string {
+  return t('notification.historyLimitNote', locale, { limit: NOTIFICATION_HISTORY_LIMIT });
+}
+/** すべてタブ上部の「すべて消す」ボタン */
+export function notificationHistoryClearAllLabel(locale: Locale): string {
+  return t('notification.historyClearAllLabel', locale);
+}
+/** 「すべて消す」を押したときの確認ダイアログのタイトル */
+export function notificationHistoryClearAllConfirmTitle(locale: Locale): string {
+  return t('notification.historyClearAllConfirmTitle', locale);
+}
+/** アップデート情報タブ。空（=これから先の版がまだ無い）ときに出す */
+export function notificationUpdatesPlaceholder(locale: Locale): string {
+  return t('notification.updatesPlaceholder', locale);
+}
+
+export type UpdateNote = { version: string; title: string; date: string; description: string };
+
+/**
+ * アップデート情報タブに並べる版の一覧（新しい順）。
+ *
+ * CHANGELOG/*.md がストア掲載用の長い文面しか持たないので、この画面の1枚のカードに
+ * 収まる短い要約は i18n（notification.updates）に別途書き起こしてある。日付は
+ * CHANGELOG の「公開日」列（iOS）をそのまま使う ── OS ごとに公開日が違う版もあるが、
+ * 利用者は自分の端末の OS の話にしか興味が無いので、掲載日は 1 つに絞ってよい
+ * （今のところ iOS のみリリース済みなので iOS の日付で揃えている）。
+ *
+ * 新しい版を公開したら、ここに 1 行足すだけで良い（i18n 側に対応する
+ * notification.updates.v<version> も追加する）。
+ */
+export function updateNotesList(locale: Locale): UpdateNote[] {
+  return [
+    {
+      version: '1.1.0',
+      title: t('notification.updates.v110.title', locale),
+      date: backupDayLabel(locale, '2026-09-03'),
+      description: t('notification.updates.v110.description', locale),
+    },
+    {
+      version: '1.0.0',
+      title: t('notification.updates.v100.title', locale),
+      date: backupDayLabel(locale, '2026-09-01'),
+      description: t('notification.updates.v100.description', locale),
+    },
+  ];
+}
+
+/** 出品滞留アラートの見出し。件数で「1件」/「N件」の文言を分ける（実績トーストと同じ形） */
+export function listingAlertEyebrow(locale: Locale, count: number): string {
+  if (count === 1) return t('notification.listingAlert.eyebrowOne', locale);
+  return t('notification.listingAlert.eyebrowMany', locale, { count });
+}
+/** 行1件ぶんの「N日経過」だけの短い表記（出品価格・値下げ余地は別の列で見せる） */
+export function listingAlertElapsedDays(locale: Locale, days: number): string {
+  return t('notification.listingAlert.elapsedDays', locale, { days });
+}
+/**
+ * 「すべて」タブの履歴行のサブタイトル（新規）:「14日経過 ・ 9/16」。
+ *
+ * 商品名が長いとき文字が切れる（実機で指摘があった）ため、履歴行は listingAlertOsBody の
+ * 一続きの文（「「商品名」が…」）をそのまま出すのをやめ、商品名は 1 行（省略記号）・
+ * それ以外の情報（経過日数・届いた日）はこちらの短いサブタイトル行に分けて必ず全部見せる。
+ */
+export function listingAlertHistorySubtitle(locale: Locale, days: number, date: string): string {
+  return t('notification.listingAlert.historySubtitle', locale, { days, date });
+}
+export function listingAlertPriceLabel(locale: Locale): string {
+  return t('notification.listingAlert.priceLabel', locale);
+}
+export function listingAlertDiscountRoomLabel(locale: Locale): string {
+  return t('notification.listingAlert.discountRoomLabel', locale);
+}
+/** 行の長押しで出す確認（「今後知らせない」）のタイトル。itemName はその行の商品名 */
+export function listingAlertIgnoreConfirmTitle(locale: Locale, itemName: string): string {
+  return t('notification.listingAlert.ignoreConfirmTitle', locale, { name: itemName });
+}
+export function listingAlertIgnoreConfirmAction(locale: Locale): string {
+  return t('notification.listingAlert.ignoreConfirmAction', locale);
+}
+export function listingAlertOsTitle(locale: Locale): string {
+  return t('notification.listingAlert.osTitle', locale);
+}
+export function listingAlertOsBody(
+  locale: Locale,
+  firstItemName: string,
+  days: number,
+  count: number,
+): string {
+  if (count === 1) {
+    return t('notification.listingAlert.osBodyOne', locale, { name: firstItemName, days });
+  }
+  return t('notification.listingAlert.osBodyMany', locale, { count, days });
+}
+
+/** 月次振り返りの見出し */
+export function monthlyReviewEyebrow(locale: Locale): string {
+  return t('notification.monthlyReview.eyebrow', locale);
+}
+export function monthlyReviewTotalLabel(locale: Locale): string {
+  return t('notification.monthlyReview.totalLabel', locale);
+}
+export function monthlyReviewOsTitle(locale: Locale): string {
+  return t('notification.monthlyReview.osTitle', locale);
+}
+export function monthlyReviewOsBody(locale: Locale, month: string, totalNetProfit: number): string {
+  return t('notification.monthlyReview.osBody', locale, {
+    month,
+    total: groupDigits(roundForDisplay(totalNetProfit)),
+  });
+}
+
+// 設定タブの通知セクション
+export function notificationSectionTitle(locale: Locale): string {
+  return t('settings.notification.sectionTitle', locale);
+}
+export function notificationEnabledLabel(locale: Locale): string {
+  return t('settings.notification.enabledLabel', locale);
+}
+export function notificationEnabledNote(locale: Locale): string {
+  return t('settings.notification.enabledNote', locale);
+}
+export function notificationThresholdLabel(locale: Locale): string {
+  return t('settings.notification.thresholdLabel', locale);
+}
+export function notificationThresholdNote(locale: Locale): string {
+  return t('settings.notification.thresholdNote', locale);
+}
+/** Stepper の centerLabel（± の中央）に出す「N日」だけの表記 */
+export function notificationThresholdDaysValue(locale: Locale, days: number): string {
+  return t('settings.notification.thresholdDaysValue', locale, { days });
+}
+export function notificationDevTestLabel(locale: Locale): string {
+  return t('settings.notification.devTestLabel', locale);
+}
+/** 開発用: 「すべて」タブ確認用のダミー履歴投入ボタン */
+export function notificationDevSeedLabel(locale: Locale): string {
+  return t('settings.notification.devSeedLabel', locale);
 }
 
 /** 実績ごとの説明文（全画面表示。獲得した実績の一覧はこれを出さない） */
@@ -5436,6 +5594,26 @@ export function simulatorTitle(locale: Locale): string {
 /** シミュレーターの見出しの右（§9.9）。触っても記録は動かないことを先に言う */
 export function simulatorNote(locale: Locale): string {
   return t('pricing.simulatorNote', locale);
+}
+
+/**
+ * シミュレーターカードに出す、値下げ基準日からの経過（新規）。
+ *
+ * **出品滞留アラート（logic/notifications.ts）と同じ基準日を見せる**（値下げ済みなら
+ * 値下げ日、まだなら出品日）。この画面はアラート（記録一覧のベル・OS 通知）から辿り着く
+ * 主な入口なので、「なぜこの商品が知らされたか」「次に知らされるまであと何日か」を
+ * 基準日そのもので読めるようにする。
+ */
+export function priceChangedNote(
+  locale: Locale,
+  hasChanged: boolean,
+  basisDate: Date,
+  days: number,
+): string {
+  const date = formatShortDate(locale, basisDate);
+  return hasChanged
+    ? t('pricing.priceChangedNote', locale, { date, days })
+    : t('pricing.neverPriceChangedNote', locale, { date, days });
 }
 
 /** シミュレーターの右上の数字の下（§9.9）:「見込み利益・27.8%」 */

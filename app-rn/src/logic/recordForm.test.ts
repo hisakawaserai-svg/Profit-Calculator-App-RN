@@ -45,6 +45,7 @@ const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
   targetProfit: null,
   listedAt: null,
   shippingName: '',
+  priceChangedAt: null,
   ...partial,
 });
 

@@ -62,8 +62,12 @@ import {
  * **3 は records.csv に目標利益（`target_profit`）と出品日（`listed_at`）を足した版**
  * （SPEC-V9 §3）。列が増えたので版を上げるが、**2 以前のファイルもそのまま読める** ──
  * 足りない 2 列は null として読み込む（`parseBackupFile` の互換の節）。
+ *
+ * **4 は records.csv に出品滞留アラートの基準日（`price_changed_at`）を足した版**（0013）。
+ * 3 以前のファイルもそのまま読める ── 足りない 1 列は null として読み込み、
+ * 通知の判定は出品日基準にフォールバックする（logic/notifications.ts）。
  */
-export const BACKUP_FORMAT_VERSION = 3;
+export const BACKUP_FORMAT_VERSION = 4;
 
 /**
  * 読み込みを受け付ける版の下限（§1.2）。
@@ -158,8 +162,10 @@ const RECORD_COLUMNS: readonly ColumnSpec[] = [
   // それでも列を出すのは「records.csv = DB の全カラム」の対応を保つため
   { name: 'listed_at', type: 'dateOrEmpty', label: 'listedAt' },
   // 送料プリセット名の写し（0012）。site_name と同じ text で、空欄 = 未設定。
-  // **末尾に足す**（下の LEGACY の作り方と対）
   { name: 'shipping_name', type: 'text', label: 'shippingName' },
+  // 出品滞留アラートの基準日（0013）。listed_at と同じ dateOrEmpty で、空欄 = まだ値下げしていない。
+  // **末尾に足す**（下の LEGACY の作り方と対）
+  { name: 'price_changed_at', type: 'dateOrEmpty', label: 'priceChangedAt' },
 ];
 
 /**
@@ -179,12 +185,14 @@ const RECORD_COLUMNS: readonly ColumnSpec[] = [
  *
  * | 版 | 列数 | 足りない列 |
  * |---|---|---|
- * | 0012 より前 | 19 | `shipping_name` |
- * | SPEC-V9 §3 より前 | 17 | ＋ `target_profit` / `listed_at` |
+ * | 0013 より前 | 19 | `price_changed_at` |
+ * | 0012 より前 | 18 | ＋ `shipping_name` |
+ * | SPEC-V9 §3 より前 | 16 | ＋ `target_profit` / `listed_at` |
  */
 const RECORD_COLUMNS_LEGACY: readonly (readonly ColumnSpec[])[] = [
   RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 1),
-  RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 3),
+  RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 2),
+  RECORD_COLUMNS.slice(0, RECORD_COLUMNS.length - 4),
 ];
 
 /**

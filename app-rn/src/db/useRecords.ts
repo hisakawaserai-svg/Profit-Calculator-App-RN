@@ -30,6 +30,7 @@ import {
 } from '@/logic/periodComparison';
 import { periodAverageSaleDays } from '@/logic/profit';
 import type { FilterScope } from '@/logic/recordFilter';
+import { refreshBell } from '@/notifications/bellStore';
 
 import { repository, tagRepository } from './client';
 import { fromDbDate } from './dates';
@@ -345,6 +346,9 @@ export function setSoldStatus(id: string, isSold: boolean, saleDate?: Date): Ach
   const before = fetchAchievements();
   repository.setSoldStatus(id, isSold, saleDate);
   const after = fetchAchievements();
+  // 出品滞留アラートは isSold = false の記録だけが対象（logic/notifications.ts）。ここで
+  // 売却済みに切り替えた記録がベルに残ったままにならないよう、保存・削除と同じく引き直す
+  refreshBell();
   return newlyCompletedAchievements(before, after);
 }
 
@@ -363,6 +367,9 @@ export function setSaleDate(id: string, saleDate: Date): void {
  */
 export function setSalesPrice(id: string, salesPrice: number): void {
   repository.setSalesPrice(id, salesPrice);
+  // repository.setSalesPrice は priceChangedAt を更新する（値下げ基準日のリセット）ので、
+  // 「いくらで売る？」で確定した記録は出品滞留アラートの対象から外れうる。ベルへ反映する
+  refreshBell();
 }
 
 /**
@@ -402,12 +409,17 @@ export function saveRecord(
   const savedId = id ?? repository.create(input).id;
   if (id != null) repository.update(id, input);
   const after = fetchAchievements();
+  // ベル（全タブ共通）の中身も引き直す。呼び出し側の画面ごとに「保存したらベルも更新する」を
+  // 覚えさせるのではなく、記録が変わる出口（保存・削除）はここしか無いのでここで一括して担保する
+  // ── 前回、削除操作の一部（長押しメニュー）だけ引き直し忘れていた不具合の再発防止
+  refreshBell();
   return { id: savedId, newlyCompleted: newlyCompletedAchievements(before, after) };
 }
 
 /** レコード 1 件の削除（SPEC §5.4: 確認なしで即削除）。呼び出し側で refresh すること */
 export function deleteRecord(id: string): void {
   repository.remove(id);
+  refreshBell();
 }
 
 /**

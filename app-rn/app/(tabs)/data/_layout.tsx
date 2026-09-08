@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 
 import { toMonthKey } from '@/db/dates';
@@ -23,11 +23,26 @@ export const unstable_settings = {
 // 構造として守る。** 同じ Context を使っていても、2 つの Provider は React の木の上で
 // 兄弟なので値は混ざらない。タブ全体（(tabs)/_layout.tsx）へ上げると 1 つになってしまう。
 export default function DataLayout() {
-  /** 「今日」は Stack のマウント時に 1 回だけ決める（初期表示は今月。§5-14） */
-  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  /**
+   * 通知一覧の「月次振り返り」タップで `/data?month=YYYY-MM` から開いたときは、
+   * その月を初期表示にする。無ければ今月（§5-14 のまま）。
+   *
+   * **初回マウントの初期値は currentMonthKey（useMemo、下記コメント）、
+   * 開いたまま再訪したときの切り替えは jumpToMonthKey（RecordFilterProvider 側で処理）
+   * の 2 段構え。** データタブの Stack はタブを切り替えても閉じずに保持されるので、
+   * 一度開いたあとに通知から別の月を指定して再訪しても、この _layout.tsx 自体は
+   * 再マウントされず currentMonthKey の useMemo は再評価されない（実機で確認: 月が変わらない
+   * 不具合になっていた）。monthParam をそのまま jumpToMonthKey として渡し、
+   * 「変わったときだけ period に反映する」判断は Provider 側に任せる。
+   */
+  const { month: monthParam } = useLocalSearchParams<{ month?: string }>();
+  // monthParam をわざと依存に入れない（Stack の初回マウント時に 1 回だけ決める値）。
+  // 依存に入れると、タブを開いたままパラメータなしで再訪したときに今月へ巻き戻ってしまう
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentMonthKey = useMemo(() => monthParam ?? toMonthKey(new Date()), []);
 
   return (
-    <RecordFilterProvider scope="data" currentMonthKey={currentMonthKey}>
+    <RecordFilterProvider scope="data" currentMonthKey={currentMonthKey} jumpToMonthKey={monthParam}>
       <Stack />
     </RecordFilterProvider>
   );

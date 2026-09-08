@@ -34,6 +34,13 @@ const PREVIEW_LIMIT = 3;
 /** プレビュー行のバッジ。一覧（28px）より一回り小さくして、カードの中の副次的な情報にする */
 const PREVIEW_BADGE_SIZE = 22;
 
+/** カード見出しの先頭アイコン（1.2.0.md「設定の各項目にアイコンをつける」）。種類ごとに 1 つ */
+const TYPE_ICON: Record<PresetType, keyof typeof Ionicons.glyphMap> = {
+  site: 'storefront-outline',
+  shipping: 'cube-outline',
+  packaging: 'archive-outline',
+};
+
 type Props = {
   type: PresetType;
   presets: Preset[];
@@ -61,6 +68,7 @@ export function PresetSummaryCard({ type, presets }: Props) {
         accessibilityRole="link"
         accessibilityLabel={`${presetTypeLabel(locale, type)} ${presetCountLabel(locale, presets.length)}`}>
         <View style={styles.header}>
+          <Ionicons name={TYPE_ICON[type]} size={20} color={colors.secondaryLabel} />
           <Text style={[styles.title, { color: colors.label }]}>{presetTypeLabel(locale, type)}</Text>
           {/* この部品はまだ多言語化していない（ステップ 2）。カードの他の語（種類名・
               「まだ登録がありません」）が日本語のままなので、件数だけ訳すと

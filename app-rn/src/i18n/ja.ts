@@ -295,9 +295,6 @@ export const ja = {
     nextMonth: '次の月',
     previousYear: '前の年',
     nextYear: '次の年',
-    /** 「この月の収支」「2026年の収支」「全期間の収支」 */
-    profitLabel: '{{subject}}の{{total}}',
-    thisMonth: 'この月',
     buttonAccessibility: '表示する期間: {{title}}',
   },
 
@@ -602,6 +599,9 @@ export const ja = {
     simulatorTitle: '値下げシミュレータ',
     simulatorNote: '動かしても記録は変わりません',
     simulatorDisabledNote: '価格を入れると、ここで値下げを試せます',
+    /** シミュレーターカードに出す値下げ基準日の経過（出品滞留アラートと同じ基準）*/
+    priceChangedNote: '前回の値下げ: {{date}}（{{days}}日前）',
+    neverPriceChangedNote: '出品から値下げなし: {{date}}（{{days}}日経過）',
     simulatorProfit: '見込み利益',
     simulatorProfitWithRate: '見込み利益・{{rate}}%',
     verdictLossStill: 'まだ赤字です（−{{amount}}）',
@@ -680,7 +680,7 @@ export const ja = {
     unitYearInline: '年ごと',
     chartBarLegend: '{{unit}}の{{total}}',
     chartUnitNote:
-      '年や{{all}}を選ぶと刻みが「{{month}}」（{{all}}で記録が{{years}}年ぶんを超えると「{{year}}」）に変わり、見出しも選んだ期間の語（「〇〇年の{{total}}」「{{all}}の{{total}}」）になります。',
+      '年や{{all}}を選ぶと刻みが「{{month}}」（{{all}}で記録が{{years}}年ぶんを超えると「{{year}}」）に変わります。',
     /** 期間サマリー段の 4 項目 */
     profitRate: '利益率',
     soldCount: '販売件数',
@@ -888,6 +888,68 @@ export const ja = {
     },
   },
 
+  /**
+   * 通知（記録タブのベル・ローカル通知の両方が使う）。
+   * 月次振り返りと出品滞留アラートは同時に出さない（logic/notifications.ts）。
+   */
+  notification: {
+    bellLabel: '通知',
+    /** お知らせ画面(app/notifications.tsx)のヘッダー見出し */
+    screenTitle: 'お知らせ',
+    /** 画面内の3タブ */
+    tabHistory: 'すべて',
+    tabStagnant: '滞留中',
+    tabUpdates: 'アップデート情報',
+    /** 空状態(滞留中タブに何も対象が無いとき) */
+    empty: '今は知らせることはありません',
+    /** 空状態(すべてタブにまだ何も届いていないとき) */
+    historyEmpty: 'まだ通知は届いていません',
+    /** すべてタブの下の注記。limit は保存件数の上限(200) */
+    historyLimitNote: '直近{{limit}}件まで表示されます',
+    /** すべてタブ上部の「すべて消す」ボタンと、押したときの確認ダイアログ */
+    historyClearAllLabel: 'すべて消す',
+    historyClearAllConfirmTitle: '通知の履歴をすべて消しますか？',
+    /** アップデート情報タブ。準備中の文言は空(=これから先の版が無い)ときに使う */
+    updatesPlaceholder: '準備中です',
+    /**
+     * バージョンごとの短い要約。CHANGELOG/*.md の「リリースノート」（ストア掲載用・長い）
+     * ではなく、この画面の1枚のカードに収まる分量で別途書き起こしたもの。
+     * 日付は各バージョンの iOS 公開日（CHANGELOG の「公開日」列）
+     */
+    updates: {
+      v110: {
+        title: '1.1.0',
+        description: '絞り込みが増え、梱包材も記録の欄から直接選べるようになりました。',
+      },
+      v100: {
+        title: '1.0.0',
+        description: 'フリマ出品者向けの利益計算・記録アプリとして公開しました。',
+      },
+    },
+    listingAlert: {
+      eyebrowOne: '1件が出品滞留中',
+      eyebrowMany: '{{count}}件が出品滞留中',
+      /** 行1件ぶん。「N日経過」だけの短い表記(出品価格・値下げ余地は別の列で見せる) */
+      elapsedDays: '{{days}}日経過',
+      /** すべてタブの履歴行のサブタイトル。date は formatShortDate 済みの文字列("9/16"等) */
+      historySubtitle: '{{days}}日経過 ・ {{date}}',
+      priceLabel: '出品価格',
+      discountRoomLabel: '値下げ余地',
+      /** 行の長押し確認。name はその行の商品名 */
+      ignoreConfirmTitle: '「{{name}}」の出品滞留アラートを今後知らせない',
+      ignoreConfirmAction: '今後知らせない',
+      osTitle: '値下げの検討はいかがですか？',
+      osBodyOne: '「{{name}}」が出品から{{days}}日経過しています',
+      osBodyMany: '出品から{{days}}日経過した商品が{{count}}件あります',
+    },
+    monthlyReview: {
+      eyebrow: '先月の振り返り',
+      totalLabel: '純利益合計',
+      osTitle: '先月の振り返り',
+      osBody: '{{month}}の収支は¥{{total}}でした。確認してみませんか？',
+    },
+  },
+
   /** 自己ベスト（実績モードの上段） */
   personalBest: {
     sectionTitle: '自己ベスト',
@@ -1030,6 +1092,7 @@ export const ja = {
       targetProfit: '目標利益',
       listedAt: '出品日（予備）',
       shippingName: '送料プリセット',
+      priceChangedAt: '値下げした日',
       presetId: 'プリセットID',
       presetType: '種類',
       name: '名前',
@@ -1768,6 +1831,19 @@ export const ja = {
     /** オープンソースライセンス一覧（react-native-legal のネイティブ画面を開くだけの行） */
     license: {
       label: 'オープンソースライセンス',
+    },
+    /** 通知セクション。全体オンオフ＋出品滞留アラートの閾値日数 */
+    notification: {
+      sectionTitle: '通知',
+      enabledLabel: '通知を受け取る',
+      enabledNote: 'アプリを開いていなくても、端末に通知が届きます。',
+      thresholdLabel: '出品滞留アラートの日数',
+      thresholdNote: 'この日数を超えて売れていない出品があると知らせます。',
+      /** ± の中央に出す値だけの表記（Stepper の centerLabel） */
+      thresholdDaysValue: '{{days}}日',
+      /** __DEV__ のときだけ出す開発用ボタン */
+      devTestLabel: 'テスト通知を送る（開発用）',
+      devSeedLabel: '通知履歴のテストデータを入れる（開発用）',
     },
     /**
      * 表示言語（3 択）。選択肢のうち「日本語」「English」は**訳さない** ──

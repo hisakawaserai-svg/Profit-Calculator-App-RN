@@ -92,6 +92,13 @@
       "when": 1786604658874,
       "tag": "0012_shipping_name",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1786604659874,
+      "tag": "0013_price_changed_at",
+      "breakpoints": true
     }
   ]
 }

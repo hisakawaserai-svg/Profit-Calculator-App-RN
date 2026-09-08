@@ -614,7 +614,9 @@ export function createRepository(
       // listedAt は toRow に入れない（SPEC-V9 §1）── **新規のときだけ null を置く。**
       // toRow へ入れると update も毎回この列を書くことになり、
       // 将来この列に値を入れる経路ができたときに、記録を編集するたび黙って消える
-      const row = { id: generateId(), listedAt: null, ...toRow(input) };
+      // priceChangedAt も listedAt と同じ理由で toRow に入れない（新規は常に null で始まる。
+      // まだ一度も値下げしていないので当然。schema.ts のコメント参照）
+      const row = { id: generateId(), listedAt: null, priceChangedAt: null, ...toRow(input) };
       return db.transaction((tx) => {
         tx.insert(saleRecords).values(row).run();
         writeRecordTags(tx, row.id, input.tagIds);
@@ -633,11 +635,21 @@ export function createRepository(
     update(id: string, input: SaveRecordInput): void {
       const previousPhoto = db.transaction((tx) => {
         const before = tx
-          .select({ photoFileName: saleRecords.photoFileName })
+          .select({ photoFileName: saleRecords.photoFileName, salesPrice: saleRecords.salesPrice })
           .from(saleRecords)
           .where(eq(saleRecords.id, id))
           .get();
-        tx.update(saleRecords).set(toRow(input)).where(eq(saleRecords.id, id)).run();
+        // 出品滞留アラートの基準日（0013）。**価格が実際に変わったときだけ書く** ──
+        // 毎回書くと、メモやタグだけの編集でも基準日がリセットされてしまう
+        // （photoFileName の削除判定と同じ「更新前を読んでから比較する」形）
+        const priceChanged = before != null && before.salesPrice !== input.salesPrice;
+        tx.update(saleRecords)
+          .set({
+            ...toRow(input),
+            ...(priceChanged ? { priceChangedAt: toDbDate(new Date()) } : {}),
+          })
+          .where(eq(saleRecords.id, id))
+          .run();
         writeRecordTags(tx, id, input.tagIds);
         return before?.photoFileName ?? null;
       });
@@ -682,7 +694,14 @@ export function createRepository(
      * 画面が知らない列（タグ・写真・目標）を渡し忘れて消すことになる。
      */
     setSalesPrice(id: string, salesPrice: number): void {
-      db.update(saleRecords).set({ salesPrice }).where(eq(saleRecords.id, id)).run();
+      // ここが実質「値下げ」の確定操作なので、常に出品滞留アラートの基準日（0013）を
+      // 引き直す（update() と違って before の比較はしない ── この関数を呼ぶこと自体が
+      // 「価格を書き換える」という意思表示で、undo（handleUndo）で前の価格へ戻す場合も
+      // 「今その価格に確定した」ことに変わりはない）
+      db.update(saleRecords)
+        .set({ salesPrice, priceChangedAt: toDbDate(new Date()) })
+        .where(eq(saleRecords.id, id))
+        .run();
     },
 
     /**

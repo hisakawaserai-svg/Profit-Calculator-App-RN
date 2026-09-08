@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { AppState, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
@@ -20,6 +20,8 @@ import {
 } from '@/components/SaveConfirmationToast';
 import { initDatabase } from '@/db/client';
 import { dbInitFailedMessage } from '@/logic/labels';
+import { refreshBell } from '@/notifications/bellStore';
+import { rescheduleNotification, setupNotificationHandling } from '@/notifications/scheduler';
 import { countLaunch, useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -168,6 +170,32 @@ export default function RootLayout() {
     return () => registerOnboardingRequestListener(null);
   }, []);
 
+  // ローカル通知の表示挙動・タップ時の遷移を登録する。**アプリ全体でここだけ**
+  // （useDeviceLanguageSync と同じ規約）。DB を読まないので dbReady を待たない
+  useEffect(() => {
+    setupNotificationHandling();
+  }, []);
+
+  /**
+   * 通知の内容を計算し、次の 9:00 へ予約し直す（src/notifications/scheduler.ts）。
+   * DB（未売却の記録）を読むので dbReady を待つ。起動直後の 1 回と、以後は
+   * バックグラウンドに回るたびに再予約する ── フォアグラウンドに戻ったときの
+   * データの変化（記録の追加・値下げ）を、次にアプリを閉じたときの内容へ反映するため。
+   */
+  useEffect(() => {
+    if (!dbReady) return;
+    rescheduleNotification();
+    refreshBell();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background') rescheduleNotification();
+      // ベル（全タブ共通）は前面に戻ったときにも引き直す。バックグラウンド中に
+      // 日をまたいだ・OS通知をタップして開いた、といったケースでも中身が古いままにならないよう
+      if (nextState === 'active') refreshBell();
+    });
+    return () => subscription.remove();
+  }, [dbReady]);
+
   /**
    * 広告の初期化（同意フローを含む）。**チュートリアルが出ている間は始めない** ──
    * 同意ダイアログはチュートリアルの上に重なって出るので、初回起動がいきなり
@@ -213,8 +241,12 @@ export default function RootLayout() {
       <KeyboardProvider>
         <ThemeProvider value={navigationTheme(colors, isDark)}>
           <Stack>
-          {/* 設定はモーダルからタブへ昇格したので（UI-SPEC §6-8）、ルート直下は (tabs) だけ */}
+          {/* 設定はモーダルからタブへ昇格したので（UI-SPEC §6-8）、ルート直下は (tabs) と
+                お知らせモーダルだけ */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {/* お知らせ（ベルから開く）。(tabs) の兄弟に置くことで、どのタブのヘッダーからでも
+                同じ画面を開ける（各タブが独立した Stack を持つ構成には無い、全タブ共通の入口） */}
+            <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
           </Stack>
         </ThemeProvider>
         {/* コピーの合図は**下端**に出す。上端はヘッダの戻る・「？」があり、押す口を

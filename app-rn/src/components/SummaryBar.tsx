@@ -1,6 +1,6 @@
 // 記録タブの固定の集計段（UI-SPEC §1.2-3。案 34a-A で 1 段に作り替えた）。
 //
-//   [ この月の収支 ¥12,685        ( 売れた記録 | 出品中 ) ]
+//   [ 収支 ¥12,685        ( 売れた記録 | 出品中 ) ]
 //   [ 経費 ¥2,459                                         ]
 //   [ ▽ 仕入品・タグ「洋服」の14件だけ            解除    ]  ← 絞り込み中だけ
 //
@@ -30,7 +30,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { useThemeColors } from '@/theme';
 
 export type SummaryItem = {
-  /** 見出し（例:「この月の収支」「出品価格の合計」） */
+  /** 見出し（例:「収支」「出品価格の合計」） */
   label: string;
   /** 表示済みの値（例:「¥1,405」「3 点」） */
   value: string;

@@ -42,6 +42,7 @@
       "expo-sqlite",
       "expo-sharing",
       "react-native-legal",
+      "expo-notifications",
       [
         "expo-image-picker",
         {

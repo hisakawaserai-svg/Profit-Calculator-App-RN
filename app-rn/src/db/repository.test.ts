@@ -2014,6 +2014,10 @@ describe('0012 マイグレーション: 送料プリセット名の写し', () 
       )
       .run('id-0', '既存の記録');
     for (const statement of migrationSql('0012_shipping_name')) sqlite.exec(statement);
+    // repo.getById() は現行の schema.ts（0013 で足した price_changed_at を含む）で
+    // SELECT * するので、この先のテストが使う DB もそこまで追いつかせておく必要がある。
+    // 0012 の検証そのもの（バックフィルの中身）には関係ない
+    for (const statement of migrationSql('0013_price_changed_at')) sqlite.exec(statement);
     return sqlite;
   }
 

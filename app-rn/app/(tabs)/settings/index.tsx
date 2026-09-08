@@ -22,12 +22,25 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { Link, Stack } from 'expo-router';
 import { useCallback, type ComponentType } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { ReactNativeLegal } from 'react-native-legal';
 
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { NotificationBell } from '@/components/NotificationBell';
+import { refreshBell } from '@/notifications/bellStore';
 import { PresetSummaryCard } from '@/components/PresetSummaryCard';
 import { RecordKindSelector } from '@/components/RecordKindSelector';
+import { Stepper } from '@/components/Stepper';
 import { TagDot } from '@/components/TagChip';
 import { requestOnboarding } from '@/components/onboardingBus';
 import { usePresetList } from '@/db/usePresets';
@@ -45,6 +58,14 @@ import {
   languageSectionNote,
   languageSectionTitle,
   licenseLinkLabel,
+  notificationDevSeedLabel,
+  notificationDevTestLabel,
+  notificationEnabledLabel,
+  notificationEnabledNote,
+  notificationSectionTitle,
+  notificationThresholdDaysValue,
+  notificationThresholdLabel,
+  notificationThresholdNote,
   presetCountLabel,
   presetSectionNote,
   presetSectionTitle,
@@ -64,9 +85,14 @@ import {
   versionLabel,
 } from '@/logic/labels';
 import { PRESET_TYPES } from '@/logic/preset';
+import { rescheduleNotification, requestNotificationPermission, sendTestNotification } from '@/notifications/scheduler';
 import { storeReviewUrl } from '@/review/storeUrl';
 import { useSettings } from '@/settings';
-import { useThemeColors } from '@/theme';
+import {
+  MAX_LISTING_ALERT_THRESHOLD_DAYS,
+  MIN_LISTING_ALERT_THRESHOLD_DAYS,
+} from '@/settings/listingAlertThresholdDays';
+import { useThemeColors, type ThemeColors } from '@/theme';
 
 /**
  * 表示するバージョン。**いま動いているバイナリに焼かれた値**を読む
@@ -105,6 +131,13 @@ const DevSeedCard: ComponentType<{ onChanged: () => void }> | null = __DEV__
     (require('@/dev/DevSeedCard') as typeof import('@/dev/DevSeedCard')).DevSeedCard
   : null;
 
+/** 開発用: 「すべて」タブ確認用の通知履歴ダミーデータ投入（理由・仕組みは DevSeedCard と同じ） */
+const insertNotificationHistorySeed: (() => number) | null = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import では本番ビルドから落とせない（上記）
+    (require('@/dev/notificationHistorySeed') as typeof import('@/dev/notificationHistorySeed'))
+      .insertNotificationHistorySeed
+  : null;
+
 /**
  * サポートとプライバシーポリシーの公開先（GitHub Pages。`docs/` をそのまま配信している）。
  *
@@ -134,7 +167,17 @@ export default function SettingsScreen() {
   // useSettings() はストア全体を購読するので、言語を変えるとこの画面も再描画される。
   // **表示語の関数には locale を渡すこと** ── 渡さないと React Compiler が
   // 「依存なし」と見なして初回の文字列で固定してしまう（src/i18n/index.ts の冒頭）
-  const { defaultRecordKind, setDefaultRecordKind, language, setLanguage, locale } = useSettings();
+  const {
+    defaultRecordKind,
+    setDefaultRecordKind,
+    language,
+    setLanguage,
+    locale,
+    notificationsEnabled,
+    setNotificationsEnabled,
+    listingAlertThresholdDays,
+    setListingAlertThresholdDays,
+  } = useSettings();
   // 3 種ぶん個別に引く。フックの数は固定なので、配列を回して呼んでいるわけではない
   const sitePresets = usePresetList('site');
   const shippingPresets = usePresetList('shipping');
@@ -179,17 +222,55 @@ export default function SettingsScreen() {
     [locale],
   );
 
+  /**
+   * 通知の全体トグル。オンにするときだけ OS の許可を求める ── オフにする操作に
+   * 許可ダイアログを挟む理由が無い。許可が下りなくても設定側はオンのまま持つ
+   * （scheduler.rescheduleNotification が許可の有無を見て、無ければ何も予約しない
+   * だけなので、ここで別途エラー扱いにする必要が無い）。
+   *
+   * どちらの向きでも rescheduleNotification を呼び直す ── オフにした直後に
+   * 予約済みの通知が残ったままにならないよう、呼び出し内で cancelAllScheduledNotificationsAsync
+   * を先に行ってから判定し直す作りになっている（scheduler.ts 冒頭）。
+   */
+  const handleToggleNotificationsEnabled = useCallback(
+    (enabled: boolean) => {
+      setNotificationsEnabled(enabled);
+      if (enabled) {
+        void requestNotificationPermission().then(() => rescheduleNotification());
+      } else {
+        void rescheduleNotification();
+      }
+    },
+    [setNotificationsEnabled],
+  );
+
+  const handleThresholdChange = useCallback(
+    (days: number) => {
+      setListingAlertThresholdDays(days);
+      void rescheduleNotification();
+    },
+    [setListingAlertThresholdDays],
+  );
+
   const refreshData = useCallback(() => {
     sitePresets.refresh();
     shippingPresets.refresh();
     packagingPresets.refresh();
     tagList.refresh();
     recordCount.refresh();
+    // 開発用データ投入/削除（DevSeedCard）は repository を直接 SQL で触るだけで、
+    // useRecords.ts の saveRecord/deleteRecord を通らない ── そちらに乗せてある
+    // refreshBell() 呼び出しも一緒には走らないので、ここで明示的に呼ぶ。呼ばないと、
+    // 開発用に全データを消してもベル（記録タブ・お知らせ画面）が消える前の内容のまま残る
+    refreshBell();
   }, [sitePresets, shippingPresets, packagingPresets, tagList, recordCount]);
 
   return (
     <>
-      <Stack.Screen options={{ title: settingsTabLabel(locale) }} />
+      {/* ベルは全タブ共通（calc/data タブと同じ理由。NotificationBell のコメント参照） */}
+      <Stack.Screen
+        options={{ title: settingsTabLabel(locale), headerLeft: () => <NotificationBell /> }}
+      />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}>
@@ -204,7 +285,10 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{helpLinkLabel(locale)}</Text>
+              <RowIcon name="help-circle-outline" colors={colors} />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {helpLinkLabel(locale)}
+              </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
             </Pressable>
           </Link>
@@ -223,7 +307,10 @@ export default function SettingsScreen() {
               { backgroundColor: colors.secondaryBackground },
             ])}
             accessibilityRole="button">
-            <Text style={[styles.label, { color: colors.label }]}>{replayTutorialLabel(locale)}</Text>
+            <RowIcon name="play-circle-outline" colors={colors} />
+            <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+              {replayTutorialLabel(locale)}
+            </Text>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </Pressable>
         </View>
@@ -232,9 +319,12 @@ export default function SettingsScreen() {
             切り替わるものなので、切り替えた結果が下に見える並びにする。
             カードの作りは「記録の既定値」と同じ（見出し・セグメント・注記）*/}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {languageSectionTitle(locale)}
-          </Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="language-outline" size={15} color={colors.secondaryLabel} />
+            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+              {languageSectionTitle(locale)}
+            </Text>
+          </View>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <LanguageSelector language={language} locale={locale} onChange={setLanguage} />
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
@@ -244,9 +334,12 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {recordSettingsSectionTitle(locale)}
-          </Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="create-outline" size={15} color={colors.secondaryLabel} />
+            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+              {recordSettingsSectionTitle(locale)}
+            </Text>
+          </View>
           <View style={[styles.card, { backgroundColor: colors.secondaryBackground }]}>
             <Text style={[styles.label, { color: colors.label }]}>{defaultRecordKindLabel(locale)}</Text>
             <RecordKindSelector kind={defaultRecordKind} onChange={setDefaultRecordKind} />
@@ -257,11 +350,86 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* SPEC-V3 §3.1 / 設計案 24a: 3 種を 3 枚のカードで。追加の口はここに置かない */}
+        {/* 出品滞留アラート／月次振り返り（feature/listing-alert-monthly-review）。
+            全体トグル・閾値日数の 2 行を 1 枚のカードに。__DEV__ ビルドだけ、確認用の
+            テスト通知ボタンを 3 行目として足す（本番ビルドには出ない） */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {presetSectionTitle(locale)}
+            {notificationSectionTitle(locale)}
           </Text>
+          <View
+            style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
+            <View style={[styles.row, styles.switchRow]}>
+              {/* ベルアイコン部分だけ押せる（notifications.tsx を開く）。ラベル本体はトグルの
+                  状態を示すだけで押せない ── 行全体を押せるようにすると、Switch のすぐ隣を
+                  押したときに「開く」と「切り替える」のどちらが反応するか曖昧になるため */}
+              <NotificationBell />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {notificationEnabledLabel(locale)}
+              </Text>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleToggleNotificationsEnabled}
+                trackColor={{ true: colors.blue }}
+                accessibilityLabel={notificationEnabledLabel(locale)}
+                style={styles.switchControl}
+              />
+            </View>
+            <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+            <View style={styles.stepperRow}>
+              <Stepper
+                label={notificationThresholdLabel(locale)}
+                value={listingAlertThresholdDays}
+                minimumValue={MIN_LISTING_ALERT_THRESHOLD_DAYS}
+                maximumValue={MAX_LISTING_ALERT_THRESHOLD_DAYS}
+                centerLabel={notificationThresholdDaysValue(locale, listingAlertThresholdDays)}
+                onChangeValue={handleThresholdChange}
+              />
+            </View>
+            {__DEV__ && (
+              <>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                <Pressable
+                  onPress={() => void sendTestNotification()}
+                  style={styles.row}
+                  accessibilityRole="button">
+                  <Text style={[styles.label, { color: colors.blue }]}>
+                    {notificationDevTestLabel(locale)}
+                  </Text>
+                </Pressable>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                <Pressable
+                  onPress={() => {
+                    const count = insertNotificationHistorySeed?.() ?? 0;
+                    Alert.alert(
+                      count > 0 ? `履歴に${count}件追加しました` : '出品中の記録が無いため追加できませんでした',
+                    );
+                  }}
+                  style={styles.row}
+                  accessibilityRole="button">
+                  <Text style={[styles.label, { color: colors.blue }]}>
+                    {notificationDevSeedLabel(locale)}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {notificationEnabledNote(locale)}
+          </Text>
+          <Text style={[styles.note, { color: colors.secondaryLabel }]}>
+            {notificationThresholdNote(locale)}
+          </Text>
+        </View>
+
+        {/* SPEC-V3 §3.1 / 設計案 24a: 3 種を 3 枚のカードで。追加の口はここに置かない */}
+        <View style={styles.section}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="pricetags-outline" size={15} color={colors.secondaryLabel} />
+            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+              {presetSectionTitle(locale)}
+            </Text>
+          </View>
           {PRESET_TYPES.map((type) => (
             <PresetSummaryCard key={type} type={type} presets={presetsByType[type]} />
           ))}
@@ -275,9 +443,12 @@ export default function SettingsScreen() {
             上の注記（「よく使う値を登録しておくと…」）がタグには当てはまらなくなる。
             群 3 と群 5 の間なのは、設定を「入力 → 記録 → 出力」の順に読ませるため */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {tagSectionTitle(locale)}
-          </Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="pricetag-outline" size={15} color={colors.secondaryLabel} />
+            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+              {tagSectionTitle(locale)}
+            </Text>
+          </View>
           <Link href="/settings/tags" asChild>
             <Pressable
               // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
@@ -318,9 +489,12 @@ export default function SettingsScreen() {
 
         {/* UI-SPEC §1.6-4: データ群。書き出しは SPEC-V3 §5.7 で実装済み（活性） */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
-            {dataSectionTitle(locale)}
-          </Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="folder-outline" size={15} color={colors.secondaryLabel} />
+            <Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>
+              {dataSectionTitle(locale)}
+            </Text>
+          </View>
           <View style={[styles.card, styles.rowCard, { backgroundColor: colors.secondaryBackground }]}>
             {/* SPEC-V3 §5.7 で活性化した（「準備中」が外れた）。押すとモーダルの
                 書き出しシートが開く（presentation は設定タブの _layout.tsx が持つ） */}
@@ -329,7 +503,10 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{csvExportLabel(locale)}</Text>
+                <RowIcon name="document-text-outline" colors={colors} />
+                <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                  {csvExportLabel(locale)}
+                </Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
@@ -342,13 +519,19 @@ export default function SettingsScreen() {
                 // asChild の子に渡す style は平坦化した 1 枚にする（「使いかた」行と同じ制約）
                 style={StyleSheet.flatten([styles.row])}
                 accessibilityRole="link">
-                <Text style={[styles.label, { color: colors.label }]}>{backupLabel(locale)}</Text>
+                <RowIcon name="cloud-upload-outline" colors={colors} />
+                <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                  {backupLabel(locale)}
+                </Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
               </Pressable>
             </Link>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
             <View style={styles.row}>
-              <Text style={[styles.label, { color: colors.label }]}>{recordCountLabel(locale)}</Text>
+              <RowIcon name="albums-outline" colors={colors} />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {recordCountLabel(locale)}
+              </Text>
               <Text style={[styles.rowValue, { color: colors.secondaryLabel }]}>
                 {presetCountLabel(locale, recordCount.count)}
               </Text>
@@ -371,7 +554,10 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.secondaryBackground },
               ])}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{reviewLinkLabel(locale)}</Text>
+              <RowIcon name="star-outline" colors={colors} />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {reviewLinkLabel(locale)}
+              </Text>
               <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
             </Pressable>
             <Text style={[styles.note, { color: colors.secondaryLabel }]}>
@@ -392,7 +578,10 @@ export default function SettingsScreen() {
               onPress={() => openExternal(SUPPORT_URL)}
               style={styles.row}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{supportLinkLabel(locale)}</Text>
+              <RowIcon name="help-buoy-outline" colors={colors} />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {supportLinkLabel(locale)}
+              </Text>
               <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
             </Pressable>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
@@ -400,7 +589,10 @@ export default function SettingsScreen() {
               onPress={() => openExternal(PRIVACY_URL)}
               style={styles.row}
               accessibilityRole="link">
-              <Text style={[styles.label, { color: colors.label }]}>{privacyLinkLabel(locale)}</Text>
+              <RowIcon name="shield-checkmark-outline" colors={colors} />
+              <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+                {privacyLinkLabel(locale)}
+              </Text>
               <Ionicons name="open-outline" size={18} color={colors.secondaryLabel} />
             </Pressable>
           </View>
@@ -420,7 +612,10 @@ export default function SettingsScreen() {
               { backgroundColor: colors.secondaryBackground },
             ])}
             accessibilityRole="button">
-            <Text style={[styles.label, { color: colors.label }]}>{licenseLinkLabel(locale)}</Text>
+            <RowIcon name="document-outline" colors={colors} />
+            <Text style={[styles.label, styles.labelFlex, { color: colors.label }]} numberOfLines={2}>
+              {licenseLinkLabel(locale)}
+            </Text>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryLabel} />
           </Pressable>
         </View>
@@ -440,6 +635,25 @@ export default function SettingsScreen() {
   );
 }
 
+/**
+ * 各行の先頭アイコン（1.2.0.md「設定の各項目にアイコンをつける」）。
+ *
+ * 色は既存の右端アイコン（chevron-forward 等）と同じ secondaryLabel に揃え、彩色した
+ * 丸背景などは付けない ── お知らせ画面のカード（色付き丸背景）とは違い、設定タブは
+ * 元からテキスト主体の一覧型 UI で、行数ぶん色を並べると賑やかになりすぎるため。
+ */
+function RowIcon({
+  name,
+  colors,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  colors: ThemeColors;
+}) {
+  return <Ionicons name={name} size={20} color={colors.secondaryLabel} style={rowIconStyle} />;
+}
+
+const rowIconStyle = { width: 24 };
+
 const styles = StyleSheet.create({
   content: {
     padding: 16,
@@ -452,6 +666,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  // 見出しの左にアイコンを置く群（1.2.0.md「設定の各項目にアイコンをつける」）。
+  // アイコンを持たない見出し（marginLeft: 4 だった元の sectionTitle）はこの行に含めない
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginLeft: 4,
   },
   card: {
@@ -469,10 +690,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 48,
+    minHeight: 48,
+    gap: 8,
   },
   rowValue: {
     fontSize: 15,
+  },
+  // Stepper 自体は高さを持たない（ボタンの実寸に沿うだけ）ので、他の行（48px）と
+  // 高さを揃えるための箱。calc タブの手数料行（60px）と同じ考え方。
+  // switchRow と必ず同じ値にする ── 同じカードの中で行ごとに高さが違って見える不具合が
+  // 実機で出た（カード側にだけ paddingTop を足していたのが原因。行の側で高さを揃える形に直した）
+  stepperRow: {
+    height: 60,
+    justifyContent: 'center',
+  },
+  // Switch（実測 31pt）は他の行の文字（16px）より背が高く、48px の行だと詰まって見える
+  // （実際にそう見えると指摘があった）。stepperRow と同じ 60px に揃えて余白を持たせる
+  switchRow: {
+    height: 60,
+  },
+  // Switch は `row` の alignItems: 'center' が効かず、行の上端に張り付いていた
+  // （実機の React Native Inspector で実測して確認 ── Switch の絶対 Y 座標が行の絶対 Y 座標と
+  // 完全一致していた＝中央寄せされず上端基準になっていた）。alignSelf で個別に上書きする
+  switchControl: {
+    alignSelf: 'center',
   },
   separator: {
     height: StyleSheet.hairlineWidth,
@@ -505,9 +746,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderRadius: 12,
+    gap: 8,
   },
   label: {
     fontSize: 16,
+  },
+  // アイコン・チェブロンと並ぶラベル（1.2.0.md「設定の各項目にアイコンをつける」）。
+  // 英語など長い語で潰れないよう、伸び縮みではなく 2 行までの折り返しに逃がす
+  // （numberOfLines={2} と対で使う。失敗パターンの対処: 「詰めて省略」ではなく「2 行に許す」）
+  labelFlex: {
+    flex: 1,
   },
   note: {
     fontSize: 12,

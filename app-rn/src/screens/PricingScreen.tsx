@@ -79,6 +79,7 @@ import {
   minPriceLabel,
   netProfitEstimateNote,
   priceAppliedMessage,
+  priceChangedNote,
   pricingConclusionText,
   pricingHeroAmount,
   simulationVerdictText,
@@ -197,14 +198,18 @@ export function PricingScreen() {
   // ライブラリ側の未解決範囲（software-mansion/react-native-screens の
   // interactiveContentPopGestureRecognizer 関連 PR #3141/#3142/#3173/#3093/#3989 が
   // 段階的に手を入れている領域）とみられるが、念のため両方明示しておく。
+  // お知らせ画面（app/notifications.tsx）からの通知一覧の行タップは、記録一覧 → 記録詳細 →
+  // この画面の順にちゃんと push する（NotificationsScreen.openPricing のコメント参照）ので、
+  // この画面は常に普通の戻る履歴を持つ。既定の戻る矢印（headerBackTitle）だけで足りる ──
+  // 自前の戻るボタンを立てる必要はない。
   const screenOptions = useMemo(
     () => ({
       title: record?.isSold ? soldAnalysisScreenTitle(locale) : pricingScreenTitle(locale),
+      gestureEnabled: false,
+      fullScreenSwipeEnabled: false,
       // 戻り先は記録タブ。**タブ名と同じ語を使う**（labels.ts の方針）──
       // 押したタブと戻るボタンで名前が違うと、どこへ戻るのかを 2 度読み直すことになる
       headerBackTitle: recordsTabLabel(locale),
-      gestureEnabled: false,
-      fullScreenSwipeEnabled: false,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
     [record?.isSold, locale],
@@ -305,6 +310,11 @@ function PricingContent({
   const analysis = analyzePricing(record);
   // 経費一式。SaleRecord をそのまま渡せる形（余分な列は使われない）
   const costs: TargetCostInput = record;
+
+  // シミュレーターカードの「前回の値下げ」注記の基準日（出品滞留アラートと同じ基準。
+  // logic/notifications.ts の listingAlertItems 参照）
+  const priceBasisDate = fromDbDate(record.priceChangedAt ?? record.saleStartDate);
+  const priceBasisDays = elapsedDays({ saleStartDate: priceBasisDate, saleDate: null }, today);
 
   /**
    * シミュレーターの値。**記録の価格が変わったら引き直す**（書き換えの直後・取り消しの直後）──
@@ -435,6 +445,17 @@ function PricingContent({
               </Text>
             )}
           </View>
+
+          {!unpriced && (
+            <Text style={[styles.simulatorMeta, { color: colors.secondaryLabel }]}>
+              {priceChangedNote(
+                locale,
+                record.priceChangedAt != null,
+                priceBasisDate,
+                priceBasisDays,
+              )}
+            </Text>
+          )}
 
           <View style={styles.simulatorValueRow}>
             <Text style={[styles.simulatorPrice, { color: unpriced ? colors.mutedLabel : colors.label }]}>
@@ -1333,6 +1354,9 @@ const styles = StyleSheet.create({
    */
   simulatorHeadNote: {
     flexShrink: 1,
+  },
+  simulatorMeta: {
+    fontSize: 12,
   },
   simulatorValueRow: {
     flexDirection: 'row',

@@ -35,3 +35,11 @@ GoogleService-Info.plist
 # 置き場所だけ先に決めておく ── 「書いてから隠す」順番だと 1 コミットで手遅れになる
 # （このファイル冒頭の署名・鍵と同じ理由）。
 CHANGELOG/private/
+
+# リリース進捗メモ（AdMob App ID / 広告ユニット ID など、ストア提出状況の実況込み）。
+# 中身自体は機密ではないが、日々更新する運用メモを公開リポジトリに含める意図的な理由がない。
+docs/release-status-ios.md
+docs/release-status-android.md
+
+# マシン固有のパス・署名確認コマンドを含む Android ビルド手順。
+docs/RELEASE-ANDROID.md

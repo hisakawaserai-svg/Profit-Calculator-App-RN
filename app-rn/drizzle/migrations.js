@@ -14,6 +14,7 @@ import m0009 from './0009_target_profit.sql';
 import m0010 from './0010_preset_calc_method.sql';
 import m0011 from './0011_remove_seed_presets.sql';
 import m0012 from './0012_shipping_name.sql';
+import m0013 from './0013_price_changed_at.sql';
 
   export default {
     journal,
@@ -30,7 +31,7 @@ m0008,
 m0009,
 m0010,
 m0011,
-m0012
+m0012,
+m0013
     }
   }
-  

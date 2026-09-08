@@ -30,6 +30,7 @@ import { AddRecordFab } from '@/components/AddRecordFab';
 import { BreakdownPartList } from '@/components/BreakdownPartList';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { HelpButton } from '@/components/HelpButton';
+import { NotificationBell } from '@/components/NotificationBell';
 import { HelpSheet } from '@/components/HelpSheet';
 import { CostProportionBar } from '@/components/CostProportionBar';
 import { NumericField } from '@/components/NumericField';
@@ -200,10 +201,14 @@ export default function CalcScreen() {
 
   const canClear = hasAnyInput(values, defaultRecordKind);
 
-  // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7 / §1.1-1）
+  // ヘッダは「？」のみで歯車は置かない（UI-SPEC §6-7 / §1.1-1）。
+  // ベル（NotificationBell）は全タブ共通。以前は記録タブだけに置いていたが、
+  // 通知は既定オフの機能で OS 通知を受け取っていない人にとってはアプリ内の
+  // 発見経路がベルしか無いため、どのタブにいても気づけるようにした
   const screenOptions = useMemo(
     () => ({
       headerTitle: calcScreenTitle(locale),
+      headerLeft: () => <NotificationBell />,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
     // 見出しが locale で決まるので依存に入れる（抜かすとヘッダだけ前の言語で残る）

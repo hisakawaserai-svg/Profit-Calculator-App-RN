@@ -140,6 +140,8 @@ export function createBackupRepository(db: Database) {
           listed_at: dateField(row.listedAt),
           // 送料プリセット名の写し（0012）。site_name と同じく素の文字列
           shipping_name: row.shippingName,
+          // 出品滞留アラートの基準日（0013）。null は空欄（まだ値下げしていない）
+          price_changed_at: dateField(row.priceChangedAt),
         })),
         presets: presetRows.map((row) => ({
           id: row.id,
@@ -304,6 +306,13 @@ function toRecordRow(row: BackupRow, availablePhotos: ReadonlySet<string>) {
      * **この列より前に取ったバックアップから戻しても見た目は変わらない。**
      */
     shippingName: row.shipping_name ?? '',
+    /**
+     * 出品滞留アラートの基準日（0013）。**列そのものが無い古いバックアップでも空文字**
+     * （logic/backup.ts の withMissingColumns が埋める）ので listedAt と同じく emptyToNull で
+     * 受ける ── この列より前に取ったバックアップから戻すと null になり、
+     * 通知の判定は出品日基準にフォールバックする（既存の見た目のまま。schema.ts のコメント参照）。
+     */
+    priceChangedAt: emptyToNull(row.price_changed_at),
   };
 }
 

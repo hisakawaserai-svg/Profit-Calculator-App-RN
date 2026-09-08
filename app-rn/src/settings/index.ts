@@ -26,7 +26,30 @@ import {
   type LanguageSetting,
   type Locale,
 } from './language';
+import {
+  DISMISSED_MONTHLY_REVIEW_KEY,
+  normalizeDismissedMonthlyReview,
+} from './dismissedMonthlyReview';
 import { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+import {
+  LAST_NOTIFICATIONS_CHECKED_AT_KEY,
+  normalizeLastNotificationsCheckedAt,
+} from './lastNotificationsCheckedAt';
+import {
+  LISTING_ALERT_THRESHOLD_DAYS_KEY,
+  normalizeListingAlertThresholdDays,
+} from './listingAlertThresholdDays';
+import {
+  IGNORED_LISTING_ALERTS_KEY,
+  normalizeIgnoredListingAlerts,
+} from './ignoredListingAlerts';
+import { NOTIFICATIONS_ENABLED_KEY, normalizeNotificationsEnabled } from './notificationsEnabled';
+import {
+  NOTIFICATION_HISTORY_KEY,
+  NOTIFICATION_HISTORY_LIMIT,
+  normalizeNotificationHistory,
+  type NotificationHistoryEntry,
+} from './notificationHistory';
 import {
   FIRST_LAUNCH_AT_KEY,
   LAUNCH_COUNT_KEY,
@@ -53,7 +76,33 @@ export {
   type LanguageSetting,
   type Locale,
 } from './language';
+export {
+  DISMISSED_MONTHLY_REVIEW_KEY,
+  normalizeDismissedMonthlyReview,
+} from './dismissedMonthlyReview';
 export { LAST_BACKUP_AT_KEY, normalizeLastBackupAt } from './lastBackupAt';
+export {
+  LAST_NOTIFICATIONS_CHECKED_AT_KEY,
+  normalizeLastNotificationsCheckedAt,
+} from './lastNotificationsCheckedAt';
+export {
+  DEFAULT_LISTING_ALERT_THRESHOLD_DAYS,
+  LISTING_ALERT_THRESHOLD_DAYS_KEY,
+  MAX_LISTING_ALERT_THRESHOLD_DAYS,
+  MIN_LISTING_ALERT_THRESHOLD_DAYS,
+  normalizeListingAlertThresholdDays,
+} from './listingAlertThresholdDays';
+export {
+  IGNORED_LISTING_ALERTS_KEY,
+  normalizeIgnoredListingAlerts,
+} from './ignoredListingAlerts';
+export { NOTIFICATIONS_ENABLED_KEY, normalizeNotificationsEnabled } from './notificationsEnabled';
+export {
+  NOTIFICATION_HISTORY_KEY,
+  NOTIFICATION_HISTORY_LIMIT,
+  normalizeNotificationHistory,
+  type NotificationHistoryEntry,
+} from './notificationHistory';
 export {
   FIRST_LAUNCH_AT_KEY,
   LAUNCH_COUNT_KEY,
@@ -107,6 +156,31 @@ export type Settings = {
    * 一時的な表示要求（設定タブ「チュートリアルをもう一度見る」）で行い、既読の記録はそのまま残す。
    */
   tutorialSeen: boolean;
+  /** 通知(記録タブのベル・ローカル通知)の全体オンオフ。既定 false(オプトイン) */
+  notificationsEnabled: boolean;
+  /** 出品滞留アラートの閾値(日)。既定 14 */
+  listingAlertThresholdDays: number;
+  /**
+   * ベルを最後に開いた日時。まだ一度も開いていなければ null。
+   * lastBackupAt と同じく**設定ではなく端末の履歴**（未読ドットの判定にだけ使う）。
+   */
+  lastNotificationsCheckedAt: string | null;
+  /**
+   * 出品滞留アラートを「今後知らせない」にした記録の id 一覧（お知らせ画面の長押し）。
+   * lastNotificationsCheckedAt と同じく端末の履歴に近いが、型として Settings 側に置く
+   * （画面から読む必要は無いが、他の設定値と同じ「1 か所からしか触らない」規約に乗せるため）
+   */
+  ignoredListingAlerts: string[];
+  /**
+   * 「先月の振り返り」を消した対象月（"YYYY-MM"）。まだ消していなければ null。
+   * 押した瞬間にベルから消すため（月初1日の間、同じ月をまた出さない）
+   */
+  dismissedMonthlyReview: string | null;
+  /**
+   * 通知履歴（お知らせ画面「すべて」タブ）。新しい順、最大 NOTIFICATION_HISTORY_LIMIT 件。
+   * lastNotificationsCheckedAt と同じく端末の履歴（詳しくは notificationHistory.ts の冒頭）
+   */
+  notificationHistory: NotificationHistoryEntry[];
 };
 
 type SettingsStore = Settings & {
@@ -136,6 +210,14 @@ type SettingsStore = Settings & {
   markTutorialSeen: () => void;
   countLaunch: (now: number) => void;
   markReviewRequested: (at: number) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  setListingAlertThresholdDays: (days: number) => void;
+  setLastNotificationsCheckedAt: (checkedAt: string) => void;
+  ignoreListingAlert: (recordId: string) => void;
+  dismissMonthlyReview: (monthKey: string) => void;
+  appendNotificationHistory: (entry: NotificationHistoryEntry) => void;
+  removeNotificationHistoryEntry: (id: string) => void;
+  clearNotificationHistory: () => void;
 };
 
 // 起動時の言語。kv-store は同期に読めるので、初期値をその場で決められる
@@ -155,6 +237,20 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
   firstLaunchAt: normalizeEpochMs(Storage.getItemSync(FIRST_LAUNCH_AT_KEY)),
   reviewRequestedAt: normalizeEpochMs(Storage.getItemSync(REVIEW_REQUESTED_AT_KEY)),
   reviewRequestCount: normalizeCounter(Storage.getItemSync(REVIEW_REQUEST_COUNT_KEY)),
+  notificationsEnabled: normalizeNotificationsEnabled(Storage.getItemSync(NOTIFICATIONS_ENABLED_KEY)),
+  listingAlertThresholdDays: normalizeListingAlertThresholdDays(
+    Storage.getItemSync(LISTING_ALERT_THRESHOLD_DAYS_KEY),
+  ),
+  lastNotificationsCheckedAt: normalizeLastNotificationsCheckedAt(
+    Storage.getItemSync(LAST_NOTIFICATIONS_CHECKED_AT_KEY),
+  ),
+  ignoredListingAlerts: normalizeIgnoredListingAlerts(
+    Storage.getItemSync(IGNORED_LISTING_ALERTS_KEY),
+  ),
+  dismissedMonthlyReview: normalizeDismissedMonthlyReview(
+    Storage.getItemSync(DISMISSED_MONTHLY_REVIEW_KEY),
+  ),
+  notificationHistory: normalizeNotificationHistory(Storage.getItemSync(NOTIFICATION_HISTORY_KEY)),
   setDefaultRecordKind: (kind) => {
     // 先に永続化してからストアを更新する。書き込みが失敗したら state も進めない
     Storage.setItemSync(DEFAULT_RECORD_KIND_KEY, kind);
@@ -191,6 +287,49 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
   markTutorialSeen: () => {
     Storage.setItemSync(TUTORIAL_SEEN_KEY, '1');
     set({ tutorialSeen: true });
+  },
+  setNotificationsEnabled: (enabled) => {
+    Storage.setItemSync(NOTIFICATIONS_ENABLED_KEY, enabled ? '1' : '0');
+    set({ notificationsEnabled: enabled });
+  },
+  setListingAlertThresholdDays: (days) => {
+    Storage.setItemSync(LISTING_ALERT_THRESHOLD_DAYS_KEY, String(days));
+    set({ listingAlertThresholdDays: days });
+  },
+  setLastNotificationsCheckedAt: (checkedAt) => {
+    Storage.setItemSync(LAST_NOTIFICATIONS_CHECKED_AT_KEY, checkedAt);
+    set({ lastNotificationsCheckedAt: checkedAt });
+  },
+  ignoreListingAlert: (recordId) => {
+    const current = get().ignoredListingAlerts;
+    if (current.includes(recordId)) return;
+    const next = [...current, recordId];
+    Storage.setItemSync(IGNORED_LISTING_ALERTS_KEY, JSON.stringify(next));
+    set({ ignoredListingAlerts: next });
+  },
+  dismissMonthlyReview: (monthKey) => {
+    Storage.setItemSync(DISMISSED_MONTHLY_REVIEW_KEY, monthKey);
+    set({ dismissedMonthlyReview: monthKey });
+  },
+  /** 新しい順の先頭に足し、上限 NOTIFICATION_HISTORY_LIMIT 件を超えた分は古い方から切り捨てる */
+  appendNotificationHistory: (entry) => {
+    const next = [entry, ...get().notificationHistory].slice(0, NOTIFICATION_HISTORY_LIMIT);
+    Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify(next));
+    set({ notificationHistory: next });
+  },
+  /**
+   * 履歴の1件を消す。呼ぶのは「すべて」タブの行タップ（対応した = もう要らない）と
+   * 長押しの「今後知らせない」（合意: 2026-09）
+   */
+  removeNotificationHistoryEntry: (id) => {
+    const next = get().notificationHistory.filter((entry) => entry.id !== id);
+    Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify(next));
+    set({ notificationHistory: next });
+  },
+  /** 「すべて」タブの「すべて消す」から呼ぶ。履歴をまるごと空にする */
+  clearNotificationHistory: () => {
+    Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify([]));
+    set({ notificationHistory: [] });
   },
   /**
    * この起動を 1 回として数える。呼ぶのは `countLaunch()` だけ（下記の once ガード付き）。
@@ -271,6 +410,11 @@ export function getDefaultRecordKind(): RecordKind {
   return useSettingsStore.getState().defaultRecordKind;
 }
 
+/** React の外（通知スケジューラなど）から表示語を組み立てる用。購読はしない */
+export function getLocale(): Locale {
+  return useSettingsStore.getState().locale;
+}
+
 /** 設定画面以外から書き換える必要はないが、API の対称性のために公開しておく */
 export function setDefaultRecordKind(kind: RecordKind): void {
   useSettingsStore.getState().setDefaultRecordKind(kind);
@@ -320,4 +464,73 @@ export function getReviewPromptHistory(): {
 /** レビューを頼んだことを記録する。呼ぶのは src/review/requestReview.ts だけ */
 export function markReviewRequested(at: number = Date.now()): void {
   useSettingsStore.getState().markReviewRequested(at);
+}
+
+/** 設定画面の通知セクションが購読する */
+export function useNotificationsEnabled(): boolean {
+  return useSettingsStore((state) => state.notificationsEnabled);
+}
+export function setNotificationsEnabled(enabled: boolean): void {
+  useSettingsStore.getState().setNotificationsEnabled(enabled);
+}
+
+export function useListingAlertThresholdDays(): number {
+  return useSettingsStore((state) => state.listingAlertThresholdDays);
+}
+export function setListingAlertThresholdDays(days: number): void {
+  useSettingsStore.getState().setListingAlertThresholdDays(days);
+}
+
+/**
+ * React の外（通知スケジューラ・AppState のコールバック）から読む用。購読はしない。
+ * 記録タブのベルは `useSettings()` 経由でこれらを購読して未読ドットを出す。
+ */
+export function getNotificationsEnabled(): boolean {
+  return useSettingsStore.getState().notificationsEnabled;
+}
+export function getListingAlertThresholdDays(): number {
+  return useSettingsStore.getState().listingAlertThresholdDays;
+}
+export function getLastNotificationsCheckedAt(): string | null {
+  return useSettingsStore.getState().lastNotificationsCheckedAt;
+}
+
+/** ベルを開いたことを記録する。呼ぶのは記録タブのベルだけ */
+export function markNotificationsChecked(checkedAt: string): void {
+  useSettingsStore.getState().setLastNotificationsCheckedAt(checkedAt);
+}
+export function getIgnoredListingAlerts(): string[] {
+  return useSettingsStore.getState().ignoredListingAlerts;
+}
+/** お知らせ画面の長押しから呼ぶ。この記録の出品滞留アラートを今後出さないようにする */
+export function ignoreListingAlert(recordId: string): void {
+  useSettingsStore.getState().ignoreListingAlert(recordId);
+}
+export function getDismissedMonthlyReview(): string | null {
+  return useSettingsStore.getState().dismissedMonthlyReview;
+}
+/** お知らせ画面で「先月の振り返り」を押したときに呼ぶ */
+export function dismissMonthlyReview(monthKey: string): void {
+  useSettingsStore.getState().dismissMonthlyReview(monthKey);
+}
+
+/** お知らせ画面「すべて」タブが購読する */
+export function useNotificationHistory(): NotificationHistoryEntry[] {
+  return useSettingsStore((state) => state.notificationHistory);
+}
+/** React の外（通知スケジューラ）から読む用。購読はしない */
+export function getNotificationHistory(): NotificationHistoryEntry[] {
+  return useSettingsStore.getState().notificationHistory;
+}
+/** 呼ぶのは通知スケジューラだけ（rescheduleNotification が実際に予約した内容を記録する） */
+export function appendNotificationHistory(entry: NotificationHistoryEntry): void {
+  useSettingsStore.getState().appendNotificationHistory(entry);
+}
+/** お知らせ画面「すべて」タブの行タップ・長押しから呼ぶ。対応済みの履歴を消す */
+export function removeNotificationHistoryEntry(id: string): void {
+  useSettingsStore.getState().removeNotificationHistoryEntry(id);
+}
+/** お知らせ画面「すべて」タブの「すべて消す」から呼ぶ */
+export function clearNotificationHistory(): void {
+  useSettingsStore.getState().clearNotificationHistory();
 }

@@ -18,7 +18,16 @@
 //
 // ここが持つのは「一覧／グラフと絞り込みページの両方が見る値」だけ。並び替え・検索・シートの開閉など、
 // 片方だけが使う state は各画面に残す（上げると、どちらが持つ値か読めなくなる）。
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import type { Period } from '@/logic/period';
 import {
@@ -54,17 +63,37 @@ const RecordFilterContext = createContext<RecordFilterState | null>(null);
 export function RecordFilterProvider({
   scope,
   currentMonthKey,
+  jumpToMonthKey,
   children,
 }: {
   /** 'records' = 記録タブの Stack / 'data' = データタブの Stack（§6） */
   scope: FilterScope;
   /** 初期表示は今月（§5-14）。「今日」は画面の外で 1 回だけ決める */
   currentMonthKey: string;
+  /**
+   * 通知の「月次振り返り」タップなど、外部から特定の月へジャンプさせたい値（"YYYY-MM"）。
+   * **定義されていて、かつ前回反映した値と違うときだけ** period に反映する。
+   *
+   * `currentMonthKey`（初回マウント時の初期値。上記コメント）とは別に持つ必要がある理由:
+   * データタブの Stack はタブを切り替えても閉じずに保持される（Expo Router の既定）ので、
+   * 一度開いたあとに通知から `/data?month=...` へ来ても `_layout.tsx` は再マウントされず、
+   * `currentMonthKey`（useMemo の初期値専用）は更新されない。この prop は毎回の
+   * useLocalSearchParams の値をそのまま渡してもらい、ここで「変わったときだけ」拾う。
+   * undefined のときは何もしない ── 通常の再訪（パラメータなし）で今月へ巻き戻さないため。
+   */
+  jumpToMonthKey?: string;
   children: ReactNode;
 }) {
   const [filter, setFilter] = useState<RecordFilterDraft>(EMPTY_RECORD_FILTER);
   const [isSoldMode, setIsSoldMode] = useState(true);
   const [period, setPeriod] = useState<Period>(currentMonthKey);
+  // 最後に反映した jumpToMonthKey。同じ値が来ても二重に setPeriod しない
+  const appliedJumpRef = useRef(jumpToMonthKey);
+  useEffect(() => {
+    if (jumpToMonthKey == null || jumpToMonthKey === appliedJumpRef.current) return;
+    appliedJumpRef.current = jumpToMonthKey;
+    setPeriod(jumpToMonthKey);
+  }, [jumpToMonthKey]);
   /**
    * 出品中に切り替える直前の**販売サイトと目標**の指定（§4.2 / SPEC-V11 §7.1）。
    * 売れた記録に戻したときに復元する。**この Stack が生きている間だけ**保つ（決定 §9-9）。

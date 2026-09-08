@@ -194,8 +194,6 @@ export const en: Translations = {
     nextMonth: 'Next month',
     previousYear: 'Previous year',
     nextYear: 'Next year',
-    profitLabel: '{{total}} for {{subject}}',
-    thisMonth: 'this month',
     buttonAccessibility: 'Period shown: {{title}}',
   },
 
@@ -429,6 +427,8 @@ export const en: Translations = {
     simulatorTitle: 'Discount simulator',
     simulatorNote: 'Moving this does not change the record',
     simulatorDisabledNote: 'Enter a price to try discounts here',
+    priceChangedNote: 'Last price cut: {{date}} ({{days}} days ago)',
+    neverPriceChangedNote: 'No price cut since listed: {{date}} ({{days}} days ago)',
     simulatorProfit: 'Expected profit',
     simulatorProfitWithRate: 'Expected profit · {{rate}}%',
     verdictLossStill: 'Still at a loss (−{{amount}})',
@@ -499,7 +499,7 @@ export const en: Translations = {
     unitYearInline: 'by year',
     chartBarLegend: '{{total}} {{unit}}',
     chartUnitNote:
-      'Pick a year or {{all}} and the step changes to “{{month}}” (or “{{year}}” once {{all}} covers more than {{years}} years), and the heading follows the period you picked (“{{total}} for 2026”, “{{total}} for {{all}}”).',
+      'Pick a year or {{all}} and the step changes to “{{month}}” (or “{{year}}” once {{all}} covers more than {{years}} years).',
     profitRate: 'Margin',
     soldCount: 'Items sold',
     perRecordProfit: 'Per record',
@@ -683,6 +683,49 @@ export const en: Translations = {
     },
   },
 
+  notification: {
+    bellLabel: 'Notifications',
+    screenTitle: 'Notifications',
+    tabHistory: 'All',
+    tabStagnant: 'Stagnant',
+    tabUpdates: 'Updates',
+    empty: 'Nothing to tell you right now',
+    historyEmpty: 'No notifications yet',
+    historyLimitNote: 'Shows your most recent {{limit}}',
+    historyClearAllLabel: 'Clear all',
+    historyClearAllConfirmTitle: 'Clear all notification history?',
+    updatesPlaceholder: 'Coming soon',
+    updates: {
+      v110: {
+        title: '1.1.0',
+        description: 'Added more filters, and packaging can now be picked right from the record form.',
+      },
+      v100: {
+        title: '1.0.0',
+        description: 'Launched as a profit calculator and sales log for flea-market sellers.',
+      },
+    },
+    listingAlert: {
+      eyebrowOne: '1 listing needs attention',
+      eyebrowMany: '{{count}} listings need attention',
+      elapsedDays: 'Listed {{days}} days ago',
+      historySubtitle: '{{days}} days ago · {{date}}',
+      priceLabel: 'Price',
+      discountRoomLabel: 'Room to lower',
+      ignoreConfirmTitle: 'Stop alerting about "{{name}}"?',
+      ignoreConfirmAction: "Don't alert me",
+      osTitle: 'Consider a price cut?',
+      osBodyOne: '"{{name}}" has been listed for {{days}} days',
+      osBodyMany: '{{count}} items have been listed for {{days}} days',
+    },
+    monthlyReview: {
+      eyebrow: 'Last month in review',
+      totalLabel: 'Net profit total',
+      osTitle: 'Last month in review',
+      osBody: 'Your net total for {{month}} was ¥{{total}}. Take a look?',
+    },
+  },
+
   personalBest: {
     sectionTitle: 'Personal bests',
     yourRecords: 'Your records',
@@ -809,6 +852,7 @@ export const en: Translations = {
       targetProfit: 'Target profit',
       listedAt: 'Listing date (reserved)',
       shippingName: 'Shipping preset',
+      priceChangedAt: 'Price last changed',
       presetId: 'Preset ID',
       presetType: 'Kind',
       name: 'Name',
@@ -1488,6 +1532,22 @@ export const en: Translations = {
     },
     license: {
       label: 'Open Source Licenses',
+    },
+    notification: {
+      sectionTitle: 'Notifications',
+      enabledLabel: 'Receive notifications',
+      enabledNote: "You'll get notified on your device even when the app is closed.",
+      // 元は 'Listing alert threshold (days)'。長い行ラベルが縮みきらず − ボタンと
+      // 重なっていた（実機で確認）。centerLabel 側を数字だけにする対処（下のコメント）だけでは
+      // 直らなかった ── 重なりの実体はラベル自体の幅だった。短い語に詰める
+      thresholdLabel: 'Listing alert (days)',
+      thresholdNote: "We'll let you know when a listing has been up longer than this.",
+      // Stepper の centerLabel（± の間の狭い枠）用。"14 days" だと幅が足りず − ボタンと
+      // 重なる（実機で確認）。単位は行のラベル側（"Listing alert (days)"）に
+      // 既にあるので、ここは数字だけで足りる
+      thresholdDaysValue: '{{days}}',
+      devTestLabel: 'Send test notification (dev)',
+      devSeedLabel: 'Insert notification history test data (dev)',
     },
     language: {
       title: 'Language',

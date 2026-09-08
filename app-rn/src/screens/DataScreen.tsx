@@ -36,6 +36,7 @@ import { DataModeTabs } from '@/components/DataModeTabs';
 import { DataSummaryBar, type DataSummaryValue } from '@/components/DataSummaryBar';
 import { FilterNoticeRow } from '@/components/FilterNoticeRow';
 import { HelpButton } from '@/components/HelpButton';
+import { NotificationBell } from '@/components/NotificationBell';
 import { HelpSheet } from '@/components/HelpSheet';
 import type { HelpEntryId } from '@/logic/helpContent';
 import { MonthNavBar } from '@/components/MonthNavBar';
@@ -536,7 +537,7 @@ export function DataScreen() {
   /**
    * 期間の初めからの累計（折れ線）。**画面で 1 回だけ出してグラフと値の行が同じ配列を見る** ──
    * 2 か所で作ると、同じ点の累計が別の計算を通ることになる。
-   * 最後の値は集計段の「この月の収支」と必ず一致する（同じ集合の合計。§1.5-4）。
+   * 最後の値は集計段の「収支」と必ず一致する（同じ集合の合計。§1.5-4）。
    */
   const cumulative = useMemo(
     () => cumulativeProfits(densePoints.map((point) => point.profit)),
@@ -571,6 +572,7 @@ export function DataScreen() {
     },
     [setPeriod],
   );
+
 
   /**
    * タグ別利益ランキングの行タップ → その下に内訳を出す（selectNearest のタグ版）。
@@ -684,10 +686,9 @@ export function DataScreen() {
    */
   const summaryText = filterSummaryText(locale, recordFilter, tags, summary.recordCount);
 
-  // 集計段は収支が主役（案 36b）。収支だけ期間を冠するのは §1.5-6 の注記どおり、
-  // 全期間を選んだときに「全期間の収支」へ変わることを見出しで示すため（記録タブと同じ語）
+  // 集計段は収支が主役（案 36b）。期間は月バーが示すので、見出しは常に「収支」
   const profitValue: DataSummaryValue = {
-    label: periodProfitLabel(locale, period),
+    label: periodProfitLabel(locale),
     value: formatYenSymbol(summary.totalNetProfit),
     // 収支は赤字になり得るので、符号で色を変える（一覧の行・計算タブと同じ規則）
     color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
@@ -724,10 +725,11 @@ export function DataScreen() {
     },
   ];
 
-  // UI-SPEC §1.5-1: ヘッダの右は「？」だけ
+  // UI-SPEC §1.5-1: ヘッダの右は「？」だけ。左のベルは全タブ共通（calc タブと同じ理由）
   const screenOptions = useMemo(
     () => ({
       title: dataTabLabel(locale),
+      headerLeft: () => <NotificationBell />,
       headerRight: () => <HelpButton onPress={() => setShowHelp(true)} />,
     }),
     [locale],

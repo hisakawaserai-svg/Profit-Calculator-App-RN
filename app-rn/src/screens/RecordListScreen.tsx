@@ -37,6 +37,7 @@ import { FAB_HEIGHT } from '@/components/Fab';
 import { HelpButton } from '@/components/HelpButton';
 import { HelpSheet } from '@/components/HelpSheet';
 import { MonthNavBar } from '@/components/MonthNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { PeriodSheet } from '@/components/PeriodSheet';
 import { RecordRow } from '@/components/RecordRow';
 import { SearchBar } from '@/components/SearchBar';
@@ -305,7 +306,7 @@ export function RecordListScreen() {
   const summaryItems: SummaryItem[] = isSoldMode
     ? [
         {
-          label: periodProfitLabel(locale, period),
+          label: periodProfitLabel(locale),
           value: formatYenSymbol(summary.totalNetProfit),
           // 収支は赤字になり得るので、符号で色を変える（行の純利益と同じ規則）
           color: summary.totalNetProfit >= 0 ? colors.green : colors.red,
@@ -349,6 +350,12 @@ export function RecordListScreen() {
         : {
             title: recordsTabLabel(locale),
             headerTitle: undefined,
+            // ベルは headerLeft へ。⌕ ・ ⇅ ・ ？ の3つに並べて4つとも右へ積むと、
+            // 4アイコン分の間隔（gap 16 × 3）でギュッと詰まって見える（実機で指摘があった）。
+            // 左右に分けるのは iOS では見慣れた形（例: メールの編集/作成ボタン）で、
+            // 触る場所も左右で分かれるので押し間違いも減る。
+            // NotificationBell は全タブ共通（記録タブだけの特別扱いではない）
+            headerLeft: () => <NotificationBell />,
             headerRight: () => (
               <View style={styles.headerButtons}>
                 <Pressable
@@ -363,7 +370,7 @@ export function RecordListScreen() {
                   accessibilityLabel={sortSheetTitle(locale)}>
                   <Ionicons name="swap-vertical" size={22} color={colors.blue} />
                 </Pressable>
-                {/* UI-SPEC §1.2-1: ⌕ ・ ⇅ ・ ？ の 3 つ。検索中は行ごと入れ替わるので出ない */}
+                {/* UI-SPEC §1.2-1 の ⌕ ・ ⇅ ・ ？。検索中は行ごと入れ替わるので出ない */}
                 <HelpButton onPress={() => setShowHelp(true)} />
               </View>
             ),

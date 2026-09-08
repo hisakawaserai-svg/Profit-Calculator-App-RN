@@ -66,6 +66,8 @@ const RECORD_ROW = {
   listed_at: '',
   // 0012。選んだ送料プリセット名の写し（空欄なら手入力・またはこの列より前の記録）
   shipping_name: 'A4・厚さ3cm以内',
+  // 0013。出品滞留アラートの基準日（空欄ならまだ値下げしていない・またはこの列より前の記録）
+  price_changed_at: '',
 };
 
 const PRESET_ROW = {
@@ -116,7 +118,7 @@ function recordsWith(overrides: Partial<typeof RECORD_ROW>): string {
 // ---- §2.2 CSV の組み立て ----
 
 describe('§2.2 buildBackupFile', () => {
-  it('ヘッダは DB のカラム名がそのまま並ぶ（20 列）', () => {
+  it('ヘッダは DB のカラム名がそのまま並ぶ（21 列）', () => {
     const [header] = parseCsv(buildBackupFile(BACKUP_RECORDS_FILE, []));
 
     expect(header).toEqual([
@@ -143,6 +145,8 @@ describe('§2.2 buildBackupFile', () => {
       'listed_at',
       // 0012 で足した 1 列。同じ理由で末尾（先頭 19 列で読める版が 1 つ増える）
       'shipping_name',
+      // 0013 で足した 1 列。同じ理由で末尾（先頭 20 列で読める版が 1 つ増える）
+      'price_changed_at',
     ]);
   });
 
@@ -247,7 +251,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const broken = 'id,item_name\r\nr1,えんぴつ\r\n';
 
     expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: broken }))).toThrow(
-      'records.csv の列の数が違います。必要な列は 20 ですが、ファイルには 2 あります。',
+      'records.csv の列の数が違います。必要な列は 21 ですが、ファイルには 2 あります。',
     );
   });
 
@@ -335,7 +339,7 @@ describe('§3.2 壊れたバックアップは必ず止まる', () => {
     const csv = buildBackupFile(BACKUP_RECORDS_FILE, [RECORD_ROW]) + 'r2,足りない\r\n';
 
     expect(() => readBackupContents('ja', goodFiles({ [BACKUP_RECORDS_FILE]: csv }))).toThrow(
-      /3行目：項目の数が 20 ではなく 2 です/,
+      /3行目：項目の数が 21 ではなく 2 です/,
     );
   });
 
@@ -748,8 +752,8 @@ describe('§1.2 版 1（photo_count が無い）も読める', () => {
     expect(readBackupContents('ja', goodFiles({ [BACKUP_INFO_FILE]: v1Info })).preview.photoCount).toBe(0);
   });
 
-  it('いま書き出すのは版 3（目標利益の 2 列が付く。SPEC-V9 §3）', () => {
-    expect(BACKUP_FORMAT_VERSION).toBe(3);
+  it('いま書き出すのは版 4（出品滞留アラートの基準日が付く。0013）', () => {
+    expect(BACKUP_FORMAT_VERSION).toBe(4);
     expect(parseCsv(goodFiles().get(BACKUP_INFO_FILE)!)[0]).toContain('photo_count');
   });
 });
