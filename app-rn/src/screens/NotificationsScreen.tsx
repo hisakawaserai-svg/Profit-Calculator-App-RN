@@ -173,12 +173,17 @@ export default function NotificationsScreen() {
   // 今日すでに history に載っている「生きた振り返り」と同じ対象は、履歴側から二重に
   // 出さない（liveMonthlyReview が上にピン留めで出すため）
   const liveMonthlyReview = content?.kind === 'monthlyReview' ? content : null;
-  const visibleHistory =
-    liveMonthlyReview == null
-      ? history
-      : history.filter(
-          (entry) => !(entry.kind === 'monthlyReview' && entry.monthKey === liveMonthlyReview.monthKey),
-        );
+  // hidden な行（行タップ・長押しで「表示からだけ」消した分）は、ここで初めて除く。
+  // history 自体（useNotificationHistory の生値）は notYetNotifiedListingAlertItems 等の
+  // 重複防止判定にそのまま使われるため、hidden のまま保つ（NotificationHistoryEntry の
+  // コメント参照）── フィルタは表示直前のこの1箇所だけで行う
+  const visibleHistory = history
+    .filter((entry) => !entry.hidden)
+    .filter(
+      (entry) =>
+        liveMonthlyReview == null ||
+        !(entry.kind === 'monthlyReview' && entry.monthKey === liveMonthlyReview.monthKey),
+    );
 
   /**
    * 「すべて消す」。**ピン留め中の生きた振り返りも一緒に消す**（今表示されているものを

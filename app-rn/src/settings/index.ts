@@ -318,11 +318,18 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ notificationHistory: next });
   },
   /**
-   * 履歴の1件を消す。呼ぶのは「すべて」タブの行タップ（対応した = もう要らない）と
-   * 長押しの「今後知らせない」（合意: 2026-09）
+   * 履歴の1件を「すべて」タブの表示から消す。呼ぶのは行タップ（対応した = もう要らない）と
+   * 長押しの「今後知らせない」（合意: 2026-09）。
+   *
+   * **物理削除ではなく `hidden: true` を立てるだけ**（NotificationHistoryEntry のコメント
+   * 参照）。物理削除すると、`notYetNotifiedListingAlertItems` がこの履歴を「もう知らせた」の
+   * 記録として使えなくなり、確認しただけの商品がすぐ再び OS 通知の対象に戻ってしまう
+   * （実機で発覚: 2026-09）。
    */
   removeNotificationHistoryEntry: (id) => {
-    const next = get().notificationHistory.filter((entry) => entry.id !== id);
+    const next = get().notificationHistory.map((entry) =>
+      entry.id === id ? { ...entry, hidden: true } : entry,
+    );
     Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify(next));
     set({ notificationHistory: next });
   },

@@ -95,13 +95,26 @@ export function computeCurrentNotification(now: Date = new Date()): Notification
 /**
  * 今なら OS 通知として何を出すべきか（rescheduleNotification・sendTestNotification が使う）。
  *
- * bell 用の `computeCurrentNotification` とは出品滞留アラートの絞り込みが違う ──
- * こちらはまだ履歴に記録していない記録だけ（`notYetNotifiedListingAlertItems` 参照）。
- * 該当が無くなれば（前から知らせ済みの記録しか無ければ）OS 通知は出さない。
+ * bell 用の `computeCurrentNotification` とは、両方とも「まだ知らせていないか」を
+ * 履歴と突き合わせて絞り込む点が違う。
+ *
+ * **月次振り返りも、出品滞留アラートと同じく「今日すでに知らせていれば予約し直さない」。**
+ * `rescheduleNotification` は AppState の background 遷移のたびに呼ばれるため、月初の
+ * 9:00 に届いたあとその日のうちにもう一度アプリをバックグラウンドへ送ると、
+ * `currentNotification` は（まだ月初なので）また月次振り返りを返してしまう。ここで
+ * 弾かないと、「次の 9:00」＝翌日の 9:00 へ同じ内容が再予約され、履歴には二重記録
+ * されない（alreadyLoggedToday）のに OS 通知だけ翌朝もう一度届いてしまう
+ * （実機で発覚: 2026-09）。
  */
 function computeCurrentOsNotification(now: Date = new Date()): NotificationContent | null {
   const content = computeCurrentNotification(now);
-  if (content == null || content.kind !== 'listingAlert') return content;
+  if (content == null) return null;
+
+  if (content.kind === 'monthlyReview') {
+    const target: NotificationHistoryTarget = { kind: 'monthlyReview', monthKey: content.monthKey };
+    if (alreadyLoggedToday(getNotificationHistory(), target, now)) return null;
+    return content;
+  }
 
   const items = notYetNotifiedListingAlertItems(content.items, getNotificationHistory());
   if (items.length === 0) return null;
