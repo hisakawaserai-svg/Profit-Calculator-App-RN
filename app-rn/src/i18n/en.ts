@@ -696,6 +696,11 @@ export const en: Translations = {
     historyClearAllConfirmTitle: 'Clear all notification history?',
     updatesPlaceholder: 'Coming soon',
     updates: {
+      v120: {
+        title: '1.2.0',
+        description:
+          'Now notifies you about listings that have gone stale and about last month’s recap at the start of each month. Added icons to each item in Settings.',
+      },
       v110: {
         title: '1.1.0',
         description: 'Added more filters, and packaging can now be picked right from the record form.',

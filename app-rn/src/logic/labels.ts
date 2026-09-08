@@ -1453,6 +1453,13 @@ export type UpdateNote = { version: string; title: string; date: string; descrip
 export function updateNotesList(locale: Locale): UpdateNote[] {
   return [
     {
+      version: '1.2.0',
+      title: t('notification.updates.v120.title', locale),
+      // TODO: CHANGELOG/1.2.0.md の「公開日」が確定したら、その日付に直す（今は仮で提出日想定）
+      date: backupDayLabel(locale, '2026-09-10'),
+      description: t('notification.updates.v120.description', locale),
+    },
+    {
       version: '1.1.0',
       title: t('notification.updates.v110.title', locale),
       date: backupDayLabel(locale, '2026-09-03'),
