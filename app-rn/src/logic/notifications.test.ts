@@ -9,7 +9,7 @@ import {
   currentNotification,
   isMonthlyReviewActive,
   listingAlertItems,
-  newlyEligibleListingAlertItems,
+  notYetNotifiedListingAlertItems,
   previousMonthKey,
 } from './notifications';
 
@@ -80,32 +80,72 @@ describe('listingAlertItems', () => {
   });
 });
 
-describe('newlyEligibleListingAlertItems', () => {
-  it('ちょうどしきい値に到達した記録だけに絞る（OS通知用）', () => {
+describe('notYetNotifiedListingAlertItems', () => {
+  it('履歴に無い記録は対象（OS通知する）', () => {
     const items = listingAlertItems(
-      [
-        record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' }), // 14日経過（ちょうど）
-        record({ id: 'b', saleStartDate: '2026-06-01T00:00:00.000' }), // 44日経過（前からしきい値超え）
-      ],
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })], // 14日経過
       today,
       14,
       new Set(),
     );
 
-    const newlyEligible = newlyEligibleListingAlertItems(items, 14);
-
-    expect(newlyEligible.map((item) => item.record.id)).toEqual(['a']);
+    expect(notYetNotifiedListingAlertItems(items, []).map((item) => item.record.id)).toEqual(['a']);
   });
 
-  it('しきい値をとうに超えた記録しか無ければ空になる（＝OS通知を出さない）', () => {
+  it('今の基準日になってから既に履歴に記録済みの記録は対象外（連日リピート防止）', () => {
     const items = listingAlertItems(
-      [record({ id: 'b', saleStartDate: '2026-06-01T00:00:00.000' })], // 44日経過
+      [record({ id: 'a', saleStartDate: '2026-06-01T00:00:00.000' })], // 44日経過、ずっと値下げなし
       today,
       14,
       new Set(),
     );
+    const history = [
+      {
+        kind: 'listingAlert' as const,
+        recordId: 'a',
+        occurredAt: '2026-06-15T09:00:00.000', // 基準日(6/1)以降に既に通知済み
+      },
+    ];
 
-    expect(newlyEligibleListingAlertItems(items, 14)).toEqual([]);
+    expect(notYetNotifiedListingAlertItems(items, history)).toEqual([]);
+  });
+
+  it('月初で通知枠を月次振り返りに使われて1日ズレても、翌日は対象に持ち越される', () => {
+    // 2026-08-01(月初)にちょうど14日到達 → その日は月次振り返り優先で通知できず、
+    // 履歴には記録が残らない。翌 2026-08-02 に持ち越して評価する
+    const items = listingAlertItems(
+      [record({ id: 'a', saleStartDate: '2026-07-18T00:00:00.000' })], // 8/2時点で15日経過
+      new Date('2026-08-02T00:00:00.000'),
+      14,
+      new Set(),
+    );
+
+    // 前日ぶんの履歴が無い（月初は通知できなかった）ので、まだ対象のまま
+    expect(notYetNotifiedListingAlertItems(items, []).map((item) => item.record.id)).toEqual(['a']);
+  });
+
+  it('値下げして基準日が変われば、古い履歴があっても再び対象になる', () => {
+    const items = listingAlertItems(
+      [
+        record({
+          id: 'a',
+          saleStartDate: '2026-01-01T00:00:00.000',
+          priceChangedAt: '2026-07-01T00:00:00.000', // 新しい基準日
+        }),
+      ], // 14日経過（新基準）
+      today,
+      14,
+      new Set(),
+    );
+    const history = [
+      {
+        kind: 'listingAlert' as const,
+        recordId: 'a',
+        occurredAt: '2026-02-01T09:00:00.000', // 古い基準（値下げ前）での通知履歴
+      },
+    ];
+
+    expect(notYetNotifiedListingAlertItems(items, history).map((item) => item.record.id)).toEqual(['a']);
   });
 });
 

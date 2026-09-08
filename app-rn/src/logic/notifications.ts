@@ -16,6 +16,12 @@ export type ListingAlertItem = {
   elapsedDays: number;
   /** 損益分岐点(目標があれば目標ライン)までの値下げ余地。0 以上 */
   discountRoom: number;
+  /**
+   * 経過日数の起点(値下げ日 or 出品日）。DB 形式の文字列のまま保持する。
+   * `notYetNotifiedListingAlertItems` が「今の基準のまま、まだ OS 通知していないか」を
+   * 履歴と突き合わせるのに使う。
+   */
+  basisDateKey: string;
 };
 
 /**
@@ -63,25 +69,45 @@ export function listingAlertItems(
       record,
       elapsedDays,
       discountRoom: analysis.room,
+      basisDateKey: record.priceChangedAt ?? record.saleStartDate,
     }));
 }
 
 /**
- * 出品滞留アラートのうち、OS ローカル通知の対象に絞ったもの（ちょうど今日 thresholdDays に
- * 到達した記録だけ）。
+ * 出品滞留アラートのうち、OS ローカル通知としてまだ知らせていないものに絞ったもの。
  *
  * **ベル（アプリ内一覧）は `>=`（listingAlertItems）のまま、OS 通知だけこちらを使う。**
- * `>=` のままだと、値下げしていない記録は基準日（値下げ日 or 出品日）が動かないので、
- * しきい値を超えた翌日以降も毎日同じ記録が対象であり続け、日々の通知に積み上がって出続けて
- * しまう（合意: 2026-09、実機テストで「289日経過した商品が19件」という通知を見て発覚）。
- * OS 通知は「今日新たにしきい値へ到達した記録」だけを知らせ、それ以外（前からずっと
- * しきい値超えのままの記録）はベルを開いたときに気づいてもらう形にする。
+ *
+ * 以前は「ちょうど今日 thresholdDays に到達した記録だけ」（elapsedDays === thresholdDays）
+ * という単日だけの一致条件だった（合意: 2026-09、実機テストで「289日経過した商品が19件」
+ * という通知を見て発覚した連日リピートの再発防止のため）。しかしこれだと、月初は
+ * その日の通知枠を月次振り返りが必ず使う（currentNotification）ため、ちょうどその日に
+ * しきい値へ到達した記録は翌日には thresholdDays+1 日になってしまい、二度と一致せず
+ * 「OS 通知のチャンスを永久に失う」副作用があった（実機で発覚: 2026-09）。
+ *
+ * 単日一致の代わりに、「今の基準日（値下げ日 or 出品日）になってから、その記録をまだ
+ * 一度も履歴に記録していないか」で判定する。基準日が変わらない限り対象であり続ける
+ * （＝月初で1日ズレても翌日に持ち越される）が、一度知らせたあとは同じ基準のまま
+ * 二度と対象にならない（＝連日リピートも防げる）。値下げして基準日が動けば、また
+ * 新しい基準として再び対象になりうる。
  */
-export function newlyEligibleListingAlertItems(
+export function notYetNotifiedListingAlertItems(
   items: readonly ListingAlertItem[],
-  thresholdDays: number,
+  history: readonly {
+    kind: 'listingAlert' | 'monthlyReview';
+    recordId?: string;
+    occurredAt: string;
+  }[],
 ): ListingAlertItem[] {
-  return items.filter((item) => item.elapsedDays === thresholdDays);
+  return items.filter(
+    (item) =>
+      !history.some(
+        (entry) =>
+          entry.kind === 'listingAlert' &&
+          entry.recordId === item.record.id &&
+          entry.occurredAt >= item.basisDateKey,
+      ),
+  );
 }
 
 /** 月次振り返りを出す期間（月初1日だけ）。ローカルの暦日で判定する */

@@ -28,7 +28,7 @@ import {
 import {
   alreadyLoggedToday,
   currentNotification,
-  newlyEligibleListingAlertItems,
+  notYetNotifiedListingAlertItems,
   type NotificationContent,
   type NotificationHistoryTarget,
 } from '@/logic/notifications';
@@ -53,6 +53,14 @@ import {
  */
 export type NotificationPayload =
   | { kind: 'listingAlert'; recordId: string }
+  /**
+   * 出品滞留アラートが2件以上まとまった通知。**代表1件の recordId は持たない**
+   * ── 本文（listingAlertOsBody の osBodyMany）が「〇件あります」としか言わず
+   * どの商品なのか名指ししていないのに、タップしたら勝手にそのうちの1件（内部的な
+   * 代表）の損益分岐点へ飛ぶと、利用者からは「なぜこれが開いた」と映る（実機の指摘）。
+   * 複数件のときはお知らせ画面（一覧）へ誘導し、そこで選んでもらう。
+   */
+  | { kind: 'listingAlertMany' }
   | { kind: 'monthlyReview'; monthKey: string };
 
 const NOTIFICATION_HOUR = 9;
@@ -88,14 +96,14 @@ export function computeCurrentNotification(now: Date = new Date()): Notification
  * 今なら OS 通知として何を出すべきか（rescheduleNotification・sendTestNotification が使う）。
  *
  * bell 用の `computeCurrentNotification` とは出品滞留アラートの絞り込みが違う ──
- * こちらは今日ちょうどしきい値へ到達した記録だけ（`newlyEligibleListingAlertItems` 参照）。
- * 該当が無くなれば（前からしきい値超えのままの記録しか無ければ）OS 通知は出さない。
+ * こちらはまだ履歴に記録していない記録だけ（`notYetNotifiedListingAlertItems` 参照）。
+ * 該当が無くなれば（前から知らせ済みの記録しか無ければ）OS 通知は出さない。
  */
 function computeCurrentOsNotification(now: Date = new Date()): NotificationContent | null {
   const content = computeCurrentNotification(now);
   if (content == null || content.kind !== 'listingAlert') return content;
 
-  const items = newlyEligibleListingAlertItems(content.items, getListingAlertThresholdDays());
+  const items = notYetNotifiedListingAlertItems(content.items, getNotificationHistory());
   if (items.length === 0) return null;
   return { kind: 'listingAlert', items };
 }
@@ -115,10 +123,11 @@ function buildOsContent(content: NotificationContent): { title: string; body: st
   }
 
   const [first, ...rest] = content.items;
+  const count = rest.length + 1;
   return {
     title: listingAlertOsTitle(locale),
-    body: listingAlertOsBody(locale, first.record.itemName, first.elapsedDays, rest.length + 1),
-    data: { kind: 'listingAlert', recordId: first.record.id },
+    body: listingAlertOsBody(locale, first.record.itemName, first.elapsedDays, count),
+    data: count === 1 ? { kind: 'listingAlert', recordId: first.record.id } : { kind: 'listingAlertMany' },
   };
 }
 
@@ -190,19 +199,24 @@ function recordNotificationHistory(content: NotificationContent, now: Date): voi
     return;
   }
 
-  const first = content.items[0];
-  if (first == null) return;
-  const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: first.record.id };
-  if (alreadyLoggedToday(getNotificationHistory(), target, now)) return;
+  // OS 通知の本文は content.items 全件をまとめて数える（buildOsContent の osBodyMany）。
+  // 履歴側も代表 1 件だけでなく、束ねた全件をそれぞれ 1 行ずつ記録する ── そうしないと
+  // 「3件あります」と届いたのに「すべて」タブには 1 件しか無い、という食い違いになる
+  // （実機の指摘）。
+  const history = getNotificationHistory();
+  for (const item of content.items) {
+    const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: item.record.id };
+    if (alreadyLoggedToday(history, target, now)) continue;
 
-  appendNotificationHistory({
-    id: randomUUID(),
-    kind: 'listingAlert',
-    recordId: first.record.id,
-    itemName: first.record.itemName,
-    days: first.elapsedDays,
-    occurredAt: toDbDate(now),
-  });
+    appendNotificationHistory({
+      id: randomUUID(),
+      kind: 'listingAlert',
+      recordId: item.record.id,
+      itemName: item.record.itemName,
+      days: item.elapsedDays,
+      occurredAt: toDbDate(now),
+    });
+  }
 }
 
 /** 設定タブの「通知を受け取る」をオンにしたときに呼ぶ。許可されたら true */
@@ -295,6 +309,12 @@ function navigateFromNotification(data: unknown): void {
         router.push({ pathname: RECORD_PRICING_PATHNAME, params: { id: recordId } });
       });
     });
+    return;
+  }
+  // 複数件まとまった通知（NotificationPayload の listingAlertMany のコメント参照）。
+  // どれか1件へ勝手に飛ばさず、お知らせ画面で選んでもらう
+  if (payload?.kind === 'listingAlertMany') {
+    router.push('/notifications');
     return;
   }
   if (payload?.kind === 'monthlyReview' && typeof payload.monthKey === 'string') {
