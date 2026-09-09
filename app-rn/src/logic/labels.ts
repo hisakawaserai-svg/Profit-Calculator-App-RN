@@ -1561,6 +1561,10 @@ export function notificationThresholdDaysValue(locale: Locale, days: number): st
 export function notificationDevTestLabel(locale: Locale): string {
   return t('settings.notification.devTestLabel', locale);
 }
+/** 開発用: 月初以外でも月次振り返りの内容を試せるボタン */
+export function notificationDevTestMonthlyReviewLabel(locale: Locale): string {
+  return t('settings.notification.devTestMonthlyReviewLabel', locale);
+}
 /** 開発用: 「すべて」タブ確認用のダミー履歴投入ボタン */
 export function notificationDevSeedLabel(locale: Locale): string {
   return t('settings.notification.devSeedLabel', locale);

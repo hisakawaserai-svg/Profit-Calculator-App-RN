@@ -60,6 +60,7 @@ import {
   licenseLinkLabel,
   notificationDevSeedLabel,
   notificationDevTestLabel,
+  notificationDevTestMonthlyReviewLabel,
   notificationEnabledLabel,
   notificationEnabledNote,
   notificationSectionTitle,
@@ -85,7 +86,12 @@ import {
   versionLabel,
 } from '@/logic/labels';
 import { PRESET_TYPES } from '@/logic/preset';
-import { rescheduleNotification, requestNotificationPermission, sendTestNotification } from '@/notifications/scheduler';
+import {
+  rescheduleNotification,
+  requestNotificationPermission,
+  sendTestMonthlyReviewNotification,
+  sendTestNotification,
+} from '@/notifications/scheduler';
 import { storeReviewUrl } from '@/review/storeUrl';
 import { useSettings } from '@/settings';
 import {
@@ -136,6 +142,15 @@ const insertNotificationHistorySeed: (() => number) | null = __DEV__
   ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import では本番ビルドから落とせない（上記）
     (require('@/dev/notificationHistorySeed') as typeof import('@/dev/notificationHistorySeed'))
       .insertNotificationHistorySeed
+  : null;
+
+/**
+ * 開発用: 出品滞留アラートの境界値（今日・明日・しきい値ちょうど等）をまとめて投入・削除する
+ * （理由・仕組みは DevSeedCard と同じ）
+ */
+const notificationTestCasesSeed: typeof import('@/dev/notificationTestCasesSeed') | null = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- import では本番ビルドから落とせない（上記）
+    (require('@/dev/notificationTestCasesSeed') as typeof import('@/dev/notificationTestCasesSeed'))
   : null;
 
 /**
@@ -399,6 +414,15 @@ export default function SettingsScreen() {
                 </Pressable>
                 <View style={[styles.separator, { backgroundColor: colors.separator }]} />
                 <Pressable
+                  onPress={() => void sendTestMonthlyReviewNotification()}
+                  style={styles.row}
+                  accessibilityRole="button">
+                  <Text style={[styles.label, { color: colors.blue }]}>
+                    {notificationDevTestMonthlyReviewLabel(locale)}
+                  </Text>
+                </Pressable>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                <Pressable
                   onPress={() => {
                     const count = insertNotificationHistorySeed?.() ?? 0;
                     Alert.alert(
@@ -409,6 +433,32 @@ export default function SettingsScreen() {
                   accessibilityRole="button">
                   <Text style={[styles.label, { color: colors.blue }]}>
                     {notificationDevSeedLabel(locale)}
+                  </Text>
+                </Pressable>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                <Pressable
+                  onPress={() => {
+                    const count = notificationTestCasesSeed?.insertNotificationTestCases() ?? 0;
+                    refreshBell();
+                    Alert.alert(`境界値テスト記録を${count}件投入しました`);
+                  }}
+                  style={styles.row}
+                  accessibilityRole="button">
+                  <Text style={[styles.label, { color: colors.blue }]}>
+                    通知テスト用の記録を投入（開発用）
+                  </Text>
+                </Pressable>
+                <View style={[styles.separator, { backgroundColor: colors.separator }]} />
+                <Pressable
+                  onPress={() => {
+                    const summary = notificationTestCasesSeed?.removeNotificationTestCases();
+                    refreshBell();
+                    Alert.alert(`テスト記録を${summary?.records ?? 0}件削除しました`);
+                  }}
+                  style={styles.row}
+                  accessibilityRole="button">
+                  <Text style={[styles.label, { color: colors.red }]}>
+                    通知テスト用の記録を削除（開発用）
                   </Text>
                 </Pressable>
               </>

@@ -1555,6 +1555,7 @@ export const en: Translations = {
       // 既にあるので、ここは数字だけで足りる
       thresholdDaysValue: '{{days}}',
       devTestLabel: 'Send test notification (dev)',
+      devTestMonthlyReviewLabel: 'Send test monthly review notification (dev)',
       devSeedLabel: 'Insert notification history test data (dev)',
     },
     language: {

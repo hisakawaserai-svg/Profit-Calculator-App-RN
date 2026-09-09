@@ -1853,6 +1853,7 @@ export const ja = {
       thresholdDaysValue: '{{days}}日',
       /** __DEV__ のときだけ出す開発用ボタン */
       devTestLabel: 'テスト通知を送る（開発用）',
+      devTestMonthlyReviewLabel: '月次振り返りのテスト通知を送る（開発用）',
       devSeedLabel: '通知履歴のテストデータを入れる（開発用）',
     },
     /**

@@ -35,6 +35,7 @@ import {
   alreadyLoggedToday,
   currentNotification,
   notYetNotifiedListingAlertItems,
+  previousMonthKey,
   type NotificationContent,
   type NotificationHistoryTarget,
 } from '@/logic/notifications';
@@ -311,16 +312,25 @@ export async function requestNotificationPermission(): Promise<boolean> {
  */
 const TEST_NOTIFICATION_DELAY_SECONDS = 8;
 
-export async function sendTestNotification(): Promise<void> {
-  // 実際に毎朝届く内容と同じもの（computeCurrentOsNotification）で試す。bell の一覧
-  // （しきい値超え全件）とは中身が異なりうる ── 詳しくは computeCurrentOsNotification 参照
-  const content = computeCurrentOsNotification();
+/**
+ * content を実際の OS 通知として送り、本番の「9:00に届く」動きをそのまま再現する
+ * （合意: 2026-09）。以前は送るだけで履歴に触れなかったため、テスト通知には
+ * 「3件あります」と出るのに「すべて」タブは空のまま、という食い違いがあった
+ * （実機の指摘）。予約 → 予約時刻到達の確認、を一瞬でやる形にして、
+ * rescheduleNotification が次の9:00に対して行うのと同じ経路（pending化 → 即座に確定）で
+ * 履歴へ記録する。これにより、テスト通知を一度確認したら実物の通知と同じく
+ * 「もう知らせた」対象になり、連打しても二重には記録されない。
+ *
+ * content が null のとき（対象が無い）は、その旨だけ伝える単発の通知にする
+ * （タップしてもベル一覧を開くだけ。下の navigateFromNotification 参照）
+ */
+async function sendTestOsNotification(content: NotificationContent | null): Promise<void> {
+  const now = new Date();
   const { title, body, data } = content
     ? buildOsContent(content)
     : {
         title: 'テスト通知',
         body: '今は出す内容がありません（月初でも、今日新たにしきい値へ到達した滞留商品も無い状態）',
-        // 対象が無いのでタップしてもベル一覧を開くだけにする（下の navigateFromNotification 参照）
         data: undefined as NotificationPayload | undefined,
       };
 
@@ -331,6 +341,27 @@ export async function sendTestNotification(): Promise<void> {
       seconds: TEST_NOTIFICATION_DELAY_SECONDS,
     },
   });
+
+  if (content != null) {
+    setPendingNotificationLog(toPendingNotificationLog(content, now));
+    promotePendingNotificationIfDue(now);
+  }
+}
+
+/** 実際に毎朝届く内容と同じもの（computeCurrentOsNotification）で試す */
+export async function sendTestNotification(): Promise<void> {
+  await sendTestOsNotification(computeCurrentOsNotification());
+}
+
+/**
+ * 月次振り返りのテスト通知を送る。**月初(1日)でなくても、先月ぶんの内容で試せる。**
+ * computeCurrentOsNotification は isMonthlyReviewActive（今日が1日か）を必ず見るため、
+ * 月初以外の日には月次振り返りを再現できない ── これを回避して、先月を対象月に
+ * 固定して直接組み立てる（合意: 2026-09、「月の収支のテストもしたい」という要望より）。
+ */
+export async function sendTestMonthlyReviewNotification(): Promise<void> {
+  const monthKey = previousMonthKey(new Date());
+  await sendTestOsNotification({ kind: 'monthlyReview', monthKey });
 }
 
 /**
@@ -410,7 +441,12 @@ function navigateFromNotification(data: unknown): void {
     return;
   }
   // 複数件まとまった通知（NotificationPayload の listingAlertMany のコメント参照）。
-  // どれか1件へ勝手に飛ばさず、お知らせ画面で選んでもらう
+  // どれか1件へ勝手に飛ばさず、お知らせ画面で選んでもらう。
+  //
+  // **二重発火の対策は dismissTo ではなく handleNotificationResponseOnce 側で行う。**
+  // 一度 dismissTo('/records') → requestAnimationFrame → push という形を試したが、
+  // rAF が確実に発火しない環境があり、push まで届かず記録タブに戻ったまま止まる
+  // regression が実機で出た（2026-09）。dismissTo を挟まない素の push のほうが安全。
   if (payload?.kind === 'listingAlertMany') {
     router.push('/notifications');
     return;
