@@ -11,12 +11,18 @@
 // 通知の中身は「最後にアプリを触った時点」のスナップショットになる。
 //
 // 呼び出しどころ（AppState の background 遷移・起動時）は app/_layout.tsx。
+//
+// **お知らせ画面「すべて」タブへの記録は、予約した瞬間ではなく「予約時刻を過ぎた」ことを
+// 確認できてから行う。** rescheduleNotification は background 遷移のたびに走るが、実際に
+// OS 通知が届くのは次の 9:00 だけ。予約の瞬間に記録すると、まだ1通も届いていないのに
+// 履歴だけ先に積み上がってしまう（詳しくは pendingNotificationLog.ts・
+// promotePendingNotificationIfDue のコメント参照）。
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 import { repository } from '@/db/client';
-import { toDbDate } from '@/db/dates';
+import { fromDbDate, toDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { formatMonthKeyTitle } from '@/logic/format';
 import {
@@ -40,6 +46,9 @@ import {
   getLocale,
   getNotificationHistory,
   getNotificationsEnabled,
+  getPendingNotificationLog,
+  setPendingNotificationLog,
+  type PendingNotificationLog,
 } from '@/settings';
 
 /**
@@ -158,78 +167,132 @@ const DAILY_NOTIFICATION_IDENTIFIER = 'daily-notification';
 
 /** 通知を再計算し、次の 9:00 へ予約し直す（上のコメント参照） */
 export async function rescheduleNotification(now: Date = new Date()): Promise<void> {
+  // 前回予約した内容の発火予定時刻をもう過ぎていれば、ここで初めて履歴へ記録する
+  // （enabled・許可の状態に関わらず、まず過去分を確定させる。詳しくは関数のコメント）
+  promotePendingNotificationIfDue(now);
+
   if (!getNotificationsEnabled()) {
     await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
+    setPendingNotificationLog(null);
     return;
   }
 
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') {
     await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
+    setPendingNotificationLog(null);
     return;
   }
 
   const content = computeCurrentOsNotification(now);
   if (content == null) {
     await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
+    setPendingNotificationLog(null);
     return;
   }
 
   const { title, body, data } = buildOsContent(content);
+  const scheduledFor = nextNineAm(now);
   await Notifications.scheduleNotificationAsync({
     identifier: DAILY_NOTIFICATION_IDENTIFIER,
     content: { title, body, data },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nextNineAm(now) },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: scheduledFor },
   });
 
-  recordNotificationHistory(content, now);
+  // ここではまだ履歴に記録しない（下のコメント参照）。次に rescheduleNotification が
+  // 走ったとき、この予約時刻をもう過ぎていれば、そこで初めて記録される
+  setPendingNotificationLog(toPendingNotificationLog(content, scheduledFor));
 }
 
 /**
- * お知らせ画面「すべて」タブの履歴に、実際に予約した通知の内容を記録する。
- *
- * **同じ日に同じ対象を何度も記録しない**（alreadyLoggedToday）。`rescheduleNotification` は
- * AppState の background 遷移のたびに呼ばれるため、アプリを何度も出入りするだけで同じ
- * 「ちょうどしきい値」の記録・同じ月が繰り返し計算されうる。
- *
- * `days`（出品滞留アラート）・`totalNetProfit`（月次振り返り）はこの時点の値のまま履歴に
- * 凍結する ── あとから記録を編集しても、「その日実際に届いた通知には何と書いてあったか」
- * という履歴の性質上、動かさない（NotificationHistoryEntry のコメント参照）。
+ * content（今まさに予約する内容）を、あとで履歴に記録するための保留データに変換する。
+ * 月次振り返りの合計額はこの時点の値のまま保留データに凍結する（NotificationHistoryEntry の
+ * コメントと同じ理由 ── 実際に記録するのは発火予定時刻を過ぎたあとだが、値は予約した
+ * 瞬間のものを使う。届く直前に売上が動いても、通知に書いた数字とはズレさせない）。
  */
-function recordNotificationHistory(content: NotificationContent, now: Date): void {
+function toPendingNotificationLog(content: NotificationContent, scheduledFor: Date): PendingNotificationLog {
+  const scheduledForKey = toDbDate(scheduledFor);
   if (content.kind === 'monthlyReview') {
-    const target: NotificationHistoryTarget = { kind: 'monthlyReview', monthKey: content.monthKey };
-    if (alreadyLoggedToday(getNotificationHistory(), target, now)) return;
-
     const summary = repository.careerSummary({ isSoldMode: true, period: content.monthKey });
-    appendNotificationHistory({
-      id: randomUUID(),
+    return {
       kind: 'monthlyReview',
       monthKey: content.monthKey,
       totalNetProfit: summary.totalNetProfit,
-      occurredAt: toDbDate(now),
-    });
-    return;
+      scheduledFor: scheduledForKey,
+    };
   }
-
-  // OS 通知の本文は content.items 全件をまとめて数える（buildOsContent の osBodyMany）。
-  // 履歴側も代表 1 件だけでなく、束ねた全件をそれぞれ 1 行ずつ記録する ── そうしないと
-  // 「3件あります」と届いたのに「すべて」タブには 1 件しか無い、という食い違いになる
-  // （実機の指摘）。
-  const history = getNotificationHistory();
-  for (const item of content.items) {
-    const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: item.record.id };
-    if (alreadyLoggedToday(history, target, now)) continue;
-
-    appendNotificationHistory({
-      id: randomUUID(),
-      kind: 'listingAlert',
+  return {
+    kind: 'listingAlert',
+    items: content.items.map((item) => ({
       recordId: item.record.id,
       itemName: item.record.itemName,
       days: item.elapsedDays,
-      occurredAt: toDbDate(now),
-    });
+    })),
+    scheduledFor: scheduledForKey,
+  };
+}
+
+/**
+ * 保留中の通知（前回 rescheduleNotification が予約した内容）の発火予定時刻をもう過ぎていれば、
+ * 「実際に OS 通知として届いたはず」とみなして、ここで初めてお知らせ画面「すべて」タブの
+ * 履歴へ記録する。過ぎていなければ何もしない（据え置く）。
+ *
+ * **予約した瞬間ではなく、届いたはずの時刻を過ぎてから記録する。**
+ * `rescheduleNotification` は AppState の background 遷移のたびに走る（ホーム画面に戻る・
+ * 他アプリへ切り替える等、日常的に何度も起きる）。予約の瞬間に記録すると、実際には
+ * まだ1通も届いていないのに「バックグラウンドへ送るたびに履歴だけ先に積み上がる」
+ * 「届く前から『すべて』タブに出る」「一度記録された時点でテスト通知が『対象なし』に
+ * なる」という食い違いが起きる（実機で発覚: 2026-09。pendingNotificationLog.ts 参照）。
+ *
+ * `occurredAt` には保留データの `scheduledFor`（＝実際に届いたはずの時刻）を使う。
+ * 「その日実際に届いた通知には何と書いてあったか」という履歴の性質上、記録に気づいた
+ * 瞬間（`now`）ではなく、本来届いたはずの時刻を残す方が正確。
+ *
+ * `rescheduleNotification` の中でも呼ぶが、それだけだと background 遷移まで気づけない。
+ * アプリを開いたまま（active）でも早めに「すべて」タブへ反映されてほしいので、
+ * export して AppState の active 遷移（app/_layout.tsx）からも直接呼べるようにしてある。
+ */
+export function promotePendingNotificationIfDue(now: Date = new Date()): void {
+  const pending = getPendingNotificationLog();
+  if (pending == null) return;
+  if (fromDbDate(pending.scheduledFor).getTime() > now.getTime()) return;
+
+  const occurredAt = pending.scheduledFor;
+  const historyNow = fromDbDate(occurredAt);
+
+  if (pending.kind === 'monthlyReview') {
+    const target: NotificationHistoryTarget = { kind: 'monthlyReview', monthKey: pending.monthKey };
+    if (!alreadyLoggedToday(getNotificationHistory(), target, historyNow)) {
+      appendNotificationHistory({
+        id: randomUUID(),
+        kind: 'monthlyReview',
+        monthKey: pending.monthKey,
+        totalNetProfit: pending.totalNetProfit,
+        occurredAt,
+      });
+    }
+  } else {
+    // OS 通知の本文は pending.items 全件をまとめて数える（buildOsContent の osBodyMany）。
+    // 履歴側も代表 1 件だけでなく、束ねた全件をそれぞれ 1 行ずつ記録する ── そうしないと
+    // 「3件あります」と届いたのに「すべて」タブには 1 件しか無い、という食い違いになる
+    // （実機の指摘）。
+    const history = getNotificationHistory();
+    for (const item of pending.items) {
+      const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: item.recordId };
+      if (alreadyLoggedToday(history, target, historyNow)) continue;
+
+      appendNotificationHistory({
+        id: randomUUID(),
+        kind: 'listingAlert',
+        recordId: item.recordId,
+        itemName: item.itemName,
+        days: item.days,
+        occurredAt,
+      });
+    }
   }
+
+  setPendingNotificationLog(null);
 }
 
 /** 設定タブの「通知を受け取る」をオンにしたときに呼ぶ。許可されたら true */
@@ -271,6 +334,28 @@ export async function sendTestNotification(): Promise<void> {
 }
 
 /**
+ * 直近に処理したタップの識別子（`request.identifier:notification.date`）。
+ *
+ * **通知をタップしてコールドスタートすると、`getLastNotificationResponseAsync` と
+ * `addNotificationResponseReceivedListener` の両方が同じタップに反応することがある**
+ * （expo-notifications の既知の挙動）。ガード無しだと `navigateFromNotification` が
+ * 2 回走り、`/notifications` が二重に push されて閉じられなくなる（実機で発覚: 2026-09。
+ * ✕ で閉じても後ろにもう1枚同じ画面が残り、タブバーも見えなくなる不具合だった）。
+ *
+ * **`request.identifier` 単体では駄目。** 毎朝の通知は `DAILY_NOTIFICATION_IDENTIFIER`
+ * 固定なので、日をまたいだ次の通知も同じ identifier になる。`notification.date`
+ * （実際に届いた時刻）を組み合わせて初めて「同じ1回のタップ」を一意に指せる。
+ */
+let lastHandledNotificationKey: string | null = null;
+
+function handleNotificationResponseOnce(response: Notifications.NotificationResponse): void {
+  const key = `${response.notification.request.identifier}:${response.notification.date}`;
+  if (key === lastHandledNotificationKey) return;
+  lastHandledNotificationKey = key;
+  navigateFromNotification(response.notification.request.content.data);
+}
+
+/**
  * 通知の表示挙動（フォアグラウンド中も出す）とタップ時の遷移をまとめて登録する。
  * **アプリ全体で 1 か所だけで呼ぶ**（RootLayout。useDeviceLanguageSync と同じ立て付け）。
  */
@@ -286,12 +371,12 @@ export function setupNotificationHandling(): void {
 
   // タップして起動した場合（コールドスタート）
   Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response != null) navigateFromNotification(response.notification.request.content.data);
+    if (response != null) handleNotificationResponseOnce(response);
   });
 
   // 起動中にタップした場合
   Notifications.addNotificationResponseReceivedListener((response) => {
-    navigateFromNotification(response.notification.request.content.data);
+    handleNotificationResponseOnce(response);
   });
 }
 

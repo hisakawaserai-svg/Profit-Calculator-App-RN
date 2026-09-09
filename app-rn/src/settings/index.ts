@@ -51,6 +51,11 @@ import {
   type NotificationHistoryEntry,
 } from './notificationHistory';
 import {
+  PENDING_NOTIFICATION_LOG_KEY,
+  normalizePendingNotificationLog,
+  type PendingNotificationLog,
+} from './pendingNotificationLog';
+import {
   FIRST_LAUNCH_AT_KEY,
   LAUNCH_COUNT_KEY,
   normalizeCounter,
@@ -103,6 +108,11 @@ export {
   normalizeNotificationHistory,
   type NotificationHistoryEntry,
 } from './notificationHistory';
+export {
+  PENDING_NOTIFICATION_LOG_KEY,
+  normalizePendingNotificationLog,
+  type PendingNotificationLog,
+} from './pendingNotificationLog';
 export {
   FIRST_LAUNCH_AT_KEY,
   LAUNCH_COUNT_KEY,
@@ -181,6 +191,11 @@ export type Settings = {
    * lastNotificationsCheckedAt と同じく端末の履歴（詳しくは notificationHistory.ts の冒頭）
    */
   notificationHistory: NotificationHistoryEntry[];
+  /**
+   * 予約済みだがまだ「すべて」タブに記録していない OS 通知（保留中）。null なら保留無し。
+   * 端末の履歴なので、他の `*At` 系と同じくここに置く（詳しくは pendingNotificationLog.ts）
+   */
+  pendingNotificationLog: PendingNotificationLog | null;
 };
 
 type SettingsStore = Settings & {
@@ -218,6 +233,7 @@ type SettingsStore = Settings & {
   appendNotificationHistory: (entry: NotificationHistoryEntry) => void;
   removeNotificationHistoryEntry: (id: string) => void;
   clearNotificationHistory: () => void;
+  setPendingNotificationLog: (value: PendingNotificationLog | null) => void;
 };
 
 // 起動時の言語。kv-store は同期に読めるので、初期値をその場で決められる
@@ -251,6 +267,9 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
     Storage.getItemSync(DISMISSED_MONTHLY_REVIEW_KEY),
   ),
   notificationHistory: normalizeNotificationHistory(Storage.getItemSync(NOTIFICATION_HISTORY_KEY)),
+  pendingNotificationLog: normalizePendingNotificationLog(
+    Storage.getItemSync(PENDING_NOTIFICATION_LOG_KEY),
+  ),
   setDefaultRecordKind: (kind) => {
     // 先に永続化してからストアを更新する。書き込みが失敗したら state も進めない
     Storage.setItemSync(DEFAULT_RECORD_KIND_KEY, kind);
@@ -337,6 +356,15 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
   clearNotificationHistory: () => {
     Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify([]));
     set({ notificationHistory: [] });
+  },
+  /**
+   * 保留中の通知（pendingNotificationLog.ts）を丸ごと置き換える。null で「保留無し」。
+   * 呼ぶのは scheduler.ts の rescheduleNotification だけ ── 新しく予約するたび上書きし、
+   * 予約時刻を過ぎたのを確認して履歴へ記録したら null に戻す
+   */
+  setPendingNotificationLog: (value) => {
+    Storage.setItemSync(PENDING_NOTIFICATION_LOG_KEY, JSON.stringify(value));
+    set({ pendingNotificationLog: value });
   },
   /**
    * この起動を 1 回として数える。呼ぶのは `countLaunch()` だけ（下記の once ガード付き）。
@@ -540,4 +568,13 @@ export function removeNotificationHistoryEntry(id: string): void {
 /** お知らせ画面「すべて」タブの「すべて消す」から呼ぶ */
 export function clearNotificationHistory(): void {
   useSettingsStore.getState().clearNotificationHistory();
+}
+
+/** 呼ぶのは通知スケジューラだけ。React の外から読む用、購読はしない */
+export function getPendingNotificationLog(): PendingNotificationLog | null {
+  return useSettingsStore.getState().pendingNotificationLog;
+}
+/** 呼ぶのは通知スケジューラだけ */
+export function setPendingNotificationLog(value: PendingNotificationLog | null): void {
+  useSettingsStore.getState().setPendingNotificationLog(value);
 }

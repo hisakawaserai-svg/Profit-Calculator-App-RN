@@ -21,7 +21,11 @@ import {
 import { initDatabase } from '@/db/client';
 import { dbInitFailedMessage } from '@/logic/labels';
 import { refreshBell } from '@/notifications/bellStore';
-import { rescheduleNotification, setupNotificationHandling } from '@/notifications/scheduler';
+import {
+  promotePendingNotificationIfDue,
+  rescheduleNotification,
+  setupNotificationHandling,
+} from '@/notifications/scheduler';
 import { countLaunch, useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
@@ -189,9 +193,14 @@ export default function RootLayout() {
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'background') rescheduleNotification();
-      // ベル（全タブ共通）は前面に戻ったときにも引き直す。バックグラウンド中に
-      // 日をまたいだ・OS通知をタップして開いた、といったケースでも中身が古いままにならないよう
-      if (nextState === 'active') refreshBell();
+      if (nextState === 'active') {
+        // ベル（全タブ共通）は前面に戻ったときにも引き直す。バックグラウンド中に
+        // 日をまたいだ・OS通知をタップして開いた、といったケースでも中身が古いままにならないよう
+        refreshBell();
+        // 保留中の通知（scheduler.ts）の発火予定時刻をもう過ぎていれば、次に background へ
+        // 送られるのを待たず、ここで「すべて」タブへ反映する
+        promotePendingNotificationIfDue();
+      }
     });
     return () => subscription.remove();
   }, [dbReady]);
