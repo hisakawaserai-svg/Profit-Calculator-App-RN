@@ -698,12 +698,15 @@ export const en: Translations = {
     updates: {
       v120: {
         title: '1.2.0',
+        // Kept in sync with the (Japanese) store release note (CHANGELOG/1.2.0.md; agreed 2026-09)
         description:
-          'Now notifies you about listings that have gone stale and about last month’s recap at the start of each month. Added icons to each item in Settings.',
+          'You’ll now see a confirmation after saving\n• A toast at the bottom of the screen lets you know a record was saved\n\nEasier to remember listings still up for sale\n• Notifies you when a listing has been sitting unsold for a while, so you can consider a price cut\n• The price-cut simulator now shows the date you last lowered the price\n• Notifies you with last month’s recap at the start of each month\n• Notification history is viewable on the notifications screen\n• Notifications can be turned on or off in Settings\n\nAlso\n• Redesigned the achievement toast\n• Added icons to each item in Settings',
       },
       v110: {
         title: '1.1.0',
-        description: 'Added more filters, and packaging can now be picked right from the record form.',
+        // Kept in sync with the (Japanese) store release note (CHANGELOG/1.1.0.md; agreed 2026-09)
+        description:
+          'More filters\n• Amount ranges (net profit, selling price, costs)\n• Target met/not met, loss only, has a memo\n• Grouped into collapsible sections now that there are more of them\n\nEasier to pick packaging\n• Pick it right from the record form (previously only from the calculator)\n• Multiply it by quantity right there in the calculator afterward\n\nAlso\n• Moved the calculator’s confirm button to the bottom (renamed “Done”)\n• Editing a record now also lets you switch it to “Mark as sold” from the date section\n• Added a button to dismiss the keyboard while entering numbers\n• Settings can now open the store’s review page\n• Fixed a few display glitches and bugs',
       },
       v100: {
         title: '1.0.0',
