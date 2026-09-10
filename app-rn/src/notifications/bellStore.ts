@@ -11,7 +11,9 @@ import { create } from 'zustand';
 import { repository } from '@/db/client';
 import {
   currentNotification,
+  isMonthlyReviewActive,
   listingAlertItems,
+  previousMonthKey,
   type ListingAlertItem,
   type NotificationContent,
 } from '@/logic/notifications';
@@ -29,9 +31,10 @@ type BellState = {
    * 出品滞留アラートの対象、しきい値以上の**全件**（お知らせ画面「滞留中」タブ用）。
    *
    * `content` とは別に持つ。`content` は月初だけ月次振り返りを優先する「今どれか1つを
-   * 出すなら」の値（ベルの未読ドット・旧「自分宛て」1枚カード用）で、月初は listingAlert 側が
-   * 隠れる。「滞留中」タブは月初かどうかに関係なく常に現在の滞留状況を一覧したいので、
-   * こちらは currentNotification の優先判定を経由せず、listingAlertItems を直接計算する。
+   * 出すなら」の値（旧「自分宛て」1枚カード・生きた振り返りのピン留め用）で、月初は
+   * listingAlert 側が隠れる。「滞留中」タブは月初かどうかに関係なく常に現在の滞留状況を
+   * 一覧したいので、こちらは currentNotification の優先判定を経由せず、listingAlertItems
+   * を直接計算する。ベルの未読ドットは content の有無では点灯しない（hasUnreadBell）。
    */
   listingAlertItems: readonly ListingAlertItem[];
   /** 今その場のデータで引き直す */
@@ -49,27 +52,30 @@ export const useBellStore = create<BellState>((set) => ({
     const ignoredRecordIds = new Set(getIgnoredListingAlerts());
 
     const items = listingAlertItems(unsold, today, thresholdDays, ignoredRecordIds);
+    // 先月件数は currentNotification が月次振り返りを出すかの判定に使う。合計額は
+    // 振り返りを出すときだけベルへ載せる（0件なら滞留アラート側へ回るので合計は捨てる）
+    let previousMonthRecordCount = 0;
+    let previousMonthTotal = 0;
+    if (isMonthlyReviewActive(today)) {
+      const summary = repository.careerSummary({ isSoldMode: true, period: previousMonthKey(today) });
+      previousMonthRecordCount = summary.recordCount;
+      previousMonthTotal = summary.totalNetProfit;
+    }
+
     const content = currentNotification(
       unsold,
       today,
       thresholdDays,
       ignoredRecordIds,
       getDismissedMonthlyReview(),
+      previousMonthRecordCount,
     );
 
-    if (content?.kind === 'monthlyReview') {
-      const summary = repository.careerSummary({ isSoldMode: true, period: content.monthKey });
-      // 先月の記録が0件なら振り返ることが無いので、月次振り返りごと出さない（空状態）。
-      // 出品滞留アラート側の「対象0件なら null」（logic/notifications.ts）と同じ考え方
-      if (summary.recordCount === 0) {
-        set({ content: null, monthlyReviewTotal: 0, listingAlertItems: items });
-        return;
-      }
-      set({ content, monthlyReviewTotal: summary.totalNetProfit, listingAlertItems: items });
-      return;
-    }
-
-    set({ content, monthlyReviewTotal: 0, listingAlertItems: items });
+    set({
+      content,
+      monthlyReviewTotal: content?.kind === 'monthlyReview' ? previousMonthTotal : 0,
+      listingAlertItems: items,
+    });
   },
 }));
 

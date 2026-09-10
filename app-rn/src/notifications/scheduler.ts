@@ -4,19 +4,16 @@
 // 「今すぐ・その端末だけに」予約するだけなので、サーバーもトークンも要らない
 // （検討の経緯は docs/IMPROVEMENTS.md 参照）。
 //
-// **内容は都度計算し、次の 9:00 へ 1 件だけ予約し直す。** iOS はサードパーティアプリを
-// バックグラウンドで自由に動かし続けられないため、「ある記録がちょうど今日 14 日を超えた」
-// ことをリアルタイムに検知して通知することはできない。現実的にできるのは
-// 「アプリを開閉するたびに、その時点のデータで再計算し、直近の 9:00 に予約し直す」ことだけ ──
-// 通知の中身は「最後にアプリを触った時点」のスナップショットになる。
+// **出品滞留は到達日の朝 9:00 を商品（同じ暦日は 1 通）ごとに予約する。** iOS は
+// バックグラウンドで日数を数え直せないが、到達日は起点＋しきい値で先に分かるので、
+// その日時を OS に渡しておけばアプリを開いていなくても届く。月次振り返りは次の 1 日 9:00
+// を別予約する（同じ朝に両方出てよい）。
 //
 // 呼び出しどころ（AppState の background 遷移・起動時）は app/_layout.tsx。
+// しきい値変更・値下げのあとも、ここが走れば予約は出し直される。
 //
 // **お知らせ画面「すべて」タブへの記録は、予約した瞬間ではなく「予約時刻を過ぎた」ことを
-// 確認できてから行う。** rescheduleNotification は background 遷移のたびに走るが、実際に
-// OS 通知が届くのは次の 9:00 だけ。予約の瞬間に記録すると、まだ1通も届いていないのに
-// 履歴だけ先に積み上がってしまう（詳しくは pendingNotificationLog.ts・
-// promotePendingNotificationIfDue のコメント参照）。
+// 確認できてから行う。** 詳しくは pendingNotificationLog.ts。
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
@@ -34,8 +31,10 @@ import {
 import {
   alreadyLoggedToday,
   currentNotification,
-  notYetNotifiedListingAlertItems,
+  isMonthlyReviewActive,
+  nextMonthlyReviewFireAt,
   previousMonthKey,
+  upcomingListingAlertGroups,
   type NotificationContent,
   type NotificationHistoryTarget,
 } from '@/logic/notifications';
@@ -49,7 +48,7 @@ import {
   getNotificationsEnabled,
   getPendingNotificationLog,
   setPendingNotificationLog,
-  type PendingNotificationLog,
+  type PendingNotificationLogEntry,
 } from '@/settings';
 
 /**
@@ -76,6 +75,25 @@ export type NotificationPayload =
 const NOTIFICATION_HOUR = 9;
 const NOTIFICATION_MINUTE = 0;
 
+/** iOS の待ち通知上限（約 64）を超えないよう、到達日グループは直近からこの件数まで */
+const MAX_LISTING_ALERT_SCHEDULES = 60;
+
+const LEGACY_DAILY_IDENTIFIER = 'daily-notification';
+const MONTHLY_REVIEW_IDENTIFIER = 'monthly-review';
+const LISTING_ALERT_ID_PREFIX = 'listing-alert:';
+
+function listingAlertIdentifier(dayKey: string): string {
+  return `${LISTING_ALERT_ID_PREFIX}${dayKey}`;
+}
+
+function dayKeyFromDate(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 /** 直近の 9:00（ローカル時刻）。もう過ぎていれば明日の 9:00 */
 export function nextNineAm(now: Date): Date {
   const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), NOTIFICATION_HOUR, NOTIFICATION_MINUTE, 0, 0);
@@ -93,42 +111,17 @@ function fetchUnsoldRecords(): SaleRecord[] {
 /** 今なら何を通知すべきか（bell が使う。出品滞留アラートは `>=` で全件） */
 export function computeCurrentNotification(now: Date = new Date()): NotificationContent | null {
   const unsold = fetchUnsoldRecords();
+  const previousMonthRecordCount = isMonthlyReviewActive(now)
+    ? repository.careerSummary({ isSoldMode: true, period: previousMonthKey(now) }).recordCount
+    : 0;
   return currentNotification(
     unsold,
     now,
     getListingAlertThresholdDays(),
     new Set(getIgnoredListingAlerts()),
     getDismissedMonthlyReview(),
+    previousMonthRecordCount,
   );
-}
-
-/**
- * 今なら OS 通知として何を出すべきか（rescheduleNotification・sendTestNotification が使う）。
- *
- * bell 用の `computeCurrentNotification` とは、両方とも「まだ知らせていないか」を
- * 履歴と突き合わせて絞り込む点が違う。
- *
- * **月次振り返りも、出品滞留アラートと同じく「今日すでに知らせていれば予約し直さない」。**
- * `rescheduleNotification` は AppState の background 遷移のたびに呼ばれるため、月初の
- * 9:00 に届いたあとその日のうちにもう一度アプリをバックグラウンドへ送ると、
- * `currentNotification` は（まだ月初なので）また月次振り返りを返してしまう。ここで
- * 弾かないと、「次の 9:00」＝翌日の 9:00 へ同じ内容が再予約され、履歴には二重記録
- * されない（alreadyLoggedToday）のに OS 通知だけ翌朝もう一度届いてしまう
- * （実機で発覚: 2026-09）。
- */
-function computeCurrentOsNotification(now: Date = new Date()): NotificationContent | null {
-  const content = computeCurrentNotification(now);
-  if (content == null) return null;
-
-  if (content.kind === 'monthlyReview') {
-    const target: NotificationHistoryTarget = { kind: 'monthlyReview', monthKey: content.monthKey };
-    if (alreadyLoggedToday(getNotificationHistory(), target, now)) return null;
-    return content;
-  }
-
-  const items = notYetNotifiedListingAlertItems(content.items, getNotificationHistory());
-  if (items.length === 0) return null;
-  return { kind: 'listingAlert', items };
 }
 
 /** OS 通知の title/body を組み立てる。月次振り返りは対象月の収支合計を別途読む */
@@ -154,69 +147,13 @@ function buildOsContent(content: NotificationContent): { title: string; body: st
   };
 }
 
-/**
- * 毎回同じ identifier で予約する（cancelAllScheduledNotificationsAsync は使わない）。
- *
- * **`cancelAll` だと開発用のテスト通知まで巻き込んで消してしまう。** テスト通知
- * （sendTestNotification）は数秒後に届く単発の予約だが、AppState の background は
- * ボタンを押した直後（ホーム画面に切り替えた瞬間）にも飛ぶので、そこで全消しすると
- * 発火前のテスト通知がその場で消える ── 「アプリの外では出ない」という不具合に見えていたが、
- * 実体はこの自滅だった。identifier を固定して `scheduleNotificationAsync` に渡せば、
- * 同じ identifier の予約だけを上書きでき、他の予約（テスト通知）には触れない。
- */
-const DAILY_NOTIFICATION_IDENTIFIER = 'daily-notification';
-
-/** 通知を再計算し、次の 9:00 へ予約し直す（上のコメント参照） */
-export async function rescheduleNotification(now: Date = new Date()): Promise<void> {
-  // 前回予約した内容の発火予定時刻をもう過ぎていれば、ここで初めて履歴へ記録する
-  // （enabled・許可の状態に関わらず、まず過去分を確定させる。詳しくは関数のコメント）
-  promotePendingNotificationIfDue(now);
-
-  if (!getNotificationsEnabled()) {
-    await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
-    setPendingNotificationLog(null);
-    return;
-  }
-
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') {
-    await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
-    setPendingNotificationLog(null);
-    return;
-  }
-
-  const content = computeCurrentOsNotification(now);
-  if (content == null) {
-    await Notifications.cancelScheduledNotificationAsync(DAILY_NOTIFICATION_IDENTIFIER).catch(() => {});
-    setPendingNotificationLog(null);
-    return;
-  }
-
-  const { title, body, data } = buildOsContent(content);
-  const scheduledFor = nextNineAm(now);
-  await Notifications.scheduleNotificationAsync({
-    identifier: DAILY_NOTIFICATION_IDENTIFIER,
-    content: { title, body, data },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: scheduledFor },
-  });
-
-  // ここではまだ履歴に記録しない（下のコメント参照）。次に rescheduleNotification が
-  // 走ったとき、この予約時刻をもう過ぎていれば、そこで初めて記録される
-  setPendingNotificationLog(toPendingNotificationLog(content, scheduledFor));
-}
-
-/**
- * content（今まさに予約する内容）を、あとで履歴に記録するための保留データに変換する。
- * 月次振り返りの合計額はこの時点の値のまま保留データに凍結する（NotificationHistoryEntry の
- * コメントと同じ理由 ── 実際に記録するのは発火予定時刻を過ぎたあとだが、値は予約した
- * 瞬間のものを使う。届く直前に売上が動いても、通知に書いた数字とはズレさせない）。
- */
-function toPendingNotificationLog(content: NotificationContent, scheduledFor: Date): PendingNotificationLog {
+function toPendingEntry(content: NotificationContent, scheduledFor: Date, identifier: string): PendingNotificationLogEntry {
   const scheduledForKey = toDbDate(scheduledFor);
   if (content.kind === 'monthlyReview') {
     const summary = repository.careerSummary({ isSoldMode: true, period: content.monthKey });
     return {
       kind: 'monthlyReview',
+      identifier,
       monthKey: content.monthKey,
       totalNetProfit: summary.totalNetProfit,
       scheduledFor: scheduledForKey,
@@ -224,6 +161,7 @@ function toPendingNotificationLog(content: NotificationContent, scheduledFor: Da
   }
   return {
     kind: 'listingAlert',
+    identifier,
     items: content.items.map((item) => ({
       recordId: item.record.id,
       itemName: item.record.itemName,
@@ -233,31 +171,126 @@ function toPendingNotificationLog(content: NotificationContent, scheduledFor: Da
   };
 }
 
+function upcomingSchedules(now: Date): { identifier: string; fireAt: Date; content: NotificationContent }[] {
+  const unsold = fetchUnsoldRecords();
+  const thresholdDays = getListingAlertThresholdDays();
+  const ignored = new Set(getIgnoredListingAlerts());
+  const history = getNotificationHistory();
+  const schedules: { identifier: string; fireAt: Date; content: NotificationContent }[] = [];
+
+  const listingGroups = upcomingListingAlertGroups(unsold, now, thresholdDays, ignored).slice(
+    0,
+    MAX_LISTING_ALERT_SCHEDULES,
+  );
+  for (const group of listingGroups) {
+    schedules.push({
+      identifier: listingAlertIdentifier(dayKeyFromDate(group.fireAt)),
+      fireAt: group.fireAt,
+      content: { kind: 'listingAlert', items: group.items },
+    });
+  }
+
+  const monthlyFireAt = nextMonthlyReviewFireAt(now);
+  const monthKey = previousMonthKey(monthlyFireAt);
+  const dismissed = getDismissedMonthlyReview();
+  const already = alreadyLoggedToday(history, { kind: 'monthlyReview', monthKey }, monthlyFireAt);
+  if (monthKey !== dismissed && !already) {
+    const summary = repository.careerSummary({ isSoldMode: true, period: monthKey });
+    if (summary.recordCount > 0) {
+      schedules.push({
+        identifier: MONTHLY_REVIEW_IDENTIFIER,
+        fireAt: monthlyFireAt,
+        content: { kind: 'monthlyReview', monthKey },
+      });
+    }
+  }
+
+  return schedules;
+}
+
 /**
- * 保留中の通知（前回 rescheduleNotification が予約した内容）の発火予定時刻をもう過ぎていれば、
- * 「実際に OS 通知として届いたはず」とみなして、ここで初めてお知らせ画面「すべて」タブの
- * 履歴へ記録する。過ぎていなければ何もしない（据え置く）。
+ * このアプリが管理する予約だけ消す（cancelAll は使わない）。
  *
- * **予約した瞬間ではなく、届いたはずの時刻を過ぎてから記録する。**
- * `rescheduleNotification` は AppState の background 遷移のたびに走る（ホーム画面に戻る・
- * 他アプリへ切り替える等、日常的に何度も起きる）。予約の瞬間に記録すると、実際には
- * まだ1通も届いていないのに「バックグラウンドへ送るたびに履歴だけ先に積み上がる」
- * 「届く前から『すべて』タブに出る」「一度記録された時点でテスト通知が『対象なし』に
- * なる」という食い違いが起きる（実機で発覚: 2026-09。pendingNotificationLog.ts 参照）。
- *
- * `occurredAt` には保留データの `scheduledFor`（＝実際に届いたはずの時刻）を使う。
- * 「その日実際に届いた通知には何と書いてあったか」という履歴の性質上、記録に気づいた
- * 瞬間（`now`）ではなく、本来届いたはずの時刻を残す方が正確。
- *
- * `rescheduleNotification` の中でも呼ぶが、それだけだと background 遷移まで気づけない。
- * アプリを開いたまま（active）でも早めに「すべて」タブへ反映されてほしいので、
- * export して AppState の active 遷移（app/_layout.tsx）からも直接呼べるようにしてある。
+ * **`cancelAll` だと開発用のテスト通知まで巻き込んで消してしまう。** テスト通知
+ * （sendTestNotification）は数秒後に届く単発の予約だが、AppState の background は
+ * ボタンを押した直後にも飛ぶので、そこで全消しすると発火前のテスト通知がその場で消える。
+ */
+async function cancelOwnedScheduledNotifications(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(LEGACY_DAILY_IDENTIFIER).catch(() => {});
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter(
+        (request) =>
+          request.identifier === MONTHLY_REVIEW_IDENTIFIER ||
+          request.identifier.startsWith(LISTING_ALERT_ID_PREFIX),
+      )
+      .map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier).catch(() => {})),
+  );
+}
+
+/** 到達日・次の月初を計算し、OS へ予約し直す */
+export async function rescheduleNotification(now: Date = new Date()): Promise<void> {
+  promotePendingNotificationIfDue(now);
+
+  if (!getNotificationsEnabled()) {
+    await cancelOwnedScheduledNotifications();
+    setPendingNotificationLog(null);
+    return;
+  }
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') {
+    await cancelOwnedScheduledNotifications();
+    setPendingNotificationLog(null);
+    return;
+  }
+
+  const schedules = upcomingSchedules(now);
+  await cancelOwnedScheduledNotifications();
+
+  if (schedules.length === 0) {
+    setPendingNotificationLog(null);
+    return;
+  }
+
+  const pending: PendingNotificationLogEntry[] = [];
+  for (const schedule of schedules) {
+    const { title, body, data } = buildOsContent(schedule.content);
+    await Notifications.scheduleNotificationAsync({
+      identifier: schedule.identifier,
+      content: { title, body, data },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: schedule.fireAt },
+    });
+    pending.push(toPendingEntry(schedule.content, schedule.fireAt, schedule.identifier));
+  }
+
+  setPendingNotificationLog(pending);
+}
+
+/**
+ * 保留中の通知のうち、発火予定時刻をもう過ぎていれば履歴へ記録する。
+ * まだ先の予約はそのまま残す。
  */
 export function promotePendingNotificationIfDue(now: Date = new Date()): void {
   const pending = getPendingNotificationLog();
-  if (pending == null) return;
-  if (fromDbDate(pending.scheduledFor).getTime() > now.getTime()) return;
+  if (pending == null || pending.length === 0) return;
 
+  const due: PendingNotificationLogEntry[] = [];
+  const rest: PendingNotificationLogEntry[] = [];
+  for (const entry of pending) {
+    if (fromDbDate(entry.scheduledFor).getTime() > now.getTime()) rest.push(entry);
+    else due.push(entry);
+  }
+
+  for (const entry of due) {
+    appendDueHistory(entry);
+  }
+
+  setPendingNotificationLog(rest.length === 0 ? null : rest);
+}
+
+function appendDueHistory(pending: PendingNotificationLogEntry): void {
   const occurredAt = pending.scheduledFor;
   const historyNow = fromDbDate(occurredAt);
 
@@ -272,28 +305,23 @@ export function promotePendingNotificationIfDue(now: Date = new Date()): void {
         occurredAt,
       });
     }
-  } else {
-    // OS 通知の本文は pending.items 全件をまとめて数える（buildOsContent の osBodyMany）。
-    // 履歴側も代表 1 件だけでなく、束ねた全件をそれぞれ 1 行ずつ記録する ── そうしないと
-    // 「3件あります」と届いたのに「すべて」タブには 1 件しか無い、という食い違いになる
-    // （実機の指摘）。
-    const history = getNotificationHistory();
-    for (const item of pending.items) {
-      const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: item.recordId };
-      if (alreadyLoggedToday(history, target, historyNow)) continue;
-
-      appendNotificationHistory({
-        id: randomUUID(),
-        kind: 'listingAlert',
-        recordId: item.recordId,
-        itemName: item.itemName,
-        days: item.days,
-        occurredAt,
-      });
-    }
+    return;
   }
 
-  setPendingNotificationLog(null);
+  const history = getNotificationHistory();
+  for (const item of pending.items) {
+    const target: NotificationHistoryTarget = { kind: 'listingAlert', recordId: item.recordId };
+    if (alreadyLoggedToday(history, target, historyNow)) continue;
+
+    appendNotificationHistory({
+      id: randomUUID(),
+      kind: 'listingAlert',
+      recordId: item.recordId,
+      itemName: item.itemName,
+      days: item.days,
+      occurredAt,
+    });
+  }
 }
 
 /** 設定タブの「通知を受け取る」をオンにしたときに呼ぶ。許可されたら true */
@@ -302,35 +330,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
-/**
- * 開発用: 内容はそのままに、数秒後に届くテスト通知を送る。
- *
- * **秒数はホーム画面に戻って OS 側のバナー表示を確認できるだけの余裕を持たせる。**
- * アプリを開いたままだと setupNotificationHandling の shouldShowBanner: true により
- * アプリ内にバナーが重なって出るだけなので、それだけでは「他のアプリの上にも出る」ことの
- * 確認にならない ── ボタンを押した後にホームボタン（または他アプリ）へ切り替える時間が要る。
- */
 const TEST_NOTIFICATION_DELAY_SECONDS = 8;
 
 /**
- * content を実際の OS 通知として送り、本番の「9:00に届く」動きをそのまま再現する
- * （合意: 2026-09）。以前は送るだけで履歴に触れなかったため、テスト通知には
- * 「3件あります」と出るのに「すべて」タブは空のまま、という食い違いがあった
- * （実機の指摘）。予約 → 予約時刻到達の確認、を一瞬でやる形にして、
- * rescheduleNotification が次の9:00に対して行うのと同じ経路（pending化 → 即座に確定）で
- * 履歴へ記録する。これにより、テスト通知を一度確認したら実物の通知と同じく
- * 「もう知らせた」対象になり、連打しても二重には記録されない。
- *
- * content が null のとき（対象が無い）は、その旨だけ伝える単発の通知にする
- * （タップしてもベル一覧を開くだけ。下の navigateFromNotification 参照）
+ * content を数秒後の OS 通知として送る。**履歴・本予約には触れない** ── 到達日の本番予約を
+ * 「もう知らせた」扱いにすると、本当の朝 9 時が消えてしまう。
  */
 async function sendTestOsNotification(content: NotificationContent | null): Promise<void> {
-  const now = new Date();
   const { title, body, data } = content
     ? buildOsContent(content)
     : {
         title: 'テスト通知',
-        body: '今は出す内容がありません（月初でも、今日新たにしきい値へ到達した滞留商品も無い状態）',
+        body: 'これから到達日の朝9時に予約する出品はありません（すでに過ぎた滞留はお知らせの「滞留中」に出ます）',
         data: undefined as NotificationPayload | undefined,
       };
 
@@ -341,23 +352,16 @@ async function sendTestOsNotification(content: NotificationContent | null): Prom
       seconds: TEST_NOTIFICATION_DELAY_SECONDS,
     },
   });
-
-  if (content != null) {
-    setPendingNotificationLog(toPendingNotificationLog(content, now));
-    promotePendingNotificationIfDue(now);
-  }
 }
 
-/** 実際に毎朝届く内容と同じもの（computeCurrentOsNotification）で試す */
+/** 次に予約される出品滞留アラート（最も近い到達日）で試す */
 export async function sendTestNotification(): Promise<void> {
-  await sendTestOsNotification(computeCurrentOsNotification());
+  const next = upcomingSchedules(new Date()).find((schedule) => schedule.content.kind === 'listingAlert');
+  await sendTestOsNotification(next?.content ?? null);
 }
 
 /**
  * 月次振り返りのテスト通知を送る。**月初(1日)でなくても、先月ぶんの内容で試せる。**
- * computeCurrentOsNotification は isMonthlyReviewActive（今日が1日か）を必ず見るため、
- * 月初以外の日には月次振り返りを再現できない ── これを回避して、先月を対象月に
- * 固定して直接組み立てる（合意: 2026-09、「月の収支のテストもしたい」という要望より）。
  */
 export async function sendTestMonthlyReviewNotification(): Promise<void> {
   const monthKey = previousMonthKey(new Date());
@@ -373,9 +377,9 @@ export async function sendTestMonthlyReviewNotification(): Promise<void> {
  * 2 回走り、`/notifications` が二重に push されて閉じられなくなる（実機で発覚: 2026-09。
  * ✕ で閉じても後ろにもう1枚同じ画面が残り、タブバーも見えなくなる不具合だった）。
  *
- * **`request.identifier` 単体では駄目。** 毎朝の通知は `DAILY_NOTIFICATION_IDENTIFIER`
- * 固定なので、日をまたいだ次の通知も同じ identifier になる。`notification.date`
- * （実際に届いた時刻）を組み合わせて初めて「同じ1回のタップ」を一意に指せる。
+ * **`request.identifier` 単体では駄目。** 同じ種別の予約は identifier が固定／日付付きで
+ * 日をまたいでも衝突しうる。`notification.date`（実際に届いた時刻）を組み合わせて
+ * 初めて「同じ1回のタップ」を一意に指せる。
  */
 let lastHandledNotificationKey: string | null = null;
 
@@ -400,12 +404,10 @@ export function setupNotificationHandling(): void {
     }),
   });
 
-  // タップして起動した場合（コールドスタート）
   Notifications.getLastNotificationResponseAsync().then((response) => {
     if (response != null) handleNotificationResponseOnce(response);
   });
 
-  // 起動中にタップした場合
   Notifications.addNotificationResponseReceivedListener((response) => {
     handleNotificationResponseOnce(response);
   });
@@ -417,19 +419,12 @@ const RECORD_PRICING_PATHNAME = '/records/record/[id]/pricing' as const;
 /**
  * タップ時の遷移先。**種類ごとに直接目的地へ飛ばす**（ベルの一覧をワンクッション挟まない）。
  *
- * 以前は種類を問わず記録タブのベル一覧を開くだけにしていたが、OS 通知をタップした人は
- * 既に「見たい」と決めてタップしているので、そこでもう一度ベルの行を押させるのは冗長、
- * という判断で変更した。ペイロード（recordId / monthKey）は通知を組み立てた時点の
- * ものをそのまま使う（上の NotificationPayload のコメント参照）。
- *
  * data が想定外の形（旧バージョンの通知が端末に残っていた等）のときはベル一覧に逃がす。
  */
 function navigateFromNotification(data: unknown): void {
   const payload = data as Partial<NotificationPayload> | undefined;
 
   if (payload?.kind === 'listingAlert' && typeof payload.recordId === 'string') {
-    // NotificationsScreen.openPricing と同じ理由・同じ形（そちらのコメント参照）── 記録一覧 →
-    // 記録詳細 → 損益分岐点の順に、1 コマずつ間を空けて積む
     const recordId = payload.recordId;
     router.dismissTo('/records');
     requestAnimationFrame(() => {
@@ -440,13 +435,6 @@ function navigateFromNotification(data: unknown): void {
     });
     return;
   }
-  // 複数件まとまった通知（NotificationPayload の listingAlertMany のコメント参照）。
-  // どれか1件へ勝手に飛ばさず、お知らせ画面で選んでもらう。
-  //
-  // **二重発火の対策は dismissTo ではなく handleNotificationResponseOnce 側で行う。**
-  // 一度 dismissTo('/records') → requestAnimationFrame → push という形を試したが、
-  // rAF が確実に発火しない環境があり、push まで届かず記録タブに戻ったまま止まる
-  // regression が実機で出た（2026-09）。dismissTo を挟まない素の push のほうが安全。
   if (payload?.kind === 'listingAlertMany') {
     router.push('/notifications');
     return;

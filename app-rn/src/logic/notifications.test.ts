@@ -7,10 +7,14 @@ import type { SaleRecord } from '@/db/schema';
 import {
   alreadyLoggedToday,
   currentNotification,
+  hasUnreadBell,
   isMonthlyReviewActive,
+  listingAlertFireAt,
   listingAlertItems,
+  nextMonthlyReviewFireAt,
   notYetNotifiedListingAlertItems,
   previousMonthKey,
+  upcomingListingAlertGroups,
 } from './notifications';
 
 const record = (partial: Partial<SaleRecord> = {}): SaleRecord => ({
@@ -77,6 +81,57 @@ describe('listingAlertItems', () => {
     );
 
     expect(items).toEqual([]);
+  });
+});
+
+describe('listingAlertFireAt / upcomingListingAlertGroups', () => {
+  it('起点の暦日にしきい値を足した 9:00 が到達日', () => {
+    const fireAt = listingAlertFireAt(new Date(2026, 6, 1, 23, 50, 0), 14);
+    expect(fireAt).toEqual(new Date(2026, 6, 15, 9, 0, 0, 0));
+  });
+
+  it('値下げ日を起点にする', () => {
+    const fireAt = listingAlertFireAt(new Date(2026, 6, 10, 0, 0, 0), 14);
+    expect(fireAt).toEqual(new Date(2026, 6, 24, 9, 0, 0, 0));
+  });
+
+  it('まだ来ていない到達日だけを、同じ暦日なら 1 グループにまとめる', () => {
+    const now = new Date(2026, 6, 10, 12, 0, 0);
+    const groups = upcomingListingAlertGroups(
+      [
+        record({ id: 'soon', saleStartDate: '2026-07-01T00:00:00.000' }), // 7/15 到達
+        record({ id: 'same-day', saleStartDate: '2026-07-01T18:00:00.000' }), // 同じ 7/15
+        record({ id: 'later', saleStartDate: '2026-07-05T00:00:00.000' }), // 7/19 到達
+        record({ id: 'past', saleStartDate: '2026-06-01T00:00:00.000' }), // もう過ぎている
+      ],
+      now,
+      14,
+      new Set(),
+    );
+
+    expect(groups.map((group) => group.items.map((item) => item.record.id))).toEqual([
+      ['same-day', 'soon'],
+      ['later'],
+    ]);
+    expect(groups[0]?.items[0]?.elapsedDays).toBe(14);
+  });
+
+  it('今が到達日の 9:00 ちょうど／過ぎていれば予約しない', () => {
+    const fireMorning = new Date(2026, 6, 15, 9, 0, 0, 0);
+    const after = new Date(2026, 6, 15, 10, 0, 0, 0);
+    const records = [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })];
+
+    expect(upcomingListingAlertGroups(records, new Date(2026, 6, 15, 8, 59, 0), 14, new Set())).toHaveLength(1);
+    expect(upcomingListingAlertGroups(records, fireMorning, 14, new Set())).toEqual([]);
+    expect(upcomingListingAlertGroups(records, after, 14, new Set())).toEqual([]);
+  });
+});
+
+describe('nextMonthlyReviewFireAt', () => {
+  it('1 日 9:00 前なら当月、過ぎていれば翌月', () => {
+    expect(nextMonthlyReviewFireAt(new Date(2026, 7, 1, 8, 0, 0))).toEqual(new Date(2026, 7, 1, 9, 0, 0, 0));
+    expect(nextMonthlyReviewFireAt(new Date(2026, 7, 1, 10, 0, 0))).toEqual(new Date(2026, 8, 1, 9, 0, 0, 0));
+    expect(nextMonthlyReviewFireAt(new Date(2026, 7, 15, 12, 0, 0))).toEqual(new Date(2026, 8, 1, 9, 0, 0, 0));
   });
 });
 
@@ -169,6 +224,7 @@ describe('currentNotification', () => {
       14,
       new Set(),
       null,
+      3,
     );
 
     expect(content).toEqual({ kind: 'monthlyReview', monthKey: '2026-07' });
@@ -181,14 +237,66 @@ describe('currentNotification', () => {
       14,
       new Set(),
       '2026-07',
+      3,
+    );
+
+    expect(content?.kind).toBe('listingAlert');
+  });
+
+  it('先月の記録が0件なら月次振り返りを出さず滞留アラート側に回る', () => {
+    const content = currentNotification(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })],
+      new Date('2026-08-01T00:00:00.000'),
+      14,
+      new Set(),
+      null,
+      0,
     );
 
     expect(content?.kind).toBe('listingAlert');
   });
 
   it('対象が無ければ null', () => {
-    const content = currentNotification([], today, 14, new Set(), null);
+    const content = currentNotification([], today, 14, new Set(), null, 0);
     expect(content).toBeNull();
+  });
+});
+
+describe('hasUnreadBell', () => {
+  const now = new Date('2026-08-15T12:00:00.000');
+
+  it('滞留があるだけでは点灯しない（content 非 null 相当を履歴なしで再現）', () => {
+    expect(hasUnreadBell('2026-08-14T12:00:00.000', now, false, [])).toBe(false);
+    expect(hasUnreadBell(null, now, false, [])).toBe(false);
+  });
+
+  it('月初の生きた振り返りがあり、今日まだ開いていなければ点灯する', () => {
+    expect(hasUnreadBell('2026-07-31T12:00:00.000', now, true, [])).toBe(true);
+    expect(hasUnreadBell(null, now, true, [])).toBe(true);
+  });
+
+  it('月初の生きた振り返りでも、今日すでに開いていれば点灯しない', () => {
+    expect(hasUnreadBell('2026-08-15T08:00:00.000', now, true, [])).toBe(false);
+  });
+
+  it('最後に開いたあとで履歴が増えていれば点灯する', () => {
+    expect(
+      hasUnreadBell('2026-08-15T08:00:00.000', now, false, [
+        { occurredAt: '2026-08-15T09:00:00.000' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('表示から消した履歴だけでは点灯しない', () => {
+    expect(
+      hasUnreadBell('2026-08-15T08:00:00.000', now, false, [
+        { occurredAt: '2026-08-15T09:00:00.000', hidden: true },
+      ]),
+    ).toBe(false);
+  });
+
+  it('一度も開いていなくても履歴があれば点灯する', () => {
+    expect(hasUnreadBell(null, now, false, [{ occurredAt: '2026-08-15T09:00:00.000' }])).toBe(true);
   });
 });
 

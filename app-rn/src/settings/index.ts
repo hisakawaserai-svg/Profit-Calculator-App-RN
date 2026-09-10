@@ -112,6 +112,7 @@ export {
   PENDING_NOTIFICATION_LOG_KEY,
   normalizePendingNotificationLog,
   type PendingNotificationLog,
+  type PendingNotificationLogEntry,
 } from './pendingNotificationLog';
 export {
   FIRST_LAUNCH_AT_KEY,
@@ -358,9 +359,8 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ notificationHistory: [] });
   },
   /**
-   * 保留中の通知（pendingNotificationLog.ts）を丸ごと置き換える。null で「保留無し」。
-   * 呼ぶのは scheduler.ts の rescheduleNotification だけ ── 新しく予約するたび上書きし、
-   * 予約時刻を過ぎたのを確認して履歴へ記録したら null に戻す
+   * 保留中の OS 通知（pendingNotificationLog.ts）。配列。null で「保留無し」。
+   * 呼ぶのは scheduler.ts ── 予約し直すたび一式で置き換え、時刻を過ぎた分は履歴へ移す
    */
   setPendingNotificationLog: (value) => {
     Storage.setItemSync(PENDING_NOTIFICATION_LOG_KEY, JSON.stringify(value));

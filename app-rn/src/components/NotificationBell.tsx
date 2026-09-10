@@ -5,13 +5,17 @@
 // 読むだけ。押した瞬間に一度引き直す（refresh）のは、フォーカスが変わらないタブの
 // 上で日をまたいだ・記録を変更した直後、といった「中身が変わっているはずなのに
 // まだ引き直されていない」ケースを取りこぼさないため。
+//
+// 未読ドットは「滞留中の出品が残っている」では点灯しない（hasUnreadBell）。滞留は
+// お知らせ画面の「滞留中」タブで常時見られるので、ベルは新しい知らせ（月初の振り返り・
+// 届いた履歴）だけを知らせる。
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { fromDbDate, toDbDate } from '@/db/dates';
+import { toDbDate } from '@/db/dates';
 import { notificationBellLabel } from '@/logic/labels';
-import { daysBetween } from '@/logic/listingDays';
+import { hasUnreadBell } from '@/logic/notifications';
 import { useBellStore } from '@/notifications/bellStore';
 import { markNotificationsChecked, useLocale, useSettings } from '@/settings';
 import { useThemeColors } from '@/theme';
@@ -21,13 +25,14 @@ export function NotificationBell() {
   const colors = useThemeColors();
   const content = useBellStore((state) => state.content);
   const refresh = useBellStore((state) => state.refresh);
-  const { lastNotificationsCheckedAt } = useSettings();
+  const { lastNotificationsCheckedAt, notificationHistory } = useSettings();
 
-  // 未読ドット。ベルを最後に開いた日と今日が違えば「未読」(設定に依存しないシンプルな粒度)
-  const hasUnread =
-    content != null &&
-    (lastNotificationsCheckedAt == null ||
-      daysBetween(fromDbDate(lastNotificationsCheckedAt), new Date()) !== 0);
+  const hasUnread = hasUnreadBell(
+    lastNotificationsCheckedAt,
+    new Date(),
+    content?.kind === 'monthlyReview',
+    notificationHistory,
+  );
 
   const handlePress = () => {
     refresh();

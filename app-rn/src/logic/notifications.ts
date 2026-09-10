@@ -1,13 +1,13 @@
 // ベル通知（記録タブ）とローカル通知（OS）が共有する「何を出すか」の判定。純粋関数のみ、
 // DB・React・Notifications SDK のいずれにも依存しない。
 //
-// **月次振り返りと出品滞留アラートは同時に出さない。** 月初(1日だけ)は月次振り返りを優先する
-// ── 月が変わった当日だけの限定情報なので、滞留アラートより鮮度が高い。それ以外の期間は
-// 滞留アラートだけを見る（滞留アラート自体は月をまたいでも対象が変わるだけで、常に「今」の状態）。
+// **ベル（アプリ内）は月次振り返りと出品滞留アラートを同時に出さない。** 月初(1日だけ)は
+// 月次振り返りを優先する ── 生きた振り返りカードが1枚なため。OS 通知は別予約なので、
+// 同じ朝に振り返りと到達日アラートが両方届いてよい（scheduler.ts）。
 import { fromDbDate, toDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 
-import { listingDays } from './listingDays';
+import { daysBetween, listingDays } from './listingDays';
 import { analyzePricing } from './pricing';
 
 export type ListingAlertItem = {
@@ -73,6 +73,86 @@ export function listingAlertItems(
     }));
 }
 
+const NOTIFICATION_HOUR = 9;
+
+/**
+ * 出品滞留アラートを OS に出す日時（ローカル 9:00）。
+ * 起点の暦日にしきい値日数を足した朝 ── その日の経過日数がちょうど thresholdDays になる。
+ */
+export function listingAlertFireAt(basisDate: Date, thresholdDays: number): Date {
+  return new Date(
+    basisDate.getFullYear(),
+    basisDate.getMonth(),
+    basisDate.getDate() + thresholdDays,
+    NOTIFICATION_HOUR,
+    0,
+    0,
+    0,
+  );
+}
+
+/** 同じ到達日にまとめる OS 通知 1 通ぶん */
+export type UpcomingListingAlertGroup = {
+  fireAt: Date;
+  items: readonly ListingAlertItem[];
+};
+
+/**
+ * まだ来ていない到達日の OS 通知。同じ暦日は 1 グループ（1 通）にまとめる。
+ *
+ * **すでに到達日を過ぎた記録は含めない**（お知らせの「滞留中」タブは listingAlertItems の
+ * `>=` で見せる）。本文に書く経過日数は、届く朝の値（しきい値ちょうど）で凍結する。
+ */
+export function upcomingListingAlertGroups(
+  records: readonly SaleRecord[],
+  now: Date,
+  thresholdDays: number,
+  ignoredRecordIds: ReadonlySet<string>,
+): UpcomingListingAlertGroup[] {
+  const groups = new Map<string, ListingAlertItem[]>();
+  const fireByKey = new Map<string, Date>();
+
+  for (const record of records) {
+    const analysis = analyzePricing(record);
+    if (analysis.state === 'loss') continue;
+    if (analysis.hasTarget && analysis.meetsTarget === false) continue;
+    if (ignoredRecordIds.has(record.id)) continue;
+
+    const basisDate = fromDbDate(record.priceChangedAt ?? record.saleStartDate);
+    const fireAt = listingAlertFireAt(basisDate, thresholdDays);
+    if (fireAt.getTime() <= now.getTime()) continue;
+
+    const dayKey = [
+      fireAt.getFullYear(),
+      String(fireAt.getMonth() + 1).padStart(2, '0'),
+      String(fireAt.getDate()).padStart(2, '0'),
+    ].join('-');
+    const existing = groups.get(dayKey) ?? [];
+    existing.push({
+      record,
+      elapsedDays: thresholdDays,
+      discountRoom: analysis.room,
+      basisDateKey: record.priceChangedAt ?? record.saleStartDate,
+    });
+    groups.set(dayKey, existing);
+    fireByKey.set(dayKey, fireAt);
+  }
+
+  return [...groups.keys()]
+    .sort()
+    .map((dayKey) => ({
+      fireAt: fireByKey.get(dayKey) ?? new Date(0),
+      items: (groups.get(dayKey) ?? []).sort((a, b) => a.record.id.localeCompare(b.record.id)),
+    }));
+}
+
+/** 次に月次振り返りを出す 1 日 9:00。もう過ぎていれば翌月の 1 日 */
+export function nextMonthlyReviewFireAt(now: Date): Date {
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1, NOTIFICATION_HOUR, 0, 0, 0);
+  if (thisMonth.getTime() > now.getTime()) return thisMonth;
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1, NOTIFICATION_HOUR, 0, 0, 0);
+}
+
 /**
  * 出品滞留アラートのうち、OS ローカル通知としてまだ知らせていないものに絞ったもの。
  *
@@ -131,6 +211,8 @@ export type NotificationContent =
  * @param dismissedMonthlyReviewMonth 「先月の振り返り」を押して消した対象月（"YYYY-MM"）。
  *   まだ消していなければ null。対象月と一致するときだけ振り返りを抑え、滞留アラート側に回す
  *   （settings の dismissedMonthlyReview。押した瞬間にベルから消すため）
+ * @param previousMonthRecordCount 先月の売却済み件数。0 件なら振り返る中身が無いので
+ *   月次振り返りは出さず、滞留アラート側に回す（ベルと OS 通知で同じ判定にする）。
  */
 export function currentNotification(
   unsoldRecords: readonly SaleRecord[],
@@ -138,10 +220,11 @@ export function currentNotification(
   listingAlertThresholdDays: number,
   ignoredRecordIds: ReadonlySet<string>,
   dismissedMonthlyReviewMonth: string | null,
+  previousMonthRecordCount: number,
 ): NotificationContent | null {
   if (isMonthlyReviewActive(today)) {
     const monthKey = previousMonthKey(today);
-    if (monthKey !== dismissedMonthlyReviewMonth) {
+    if (monthKey !== dismissedMonthlyReviewMonth && previousMonthRecordCount > 0) {
       return { kind: 'monthlyReview', monthKey };
     }
   }
@@ -156,6 +239,30 @@ export function currentNotification(
 export type NotificationHistoryTarget =
   | { kind: 'listingAlert'; recordId: string }
   | { kind: 'monthlyReview'; monthKey: string };
+
+/**
+ * ベルの未読ドット。滞留中の出品が残っているだけでは点灯しない（毎日点き直すのを防ぐ）。
+ *
+ * 点灯するのは次のどれか:
+ *   - 月初の生きた振り返りがあり、今日まだベルを開いていない
+ *   - 「すべて」タブに、最後にベルを開いた時刻より後の履歴がある（表示から消した行は除く）
+ */
+export function hasUnreadBell(
+  lastCheckedAt: string | null,
+  now: Date,
+  hasLiveMonthlyReview: boolean,
+  history: readonly { occurredAt: string; hidden?: boolean }[],
+): boolean {
+  const checkedToday =
+    lastCheckedAt != null && daysBetween(fromDbDate(lastCheckedAt), now) === 0;
+
+  if (hasLiveMonthlyReview && !checkedToday) return true;
+
+  return history.some(
+    (entry) =>
+      entry.hidden !== true && (lastCheckedAt == null || entry.occurredAt > lastCheckedAt),
+  );
+}
 
 /**
  * 履歴に「今日、同じ対象をすでに記録済みか」を判定する（二重記録の防止）。

@@ -1,5 +1,7 @@
 // 開発用: 出品滞留アラートの境界値をすぐ試せるテスト記録を投入する（__DEV__ 専用）。
 // 「今日」を起点に、しきい値の前後・過去/未来の日付をまとめて作る。
+// OS 通知の対象になるのは「到達日がまだ未来（または今日の 9:00 前）」の記録だけ。
+// しきい値をすでに超えた分（300日前など）はお知らせの「滞留中」タブ用。
 //
 // **id は notiftest- で始まる**（devSeed.ts の devseed- と同じ考え方。この接頭辞の行
 // だけを独立して削除できる）。
@@ -72,7 +74,7 @@ export function insertNotificationTestCases(): number {
     { label: '昨日', days: 1 },
     { label: 'おととい', days: 2 },
     { label: `${threshold - 1}日前（しきい値の1日前）`, days: threshold - 1 },
-    { label: `${threshold}日前（ちょうどしきい値）`, days: threshold },
+    { label: `${threshold}日前（ちょうどしきい値・到達日は今朝9時）`, days: threshold },
     { label: `${threshold + 1}日前（しきい値の1日後）`, days: threshold + 1 },
     { label: '300日前（大幅超過）', days: 300 },
   ];
