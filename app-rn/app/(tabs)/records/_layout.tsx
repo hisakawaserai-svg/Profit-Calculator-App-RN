@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 
 import { toMonthKey } from '@/db/dates';
@@ -23,11 +23,24 @@ export const unstable_settings = {
 // React の木の上で兄弟なので値は混ざらない。タブ全体（(tabs)/_layout.tsx）へ上げると
 // 1 つになり、両タブで共有されてしまう（決定 §9-9）。
 export default function RecordsLayout() {
-  /** 「今日」は Stack のマウント時に 1 回だけ決める（初期表示は今月。§5-14） */
-  const currentMonthKey = useMemo(() => toMonthKey(new Date()), []);
+  /**
+   * 出品滞留アラートから `/records?month=YYYY-MM&listing=1` で入ったときは、
+   * その記録の出品月・出品中セグメントに合わせる。無ければ今月（§5-14）。
+   * データタブの month ジャンプと同じ 2 段構え（data/_layout.tsx のコメント参照）。
+   */
+  const { month: monthParam, listing: listingParam } = useLocalSearchParams<{
+    month?: string;
+    listing?: string;
+  }>();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentMonthKey = useMemo(() => monthParam ?? toMonthKey(new Date()), []);
 
   return (
-    <RecordFilterProvider scope="records" currentMonthKey={currentMonthKey}>
+    <RecordFilterProvider
+      scope="records"
+      currentMonthKey={currentMonthKey}
+      jumpToMonthKey={monthParam}
+      jumpToIsSoldMode={listingParam === '1' ? false : undefined}>
       <Stack />
     </RecordFilterProvider>
   );

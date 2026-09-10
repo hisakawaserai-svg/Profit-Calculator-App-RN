@@ -51,6 +51,7 @@ import {
 import type { ListingAlertItem } from '@/logic/notifications';
 import { photoStore } from '@/media/expoPhotoFiles';
 import { useBellStore } from '@/notifications/bellStore';
+import { openListingPricingFromApp } from '@/notifications/scheduler';
 import {
   clearNotificationHistory,
   dismissMonthlyReview,
@@ -63,9 +64,6 @@ import {
 } from '@/settings';
 import { useThemeColors, type ThemeColors } from '@/theme';
 
-const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
-const RECORD_PRICING_PATHNAME = '/records/record/[id]/pricing' as const;
-
 export default function NotificationsScreen() {
   const locale = useLocale();
   const colors = useThemeColors();
@@ -76,34 +74,11 @@ export default function NotificationsScreen() {
   const [tabIndex, setTabIndex] = useState(0);
 
   /**
-   * このモーダル（お知らせ）を閉じて、記録一覧 → 記録詳細 → 損益分岐点の順にちゃんと積む。
-   *
-   * **「記録一覧 → 損益分岐点」の2段階で直接飛ばしていたのをやめた。** 普通に記録一覧の
-   * 行から長押しで開く経路（RecordListScreen）と同じ深さに揃えるため（実機の指摘）──
-   * 通知だけ記録詳細を飛ばして直接損益分岐点に着地すると、戻ったときに詳細を経由できず
-   * 「これは別の商品の損益分岐点みたいだ」と感じる違和感になっていた。
-   *
-   * `dismissTo('/records')` でモーダルを閉じつつ記録一覧の起点に戻し、そこから
-   * 詳細・損益分岐点を順に push する。これで戻る履歴が「一覧 → 詳細 → 損益分岐点」の
-   * 普通の形になり、**戻る矢印も既定のままで正しく機能する**（fromNotification の
-   * ような自前の印は要らなくなった）。
-   *
-   * **3 回とも同期的に呼ぶと、途中の遷移が上書きされて最後の 1 回しか残らない**
-   * （実機で確認：戻る矢印が出ないまま、いきなり損益分岐点だけが開いた状態になっていた）。
-   * ナビゲーションの状態更新が 1 フレームで畳まれてしまうとみられるので、
-   * `requestAnimationFrame` で 1 コマずつ間を空けて、それぞれ確実に積ませる。
-   *
-   * **recordId だけで足りる。** SaleRecord 全体を受けないのは、履歴タブの行が
-   * （軽さのため）id・商品名・経過日数の3値しか持たず、フルレコードを持たないため。
+   * お知らせを閉じて、記録一覧（その出品の月・出品中）→ 詳細 → 損益分岐点と積む。
+   * 積み方は scheduler.openListingPricingFromApp（OS 通知タップと同じ）。
    */
   const openPricing = (recordId: string) => {
-    router.dismissTo('/records');
-    requestAnimationFrame(() => {
-      router.push({ pathname: RECORD_DETAIL_PATHNAME, params: { id: recordId } });
-      requestAnimationFrame(() => {
-        router.push({ pathname: RECORD_PRICING_PATHNAME, params: { id: recordId } });
-      });
-    });
+    openListingPricingFromApp(recordId);
   };
   /** 「すべて」タブの先頭に重ねて出す、今月分の生きた振り返り（押すとベルから消す） */
   const openLiveMonthlyReview = (monthKey: string) => {

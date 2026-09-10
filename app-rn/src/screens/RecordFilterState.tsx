@@ -64,6 +64,7 @@ export function RecordFilterProvider({
   scope,
   currentMonthKey,
   jumpToMonthKey,
+  jumpToIsSoldMode,
   children,
 }: {
   /** 'records' = 記録タブの Stack / 'data' = データタブの Stack（§6） */
@@ -82,18 +83,26 @@ export function RecordFilterProvider({
    * undefined のときは何もしない ── 通常の再訪（パラメータなし）で今月へ巻き戻さないため。
    */
   jumpToMonthKey?: string;
+  /**
+   * 出品滞留アラートから記録タブへ入るとき、月と一緒に「出品中」へ切り替える。
+   * undefined のときは状態を触らない（月次振り返り→データタブは売却済みのまま）。
+   */
+  jumpToIsSoldMode?: boolean;
   children: ReactNode;
 }) {
   const [filter, setFilter] = useState<RecordFilterDraft>(EMPTY_RECORD_FILTER);
   const [isSoldMode, setIsSoldMode] = useState(true);
   const [period, setPeriod] = useState<Period>(currentMonthKey);
   // 最後に反映した jumpToMonthKey。同じ値が来ても二重に setPeriod しない
-  const appliedJumpRef = useRef(jumpToMonthKey);
+  const appliedJumpRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (jumpToMonthKey == null || jumpToMonthKey === appliedJumpRef.current) return;
-    appliedJumpRef.current = jumpToMonthKey;
-    setPeriod(jumpToMonthKey);
-  }, [jumpToMonthKey]);
+    if (jumpToMonthKey == null && jumpToIsSoldMode == null) return;
+    const token = `${jumpToMonthKey ?? ''}:${jumpToIsSoldMode ?? ''}`;
+    if (token === appliedJumpRef.current) return;
+    appliedJumpRef.current = token;
+    if (jumpToMonthKey != null) setPeriod(jumpToMonthKey);
+    if (jumpToIsSoldMode != null) setIsSoldMode(jumpToIsSoldMode);
+  }, [jumpToMonthKey, jumpToIsSoldMode]);
   /**
    * 出品中に切り替える直前の**販売サイトと目標**の指定（§4.2 / SPEC-V11 §7.1）。
    * 売れた記録に戻したときに復元する。**この Stack が生きている間だけ**保つ（決定 §9-9）。

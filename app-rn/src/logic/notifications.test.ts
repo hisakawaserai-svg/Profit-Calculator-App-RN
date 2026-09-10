@@ -72,6 +72,17 @@ describe('listingAlertItems', () => {
     expect(items).toEqual([]);
   });
 
+  it('価格未設定の記録は対象から外す（シミュレータが使えない）', () => {
+    const items = listingAlertItems(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 0 })],
+      today,
+      14,
+      new Set(),
+    );
+
+    expect(items).toEqual([]);
+  });
+
   it('無視リストに入っている記録は対象から外す', () => {
     const items = listingAlertItems(
       [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })],
@@ -124,6 +135,16 @@ describe('listingAlertFireAt / upcomingListingAlertGroups', () => {
     expect(upcomingListingAlertGroups(records, new Date(2026, 6, 15, 8, 59, 0), 14, new Set())).toHaveLength(1);
     expect(upcomingListingAlertGroups(records, fireMorning, 14, new Set())).toEqual([]);
     expect(upcomingListingAlertGroups(records, after, 14, new Set())).toEqual([]);
+  });
+
+  it('価格未設定は到達日が未来でも予約しない', () => {
+    const groups = upcomingListingAlertGroups(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 0 })],
+      new Date(2026, 6, 10, 12, 0, 0),
+      14,
+      new Set(),
+    );
+    expect(groups).toEqual([]);
   });
 });
 

@@ -19,7 +19,7 @@ import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 import { repository } from '@/db/client';
-import { fromDbDate, toDbDate } from '@/db/dates';
+import { fromDbDate, toDbDate, toMonthKey } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { formatMonthKeyTitle } from '@/logic/format';
 import {
@@ -416,6 +416,32 @@ export function setupNotificationHandling(): void {
 const RECORD_DETAIL_PATHNAME = '/records/record/[id]' as const;
 const RECORD_PRICING_PATHNAME = '/records/record/[id]/pricing' as const;
 
+function recordsListHref(recordId: string): { pathname: '/records'; params?: { month: string; listing: string } } {
+  const record = repository.getById(recordId);
+  if (record == null) return { pathname: '/records' };
+  return {
+    pathname: '/records',
+    params: { month: toMonthKey(fromDbDate(record.saleStartDate)), listing: '1' },
+  };
+}
+
+function openListingPricing(recordId: string): void {
+  router.dismissTo(recordsListHref(recordId));
+  requestAnimationFrame(() => {
+    router.push({ pathname: RECORD_DETAIL_PATHNAME, params: { id: recordId } });
+    requestAnimationFrame(() => {
+      router.push({ pathname: RECORD_PRICING_PATHNAME, params: { id: recordId } });
+    });
+  });
+}
+
+/**
+ * お知らせ画面の行タップからも使う。記録一覧は出品日の月・出品中に合わせてから積む。
+ */
+export function openListingPricingFromApp(recordId: string): void {
+  openListingPricing(recordId);
+}
+
 /**
  * タップ時の遷移先。**種類ごとに直接目的地へ飛ばす**（ベルの一覧をワンクッション挟まない）。
  *
@@ -425,14 +451,7 @@ function navigateFromNotification(data: unknown): void {
   const payload = data as Partial<NotificationPayload> | undefined;
 
   if (payload?.kind === 'listingAlert' && typeof payload.recordId === 'string') {
-    const recordId = payload.recordId;
-    router.dismissTo('/records');
-    requestAnimationFrame(() => {
-      router.push({ pathname: RECORD_DETAIL_PATHNAME, params: { id: recordId } });
-      requestAnimationFrame(() => {
-        router.push({ pathname: RECORD_PRICING_PATHNAME, params: { id: recordId } });
-      });
-    });
+    openListingPricing(payload.recordId);
     return;
   }
   if (payload?.kind === 'listingAlertMany') {

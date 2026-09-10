@@ -33,6 +33,7 @@ export type ListingAlertItem = {
  * すれば、一度知らせたあとは実際に値下げするまで再び対象にならない（合意: 2026-09）。
  *
  * 抑制条件（対象から外す）:
+ *   - `state === 'unpriced'`（価格未設定。値下げシミュレータが使えないので知らせても動けない）
  *   - `state === 'loss'`（既に損益分岐点以下。これ以上下げると赤字が広がるだけ）
  *   - `hasTarget && meetsTarget === false`（目標が設定済みで、既に目標ラインを下回っている）
  *
@@ -60,6 +61,7 @@ export function listingAlertItems(
     .filter(
       ({ record, elapsedDays, analysis }) =>
         elapsedDays >= thresholdDays &&
+        analysis.state !== 'unpriced' &&
         analysis.state !== 'loss' &&
         !(analysis.hasTarget && analysis.meetsTarget === false) &&
         !ignoredRecordIds.has(record.id),
@@ -114,6 +116,7 @@ export function upcomingListingAlertGroups(
 
   for (const record of records) {
     const analysis = analyzePricing(record);
+    if (analysis.state === 'unpriced') continue;
     if (analysis.state === 'loss') continue;
     if (analysis.hasTarget && analysis.meetsTarget === false) continue;
     if (ignoredRecordIds.has(record.id)) continue;
