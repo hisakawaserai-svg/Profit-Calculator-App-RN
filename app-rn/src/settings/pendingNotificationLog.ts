@@ -14,6 +14,8 @@
 // 予約し、月初の振り返りも別予約なので、1 件だけでは足りない。新しい予約一式で
 // 丸ごと置き換える（差分マージはしない）。
 
+import { fromDbDate } from '@/db/dates';
+
 /** kv-store のキー。値は PendingNotificationLog | null を JSON にしたもの */
 export const PENDING_NOTIFICATION_LOG_KEY = 'pendingNotificationLog';
 
@@ -96,4 +98,18 @@ export function normalizePendingNotificationLog(
   } catch {
     return null;
   }
+}
+
+/** 発火予定を過ぎた保留と、まだ先の保留に分ける */
+export function partitionPendingNotificationLog(
+  pending: PendingNotificationLog,
+  now: Date,
+): { due: PendingNotificationLogEntry[]; rest: PendingNotificationLogEntry[] } {
+  const due: PendingNotificationLogEntry[] = [];
+  const rest: PendingNotificationLogEntry[] = [];
+  for (const entry of pending) {
+    if (fromDbDate(entry.scheduledFor).getTime() > now.getTime()) rest.push(entry);
+    else due.push(entry);
+  }
+  return { due, rest };
 }

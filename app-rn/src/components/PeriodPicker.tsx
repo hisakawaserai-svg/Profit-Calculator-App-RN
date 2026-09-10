@@ -25,9 +25,12 @@
 // 濃淡と押せるかどうかの規則（§1.2「月セルの出し分け」）:
 //   | 月                        | 表示 | 押せるか |
 //   | 記録のある月              | 通常 | ○ |
-//   | 記録のない過去の月・今月  | 薄い | ○（一覧は空表示になる） |
+//   | 記録のない過去の月        | 薄い | ○（一覧は空表示になる） |
+//   | 記録のない今月            | 枠で「いま」| ○（記録なしと同じ薄さにはしない） |
 //   | 未来の月                  | 薄い | × |
-// **記録のない月と未来の月は見た目では区別しない。違いは押せるかどうかだけ。**
+// **記録のない過去の月と未来の月は見た目では区別しない。違いは押せるかどうかだけ。**
+// 端末の今月は記録がなくても青枠＋通常の文字色にする ── 空の過去月と同じ薄さだと
+// 「押せない未来」と見誤る。凡例は増やさない（枠が「いま」の印）。
 // 盤面の組み立て（年の範囲・各マスの状態・矢印の可否）は logic/periodGrid.ts の純粋関数が決める。
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
@@ -283,10 +286,10 @@ function MonthButton({
 
   const colors = useThemeColors();
 
-  // 記録のない月と未来の月は同じ薄さ（§1.2）。違いは disabled かどうかだけ
+  // 記録のない過去月と未来は同じ薄さ。今月だけは記録がなくても通常色＋枠で「いま」と分かる
   const textColor = selected
     ? colors.blue
-    : cell.hasRecord
+    : cell.isCurrent || cell.hasRecord
       ? colors.label
       : colors.disabledContent;
 
@@ -297,6 +300,8 @@ function MonthButton({
           styles.monthButton,
           {
             backgroundColor: selected ? colors.highlightBackground : colors.background,
+            borderWidth: cell.isCurrent && !selected ? 1.5 : 0,
+            borderColor: colors.blue,
             opacity: pressed && !cell.isFuture ? 0.6 : 1,
           },
         ]}
@@ -304,11 +309,16 @@ function MonthButton({
         disabled={cell.isFuture}
         accessibilityRole="button"
         accessibilityState={{ selected, disabled: cell.isFuture }}
-        // 読み上げでは年も込みで言う（マスには月しか出ていないため）
         accessibilityLabel={`${formatMonthKeyTitle(locale, cell.monthKey)}${
-          cell.hasRecord ? `・${hasRecordsLegendLabel(locale)}` : `・${noRecordsLegendLabel(locale)}`
-        }`}>
-        <Text style={[styles.monthLabel, { color: textColor }]}>{formatMonthCell(locale, cell.month)}</Text>
+          cell.isCurrent ? `・${thisMonthLabel(locale)}` : ''
+        }${cell.hasRecord ? `・${hasRecordsLegendLabel(locale)}` : `・${noRecordsLegendLabel(locale)}`}`}>
+        <Text
+          style={[
+            styles.monthLabel,
+            { color: textColor, fontWeight: cell.isCurrent || selected ? '700' : '400' },
+          ]}>
+          {formatMonthCell(locale, cell.month)}
+        </Text>
       </Pressable>
     </View>
   );

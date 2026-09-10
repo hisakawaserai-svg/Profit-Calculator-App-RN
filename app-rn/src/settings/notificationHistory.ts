@@ -20,13 +20,14 @@ export const NOTIFICATION_HISTORY_LIMIT = 200;
  * **値を記録した瞬間の値のまま凍結する**（days・totalNetProfit）。あとから記録を編集しても、
  * 「その日実際に届いた通知には何と書いてあったか」という履歴の性質上、動かさない。
  *
- * **`hidden` は「すべて」タブの見た目からだけ消すためのフラグ**（行タップ・長押し「今後
+ * **`hidden` は「すべて」タブの見た目からだけ消すためのフラグ**（長押し「今後
  * 知らせない」）。エントリ自体は物理削除しない ── `logic/notifications.ts` の
  * `notYetNotifiedListingAlertItems` / `alreadyLoggedToday` は、この履歴を「今の基準で
  * 一度でも知らせたか」の記録として使っており、物理削除すると同じ記録がすぐ再び
  * OS 通知の対象に戻ってしまう（実機で発覚: 2026-09。行を確認しただけで、次にアプリを
  * 開閉すると同じ商品の通知が即座に再送されるという不具合だった）。
- * 表示側（NotificationsScreen）だけが `hidden` を見てフィルタする。
+ * 行タップでは消さない（届いた通知の見返し）。表示側（NotificationsScreen）だけが
+ * `hidden` を見てフィルタする。
  */
 export type NotificationHistoryEntry =
   | {
@@ -37,6 +38,8 @@ export type NotificationHistoryEntry =
       /** 通知した時点の経過日数（しきい値ちょうど。logic/notifications.ts 参照） */
       days: number;
       occurredAt: string;
+      /** 未読。新しい履歴は true。古い保存分に無い場合は既読扱い */
+      unread?: boolean;
       hidden?: boolean;
     }
   | {
@@ -45,6 +48,7 @@ export type NotificationHistoryEntry =
       monthKey: string;
       totalNetProfit: number;
       occurredAt: string;
+      unread?: boolean;
       hidden?: boolean;
     };
 

@@ -25,6 +25,8 @@ export type MonthCell = {
    * 見た目で区別しないのは設計案の決定そのもの。
    */
   isFuture: boolean;
+  /** 端末の今月か。記録の有無・選択中とは別に「いま」を示す */
+  isCurrent: boolean;
 };
 
 /** カード 1 枚ぶん（年見出し ＋ 4 列 × 3 行の月グリッド） */
@@ -97,6 +99,7 @@ export function periodGrid(params: {
       hasRecord: recorded.has(monthKey),
       // 月キーは固定長なので大小比較はそのまま文字列比較でよい
       isFuture: monthKey > currentMonthKey,
+      isCurrent: monthKey === currentMonthKey,
     });
   }
 

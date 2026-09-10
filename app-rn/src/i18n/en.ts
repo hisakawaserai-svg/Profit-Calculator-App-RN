@@ -732,6 +732,9 @@ export const en: Translations = {
       osTitle: 'Last month in review',
       osBody: 'Your net total for {{month}} was ¥{{total}}. Take a look?',
     },
+    combined: {
+      osBody: 'Your net total for {{month}} was ¥{{total}}. {{count}} listings also need attention.',
+    },
   },
 
   personalBest: {

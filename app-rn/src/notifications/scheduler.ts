@@ -7,7 +7,10 @@
 // **出品滞留は到達日の朝 9:00 を商品（同じ暦日は 1 通）ごとに予約する。** iOS は
 // バックグラウンドで日数を数え直せないが、到達日は起点＋しきい値で先に分かるので、
 // その日時を OS に渡しておけばアプリを開いていなくても届く。月次振り返りは次の 1 日 9:00
-// を別予約する（同じ朝に両方出てよい）。
+// を別予約する。**その振り返りの日と、出品滞留アラートの到達日が同じ朝に重なるときは、
+// 1通の OS 通知にまとめる**（合意: 2026-09。同じ朝に2通バラバラ届くのは煩わしいという
+// 実機の指摘）。まとめても「すべて」タブの履歴には従来どおり別々の行として残す
+// （upcomingSchedules・toPendingEntries 参照）。
 //
 // 呼び出しどころ（AppState の background 遷移・起動時）は app/_layout.tsx。
 // しきい値変更・値下げのあとも、ここが走れば予約は出し直される。
@@ -23,6 +26,7 @@ import { fromDbDate, toDbDate, toMonthKey } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 import { formatMonthKeyTitle } from '@/logic/format';
 import {
+  combinedNotificationOsBody,
   listingAlertOsBody,
   listingAlertOsTitle,
   monthlyReviewOsBody,
@@ -32,8 +36,11 @@ import {
   alreadyLoggedToday,
   currentNotification,
   isMonthlyReviewActive,
+  limitUpcomingListingAlertGroups,
+  listingAlertForOsTest,
   nextMonthlyReviewFireAt,
   previousMonthKey,
+  shouldScheduleMonthlyReview,
   upcomingListingAlertGroups,
   type NotificationContent,
   type NotificationHistoryTarget,
@@ -47,6 +54,8 @@ import {
   getNotificationHistory,
   getNotificationsEnabled,
   getPendingNotificationLog,
+  markNotificationsChecked,
+  partitionPendingNotificationLog,
   setPendingNotificationLog,
   type PendingNotificationLogEntry,
 } from '@/settings';
@@ -70,13 +79,12 @@ export type NotificationPayload =
    * 複数件のときはお知らせ画面（一覧）へ誘導し、そこで選んでもらう。
    */
   | { kind: 'listingAlertMany' }
-  | { kind: 'monthlyReview'; monthKey: string };
+  | { kind: 'monthlyReview'; monthKey: string }
+  /** 月次振り返りと出品滞留アラートを1通にまとめた通知（NotificationContent の combined 参照） */
+  | { kind: 'combined'; monthKey: string };
 
 const NOTIFICATION_HOUR = 9;
 const NOTIFICATION_MINUTE = 0;
-
-/** iOS の待ち通知上限（約 64）を超えないよう、到達日グループは直近からこの件数まで */
-const MAX_LISTING_ALERT_SCHEDULES = 60;
 
 const LEGACY_DAILY_IDENTIFIER = 'daily-notification';
 const MONTHLY_REVIEW_IDENTIFIER = 'monthly-review';
@@ -138,6 +146,18 @@ function buildOsContent(content: NotificationContent): { title: string; body: st
     };
   }
 
+  if (content.kind === 'combined') {
+    // タイトルは月次振り返り側を使う（月初1日だけの限定情報で、出品滞留アラートより
+    // 鮮度が高い。currentNotification の優先判定と同じ考え方）
+    const summary = repository.careerSummary({ isSoldMode: true, period: content.monthKey });
+    const month = formatMonthKeyTitle(locale, content.monthKey);
+    return {
+      title: monthlyReviewOsTitle(locale),
+      body: combinedNotificationOsBody(locale, month, summary.totalNetProfit, content.items.length),
+      data: { kind: 'combined', monthKey: content.monthKey },
+    };
+  }
+
   const [first, ...rest] = content.items;
   const count = rest.length + 1;
   return {
@@ -147,28 +167,61 @@ function buildOsContent(content: NotificationContent): { title: string; body: st
   };
 }
 
-function toPendingEntry(content: NotificationContent, scheduledFor: Date, identifier: string): PendingNotificationLogEntry {
-  const scheduledForKey = toDbDate(scheduledFor);
-  if (content.kind === 'monthlyReview') {
-    const summary = repository.careerSummary({ isSoldMode: true, period: content.monthKey });
-    return {
-      kind: 'monthlyReview',
-      identifier,
-      monthKey: content.monthKey,
-      totalNetProfit: summary.totalNetProfit,
-      scheduledFor: scheduledForKey,
-    };
-  }
+function toMonthlyReviewPendingEntry(
+  monthKey: string,
+  scheduledForKey: string,
+  identifier: string,
+): PendingNotificationLogEntry {
+  const summary = repository.careerSummary({ isSoldMode: true, period: monthKey });
+  return {
+    kind: 'monthlyReview',
+    identifier,
+    monthKey,
+    totalNetProfit: summary.totalNetProfit,
+    scheduledFor: scheduledForKey,
+  };
+}
+
+function toListingAlertPendingEntry(
+  items: readonly { record: SaleRecord; elapsedDays: number }[],
+  scheduledForKey: string,
+  identifier: string,
+): PendingNotificationLogEntry {
   return {
     kind: 'listingAlert',
     identifier,
-    items: content.items.map((item) => ({
+    items: items.map((item) => ({
       recordId: item.record.id,
       itemName: item.record.itemName,
       days: item.elapsedDays,
     })),
     scheduledFor: scheduledForKey,
   };
+}
+
+/**
+ * 1つの予約（1回の scheduleNotificationAsync）を、履歴へ記録するための保留データへ変換する。
+ *
+ * **combined は2件返す。** OS 通知としては1通でも、「すべて」タブの履歴では従来どおり
+ * 月次振り返り・出品滞留アラートを別々の行として残す（HistoryRow が種類ごとに見た目を
+ * 変えているため、無理に1行へまとめない）。
+ */
+function toPendingEntries(
+  content: NotificationContent,
+  scheduledFor: Date,
+  identifier: string,
+): PendingNotificationLogEntry[] {
+  const scheduledForKey = toDbDate(scheduledFor);
+  if (content.kind === 'monthlyReview') {
+    return [toMonthlyReviewPendingEntry(content.monthKey, scheduledForKey, identifier)];
+  }
+  if (content.kind === 'combined') {
+    return [
+      toMonthlyReviewPendingEntry(content.monthKey, scheduledForKey, `${identifier}:review`),
+      toListingAlertPendingEntry(content.items, scheduledForKey, `${identifier}:listing`),
+    ];
+  }
+  return [toListingAlertPendingEntry(content.items, scheduledForKey, identifier)];
 }
 
 function upcomingSchedules(now: Date): { identifier: string; fireAt: Date; content: NotificationContent }[] {
@@ -178,31 +231,48 @@ function upcomingSchedules(now: Date): { identifier: string; fireAt: Date; conte
   const history = getNotificationHistory();
   const schedules: { identifier: string; fireAt: Date; content: NotificationContent }[] = [];
 
-  const listingGroups = upcomingListingAlertGroups(unsold, now, thresholdDays, ignored).slice(
-    0,
-    MAX_LISTING_ALERT_SCHEDULES,
+  const listingGroups = limitUpcomingListingAlertGroups(
+    upcomingListingAlertGroups(unsold, now, thresholdDays, ignored),
   );
-  for (const group of listingGroups) {
-    schedules.push({
-      identifier: listingAlertIdentifier(dayKeyFromDate(group.fireAt)),
-      fireAt: group.fireAt,
-      content: { kind: 'listingAlert', items: group.items },
-    });
-  }
 
   const monthlyFireAt = nextMonthlyReviewFireAt(now);
+  const monthlyDayKey = dayKeyFromDate(monthlyFireAt);
   const monthKey = previousMonthKey(monthlyFireAt);
-  const dismissed = getDismissedMonthlyReview();
   const already = alreadyLoggedToday(history, { kind: 'monthlyReview', monthKey }, monthlyFireAt);
-  if (monthKey !== dismissed && !already) {
-    const summary = repository.careerSummary({ isSoldMode: true, period: monthKey });
-    if (summary.recordCount > 0) {
+  const previousMonthRecordCount = repository.careerSummary({ isSoldMode: true, period: monthKey }).recordCount;
+  const scheduleMonthly = shouldScheduleMonthlyReview(
+    monthKey,
+    getDismissedMonthlyReview(),
+    previousMonthRecordCount,
+    already,
+  );
+
+  // 振り返りの到達日と重なる出品滞留グループが見つかれば、そこで1回だけ統合する
+  // （同じ日に到達日グループは1つしか無い＝同じ暦日は1通にまとめる設計のため、
+  // 重なりうるのは高々1グループ）
+  let monthlyMerged = false;
+
+  for (const group of listingGroups) {
+    const dayKey = dayKeyFromDate(group.fireAt);
+    const identifier = listingAlertIdentifier(dayKey);
+    if (scheduleMonthly && !monthlyMerged && dayKey === monthlyDayKey) {
       schedules.push({
-        identifier: MONTHLY_REVIEW_IDENTIFIER,
-        fireAt: monthlyFireAt,
-        content: { kind: 'monthlyReview', monthKey },
+        identifier,
+        fireAt: group.fireAt,
+        content: { kind: 'combined', monthKey, items: group.items },
       });
+      monthlyMerged = true;
+      continue;
     }
+    schedules.push({ identifier, fireAt: group.fireAt, content: { kind: 'listingAlert', items: group.items } });
+  }
+
+  if (scheduleMonthly && !monthlyMerged) {
+    schedules.push({
+      identifier: MONTHLY_REVIEW_IDENTIFIER,
+      fireAt: monthlyFireAt,
+      content: { kind: 'monthlyReview', monthKey },
+    });
   }
 
   return schedules;
@@ -254,18 +324,23 @@ export async function rescheduleNotification(now: Date = new Date()): Promise<vo
     return;
   }
 
-  const pending: PendingNotificationLogEntry[] = [];
-  for (const schedule of schedules) {
-    const { title, body, data } = buildOsContent(schedule.content);
-    await Notifications.scheduleNotificationAsync({
-      identifier: schedule.identifier,
-      content: { title, body, data },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: schedule.fireAt },
-    });
-    pending.push(toPendingEntry(schedule.content, schedule.fireAt, schedule.identifier));
-  }
+  // **直列ではなく並列で予約する。** 到達日グループは最大 MAX_LISTING_ALERT_SCHEDULES
+  // （60）+ 月次振り返り1件で、最大61回のネイティブ呼び出しになりうる。1件ずつ await
+  // すると（実機の指摘どおり）バックグラウンドに送るたびに直列待ちが積み重なって重くなる。
+  // 各予約は identifier も対象も独立しているので、まとめて Promise.all してよい
+  const results = await Promise.all(
+    schedules.map(async (schedule) => {
+      const { title, body, data } = buildOsContent(schedule.content);
+      await Notifications.scheduleNotificationAsync({
+        identifier: schedule.identifier,
+        content: { title, body, data },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: schedule.fireAt },
+      });
+      return toPendingEntries(schedule.content, schedule.fireAt, schedule.identifier);
+    }),
+  );
 
-  setPendingNotificationLog(pending);
+  setPendingNotificationLog(results.flat());
 }
 
 /**
@@ -276,12 +351,7 @@ export function promotePendingNotificationIfDue(now: Date = new Date()): void {
   const pending = getPendingNotificationLog();
   if (pending == null || pending.length === 0) return;
 
-  const due: PendingNotificationLogEntry[] = [];
-  const rest: PendingNotificationLogEntry[] = [];
-  for (const entry of pending) {
-    if (fromDbDate(entry.scheduledFor).getTime() > now.getTime()) rest.push(entry);
-    else due.push(entry);
-  }
+  const { due, rest } = partitionPendingNotificationLog(pending, now);
 
   for (const entry of due) {
     appendDueHistory(entry);
@@ -303,6 +373,7 @@ function appendDueHistory(pending: PendingNotificationLogEntry): void {
         monthKey: pending.monthKey,
         totalNetProfit: pending.totalNetProfit,
         occurredAt,
+        unread: true,
       });
     }
     return;
@@ -320,6 +391,7 @@ function appendDueHistory(pending: PendingNotificationLogEntry): void {
       itemName: item.itemName,
       days: item.days,
       occurredAt,
+      unread: true,
     });
   }
 }
@@ -331,10 +403,15 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 const TEST_NOTIFICATION_DELAY_SECONDS = 8;
+/** 開発用テスト通知。同じ id で差し替えるので、連打しても OS 上に何通も残らない */
+const TEST_NOTIFICATION_IDENTIFIER = 'dev-test-notification';
 
 /**
- * content を数秒後の OS 通知として送る。**履歴・本予約には触れない** ── 到達日の本番予約を
- * 「もう知らせた」扱いにすると、本当の朝 9 時が消えてしまう。
+ * content を数秒後の OS 通知として送る。
+ *
+ * 本番の予約（pending）は触らない。ただし「すべて」タブへは残す ── 届いた通知を
+ * お知らせで確認できないと、テストしても仕様が信じられない。pending に載せると
+ * reschedule が本番予約で上書きして消えるので、履歴へ直接書く。
  */
 async function sendTestOsNotification(content: NotificationContent | null): Promise<void> {
   const { title, body, data } = content
@@ -342,22 +419,39 @@ async function sendTestOsNotification(content: NotificationContent | null): Prom
     : {
         title: 'テスト通知',
         body: 'これから到達日の朝9時に予約する出品はありません（すでに過ぎた滞留はお知らせの「滞留中」に出ます）',
-        data: undefined as NotificationPayload | undefined,
+        data: { kind: 'listingAlertMany' } satisfies NotificationPayload,
       };
 
+  await Notifications.cancelScheduledNotificationAsync(TEST_NOTIFICATION_IDENTIFIER).catch(() => {});
   await Notifications.scheduleNotificationAsync({
+    identifier: TEST_NOTIFICATION_IDENTIFIER,
     content: { title, body, data },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: TEST_NOTIFICATION_DELAY_SECONDS,
     },
   });
+
+  if (content != null) {
+    for (const entry of toPendingEntries(content, new Date(), TEST_NOTIFICATION_IDENTIFIER)) {
+      appendDueHistory(entry);
+    }
+  }
 }
 
-/** 次に予約される出品滞留アラート（最も近い到達日）で試す */
+/**
+ * 次に予約される出品滞留アラートで試す。9:00 過ぎて本番予約が無いときは、
+ * 今朝届くはずだった到達日（しきい値ちょうど前）の文言を出す。
+ */
 export async function sendTestNotification(): Promise<void> {
-  const next = upcomingSchedules(new Date()).find((schedule) => schedule.content.kind === 'listingAlert');
-  await sendTestOsNotification(next?.content ?? null);
+  const now = new Date();
+  const preview = listingAlertForOsTest(
+    fetchUnsoldRecords(),
+    now,
+    getListingAlertThresholdDays(),
+    new Set(getIgnoredListingAlerts()),
+  );
+  await sendTestOsNotification(preview);
 }
 
 /**
@@ -382,17 +476,46 @@ export async function sendTestMonthlyReviewNotification(): Promise<void> {
  * 初めて「同じ1回のタップ」を一意に指せる。
  */
 let lastHandledNotificationKey: string | null = null;
+/** Stack が載るまで（DB 準備完了まで）タップ遷移を保留する */
+let notificationNavigationReady = false;
+let pendingNotificationData: unknown | undefined;
+let notificationHandlingStarted = false;
 
 function handleNotificationResponseOnce(response: Notifications.NotificationResponse): void {
   const key = `${response.notification.request.identifier}:${response.notification.date}`;
   if (key === lastHandledNotificationKey) return;
   lastHandledNotificationKey = key;
+  // お知らせ「すべて」へ載せるのを遷移より先にする。タップで開いた画面が空だと、
+  // 届いていないように見える
+  promotePendingNotificationIfDue();
+  if (!notificationNavigationReady) {
+    pendingNotificationData = response.notification.request.content.data;
+    return;
+  }
   navigateFromNotification(response.notification.request.content.data);
+}
+
+/**
+ * RootLayout が Stack を出したあとに呼ぶ。コールドスタートのタップは、ここまで
+ * 待たないと `router.push` が消えて「何も開かない」になる。
+ */
+export function setNotificationNavigationReady(ready: boolean): void {
+  notificationNavigationReady = ready;
+  if (!ready) return;
+  const data = pendingNotificationData;
+  pendingNotificationData = undefined;
+  if (data !== undefined) {
+    promotePendingNotificationIfDue();
+    navigateFromNotification(data);
+  }
 }
 
 /**
  * 通知の表示挙動（フォアグラウンド中も出す）とタップ時の遷移をまとめて登録する。
  * **アプリ全体で 1 か所だけで呼ぶ**（RootLayout。useDeviceLanguageSync と同じ立て付け）。
+ *
+ * Fast Refresh で RootLayout が何度マウントされても listener は 1 本だけにする。
+ * 増えるとお知らせモーダルが何枚も push される。
  */
 export function setupNotificationHandling(): void {
   Notifications.setNotificationHandler({
@@ -403,6 +526,9 @@ export function setupNotificationHandling(): void {
       shouldSetBadge: false,
     }),
   });
+
+  if (notificationHandlingStarted) return;
+  notificationHandlingStarted = true;
 
   Notifications.getLastNotificationResponseAsync().then((response) => {
     if (response != null) handleNotificationResponseOnce(response);
@@ -442,26 +568,16 @@ export function openListingPricingFromApp(recordId: string): void {
   openListingPricing(recordId);
 }
 
+function openNotifications(): void {
+  // push だと同じモーダルが何枚も積まれる。navigate なら既に開いていれば重ねない
+  router.navigate('/notifications');
+}
+
 /**
- * タップ時の遷移先。**種類ごとに直接目的地へ飛ばす**（ベルの一覧をワンクッション挟まない）。
- *
- * data が想定外の形（旧バージョンの通知が端末に残っていた等）のときはベル一覧に逃がす。
+ * OS 通知のタップ先はお知らせ。1件でも損益分岐点へ直行しない ──
+ * 「すべて」の未読印を見てから行を開く。ベルの点はお知らせを開いた時点で消す。
  */
-function navigateFromNotification(data: unknown): void {
-  const payload = data as Partial<NotificationPayload> | undefined;
-
-  if (payload?.kind === 'listingAlert' && typeof payload.recordId === 'string') {
-    openListingPricing(payload.recordId);
-    return;
-  }
-  if (payload?.kind === 'listingAlertMany') {
-    router.push('/notifications');
-    return;
-  }
-  if (payload?.kind === 'monthlyReview' && typeof payload.monthKey === 'string') {
-    router.push({ pathname: '/data', params: { month: payload.monthKey } });
-    return;
-  }
-
-  router.push('/notifications');
+function navigateFromNotification(_data: unknown): void {
+  markNotificationsChecked(toDbDate(new Date()));
+  openNotifications();
 }

@@ -43,3 +43,10 @@ docs/release-status-android.md
 
 # マシン固有のパス・署名確認コマンドを含む Android ビルド手順。
 docs/RELEASE-ANDROID.md
+
+# Cursor のローカル専用ルール（端末ごとの設定・機密を含みうるファイル名規約）
+.cursor/rules/*.local.mdc
+
+# 誤って repo ルートで npm を実行したときの取り違え防止（本体は app-rn/ 側にある）
+node_modules/
+

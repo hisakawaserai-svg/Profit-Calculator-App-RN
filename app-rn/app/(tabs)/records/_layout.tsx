@@ -25,22 +25,30 @@ export const unstable_settings = {
 export default function RecordsLayout() {
   /**
    * 出品滞留アラートから `/records?month=YYYY-MM&listing=1` で入ったときは、
-   * その記録の出品月・出品中セグメントに合わせる。無ければ今月（§5-14）。
+   * その記録の出品月・出品中セグメントに合わせる。保存トーストからも
+   * `month` + `listing` / `sold` + `at`（毎回違う値で再ジャンプ）で入る。
+   * 無ければ今月（§5-14）。
    * データタブの month ジャンプと同じ 2 段構え（data/_layout.tsx のコメント参照）。
    */
-  const { month: monthParam, listing: listingParam } = useLocalSearchParams<{
+  const { month: monthParam, listing: listingParam, sold: soldParam, at: jumpNonce } = useLocalSearchParams<{
     month?: string;
     listing?: string;
+    sold?: string;
+    at?: string;
   }>();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const currentMonthKey = useMemo(() => monthParam ?? toMonthKey(new Date()), []);
+
+  const jumpToIsSoldMode =
+    listingParam === '1' ? false : soldParam === '1' ? true : undefined;
 
   return (
     <RecordFilterProvider
       scope="records"
       currentMonthKey={currentMonthKey}
       jumpToMonthKey={monthParam}
-      jumpToIsSoldMode={listingParam === '1' ? false : undefined}>
+      jumpToIsSoldMode={jumpToIsSoldMode}
+      jumpNonce={typeof jumpNonce === 'string' ? jumpNonce : undefined}>
       <Stack />
     </RecordFilterProvider>
   );

@@ -74,7 +74,7 @@ export function insertNotificationTestCases(): number {
     { label: '昨日', days: 1 },
     { label: 'おととい', days: 2 },
     { label: `${threshold - 1}日前（しきい値の1日前）`, days: threshold - 1 },
-    { label: `${threshold}日前（ちょうどしきい値・到達日は今朝9時）`, days: threshold },
+    { label: `${threshold}日前（ちょうどしきい値・到達日は今朝9時。過ぎたら本番OSは出さない）`, days: threshold },
     { label: `${threshold + 1}日前（しきい値の1日後）`, days: threshold + 1 },
     { label: '300日前（大幅超過）', days: 300 },
   ];

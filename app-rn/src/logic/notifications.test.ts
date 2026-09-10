@@ -9,11 +9,15 @@ import {
   currentNotification,
   hasUnreadBell,
   isMonthlyReviewActive,
+  limitUpcomingListingAlertGroups,
   listingAlertFireAt,
+  listingAlertForOsTest,
+  listingAlertGroupOnCalendarDay,
   listingAlertItems,
   nextMonthlyReviewFireAt,
   notYetNotifiedListingAlertItems,
   previousMonthKey,
+  shouldScheduleMonthlyReview,
   upcomingListingAlertGroups,
 } from './notifications';
 
@@ -75,6 +79,28 @@ describe('listingAlertItems', () => {
   it('価格未設定の記録は対象から外す（シミュレータが使えない）', () => {
     const items = listingAlertItems(
       [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 0 })],
+      today,
+      14,
+      new Set(),
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it('赤字の記録は対象から外す', () => {
+    const items = listingAlertItems(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 100 })],
+      today,
+      14,
+      new Set(),
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it('目標未達の記録は対象から外す（黒字でも）', () => {
+    const items = listingAlertItems(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 1000, targetProfit: 50000 })],
       today,
       14,
       new Set(),
@@ -145,6 +171,66 @@ describe('listingAlertFireAt / upcomingListingAlertGroups', () => {
       new Set(),
     );
     expect(groups).toEqual([]);
+  });
+
+  it('赤字・目標未達は到達日が未来でも予約しない', () => {
+    const now = new Date(2026, 6, 10, 12, 0, 0);
+    expect(
+      upcomingListingAlertGroups(
+        [record({ id: 'loss', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 100 })],
+        now,
+        14,
+        new Set(),
+      ),
+    ).toEqual([]);
+    expect(
+      upcomingListingAlertGroups(
+        [record({ id: 'below', saleStartDate: '2026-07-01T00:00:00.000', salesPrice: 1000, targetProfit: 50000 })],
+        now,
+        14,
+        new Set(),
+      ),
+    ).toEqual([]);
+  });
+
+  it('無視リストの記録は到達日が未来でも予約しない', () => {
+    const groups = upcomingListingAlertGroups(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })],
+      new Date(2026, 6, 10, 12, 0, 0),
+      14,
+      new Set(['a']),
+    );
+    expect(groups).toEqual([]);
+  });
+
+  it('値下げ日を起点に到達日を組む', () => {
+    const groups = upcomingListingAlertGroups(
+      [
+        record({
+          id: 'a',
+          saleStartDate: '2026-01-01T00:00:00.000',
+          priceChangedAt: '2026-07-10T00:00:00.000',
+        }),
+      ],
+      new Date(2026, 6, 10, 12, 0, 0),
+      14,
+      new Set(),
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.fireAt).toEqual(new Date(2026, 6, 24, 9, 0, 0, 0));
+    expect(groups[0]?.items[0]?.basisDateKey).toBe('2026-07-10T00:00:00.000');
+  });
+
+  it('9:00 過ぎの到達日ちょうどは upcoming に出ないが、テストプレビューには出る', () => {
+    const afterNine = new Date(2026, 6, 15, 10, 0, 0, 0);
+    const records = [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })];
+
+    expect(upcomingListingAlertGroups(records, afterNine, 14, new Set())).toEqual([]);
+    expect(listingAlertGroupOnCalendarDay(records, afterNine, 14, new Set())?.items.map((item) => item.record.id)).toEqual(
+      ['a'],
+    );
+    expect(listingAlertForOsTest(records, afterNine, 14, new Set())?.items[0]?.record.id).toBe('a');
   });
 });
 
@@ -281,6 +367,31 @@ describe('currentNotification', () => {
     const content = currentNotification([], today, 14, new Set(), null, 0);
     expect(content).toBeNull();
   });
+
+  it('月初以外は滞留があれば listingAlert', () => {
+    const content = currentNotification(
+      [record({ id: 'a', saleStartDate: '2026-07-01T00:00:00.000' })],
+      today,
+      14,
+      new Set(),
+      null,
+      3,
+    );
+
+    expect(content?.kind).toBe('listingAlert');
+    if (content?.kind === 'listingAlert') {
+      expect(content.items.map((item) => item.record.id)).toEqual(['a']);
+    }
+  });
+
+  it('月初でも振り返りを出さず滞留も無ければ null', () => {
+    expect(
+      currentNotification([], new Date('2026-08-01T00:00:00.000'), 14, new Set(), '2026-07', 3),
+    ).toBeNull();
+    expect(
+      currentNotification([], new Date('2026-08-01T00:00:00.000'), 14, new Set(), null, 0),
+    ).toBeNull();
+  });
 });
 
 describe('hasUnreadBell', () => {
@@ -357,5 +468,45 @@ describe('alreadyLoggedToday', () => {
 
   it('履歴が空なら false', () => {
     expect(alreadyLoggedToday([], target, today)).toBe(false);
+  });
+
+  it('同じ日・同じ月の振り返り履歴があれば true', () => {
+    const monthlyTarget = { kind: 'monthlyReview' as const, monthKey: '2026-07' };
+    const history = [
+      { kind: 'monthlyReview' as const, monthKey: '2026-07', occurredAt: '2026-08-01T09:00:00.000' },
+    ];
+    expect(alreadyLoggedToday(history, monthlyTarget, new Date('2026-08-01T20:00:00.000'))).toBe(true);
+  });
+});
+
+describe('shouldScheduleMonthlyReview', () => {
+  it('消していない・先月に記録がある・まだ書いていなければ予約する', () => {
+    expect(shouldScheduleMonthlyReview('2026-07', null, 3, false)).toBe(true);
+  });
+
+  it('消した月・0件・もう書いた日は予約しない', () => {
+    expect(shouldScheduleMonthlyReview('2026-07', '2026-07', 3, false)).toBe(false);
+    expect(shouldScheduleMonthlyReview('2026-07', null, 0, false)).toBe(false);
+    expect(shouldScheduleMonthlyReview('2026-07', null, 3, true)).toBe(false);
+  });
+});
+
+describe('limitUpcomingListingAlertGroups', () => {
+  it('近い到達日から 60 件までに切る', () => {
+    const now = new Date(2026, 0, 1, 12, 0, 0);
+    const records = Array.from({ length: 62 }, (_, index) => {
+      const start = new Date(2026, 0, 2 + index, 0, 0, 0);
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+      return record({
+        id: `id-${String(index).padStart(2, '0')}`,
+        saleStartDate: `${start.getFullYear()}-${month}-${day}T00:00:00.000`,
+      });
+    });
+    const limited = limitUpcomingListingAlertGroups(upcomingListingAlertGroups(records, now, 14, new Set()));
+
+    expect(limited).toHaveLength(60);
+    expect(limited[0]?.items[0]?.record.id).toBe('id-00');
+    expect(limited[59]?.items[0]?.record.id).toBe('id-59');
   });
 });

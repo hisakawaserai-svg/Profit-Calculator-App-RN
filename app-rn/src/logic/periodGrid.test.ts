@@ -88,6 +88,14 @@ describe('マスの状態: 記録の有無と未来かどうか', () => {
 
   it('今月は未来に含めない（今月は選べる）', () => {
     expect(cell('2026-08').isFuture).toBe(false);
+    expect(cell('2026-08').isCurrent).toBe(true);
+    expect(cell('2026-03').isCurrent).toBe(false);
+  });
+
+  it('記録のない今月も isCurrent（薄く見せないための印）', () => {
+    const emptyThisMonth = grid(2026, '2026-09', ['2026-03']);
+    const september = emptyThisMonth.months.find((c) => c.monthKey === '2026-09')!;
+    expect(september).toMatchObject({ hasRecord: false, isFuture: false, isCurrent: true });
   });
 
   it('今月より後は未来（薄さは記録なしと同じで、押せないだけ）', () => {

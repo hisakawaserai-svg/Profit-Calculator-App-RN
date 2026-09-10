@@ -1538,6 +1538,23 @@ export function monthlyReviewOsBody(locale: Locale, month: string, totalNetProfi
   });
 }
 
+/**
+ * 月次振り返りと出品滞留アラートが同じ朝に重なったとき、1通にまとめた本文（合意: 2026-09）。
+ * タイトルは monthlyReviewOsTitle をそのまま使う（NotificationContent の combined コメント参照）
+ */
+export function combinedNotificationOsBody(
+  locale: Locale,
+  month: string,
+  totalNetProfit: number,
+  listingAlertCount: number,
+): string {
+  return t('notification.combined.osBody', locale, {
+    month,
+    total: groupDigits(roundForDisplay(totalNetProfit)),
+    count: listingAlertCount,
+  });
+}
+
 // 設定タブの通知セクション
 export function notificationSectionTitle(locale: Locale): string {
   return t('settings.notification.sectionTitle', locale);

@@ -111,6 +111,7 @@ export {
 export {
   PENDING_NOTIFICATION_LOG_KEY,
   normalizePendingNotificationLog,
+  partitionPendingNotificationLog,
   type PendingNotificationLog,
   type PendingNotificationLogEntry,
 } from './pendingNotificationLog';
@@ -232,6 +233,7 @@ type SettingsStore = Settings & {
   ignoreListingAlert: (recordId: string) => void;
   dismissMonthlyReview: (monthKey: string) => void;
   appendNotificationHistory: (entry: NotificationHistoryEntry) => void;
+  markNotificationHistoryRead: (id: string) => void;
   removeNotificationHistoryEntry: (id: string) => void;
   clearNotificationHistory: () => void;
   setPendingNotificationLog: (value: PendingNotificationLog | null) => void;
@@ -337,9 +339,16 @@ const useSettingsStore = create<SettingsStore>((set, get) => ({
     Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify(next));
     set({ notificationHistory: next });
   },
+  markNotificationHistoryRead: (id) => {
+    const next = get().notificationHistory.map((entry) =>
+      entry.id === id ? { ...entry, unread: false } : entry,
+    );
+    Storage.setItemSync(NOTIFICATION_HISTORY_KEY, JSON.stringify(next));
+    set({ notificationHistory: next });
+  },
   /**
-   * 履歴の1件を「すべて」タブの表示から消す。呼ぶのは行タップ（対応した = もう要らない）と
-   * 長押しの「今後知らせない」（合意: 2026-09）。
+   * 履歴の1件を「すべて」タブの表示から消す。呼ぶのは長押しの「今後知らせない」。
+   * 行タップでは消さない（見返し用に残す）。
    *
    * **物理削除ではなく `hidden: true` を立てるだけ**（NotificationHistoryEntry のコメント
    * 参照）。物理削除すると、`notYetNotifiedListingAlertItems` がこの履歴を「もう知らせた」の
@@ -561,7 +570,10 @@ export function getNotificationHistory(): NotificationHistoryEntry[] {
 export function appendNotificationHistory(entry: NotificationHistoryEntry): void {
   useSettingsStore.getState().appendNotificationHistory(entry);
 }
-/** お知らせ画面「すべて」タブの行タップ・長押しから呼ぶ。対応済みの履歴を消す */
+export function markNotificationHistoryRead(id: string): void {
+  useSettingsStore.getState().markNotificationHistoryRead(id);
+}
+/** お知らせ画面「すべて」タブの長押し「今後知らせない」から呼ぶ */
 export function removeNotificationHistoryEntry(id: string): void {
   useSettingsStore.getState().removeNotificationHistoryEntry(id);
 }

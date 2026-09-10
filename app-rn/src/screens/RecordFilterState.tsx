@@ -22,9 +22,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -65,6 +63,7 @@ export function RecordFilterProvider({
   currentMonthKey,
   jumpToMonthKey,
   jumpToIsSoldMode,
+  jumpNonce,
   children,
 }: {
   /** 'records' = 記録タブの Stack / 'data' = データタブの Stack（§6） */
@@ -88,21 +87,33 @@ export function RecordFilterProvider({
    * undefined のときは状態を触らない（月次振り返り→データタブは売却済みのまま）。
    */
   jumpToIsSoldMode?: boolean;
+  /** 同じ月へもう一度ジャンプするとき（保存トースト）用。変わるたびに再適用する */
+  jumpNonce?: string;
   children: ReactNode;
 }) {
   const [filter, setFilter] = useState<RecordFilterDraft>(EMPTY_RECORD_FILTER);
   const [isSoldMode, setIsSoldMode] = useState(true);
   const [period, setPeriod] = useState<Period>(currentMonthKey);
-  // 最後に反映した jumpToMonthKey。同じ値が来ても二重に setPeriod しない
-  const appliedJumpRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (jumpToMonthKey == null && jumpToIsSoldMode == null) return;
-    const token = `${jumpToMonthKey ?? ''}:${jumpToIsSoldMode ?? ''}`;
-    if (token === appliedJumpRef.current) return;
-    appliedJumpRef.current = token;
-    if (jumpToMonthKey != null) setPeriod(jumpToMonthKey);
-    if (jumpToIsSoldMode != null) setIsSoldMode(jumpToIsSoldMode);
-  }, [jumpToMonthKey, jumpToIsSoldMode]);
+  /**
+   * 最後に反映したジャンプ（トークン）。同じ値が来ても二重に setPeriod しない。
+   *
+   * **useEffect ではなく、レンダー中に比較して直接 setState する**（React 公式の
+   * 「前回のレンダーの値を保存する」パターン。
+   * https://react.dev/reference/react/useState#storing-information-from-previous-renders）。
+   * useEffect 内で setState すると、コミットしてからもう1回レンダーが走ってしまい
+   * （react-hooks/set-state-in-effect が警告する「カスケードするレンダー」）、
+   * ジャンプ直後の1フレームだけ古い period のままの画面が一瞬見えることがある。
+   * レンダー中に完結させれば、その1回のレンダーで新しい period まで確定する。
+   */
+  const [appliedJumpToken, setAppliedJumpToken] = useState<string | undefined>(undefined);
+  if (jumpToMonthKey != null || jumpToIsSoldMode != null) {
+    const token = `${jumpToMonthKey ?? ''}:${jumpToIsSoldMode ?? ''}:${jumpNonce ?? ''}`;
+    if (token !== appliedJumpToken) {
+      setAppliedJumpToken(token);
+      if (jumpToMonthKey != null) setPeriod(jumpToMonthKey);
+      if (jumpToIsSoldMode != null) setIsSoldMode(jumpToIsSoldMode);
+    }
+  }
   /**
    * 出品中に切り替える直前の**販売サイトと目標**の指定（§4.2 / SPEC-V11 §7.1）。
    * 売れた記録に戻したときに復元する。**この Stack が生きている間だけ**保つ（決定 §9-9）。

@@ -22,7 +22,7 @@
 // - スワイプ削除は確認なしで即削除（SPEC §5.4。旧 SaleRecordScreen から移植）。
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View, type NativeSyntheticEvent } from 'react-native';
 import ContextMenu, { type ContextMenuOnPressNativeEvent } from 'react-native-context-menu-view';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -671,8 +671,11 @@ function SwipeToDeleteRow({
   const locale = useLocale();
 
   const colors = useThemeColors();
+  const skipRowPress = useRef(false);
+  const longPressGuard = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleContextMenuPress = (e: NativeSyntheticEvent<ContextMenuOnPressNativeEvent>) => {
+    skipRowPress.current = true;
     switch (e.nativeEvent.index) {
       case 0:
         onEdit();
@@ -706,7 +709,10 @@ function SwipeToDeleteRow({
           { title: recordRowPricingActionLabel(locale), systemIcon: 'chart.line.uptrend.xyaxis' },
           { title: deleteLabel(locale), systemIcon: 'trash', destructive: true },
         ]}
-        onPress={handleContextMenuPress}>
+        onPress={handleContextMenuPress}
+        onCancel={() => {
+          skipRowPress.current = true;
+        }}>
         <Pressable
           style={({ pressed }) => [
             styles.rowCard,
@@ -714,7 +720,27 @@ function SwipeToDeleteRow({
               backgroundColor: pressed ? colors.disabledBackground : colors.secondaryBackground,
             },
           ]}
-          onPress={onPress}
+          delayLongPress={280}
+          onPressIn={() => {
+            skipRowPress.current = false;
+            if (longPressGuard.current != null) clearTimeout(longPressGuard.current);
+            longPressGuard.current = setTimeout(() => {
+              skipRowPress.current = true;
+            }, 280);
+          }}
+          onPressOut={() => {
+            if (longPressGuard.current != null) {
+              clearTimeout(longPressGuard.current);
+              longPressGuard.current = null;
+            }
+          }}
+          onLongPress={() => {
+            skipRowPress.current = true;
+          }}
+          onPress={() => {
+            if (skipRowPress.current) return;
+            onPress();
+          }}
           accessibilityRole="button"
           accessibilityLabel={recordDetailAccessibilityLabel(locale, record.itemName)}>
           <RecordRow

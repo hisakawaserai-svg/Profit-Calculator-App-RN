@@ -6,9 +6,8 @@
 //
 // **3 タブ構成**（「順番に積み上げていく履歴と、今の滞留一覧は別物にした方がいい」という
 // 実機テスト後の見直しで、2 タブ「自分宛て/アップデート情報」から移行。合意: 2026-09）:
-//   - すべて: 実際に届いた OS 通知をそのまま届いた順に並べる履歴
-//     （settings/notificationHistory.ts。上限 200 件）。月初の生きた振り返り
-//     （まだ履歴に載っていない当日ぶん）は先頭にピン留めで重ねて出す
+//   - すべて: 届いた OS 通知の履歴（上限 200 件）。未読は行の点。開いた行は残して既読。
+//     月初の生きた振り返り（まだ履歴に載っていない当日ぶん）は先頭にピン留めで重ねて出す
 //   - 滞留中: 出品滞留アラートの対象を、月初かどうかに関係なく常に全件出す
 //     （bellStore の listingAlertItems。currentNotification の優先判定は経由しない）
 //   - アップデート情報: 器だけで中身は後回し（クロードデザインでのデザインレビュー時の合意）
@@ -56,6 +55,7 @@ import {
   clearNotificationHistory,
   dismissMonthlyReview,
   ignoreListingAlert,
+  markNotificationHistoryRead,
   removeNotificationHistoryEntry,
   useLocale,
   useNotificationHistory,
@@ -133,11 +133,10 @@ export default function NotificationsScreen() {
     ]);
   };
   /**
-   * 「すべて」タブの行タップ。**開いたら、その行はもう対応済みとして履歴から消す**
-   * （合意: 2026-09。実機での「確認したら消えてほしい」という指摘）。
+   * 「すべて」タブの行タップ。未読を外してから行き先へ。行自体は残す。
    */
   const openHistoryEntry = (entry: NotificationHistoryEntry) => {
-    removeNotificationHistoryEntry(entry.id);
+    markNotificationHistoryRead(entry.id);
     if (entry.kind === 'listingAlert') {
       openPricing(entry.recordId);
       return;
@@ -148,7 +147,7 @@ export default function NotificationsScreen() {
   // 今日すでに history に載っている「生きた振り返り」と同じ対象は、履歴側から二重に
   // 出さない（liveMonthlyReview が上にピン留めで出すため）
   const liveMonthlyReview = content?.kind === 'monthlyReview' ? content : null;
-  // hidden な行（行タップ・長押しで「表示からだけ」消した分）は、ここで初めて除く。
+  // hidden な行（長押し「今後知らせない」で表示からだけ消した分）は、ここで初めて除く。
   // history 自体（useNotificationHistory の生値）は notYetNotifiedListingAlertItems 等の
   // 重複防止判定にそのまま使われるため、hidden のまま保つ（NotificationHistoryEntry の
   // コメント参照）── フィルタは表示直前のこの1箇所だけで行う
@@ -174,6 +173,11 @@ export default function NotificationsScreen() {
         onPress: () => {
           clearNotificationHistory();
           if (liveMonthlyReview != null) dismissMonthlyReview(liveMonthlyReview.monthKey);
+          // dismissMonthlyReview は設定(kv-store)を更新するだけで、ベルの content
+          // （useBellStore、独立した Zustand ストア）は自動では再計算されない。
+          // 呼び忘れると、ピン留めの生きた振り返りカードがアプリを再起動するまで
+          // 画面に残り続けてしまう（実機で発覚: 2026-09）
+          refreshBell();
         },
       },
     ]);
@@ -528,9 +532,14 @@ function HistoryRow({
       <View style={styles.rowText}>
         {isListingAlert ? (
           <>
-            <Text style={[styles.rowTitle, { color: colors.label }]} numberOfLines={1}>
-              {title}
-            </Text>
+            <View style={styles.titleRow}>
+              {entry.unread === true && (
+                <View style={[styles.unreadDot, { backgroundColor: colors.blue }]} />
+              )}
+              <Text style={[styles.rowTitle, { color: colors.label }]} numberOfLines={1}>
+                {title}
+              </Text>
+            </View>
             {/* 商品名・経過日数だけだと「だから何？」になる（実機での指摘）ので、OS通知の
                 タイトルと同じ「値下げの検討はいかがですか？」を差し込んで意図を伝える。
                 商品名の長さに関わらず一定の文言なので、numberOfLines の心配は無い */}
@@ -539,9 +548,14 @@ function HistoryRow({
             </Text>
           </>
         ) : (
-          <Text style={[styles.rowTitle, { color: colors.label }]} numberOfLines={2}>
-            {monthlyReviewOsBody(locale, title, entry.totalNetProfit)}
-          </Text>
+          <View style={styles.titleRow}>
+            {entry.unread === true && (
+              <View style={[styles.unreadDot, { backgroundColor: colors.blue }]} />
+            )}
+            <Text style={[styles.rowTitle, { color: colors.label }]} numberOfLines={2}>
+              {monthlyReviewOsBody(locale, title, entry.totalNetProfit)}
+            </Text>
+          </View>
         )}
         <Text style={[styles.rowSubtitle, { color: colors.secondaryLabel }]}>{subtitle}</Text>
       </View>
@@ -618,7 +632,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 3,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
   rowTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 14.5,
     fontWeight: '600',
   },
@@ -628,6 +650,12 @@ const styles = StyleSheet.create({
   },
   rowSubtitle: {
     fontSize: 12,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
   },
   rowValues: {
     flexDirection: 'row',

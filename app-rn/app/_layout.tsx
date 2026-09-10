@@ -24,6 +24,7 @@ import { refreshBell } from '@/notifications/bellStore';
 import {
   promotePendingNotificationIfDue,
   rescheduleNotification,
+  setNotificationNavigationReady,
   setupNotificationHandling,
 } from '@/notifications/scheduler';
 import { countLaunch, useDeviceLanguageSync, useLocale, useSettings } from '@/settings';
@@ -175,10 +176,20 @@ export default function RootLayout() {
   }, []);
 
   // ローカル通知の表示挙動・タップ時の遷移を登録する。**アプリ全体でここだけ**
-  // （useDeviceLanguageSync と同じ規約）。DB を読まないので dbReady を待たない
+  // （useDeviceLanguageSync と同じ規約）。listener 自体は DB を待たないが、
+  // 実際の画面遷移は Stack が出てから（setNotificationNavigationReady）
   useEffect(() => {
     setupNotificationHandling();
   }, []);
+
+  useEffect(() => {
+    if (!dbReady) {
+      setNotificationNavigationReady(false);
+      return;
+    }
+    setNotificationNavigationReady(true);
+    return () => setNotificationNavigationReady(false);
+  }, [dbReady]);
 
   /**
    * 通知の内容を計算し、次の 9:00 へ予約し直す（src/notifications/scheduler.ts）。

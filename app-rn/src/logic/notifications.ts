@@ -8,7 +8,7 @@ import { fromDbDate, toDbDate } from '@/db/dates';
 import type { SaleRecord } from '@/db/schema';
 
 import { daysBetween, listingDays } from './listingDays';
-import { analyzePricing } from './pricing';
+import { analyzePricing, type PricingAnalysis } from './pricing';
 
 export type ListingAlertItem = {
   record: SaleRecord;
@@ -45,6 +45,17 @@ export type ListingAlertItem = {
  *
  * 経過日数の降順（一番長く値下げしていないものを先頭に）で返す。
  */
+export function isListingAlertEligible(
+  analysis: Pick<PricingAnalysis, 'state' | 'hasTarget' | 'meetsTarget'>,
+  recordId: string,
+  ignoredRecordIds: ReadonlySet<string>,
+): boolean {
+  if (analysis.state === 'unpriced' || analysis.state === 'loss') return false;
+  if (analysis.hasTarget && analysis.meetsTarget === false) return false;
+  if (ignoredRecordIds.has(recordId)) return false;
+  return true;
+}
+
 export function listingAlertItems(
   records: readonly SaleRecord[],
   today: Date,
@@ -60,11 +71,7 @@ export function listingAlertItems(
     })
     .filter(
       ({ record, elapsedDays, analysis }) =>
-        elapsedDays >= thresholdDays &&
-        analysis.state !== 'unpriced' &&
-        analysis.state !== 'loss' &&
-        !(analysis.hasTarget && analysis.meetsTarget === false) &&
-        !ignoredRecordIds.has(record.id),
+        elapsedDays >= thresholdDays && isListingAlertEligible(analysis, record.id, ignoredRecordIds),
     )
     .sort((a, b) => b.elapsedDays - a.elapsedDays)
     .map(({ record, elapsedDays, analysis }) => ({
@@ -76,6 +83,9 @@ export function listingAlertItems(
 }
 
 const NOTIFICATION_HOUR = 9;
+
+/** iOS の待ち通知上限（約 64）を超えないよう、到達日グループは直近からこの件数まで */
+export const MAX_LISTING_ALERT_SCHEDULES = 60;
 
 /**
  * 出品滞留アラートを OS に出す日時（ローカル 9:00）。
@@ -116,10 +126,7 @@ export function upcomingListingAlertGroups(
 
   for (const record of records) {
     const analysis = analyzePricing(record);
-    if (analysis.state === 'unpriced') continue;
-    if (analysis.state === 'loss') continue;
-    if (analysis.hasTarget && analysis.meetsTarget === false) continue;
-    if (ignoredRecordIds.has(record.id)) continue;
+    if (!isListingAlertEligible(analysis, record.id, ignoredRecordIds)) continue;
 
     const basisDate = fromDbDate(record.priceChangedAt ?? record.saleStartDate);
     const fireAt = listingAlertFireAt(basisDate, thresholdDays);
@@ -149,11 +156,88 @@ export function upcomingListingAlertGroups(
     }));
 }
 
+function fireDayKey(fireAt: Date): string {
+  return [
+    fireAt.getFullYear(),
+    String(fireAt.getMonth() + 1).padStart(2, '0'),
+    String(fireAt.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+/** その暦日が到達日のグループ（9:00 を過ぎていても含む。開発用プレビュー向き） */
+export function listingAlertGroupOnCalendarDay(
+  records: readonly SaleRecord[],
+  day: Date,
+  thresholdDays: number,
+  ignoredRecordIds: ReadonlySet<string>,
+): UpcomingListingAlertGroup | null {
+  const wantKey = fireDayKey(day);
+  const items: ListingAlertItem[] = [];
+  let fireAt: Date | null = null;
+
+  for (const record of records) {
+    const analysis = analyzePricing(record);
+    if (!isListingAlertEligible(analysis, record.id, ignoredRecordIds)) continue;
+
+    const basisDate = fromDbDate(record.priceChangedAt ?? record.saleStartDate);
+    const at = listingAlertFireAt(basisDate, thresholdDays);
+    if (fireDayKey(at) !== wantKey) continue;
+
+    fireAt = at;
+    items.push({
+      record,
+      elapsedDays: thresholdDays,
+      discountRoom: analysis.room,
+      basisDateKey: record.priceChangedAt ?? record.saleStartDate,
+    });
+  }
+
+  if (fireAt == null || items.length === 0) return null;
+  items.sort((a, b) => a.record.id.localeCompare(b.record.id));
+  return { fireAt, items };
+}
+
+/**
+ * 開発用テスト通知の中身。本番予約と同じ「次の到達日」を優先し、
+ * それが無いときだけ「今朝 9:00 に届くはずだった分」（14日前ちょうど等）を出す。
+ * 9:00 過ぎの本番 OS には積まないが、テストボタンでは文言を確認できるようにする。
+ */
+export function listingAlertForOsTest(
+  records: readonly SaleRecord[],
+  now: Date,
+  thresholdDays: number,
+  ignoredRecordIds: ReadonlySet<string>,
+): { kind: 'listingAlert'; items: readonly ListingAlertItem[] } | null {
+  const upcoming = upcomingListingAlertGroups(records, now, thresholdDays, ignoredRecordIds);
+  const group = upcoming[0] ?? listingAlertGroupOnCalendarDay(records, now, thresholdDays, ignoredRecordIds);
+  if (group == null) return null;
+  return { kind: 'listingAlert', items: group.items };
+}
+
+/** 近い到達日から MAX_LISTING_ALERT_SCHEDULES 件までに切る */
+export function limitUpcomingListingAlertGroups(
+  groups: readonly UpcomingListingAlertGroup[],
+): UpcomingListingAlertGroup[] {
+  return groups.slice(0, MAX_LISTING_ALERT_SCHEDULES);
+}
+
 /** 次に月次振り返りを出す 1 日 9:00。もう過ぎていれば翌月の 1 日 */
 export function nextMonthlyReviewFireAt(now: Date): Date {
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1, NOTIFICATION_HOUR, 0, 0, 0);
   if (thisMonth.getTime() > now.getTime()) return thisMonth;
   return new Date(now.getFullYear(), now.getMonth() + 1, 1, NOTIFICATION_HOUR, 0, 0, 0);
+}
+
+/**
+ * OS に次の月初の振り返りを予約するか。消した月・もう書いた日・先月 0 件は積まない。
+ */
+export function shouldScheduleMonthlyReview(
+  monthKey: string,
+  dismissedMonth: string | null,
+  previousMonthRecordCount: number,
+  alreadyLogged: boolean,
+): boolean {
+  return monthKey !== dismissedMonth && previousMonthRecordCount > 0 && !alreadyLogged;
 }
 
 /**
@@ -206,7 +290,15 @@ export function previousMonthKey(today: Date): string {
 
 export type NotificationContent =
   | { kind: 'monthlyReview'; monthKey: string }
-  | { kind: 'listingAlert'; items: readonly ListingAlertItem[] };
+  | { kind: 'listingAlert'; items: readonly ListingAlertItem[] }
+  /**
+   * 月次振り返りと出品滞留アラートが同じ朝(9:00)に重なったとき、OS通知を1通にまとめた形
+   * （合意: 2026-09）。**scheduler.ts の OS 通知予約だけが作る**（currentNotification は
+   * 作らない） ── ベル（アプリ内）はカード1枚しか置けないので、月初は振り返りを優先して
+   * 滞留アラート側を隠す、という従来の判定はそのまま。OS 通知には「1枚」の制約が無いので、
+   * 1通にまとめて両方の内容を伝えられる。
+   */
+  | { kind: 'combined'; monthKey: string; items: readonly ListingAlertItem[] };
 
 /**
  * ベル・ローカル通知の両方が使う「今なら何を出すか」。

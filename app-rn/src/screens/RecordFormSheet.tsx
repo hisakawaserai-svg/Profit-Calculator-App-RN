@@ -73,6 +73,7 @@ import { TagPickerSheet } from '@/components/TagPickerSheet';
 import { TRANSIENT_FEEDBACK_MS } from '@/components/UndoBar';
 import { showAchievementToast } from '@/components/achievementToastBus';
 import { SAVE_CONFIRMATION_TOAST_TYPE, type SaveConfirmationToastProps } from '@/components/SaveConfirmationToast';
+import { toMonthKey } from '@/db/dates';
 import type { Preset, SaleRecord, Tag } from '@/db/schema';
 import {
   selectShippingPreset,
@@ -715,7 +716,16 @@ function RecordForm({
         // 出るので、hide を呼んでもチェーンは途切れない（AnimatedContainer が最後に呼ぶだけ）
         onPress: () => {
           Toast.hide();
-          router.push({ pathname: '/records/record/[id]', params: { id: savedId } });
+          const monthDate = values.isSold ? (values.saleDate ?? values.saleStartDate) : values.saleStartDate;
+          router.dismissTo({
+            pathname: '/records',
+            params: values.isSold
+              ? { month: toMonthKey(monthDate), sold: '1', at: String(Date.now()) }
+              : { month: toMonthKey(monthDate), listing: '1', at: String(Date.now()) },
+          });
+          requestAnimationFrame(() => {
+            router.push({ pathname: '/records/record/[id]', params: { id: savedId } });
+          });
         },
         onHide: () => {
           if (newlyCompleted.length > 0) showAchievementToast(newlyCompleted);
