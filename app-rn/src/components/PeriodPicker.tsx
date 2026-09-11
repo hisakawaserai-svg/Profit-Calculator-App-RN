@@ -26,11 +26,20 @@
 //   | 月                        | 表示 | 押せるか |
 //   | 記録のある月              | 通常 | ○ |
 //   | 記録のない過去の月        | 薄い | ○（一覧は空表示になる） |
-//   | 記録のない今月            | 枠で「いま」| ○（記録なしと同じ薄さにはしない） |
+//   | 記録のない今月            | 通常＋下線「いま」| ○（記録なしと同じ薄さにはしない） |
 //   | 未来の月                  | 薄い | × |
 // **記録のない過去の月と未来の月は見た目では区別しない。違いは押せるかどうかだけ。**
-// 端末の今月は記録がなくても青枠＋通常の文字色にする ── 空の過去月と同じ薄さだと
-// 「押せない未来」と見誤る。凡例は増やさない（枠が「いま」の印）。
+// 端末の今月は記録がなくても通常の文字色にする ── 空の過去月と同じ薄さだと
+// 「押せない未来」と見誤る。凡例に「今月」の下線見本を足してある（Legend 参照）。
+//
+// **「いま」の印は、枠線＋太字でも点でもなく下線にする（合意: 2026-09）。**
+// 最初は今月にも枠線＋太字を付けていたが、「選択中」（塗りつぶし＋青太字）と
+// どちらも青系＋太字になり、グリッドの中でどちらがどちらか一瞬で読めない、という
+// 実機の指摘があった。次に小さい点へ変えたが、このアプリでは点＝未読・新着の印
+// （お知らせ画面等）としてすでに使っており、「今月」ではなく「新しく追加された」に
+// 読めてしまう、という指摘が重なった。色も青（選択中と同じ）ではなく中間グレー
+// （secondaryLabel）にして、「選択中＝強い合図（塗り・青）」「いま＝弱い合図（下線・
+// グレー）」と、色・形の両方で選択中と混同しないようにしてある。
 // 盤面の組み立て（年の範囲・各マスの状態・矢印の可否）は logic/periodGrid.ts の純粋関数が決める。
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
@@ -286,7 +295,7 @@ function MonthButton({
 
   const colors = useThemeColors();
 
-  // 記録のない過去月と未来は同じ薄さ。今月だけは記録がなくても通常色＋枠で「いま」と分かる
+  // 記録のない過去月と未来は同じ薄さ。今月だけは記録がなくても通常色にする
   const textColor = selected
     ? colors.blue
     : cell.isCurrent || cell.hasRecord
@@ -300,8 +309,6 @@ function MonthButton({
           styles.monthButton,
           {
             backgroundColor: selected ? colors.highlightBackground : colors.background,
-            borderWidth: cell.isCurrent && !selected ? 1.5 : 0,
-            borderColor: colors.blue,
             opacity: pressed && !cell.isFuture ? 0.6 : 1,
           },
         ]}
@@ -315,7 +322,18 @@ function MonthButton({
         <Text
           style={[
             styles.monthLabel,
-            { color: textColor, fontWeight: cell.isCurrent || selected ? '700' : '400' },
+            { color: textColor, fontWeight: selected ? '700' : '400' },
+            // 「選択中」（塗り＋青太字）と紛れないよう、「いま」は下線だけの弱い合図にする
+            // （ファイル冒頭のコメント参照）。色は青ではなく中間グレー（secondaryLabel）── 青は
+            // 「選択中」がすでに使っているので、同じ色だと結局見分けにくい。選択中はこの下線を
+            // 出さない（塗りが既に「いま出ているのはこれ」を言っているので、下線まで足すと
+            // 「選択中かつ今月」の意味が二重になる）
+            cell.isCurrent &&
+              !selected && {
+                borderBottomWidth: 1.5,
+                borderBottomColor: colors.secondaryLabel,
+                paddingBottom: 1,
+              },
           ]}>
           {formatMonthCell(locale, cell.month)}
         </Text>
@@ -325,8 +343,12 @@ function MonthButton({
 }
 
 /**
- * 凡例（§1.2-4）。濃淡が何を意味するかを名指しする。
+ * 凡例（§1.2-4）。濃淡・下線が何を意味するかを名指しする。
  * 未来の月は「記録なし」と同じ薄さなので項目を足さない ── 押せないことは押せば分かる。
+ *
+ * **「今月」だけは色見本ではなく下線見本にする。** 記録あり/なしは文字色の違いだが、
+ * 「いま」は下線という別の合図（MonthButton のコメント参照）なので、丸い点の見本のままだと
+ * グリッド本体と形が合わず、逆に何を示しているか読み取れない。
  */
 function Legend() {
   // 表示語は locale を引数に取る（src/i18n/index.ts の冒頭）
@@ -338,17 +360,31 @@ function Legend() {
     <View style={[styles.legend, { borderTopColor: colors.separator }]}>
       <LegendItem color={colors.label} label={hasRecordsLegendLabel(locale)} />
       <LegendItem color={colors.disabledContent} label={noRecordsLegendLabel(locale)} />
+      <LegendItem color={colors.secondaryLabel} label={thisMonthLabel(locale)} underline />
     </View>
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
+function LegendItem({
+  color,
+  label,
+  underline,
+}: {
+  color: string;
+  label: string;
+  /** true なら丸い点ではなく下線の見本にする（今月の合図に合わせる） */
+  underline?: boolean;
+}) {
   const colors = useThemeColors();
 
   return (
     <View style={styles.legendItem}>
-      {/* 見本はグリッドの文字色そのもの。色見本と本体の濃さが違うと凡例にならない */}
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      {/* 見本はグリッドの合図そのもの（色または下線）。本体とずれると凡例にならない */}
+      {underline ? (
+        <View style={[styles.legendUnderline, { borderBottomColor: color }]} />
+      ) : (
+        <View style={[styles.legendDot, { backgroundColor: color }]} />
+      )}
       <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>{label}</Text>
     </View>
   );
@@ -448,6 +484,12 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  // 「今月」の下線見本。legendDot と高さを揃え、下端に線を引くだけにする
+  legendUnderline: {
+    width: 10,
+    height: 10,
+    borderBottomWidth: 1.5,
   },
   legendLabel: {
     fontSize: 12,

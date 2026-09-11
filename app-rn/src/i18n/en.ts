@@ -700,7 +700,7 @@ export const en: Translations = {
         title: '1.2.0',
         // Kept in sync with the (Japanese) store release note (CHANGELOG/1.2.0.md; agreed 2026-09)
         description:
-          'You’ll now see a confirmation after saving\n• A toast at the bottom of the screen lets you know a record was saved\n\nEasier to remember listings still up for sale\n• Notifies you when a listing has been sitting unsold for a while, so you can consider a price cut\n• The price-cut simulator now shows the date you last lowered the price\n• Notifies you with last month’s recap at the start of each month\n• Notification history is viewable on the notifications screen\n• Notifications can be turned on or off in Settings\n\nAlso\n• Redesigned the achievement toast\n• Added icons to each item in Settings',
+          'You’ll now see a confirmation after saving\n• A toast at the bottom of the screen lets you know a record was saved\n• Confirming it returns you to the list showing the month and status of the saved record\n\nEasier to remember listings still up for sale\n• Notifies you when a listing has been sitting unsold for a while, so you can consider a price cut\n• The price-cut simulator now shows the date you last lowered the price\n• Notifies you with last month’s recap at the start of each month\n• Notices that land the same morning are combined into one notification\n• Notification history is viewable from the bell icon\n• Notifications can be turned on or off in Settings\n\nAlso\n• Redesigned the achievement toast\n• Added icons to each item in Settings',
       },
       v110: {
         title: '1.1.0',
