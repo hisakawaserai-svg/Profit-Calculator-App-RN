@@ -23,7 +23,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sera.profitcalculator",
-      "versionCode": 10
+      "versionCode": 11
     },
     "web": {
       "output": "static",
