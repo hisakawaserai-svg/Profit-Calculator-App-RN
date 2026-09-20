@@ -26,6 +26,7 @@ import {
   periodComparisonPreviousLabel,
   periodComparisonRangeLabel,
   applyPriceButtonLabel,
+  combinedNotificationOsBody,
   listingDayBadgeLabel,
   lossAmountNote,
   netProfitEstimateNote,
@@ -1314,5 +1315,28 @@ describe('SPEC-V10 §1.5 一覧・選択シートの行に出す「何あたり�
   it('梱包材以外には出さない（送料は「＋専用資材」の 1 行を持つ）', () => {
     expect(presetUnitNote('ja', { type: 'shipping', packQuantity: 100 })).toBeNull();
     expect(presetUnitNote('ja', { type: 'site', packQuantity: 0 })).toBeNull();
+  });
+});
+
+describe('combinedNotificationOsBody（月次振り返りと出品滞留が重なった朝の 1 通）', () => {
+  it('英語は 1 件のとき単数形にする（"1 listings" にしない）', () => {
+    expect(combinedNotificationOsBody('en', 'September 2026', 9_000_000_000, 1)).toBe(
+      'Your net total for September 2026 was ¥9,000,000,000. 1 listing also needs attention.',
+    );
+  });
+
+  it('英語は 2 件以上で複数形にし、件数を入れる', () => {
+    expect(combinedNotificationOsBody('en', 'September 2026', 1234, 3)).toBe(
+      'Your net total for September 2026 was ¥1,234. 3 listings also need attention.',
+    );
+  });
+
+  it('日本語は 1 件でも複数件でも「N件」で、件数が文面に入る', () => {
+    expect(combinedNotificationOsBody('ja', '2026年9月', 1234, 1)).toBe(
+      '2026年9月の収支は¥1,234でした。値下げ検討中の商品も1件あります。',
+    );
+    expect(combinedNotificationOsBody('ja', '2026年9月', 1234, 5)).toBe(
+      '2026年9月の収支は¥1,234でした。値下げ検討中の商品も5件あります。',
+    );
   });
 });

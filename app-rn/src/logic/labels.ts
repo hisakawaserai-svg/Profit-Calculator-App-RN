@@ -1548,11 +1548,12 @@ export function combinedNotificationOsBody(
   totalNetProfit: number,
   listingAlertCount: number,
 ): string {
-  return t('notification.combined.osBody', locale, {
-    month,
-    total: groupDigits(roundForDisplay(totalNetProfit)),
-    count: listingAlertCount,
-  });
+  const total = groupDigits(roundForDisplay(totalNetProfit));
+  // 英語は 1 件のとき単数形（"1 listing also needs attention"）。listingAlertOsBody と同じ分け方
+  if (listingAlertCount === 1) {
+    return t('notification.combined.osBodyOne', locale, { month, total });
+  }
+  return t('notification.combined.osBodyMany', locale, { month, total, count: listingAlertCount });
 }
 
 // 設定タブの通知セクション

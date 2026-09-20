@@ -735,7 +735,8 @@ export const en: Translations = {
       osBody: 'Your net total for {{month}} was ¥{{total}}. Take a look?',
     },
     combined: {
-      osBody: 'Your net total for {{month}} was ¥{{total}}. {{count}} listings also need attention.',
+      osBodyOne: 'Your net total for {{month}} was ¥{{total}}. 1 listing also needs attention.',
+      osBodyMany: 'Your net total for {{month}} was ¥{{total}}. {{count}} listings also need attention.',
     },
   },
 
