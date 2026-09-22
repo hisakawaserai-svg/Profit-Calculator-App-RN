@@ -394,7 +394,7 @@ export default function SettingsScreen() {
               />
             </View>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-            <View style={[styles.stepperRow, { height: notificationThresholdLabelLines > 1 ? 84 : 60 }]}>
+            <View style={[styles.stepperRow, { height: notificationThresholdLabelLines > 1 ? 100 : 60 }]}>
               <Stepper
                 label={notificationThresholdLabel(locale)}
                 value={listingAlertThresholdDays}
