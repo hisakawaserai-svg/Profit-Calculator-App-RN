@@ -58,6 +58,8 @@ type Props = Omit<ButtonsProps, 'accessibilityLabel'> & {
    * 率を含む語（commissionFieldLabel）をこちらに渡して読み上げの情報量は落とさない。
    */
   accessibilityLabel?: string;
+  /** ラベルが複数行に折り返されたかを外部で検出するためのコールバック */
+  onLabelLineCountChange?: (lineCount: number) => void;
 };
 
 export function Stepper({
@@ -70,6 +72,7 @@ export function Stepper({
   accessory,
   centerLabel,
   accessibilityLabel,
+  onLabelLineCountChange,
 }: Props) {
   const colors = useThemeColors();
 
@@ -78,7 +81,12 @@ export function Stepper({
       {/* numberOfLines を明示しておく ── flexShrink だけだと、英語の長いラベル
           （例: 通知設定の "Listing alert (days)"）が縮みきらず ± ボタンと重なった実績がある
           （実機で確認）。2 行までなら折り返しで逃がせる */}
-      <Text style={[styles.label, { color: colors.label }]} numberOfLines={2}>
+      <Text
+        style={[styles.label, { color: colors.label }]}
+        numberOfLines={2}
+        onTextLayout={({ nativeEvent }) => {
+          onLabelLineCountChange?.(nativeEvent.lines.length);
+        }}>
         {label}
       </Text>
       {accessory}

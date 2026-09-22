@@ -21,7 +21,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { Link, Stack } from 'expo-router';
-import { useCallback, type ComponentType } from 'react';
+import { useCallback, useState, type ComponentType } from 'react';
 import {
   Alert,
   Linking,
@@ -193,6 +193,9 @@ export default function SettingsScreen() {
     listingAlertThresholdDays,
     setListingAlertThresholdDays,
   } = useSettings();
+  // 出品滞留アラート日数のラベルが2行になるか検出
+  // （文言が長いため、他の行と異なり例外的に複数行対応する）
+  const [notificationThresholdLabelLines, setNotificationThresholdLabelLines] = useState(1);
   // 3 種ぶん個別に引く。フックの数は固定なので、配列を回して呼んでいるわけではない
   const sitePresets = usePresetList('site');
   const shippingPresets = usePresetList('shipping');
@@ -391,7 +394,7 @@ export default function SettingsScreen() {
               />
             </View>
             <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-            <View style={styles.stepperRow}>
+            <View style={[styles.stepperRow, { height: notificationThresholdLabelLines > 1 ? 84 : 60 }]}>
               <Stepper
                 label={notificationThresholdLabel(locale)}
                 value={listingAlertThresholdDays}
@@ -399,6 +402,7 @@ export default function SettingsScreen() {
                 maximumValue={MAX_LISTING_ALERT_THRESHOLD_DAYS}
                 centerLabel={notificationThresholdDaysValue(locale, listingAlertThresholdDays)}
                 onChangeValue={handleThresholdChange}
+                onLabelLineCountChange={setNotificationThresholdLabelLines}
               />
             </View>
             {__DEV__ && (
@@ -751,13 +755,14 @@ const styles = StyleSheet.create({
   // switchRow と必ず同じ値にする ── 同じカードの中で行ごとに高さが違って見える不具合が
   // 実機で出た（カード側にだけ paddingTop を足していたのが原因。行の側で高さを揃える形に直した）
   stepperRow: {
-    height: 60,
+    minHeight: 60,
+
     justifyContent: 'center',
   },
   // Switch（実測 31pt）は他の行の文字（16px）より背が高く、48px の行だと詰まって見える
   // （実際にそう見えると指摘があった）。stepperRow と同じ 60px に揃えて余白を持たせる
   switchRow: {
-    height: 60,
+
   },
   // Switch は `row` の alignItems: 'center' が効かず、行の上端に張り付いていた
   // （実機の React Native Inspector で実測して確認 ── Switch の絶対 Y 座標が行の絶対 Y 座標と
