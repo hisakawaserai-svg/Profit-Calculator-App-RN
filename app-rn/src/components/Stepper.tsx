@@ -82,7 +82,7 @@ export function Stepper({
           （例: 通知設定の "Listing alert (days)"）が縮みきらず ± ボタンと重なった実績がある
           （実機で確認）。2 行までなら折り返しで逃がせる */}
       <Text
-        style={[styles.label, { color: colors.label, maxWidth: '55%' }]}
+        style={[styles.label, { color: colors.label, maxWidth: '50%' }]}
         numberOfLines={2}
         onTextLayout={({ nativeEvent }) => {
           onLabelLineCountChange?.(nativeEvent.lines.length);
@@ -251,6 +251,7 @@ const styles = StyleSheet.create({
   buttonsSlot: {
     flex: 1,
     alignItems: 'flex-end',
+    minWidth: 110,
   },
   buttons: {
     flexDirection: 'row',
